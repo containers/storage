@@ -13,3 +13,8 @@ rm -rf "$DEST"
 	ABS_DEST="${ABS_DEST}-daemon"
 	. hack/make/binary-daemon
 )
+(
+	DEST="${DEST}-graphtool"
+	ABS_DEST="${ABS_DEST}-graphtool"
+	. hack/make/binary-graphtool
+)

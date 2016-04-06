@@ -69,6 +69,7 @@ DEFAULT_BUNDLES=(
 
 	binary-client
 	binary-daemon
+	binary-graphtool
 	dynbinary
 
 	test-unit

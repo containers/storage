@@ -8,8 +8,12 @@ set -e
     . hack/make/dynbinary-client
 )
 (
-
     DEST="${DEST}-daemon"
     ABS_DEST="${ABS_DEST}-daemon"
     . hack/make/dynbinary-daemon
+)
+(
+    DEST="${DEST}-graphtool"
+    ABS_DEST="${ABS_DEST}-graphtool"
+    . hack/make/dynbinary-graphtool
 )
