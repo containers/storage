@@ -16,7 +16,7 @@ import (
 
 func create(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	var name layer.ChainID
-	var rwID string
+	var rwID, rwName, imageID, imageName string
 	var options []string
 
 	lstore, err := m.GetLayerStore()
@@ -30,6 +30,11 @@ func create(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 		return 1
 	}
 	rstore, err := m.GetReferenceStore()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	pstore, err := m.GetPetStore()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -58,6 +63,7 @@ func create(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 						logrus.Debugf("Attempting to use ID %q.", association.ImageID)
 						img, err = istore.Get(association.ImageID)
 						if err == nil {
+							imageName = association.Ref.FullName()
 							break
 						}
 						fmt.Fprintf(os.Stderr, "No image with ID %s\n", association.ImageID)
@@ -80,9 +86,10 @@ func create(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 				return 1
 			}
 			name = rootfs.ChainID()
+			imageID = img.ImageID()
 		}
 		if len(args) > 1 {
-			rwID = args[1]
+			rwName = args[1]
 		}
 	}
 	if rwID == "" {
@@ -102,7 +109,16 @@ func create(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 		fmt.Fprintf(os.Stderr, "Error creating new layer from %q: %v\n", name, err)
 		return 1
 	}
-	fmt.Printf("%s\n", layer.Name())
+	pet, err := pstore.Add(stringid.GenerateRandomID(), rwName, imageID, imageName, layer, mountLabel)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering new pet layer: %v\n", err)
+		return 1
+	}
+	if pet.Name() != "" {
+		fmt.Printf("%s\t%s\n", pet.ID(), pet.Name())
+	} else {
+		fmt.Printf("%s\n", pet.ID())
+	}
 	return 0
 }
 
@@ -110,7 +126,7 @@ func init() {
 	commands = append(commands, command{
 		names:       []string{"create"},
 		optionsHelp: "imageID [name]",
-		usage:       "Create a new read-write layer from an image",
+		usage:       "Create a new pet read-write layer from an image",
 		minArgs:     1,
 		action:      create,
 	})

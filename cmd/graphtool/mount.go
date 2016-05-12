@@ -10,6 +10,10 @@ import (
 )
 
 func getRWLayer(m Mall, name string) (layer.RWLayer, *container.Container, error) {
+	pstore, err := m.GetPetStore()
+	if err != nil {
+		return nil, nil, err
+	}
 	cstore, err := m.GetContainerStore()
 	if err != nil {
 		return nil, nil, err
@@ -17,6 +21,15 @@ func getRWLayer(m Mall, name string) (layer.RWLayer, *container.Container, error
 	layerStore, err := m.GetLayerStore()
 	if err != nil {
 		return nil, nil, err
+	}
+	pets, err := pstore.List()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, pet := range pets {
+		if petMatch(pet, name) {
+			return pet.Layer(), nil, nil
+		}
 	}
 	for _, container := range cstore.List() {
 		if containerMatch(container, name) {
@@ -77,14 +90,14 @@ func unmount(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 func init() {
 	commands = append(commands, command{
 		names:       []string{"mount"},
-		optionsHelp: "containerOrID",
+		optionsHelp: "petNameOrContainerName",
 		usage:       "Mount a read-write layer",
 		minArgs:     1,
 		action:      mount,
 	})
 	commands = append(commands, command{
 		names:       []string{"unmount", "umount"},
-		optionsHelp: "containerOrID",
+		optionsHelp: "petNameOrContainerName",
 		usage:       "Unmount a read-write layer",
 		minArgs:     1,
 		action:      unmount,

@@ -24,6 +24,7 @@ type Mall interface {
 	GetImageStore() (image.Store, error)
 	GetReferenceStore() (reference.Store, error)
 	GetContainerStore() (container.Store, error)
+	GetPetStore() (PetStore, error)
 	GetImageExporter(func(string, string, string)) (image.Exporter, error)
 }
 
@@ -36,6 +37,7 @@ type mall struct {
 	imageStore     image.Store
 	referenceStore reference.Store
 	containerStore container.Store
+	petStore       PetStore
 	imageExporter  image.Exporter
 }
 
@@ -105,6 +107,16 @@ func (m *mall) load() error {
 		cs.Add(c.ID, c)
 	}
 	m.containerStore = cs
+
+	ppath := filepath.Join(m.graphRoot, "pets")
+	if err := os.MkdirAll(ppath, 0700); err != nil {
+		return err
+	}
+	ps, err := newPetStore(ppath, ls)
+	if err != nil {
+		return err
+	}
+	m.petStore = ps
 
 	iexporter := tarexport.NewTarExporter(is, ls, rs, &imageEventLogger{log: logImageEvent})
 	m.imageExporter = iexporter
@@ -179,6 +191,18 @@ func (m *mall) GetImageExporter(logImageEvent func(imageID, refName, action stri
 	}
 	if m.imageExporter != nil {
 		return m.imageExporter, nil
+	}
+	return nil, LoadError
+}
+
+func (m *mall) GetPetStore() (PetStore, error) {
+	if !m.loaded {
+		if err := m.load(); err != nil {
+			return nil, err
+		}
+	}
+	if m.petStore != nil {
+		return m.petStore, nil
 	}
 	return nil, LoadError
 }
