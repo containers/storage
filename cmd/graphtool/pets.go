@@ -15,17 +15,12 @@ func petMatch(p Pet, id string) bool {
 }
 
 func pets(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	pstore, err := m.GetPetStore()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
-	}
 	name := ""
 	if len(args) > 0 {
 		name = args[0]
 	}
 
-	pets, err := pstore.List()
+	pets, err := m.Pets()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1

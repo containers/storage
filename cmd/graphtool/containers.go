@@ -16,18 +16,17 @@ func containerMatch(c *container.Container, id string) bool {
 }
 
 func containers(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	cstore, err := m.GetContainerStore()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
-	}
 	name := ""
 	if len(args) > 0 {
 		name = args[0]
 	}
 
 	driver := m.GetGraphDriver()
-	containers := cstore.List()
+	containers, err := m.Containers()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
 	for _, container := range containers {
 		if containerMatch(container, name) {
 			if listAllContainers || (container.Driver == driver) {

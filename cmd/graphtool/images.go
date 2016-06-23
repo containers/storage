@@ -10,12 +10,12 @@ import (
 	"github.com/docker/docker/reference"
 )
 
-func imageMatch(i *image.Image, match string, names []reference.Named) bool {
+func imageMatch(i *image.Image, match string, references []reference.Named) bool {
 	if match == "" || match == i.ImageID() || len(match) >= 12 && strings.HasPrefix(i.ImageID(), match) {
 		return true
 	}
 	if match != "" {
-		for _, name := range names {
+		for _, name := range references {
 			if strings.HasPrefix(name.FullName(), match) {
 				return true
 			}
@@ -30,27 +30,20 @@ func imageMatch(i *image.Image, match string, names []reference.Named) bool {
 var listAllImages = false
 
 func images(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	istore, err := m.GetImageStore()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
-	}
-	rstore, err := m.GetReferenceStore()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
-	}
 	name := ""
 	if len(args) > 0 {
 		name = args[0]
 	}
 
-	images := istore.Map()
-	for id, image := range images {
-		references := rstore.References(id)
-		if listAllImages || imageMatch(image, name, references) {
+	images, references, err := m.Images()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	for _, image := range images {
+		if listAllImages || imageMatch(image, name, references[image]) {
 			fmt.Printf("%s\n", image.ImageID())
-			for _, ref := range references {
+			for _, ref := range references[image] {
 				fmt.Printf("\t%s\n", ref.String())
 			}
 		}

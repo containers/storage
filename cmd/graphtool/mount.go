@@ -4,64 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/docker/docker/container"
-	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func getRWLayer(m Mall, name string) (layer.RWLayer, *container.Container, error) {
-	pstore, err := m.GetPetStore()
-	if err != nil {
-		return nil, nil, err
-	}
-	cstore, err := m.GetContainerStore()
-	if err != nil {
-		return nil, nil, err
-	}
-	layerStore, err := m.GetLayerStore()
-	if err != nil {
-		return nil, nil, err
-	}
-	pets, err := pstore.List()
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, pet := range pets {
-		if petMatch(pet, name) {
-			return pet.Layer(), nil, nil
-		}
-	}
-	for _, container := range cstore.List() {
-		if containerMatch(container, name) {
-			layer, err := layerStore.GetRWLayer(container.ID)
-			if err != nil {
-				return nil, nil, err
-			}
-			return layer, container, nil
-		}
-	}
-	layer, err := layerStore.GetRWLayer(name)
-	if err != nil {
-		return nil, nil, err
-	}
-	if layer == nil {
-		return nil, nil, noMatchingContainerError
-	}
-	return layer, nil, nil
-}
-
 func mount(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	for _, arg := range args {
-		layer, container, err := getRWLayer(m, arg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s while mounting %s\n", err, arg)
-			return 1
-		}
-		mountLabel := ""
-		if container != nil {
-			mountLabel = container.GetMountLabel()
-		}
-		result, err := layer.Mount(mountLabel)
+		result, err := m.Mount(arg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s while mounting %s\n", err, arg)
 			return 1
@@ -73,13 +21,7 @@ func mount(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 
 func unmount(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	for _, arg := range args {
-		layer, _, err := getRWLayer(m, arg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s while unmounting %s\n", err, arg)
-			return 1
-		}
-		err = layer.Unmount()
-		if err != nil {
+		if err := m.Unmount(arg); err != nil {
 			fmt.Fprintf(os.Stderr, "%s while unmounting %s\n", err, arg)
 			return 1
 		}

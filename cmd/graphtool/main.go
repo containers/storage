@@ -60,7 +60,7 @@ func main() {
 		os.Exit(1)
 	}
 	if err := flags.ParseFlags(os.Args[1:], true); err != nil {
-		fmt.Printf("%v while parsing arguments (1)", err)
+		fmt.Printf("%v while parsing arguments (1)\n", err)
 		flags.Usage()
 		os.Exit(1)
 	}
