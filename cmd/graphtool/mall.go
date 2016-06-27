@@ -37,6 +37,7 @@ type Mall interface {
 	Pets() ([]Pet, error)
 	Load(status io.Writer, quiet bool, images ...io.ReadCloser) error
 	Save(stream io.Writer, refs []string) error
+	DeleteImage(refs []string) error
 	CreatePet(imageRef, petName, mountLabel string) (petID string, err error)
 	DeletePet(nameOrID string) error
 	Mount(nameOrID string) (path string, err error)
@@ -277,30 +278,11 @@ func (m *mall) Save(stream io.Writer, refs []string) error {
 	return e.Save(refs, stream)
 }
 
-func (m *mall) CreatePet(imageRef, petName, mountLabel string) (petID string, err error) {
-	var imageID layer.ChainID
-	var imageName string
-
-	lstore, err := m.GetLayerStore()
-	if err != nil {
-		return "", err
-	}
+func (m *mall) resolveImage(imageRef string) (imageID image.ID, layerID layer.ChainID, imageName string, err error) {
+	var img *image.Image
 	istore, err := m.GetImageStore()
 	if err != nil {
-		return "", err
-	}
-	rstore, err := m.GetReferenceStore()
-	if err != nil {
-		return "", err
-	}
-	pstore, err := m.GetPetStore()
-	if err != nil {
-		return "", err
-	}
-	if petName != "" {
-		if _, err := pstore.Get(petName); err == nil {
-			return "", DuplicatePetName
-		}
+		return "", "", "", err
 	}
 	imageid, ref, err := reference.ParseIDOrReference(imageRef)
 	if err != nil {
@@ -308,12 +290,20 @@ func (m *mall) CreatePet(imageRef, petName, mountLabel string) (petID string, er
 		roid, err := digest.ParseDigest(imageRef)
 		if err != nil {
 			logrus.Debugf("Error parsing %q as digest: %v", imageRef, err)
-			return "", err
+			return "", "", "", err
 		}
-		imageID = layer.ChainID(roid)
+		layerID = layer.ChainID(roid)
+		imageID = image.ID(roid)
 		logrus.Debugf("Resolved %q to ID %q.", imageRef, imageID)
+		img, err = istore.Get(imageID)
+		if err != nil {
+			return "", "", "", err
+		}
 	} else {
-		var img *image.Image
+		rstore, err := m.GetReferenceStore()
+		if err != nil {
+			return "", "", "", err
+		}
 		roid, err := digest.ParseDigest(imageid.String())
 		if err != nil {
 			associations := rstore.ReferencesByName(ref)
@@ -336,28 +326,83 @@ func (m *mall) CreatePet(imageRef, petName, mountLabel string) (petID string, er
 			img, err = istore.Get(image.ID(roid))
 		}
 		if err != nil {
-			return "", err
+			return "", "", "", err
 		}
-		if img == nil {
-			logrus.Debugf("No image matched %s", imageRef)
-			return "", reference.ErrDoesNotExist
-		}
-		rootfs := img.RootFS
-		if rootfs.Type != "layers" {
-			logrus.Debugf("Don't know how to deal with rootfs type %q, only layers.", rootfs.Type)
-			return "", layer.ErrNotSupported
-		}
-		if len(rootfs.DiffIDs) == 0 {
-			logrus.Debugf("No layers in this image, trying anyway.")
-		}
-		imageID = rootfs.ChainID()
 	}
+	if img == nil {
+		logrus.Debugf("No image matched %s", imageRef)
+		return "", "", "", reference.ErrDoesNotExist
+	}
+	rootfs := img.RootFS
+	if rootfs.Type != "layers" {
+		logrus.Debugf("Don't know how to deal with rootfs type %q, only layers.", rootfs.Type)
+		return "", "", "", layer.ErrNotSupported
+	}
+	if len(rootfs.DiffIDs) == 0 {
+		logrus.Debugf("No layers in this image, trying anyway.")
+	}
+	layerID = rootfs.ChainID()
+	imageID = img.ID()
+	return imageID, layerID, imageName, nil
+}
 
+func (m *mall) DeleteImage(refs []string) error {
+	istore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+	rstore, err := m.GetReferenceStore()
+	if err != nil {
+		return err
+	}
+	for _, ref := range refs {
+		imageID, _, _, err := m.resolveImage(ref)
+		if err != nil {
+			return err
+		}
+		metadata, err := istore.Delete(imageID)
+		if err != nil {
+			return err
+		}
+		layer.LogReleaseMetadata(metadata)
+		for _, ref := range rstore.References(imageID) {
+			deleted, err := rstore.Delete(ref)
+			if err != nil {
+				return err
+			}
+			if !deleted {
+				logrus.Errorf("Unable to remove reference %q to %s.", ref, imageID.String())
+			} else {
+				logrus.Debugf("Removed reference %q to %s.", ref, imageID.String())
+			}
+		}
+	}
+	return nil
+}
+
+func (m *mall) CreatePet(imageRef, petName, mountLabel string) (petID string, err error) {
+	lstore, err := m.GetLayerStore()
+	if err != nil {
+		return "", err
+	}
+	pstore, err := m.GetPetStore()
+	if err != nil {
+		return "", err
+	}
+	if petName != "" {
+		if _, err := pstore.Get(petName); err == nil {
+			return "", DuplicatePetName
+		}
+	}
+	imageID, layerID, imageName, err := m.resolveImage(imageRef)
+	if err != nil {
+		return "", err
+	}
 	rwlayerID := stringid.GenerateRandomID()
 	options := make(map[string]string)
-	rwlayer, err := lstore.CreateRWLayer(rwlayerID, imageID, mountLabel, nil, options)
+	rwlayer, err := lstore.CreateRWLayer(rwlayerID, layerID, mountLabel, nil, options)
 	if err != nil {
-		logrus.Debugf("Error creating new layer from %q: %v.", imageID, err)
+		logrus.Debugf("Error creating new layer from %q: %v.", layerID, err)
 		return "", err
 	}
 	petID = stringid.GenerateRandomID()
