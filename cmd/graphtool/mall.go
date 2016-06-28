@@ -10,6 +10,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digest"
 	"github.com/docker/docker/container"
+	"github.com/docker/docker/daemon/graphdriver"
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/image/tarexport"
@@ -24,7 +25,8 @@ var (
 )
 
 type Mall interface {
-	GetGraphDriver() string
+	GetGraphDriverName() string
+	GetGraphDriver() (graphdriver.Driver, error)
 	GetLayerStore() (layer.Store, error)
 	GetImageStore() (image.Store, error)
 	GetReferenceStore() (reference.Store, error)
@@ -45,44 +47,49 @@ type Mall interface {
 }
 
 type mall struct {
-	graphRoot      string
-	graphDriver    string
-	graphOptions   []string
-	loaded         bool
-	layerStore     layer.Store
-	imageStore     image.Store
-	referenceStore reference.Store
-	containerStore container.Store
-	petStore       PetStore
-	imageExporter  image.Exporter
+	graphRoot       string
+	graphDriverName string
+	graphOptions    []string
+	loaded          bool
+	graphDriver     graphdriver.Driver
+	layerStore      layer.Store
+	imageStore      image.Store
+	referenceStore  reference.Store
+	containerStore  container.Store
+	petStore        PetStore
+	imageExporter   image.Exporter
 }
 
-func MakeMall(graphRoot, graphDriver string, graphOptions []string) Mall {
+func MakeMall(graphRoot, graphDriverName string, graphOptions []string) Mall {
 	return &mall{
-		graphRoot:    graphRoot,
-		graphDriver:  graphDriver,
-		graphOptions: graphOptions,
+		graphRoot:       graphRoot,
+		graphDriverName: graphDriverName,
+		graphOptions:    graphOptions,
 	}
 }
 
-func (m *mall) GetGraphDriver() string {
-	return m.graphDriver
+func (m *mall) GetGraphDriverName() string {
+	return m.graphDriverName
 }
 
 func (m *mall) load() error {
-	options := layer.StoreOptions{
-		StorePath:                 m.graphRoot,
-		MetadataStorePathTemplate: filepath.Join(m.graphRoot, "image", "%s", "layerdb"),
-		GraphDriver:               m.graphDriver,
-		GraphDriverOptions:        m.graphOptions,
+	driver, err := graphdriver.New(m.graphRoot, m.graphDriverName, m.graphOptions, nil, nil)
+	if err != nil {
+		return err
 	}
-	ls, err := layer.NewStoreFromOptions(options)
+
+	mstore, err := layer.NewFSMetadataStore(filepath.Join(m.graphRoot, "image", m.graphDriverName, "layerdb"))
+	if err != nil {
+		return err
+	}
+
+	ls, err := layer.NewStoreFromGraphDriver(mstore, driver)
 	if err != nil {
 		return err
 	}
 	m.layerStore = ls
 
-	ipath := filepath.Join(m.graphRoot, "image", m.graphDriver, "imagedb")
+	ipath := filepath.Join(m.graphRoot, "image", m.graphDriverName, "imagedb")
 	if err := os.MkdirAll(ipath, 0700); err != nil {
 		return err
 	}
@@ -97,7 +104,7 @@ func (m *mall) load() error {
 	}
 	m.imageStore = is
 
-	rpath := filepath.Join(m.graphRoot, "image", m.graphDriver, "repositories.json")
+	rpath := filepath.Join(m.graphRoot, "image", m.graphDriverName, "repositories.json")
 	rs, err := reference.NewReferenceStore(rpath)
 	if err != nil {
 		return err
@@ -139,6 +146,18 @@ func (m *mall) load() error {
 
 	m.loaded = true
 	return nil
+}
+
+func (m *mall) GetGraphDriver() (graphdriver.Driver, error) {
+	if !m.loaded {
+		if err := m.load(); err != nil {
+			return nil, err
+		}
+	}
+	if m.graphDriver != nil {
+		return m.graphDriver, nil
+	}
+	return nil, LoadError
 }
 
 func (m *mall) GetLayerStore() (layer.Store, error) {

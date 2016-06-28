@@ -21,7 +21,7 @@ func containers(flags *mflag.FlagSet, action string, m Mall, args []string) int 
 		name = args[0]
 	}
 
-	driver := m.GetGraphDriver()
+	driver := m.GetGraphDriverName()
 	containers, err := m.Containers()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
