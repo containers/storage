@@ -28,6 +28,7 @@ func imageMatch(i *image.Image, match string, references []reference.Named) bool
 }
 
 var listAllImages = false
+var listImagesTree = false
 
 func images(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	name := ""
@@ -40,13 +41,32 @@ func images(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
+	nodes := []TreeNode{}
 	for _, image := range images {
 		if listAllImages || imageMatch(image, name, references[image]) {
-			fmt.Printf("%s\n", image.ImageID())
-			for _, ref := range references[image] {
-				fmt.Printf("\t%s\n", ref.String())
+			if listImagesTree {
+				node := TreeNode{
+					left:  string(image.Parent),
+					right: string(image.ID()),
+					notes: []string{},
+				}
+				if node.left == "" {
+					node.left = "(base)"
+				}
+				for _, ref := range references[image] {
+					node.notes = append(node.notes, fmt.Sprintf("%s", ref.String()))
+				}
+				nodes = append(nodes, node)
+			} else {
+				fmt.Printf("%s\n", image.ImageID())
+				for _, ref := range references[image] {
+					fmt.Printf("\t%s\n", ref.String())
+				}
 			}
 		}
+	}
+	if listImagesTree {
+		PrintTree(nodes)
 	}
 	return 0
 }
@@ -60,6 +80,7 @@ func init() {
 		action:      images,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&listAllImages, []string{"-all", "a"}, listAllImages, "List all images")
+			flags.BoolVar(&listImagesTree, []string{"-tree", "t"}, listImagesTree, "Use a tree")
 		},
 	})
 }
