@@ -29,6 +29,7 @@ type pet struct {
 
 type Pet interface {
 	ID() string
+	ImageID() string
 	Name() string
 	MountLabel() string
 	Layer() layer.RWLayer

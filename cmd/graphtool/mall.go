@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digest"
@@ -22,6 +24,7 @@ import (
 var (
 	LoadError        = errors.New("error loading storage metadata")
 	DuplicatePetName = errors.New("name for pet layer already in use")
+	InvalidImageName = errors.New("invalid name for new image")
 )
 
 type Mall interface {
@@ -42,6 +45,7 @@ type Mall interface {
 	DeleteImage(refs []string) error
 	CreatePet(imageRef, petName, mountLabel string) (petID string, err error)
 	DeletePet(nameOrID string) error
+	CommitPet(petRef, imageName string) (image.ID, error)
 	Mount(nameOrID string) (path string, err error)
 	Unmount(nameOrID string) error
 }
@@ -311,7 +315,6 @@ func (m *mall) resolveImage(imageRef string) (imageID image.ID, layerID layer.Ch
 			logrus.Debugf("Error parsing %q as digest: %v", imageRef, err)
 			return "", "", "", err
 		}
-		layerID = layer.ChainID(roid)
 		imageID = image.ID(roid)
 		logrus.Debugf("Resolved %q to ID %q.", imageRef, imageID)
 		img, err = istore.Get(imageID)
@@ -488,6 +491,89 @@ func (m *mall) getRWLayer(nameOrID string) (layer layer.RWLayer, mountLabel stri
 		return nil, "", noMatchingContainerError
 	}
 	return layer, "", nil
+}
+
+func (m *mall) CommitPet(petRef, imageName string) (id image.ID, err error) {
+	lstore, err := m.GetLayerStore()
+	if err != nil {
+		return "", err
+	}
+	istore, err := m.GetImageStore()
+	if err != nil {
+		return "", err
+	}
+	rstore, err := m.GetReferenceStore()
+	if err != nil {
+		return "", err
+	}
+	pstore, err := m.GetPetStore()
+	if err != nil {
+		return "", err
+	}
+	pet, err := pstore.Get(petRef)
+	if err != nil {
+		return "", err
+	}
+	imageID, _, _, err := m.resolveImage(pet.ImageID())
+	if err != nil {
+		return "", err
+	}
+	img, err := istore.Get(imageID)
+	if err != nil {
+		return "", err
+	}
+	tarstream, err := pet.Layer().TarStream()
+	if err != nil {
+		return "", err
+	}
+	rootfs := img.RootFS
+	history := image.History{
+		Created: time.Now(),
+	}
+	rolayer, err := lstore.Register(tarstream, rootfs.ChainID())
+	if err != nil {
+		return "", err
+	}
+	if diffID := rolayer.DiffID(); diffID != layer.DigestSHA256EmptyTar {
+		rootfs.Append(diffID)
+		history.EmptyLayer = false
+	}
+	newImage := &image.Image{
+		Parent: img.ID(),
+		RootFS: rootfs,
+	}
+	newImage.Created = time.Now()
+	newImage.Container = pet.ID()
+	newImage.Architecture = img.Architecture
+	newImage.OSVersion = img.OSVersion
+	newImage.OSFeatures = img.OSFeatures
+	newImage.History = append(img.History, history)
+	config, err := json.Marshal(newImage)
+	if err != nil {
+		return "", err
+	}
+	newImageID, err := istore.Create(config)
+	if err != nil {
+		return "", err
+	}
+	err = istore.SetParent(newImageID, img.ID())
+	if err != nil {
+		return "", err
+	}
+	if imageName != "" {
+		_, ref, err := reference.ParseIDOrReference(imageName)
+		if err != nil {
+			return newImageID, err
+		}
+		if ref == nil {
+			return newImageID, InvalidImageName
+		}
+		err = rstore.AddTag(ref, newImageID, true)
+		if err != nil {
+			return newImageID, err
+		}
+	}
+	return newImageID, nil
 }
 
 func (m *mall) Mount(nameOrID string) (path string, err error) {
