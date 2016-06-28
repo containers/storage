@@ -35,8 +35,8 @@ type Mall interface {
 	Images() (map[image.ID]*image.Image, map[*image.Image][]reference.Named, error)
 	Containers() ([]*container.Container, error)
 	Pets() ([]Pet, error)
-	Load(status io.Writer, quiet bool, images ...io.ReadCloser) error
-	Save(stream io.Writer, refs []string) error
+	LoadImage(status io.Writer, quiet bool, images ...io.ReadCloser) error
+	SaveImage(stream io.Writer, refs []string) error
 	DeleteImage(refs []string) error
 	CreatePet(imageRef, petName, mountLabel string) (petID string, err error)
 	DeletePet(nameOrID string) error
@@ -256,7 +256,7 @@ func (m *mall) Pets() ([]Pet, error) {
 	return pstore.List()
 }
 
-func (m *mall) Load(status io.Writer, quiet bool, images ...io.ReadCloser) error {
+func (m *mall) LoadImage(status io.Writer, quiet bool, images ...io.ReadCloser) error {
 	e, err := m.GetImageExporter(logImageEvent)
 	if err != nil {
 		return err
@@ -270,7 +270,7 @@ func (m *mall) Load(status io.Writer, quiet bool, images ...io.ReadCloser) error
 	return err
 }
 
-func (m *mall) Save(stream io.Writer, refs []string) error {
+func (m *mall) SaveImage(stream io.Writer, refs []string) error {
 	e, err := m.GetImageExporter(logImageEvent)
 	if err != nil {
 		return err

@@ -17,17 +17,17 @@ func load(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				return 1
 			}
-			m.Load(os.Stdout, !loadVerbose, f)
+			m.LoadImage(os.Stdout, !loadVerbose, f)
 			f.Close()
 		}
 	} else {
-		m.Load(os.Stdout, !loadVerbose, os.Stdin)
+		m.LoadImage(os.Stdout, !loadVerbose, os.Stdin)
 	}
 	return 0
 }
 
 func save(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	m.Save(os.Stdout, args)
+	m.SaveImage(os.Stdout, args)
 	return 0
 }
 
