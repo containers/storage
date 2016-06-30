@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/image/tarexport"
 	"github.com/docker/docker/layer"
+	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/reference"
 )
@@ -35,6 +36,7 @@ type Mall interface {
 	GetReferenceStore() (reference.Store, error)
 	GetContainerStore() (container.Store, error)
 	GetPetStore() (PetStore, error)
+	GetRawLayerStore() (RawLayerStore, error)
 	GetImageExporter(func(string, string, string)) (image.Exporter, error)
 
 	Images() (map[image.ID]*image.Image, map[*image.Image][]reference.Named, error)
@@ -48,6 +50,19 @@ type Mall interface {
 	CommitPet(petRef, imageName string) (image.ID, error)
 	Mount(nameOrID string) (path string, err error)
 	Unmount(nameOrID string) error
+
+	RawCreate(parent, name, mountLabel string, writeable bool) (*RawLayer, error)
+	RawExists(id string) bool
+	RawStatus() ([][2]string, error)
+	RawDelete(id string) error
+	RawWipe() error
+	RawMount(id, mountLabel string) (string, error)
+	RawUnmount(id string) error
+	RawChanges(from, to string) ([]archive.Change, error)
+	RawDiffSize(from, to string) (int64, error)
+	RawDiff(from, to string) (archive.Reader, error)
+	RawApplyDiff(to string, diff archive.Reader) (int64, error)
+	RawLayers() ([]RawLayer, error)
 }
 
 type mall struct {
@@ -61,6 +76,7 @@ type mall struct {
 	referenceStore  reference.Store
 	containerStore  container.Store
 	petStore        PetStore
+	rawLayerStore   RawLayerStore
 	imageExporter   image.Exporter
 }
 
@@ -81,6 +97,16 @@ func (m *mall) load() error {
 	if err != nil {
 		return err
 	}
+
+	rlpath := filepath.Join(m.graphRoot, "rawlayers")
+	if err := os.MkdirAll(rlpath, 0700); err != nil {
+		return err
+	}
+	rls, err := newRawLayerStore(rlpath, driver)
+	if err != nil {
+		return err
+	}
+	m.rawLayerStore = rls
 
 	mstore, err := layer.NewFSMetadataStore(filepath.Join(m.graphRoot, "image", m.graphDriverName, "layerdb"))
 	if err != nil {
@@ -160,6 +186,18 @@ func (m *mall) GetGraphDriver() (graphdriver.Driver, error) {
 	}
 	if m.graphDriver != nil {
 		return m.graphDriver, nil
+	}
+	return nil, LoadError
+}
+
+func (m *mall) GetRawLayerStore() (RawLayerStore, error) {
+	if !m.loaded {
+		if err := m.load(); err != nil {
+			return nil, err
+		}
+	}
+	if m.rawLayerStore != nil {
+		return m.rawLayerStore, nil
 	}
 	return nil, LoadError
 }
@@ -590,4 +628,101 @@ func (m *mall) Unmount(nameOrID string) error {
 		return err
 	}
 	return layer.Unmount()
+}
+
+func (m *mall) RawCreate(parent, name, mountLabel string, writeable bool) (*RawLayer, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	id := stringid.GenerateRandomID()
+	return rlstore.Create(id, parent, name, mountLabel, nil, writeable)
+}
+
+func (m *mall) RawExists(id string) bool {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return false
+	}
+	return rlstore.Exists(id)
+}
+
+func (m *mall) RawDelete(id string) error {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return err
+	}
+	return rlstore.Delete(id)
+}
+
+func (m *mall) RawWipe() error {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return err
+	}
+	return rlstore.Wipe()
+}
+
+func (m *mall) RawStatus() ([][2]string, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rlstore.Status()
+}
+
+func (m *mall) RawMount(id, mountLabel string) (string, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return "", err
+	}
+	return rlstore.Mount(id, mountLabel)
+}
+
+func (m *mall) RawUnmount(id string) error {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return err
+	}
+	return rlstore.Unmount(id)
+}
+
+func (m *mall) RawChanges(from, to string) ([]archive.Change, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rlstore.Changes(from, to)
+}
+
+func (m *mall) RawDiffSize(from, to string) (int64, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return -1, err
+	}
+	return rlstore.DiffSize(from, to)
+}
+
+func (m *mall) RawDiff(from, to string) (archive.Reader, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rlstore.Diff(from, to)
+}
+
+func (m *mall) RawApplyDiff(to string, diff archive.Reader) (int64, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return -1, err
+	}
+	return rlstore.ApplyDiff(to, diff)
+}
+
+func (m *mall) RawLayers() ([]RawLayer, error) {
+	rlstore, err := m.GetRawLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rlstore.Layers()
 }

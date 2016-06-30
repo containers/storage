@@ -33,6 +33,9 @@ func main() {
 	graphRoot := "/var/lib/graphtool"
 	graphDriver := os.Getenv("DOCKER_GRAPHDRIVER")
 	graphOptions := strings.Split(os.Getenv("DOCKER_STORAGE_OPTS"), ",")
+	if len(graphOptions) == 1 && graphOptions[0] == "" {
+		graphOptions = nil
+	}
 	debug := false
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
@@ -66,7 +69,7 @@ func main() {
 	}
 
 	args := flags.Args()
-	if len(args) < 2 {
+	if len(args) < 1 {
 		flags.Usage()
 		os.Exit(1)
 		return
