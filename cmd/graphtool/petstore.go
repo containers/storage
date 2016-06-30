@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"github.com/docker/docker/pkg/ioutils"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/docker/docker/layer"
+	"github.com/docker/docker/pkg/ioutils"
 )
 
 var (
