@@ -25,6 +25,7 @@ import (
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/pkg/devicemapper"
 	"github.com/docker/docker/pkg/idtools"
+	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/loopback"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/parsers"
@@ -2522,8 +2523,22 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		minFreeSpacePercent:   defaultMinFreeSpacePercent,
 	}
 
+	// Pick up initialization settings, if any were saved before
+	defaultsFile := path.Join(root, "defaults")
+	defaultsBytes, err := ioutil.ReadFile(defaultsFile)
+	defaults := []string{}
+	settings := map[string]string{}
+	if err == nil && len(defaultsBytes) > 0 {
+		defaults = strings.Split(string(defaultsBytes), "\n")
+	}
+
 	foundBlkDiscard := false
-	for _, option := range options {
+	nthOption := 0
+	for _, option := range append(defaults, options...) {
+		nthOption = nthOption + 1
+		if len(option) == 0 {
+			continue
+		}
 		key, val, err := parsers.ParseKeyValueOpt(option)
 		if err != nil {
 			return nil, err
@@ -2612,8 +2627,13 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 
 			devices.minFreeSpacePercent = uint32(minFreeSpacePercent)
 		default:
-			return nil, fmt.Errorf("devmapper: Unknown option %s\n", key)
+			if nthOption > len(defaults) {
+				return nil, fmt.Errorf("devmapper: Unknown option %s\n", key)
+			} else {
+				logrus.Errorf("devmapper: Unknown option %s, ignoring\n", key)
+			}
 		}
+		settings[key] = val
 	}
 
 	// By default, don't do blk discard hack on raw devices, its rarely useful and is expensive
@@ -2622,6 +2642,16 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 	}
 
 	if err := devices.initDevmapper(doInit); err != nil {
+		return nil, err
+	}
+
+	// Save these settings along with the other metadata
+	defaults = []string{}
+	for key, val := range settings {
+		defaults = append(defaults, key+"="+val)
+	}
+	defaultsBytes = []byte(strings.Join(defaults, "\n") + "\n")
+	if err := ioutils.AtomicWriteFile(defaultsFile, defaultsBytes, 0600); err != nil {
 		return nil, err
 	}
 
