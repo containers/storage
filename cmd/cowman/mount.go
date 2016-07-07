@@ -9,7 +9,7 @@ import (
 
 func mount(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	for _, arg := range args {
-		result, err := m.Mount(arg)
+		result, err := m.Mount(arg, MountLabel)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s while mounting %s\n", err, arg)
 			return 1
@@ -32,15 +32,18 @@ func unmount(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 func init() {
 	commands = append(commands, command{
 		names:       []string{"mount"},
-		optionsHelp: "petNameOrContainerName",
-		usage:       "Mount a read-write layer",
+		optionsHelp: "[options [...]] LayerNameOrID",
+		usage:       "Mount a layer",
 		minArgs:     1,
 		action:      mount,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.StringVar(&MountLabel, []string{"-label", "l"}, "", "Mount Label")
+		},
 	})
 	commands = append(commands, command{
 		names:       []string{"unmount", "umount"},
-		optionsHelp: "petNameOrContainerName",
-		usage:       "Unmount a read-write layer",
+		optionsHelp: "LayerNameOrID",
+		usage:       "Unmount a layer",
 		minArgs:     1,
 		action:      unmount,
 	})

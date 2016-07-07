@@ -1,8 +1,0 @@
-#!/bin/bash
-set -e
-
-(
-	export BINARY_SHORT_NAME='graphtool'
-	export SOURCE_PATH='./graphtool'
-	source "${MAKEDIR}/.binary"
-)

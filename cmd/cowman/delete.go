@@ -7,12 +7,12 @@ import (
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func rawDelete(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func deleteLayer(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
 	for _, what := range args {
-		err := m.RawDelete(what)
+		err := m.Delete(what)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", what, err)
 			return 1
@@ -23,10 +23,10 @@ func rawDelete(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 
 func init() {
 	commands = append(commands, command{
-		names:       []string{"rawdelete"},
-		optionsHelp: "[rawLayerNameOrID [...]]",
-		usage:       "Delete a raw layer",
+		names:       []string{"delete"},
+		optionsHelp: "[LayerNameOrID [...]]",
+		usage:       "Delete a layer",
 		minArgs:     1,
-		action:      rawDelete,
+		action:      deleteLayer,
 	})
 }

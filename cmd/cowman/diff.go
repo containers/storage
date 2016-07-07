@@ -9,7 +9,7 @@ import (
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func rawChanges(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func changes(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -18,7 +18,7 @@ func rawChanges(flags *mflag.FlagSet, action string, m Mall, args []string) int 
 	if len(args) >= 2 {
 		from = args[1]
 	}
-	changes, err := m.RawChanges(to, from)
+	changes, err := m.Changes(to, from)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -38,7 +38,7 @@ func rawChanges(flags *mflag.FlagSet, action string, m Mall, args []string) int 
 	return 0
 }
 
-func rawDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func diff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	if len(args) < 2 {
 		return 1
 	}
@@ -47,7 +47,7 @@ func rawDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	if len(args) >= 2 {
 		from = args[1]
 	}
-	reader, err := m.RawDiff(to, from)
+	reader, err := m.Diff(to, from)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -60,11 +60,11 @@ func rawDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	return 0
 }
 
-func rawApplyDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func applyDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
-	_, err := m.RawApplyDiff(args[0], os.Stdin)
+	_, err := m.ApplyDiff(args[0], os.Stdin)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -72,7 +72,7 @@ func rawApplyDiff(flags *mflag.FlagSet, action string, m Mall, args []string) in
 	return 0
 }
 
-func rawDiffSize(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func diffSize(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -81,7 +81,7 @@ func rawDiffSize(flags *mflag.FlagSet, action string, m Mall, args []string) int
 	if len(args) >= 2 {
 		from = args[1]
 	}
-	n, err := m.RawDiffSize(to, from)
+	n, err := m.DiffSize(to, from)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -92,35 +92,35 @@ func rawDiffSize(flags *mflag.FlagSet, action string, m Mall, args []string) int
 
 func init() {
 	commands = append(commands, command{
-		names:       []string{"rawchanges"},
-		usage:       "Compare two raw layers",
-		optionsHelp: "[options [...]] layerNameOrID [referenceRawLayerNameOrID]",
+		names:       []string{"changes"},
+		usage:       "Compare two layers",
+		optionsHelp: "[options [...]] layerNameOrID [referenceLayerNameOrID]",
 		minArgs:     1,
 		maxArgs:     2,
-		action:      rawChanges,
+		action:      changes,
 	})
 	commands = append(commands, command{
-		names:       []string{"rawdiffsize"},
-		usage:       "Compare two raw layers",
-		optionsHelp: "[options [...]] layerNameOrID [referenceRawLayerNameOrID]",
+		names:       []string{"diffsize"},
+		usage:       "Compare two layers",
+		optionsHelp: "[options [...]] layerNameOrID [referenceLayerNameOrID]",
 		minArgs:     1,
 		maxArgs:     2,
-		action:      rawDiffSize,
+		action:      diffSize,
 	})
 	commands = append(commands, command{
-		names:       []string{"rawdiff"},
-		usage:       "Compare two raw layers",
-		optionsHelp: "[options [...]] layerNameOrID [referenceRawLayerNameOrID]",
+		names:       []string{"diff"},
+		usage:       "Compare two layers",
+		optionsHelp: "[options [...]] layerNameOrID [referenceLayerNameOrID]",
 		minArgs:     1,
 		maxArgs:     2,
-		action:      rawDiff,
+		action:      diff,
 	})
 	commands = append(commands, command{
-		names:       []string{"rawapplydiff"},
-		optionsHelp: "[options [...]] layerNameOrID [referenceRawLayerNameOrID]",
-		usage:       "Apply a diff to a raw layer",
+		names:       []string{"applydiff"},
+		optionsHelp: "[options [...]] layerNameOrID [referenceLayerNameOrID]",
+		usage:       "Apply a diff to a layer",
 		minArgs:     1,
 		maxArgs:     1,
-		action:      rawApplyDiff,
+		action:      applyDiff,
 	})
 }

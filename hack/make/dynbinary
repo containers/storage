@@ -13,7 +13,7 @@ set -e
     . hack/make/dynbinary-daemon
 )
 (
-    DEST="${DEST}-graphtool"
-    ABS_DEST="${ABS_DEST}-graphtool"
-    . hack/make/dynbinary-graphtool
+    DEST="${DEST}-cowman"
+    ABS_DEST="${ABS_DEST}-cowman"
+    . hack/make/dynbinary-cowman
 )

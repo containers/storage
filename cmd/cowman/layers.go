@@ -7,17 +7,17 @@ import (
 	"github.com/docker/docker/pkg/mflag"
 )
 
-var listRawLayersTree = false
+var listLayersTree = false
 
-func rawlayers(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	layers, err := m.RawLayers()
+func layers(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+	layers, err := m.Layers()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
 	nodes := []TreeNode{}
 	for _, layer := range layers {
-		if listRawLayersTree {
+		if listLayersTree {
 			node := TreeNode{
 				left:  string(layer.Parent),
 				right: string(layer.ID),
@@ -40,7 +40,7 @@ func rawlayers(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 			}
 		}
 	}
-	if listRawLayersTree {
+	if listLayersTree {
 		PrintTree(nodes)
 	}
 	return 0
@@ -48,13 +48,13 @@ func rawlayers(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 
 func init() {
 	commands = append(commands, command{
-		names:       []string{"rawlayers"},
+		names:       []string{"layers"},
 		optionsHelp: "[options [...]]",
-		usage:       "List raw layers",
-		action:      rawlayers,
+		usage:       "List layers",
+		action:      layers,
 		maxArgs:     0,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.BoolVar(&listRawLayersTree, []string{"-tree", "t"}, listRawLayersTree, "Use a tree")
+			flags.BoolVar(&listLayersTree, []string{"-tree", "t"}, listLayersTree, "Use a tree")
 		},
 	})
 }

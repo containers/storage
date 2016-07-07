@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+
+(
+	export BINARY_SHORT_NAME='cowman'
+	export SOURCE_PATH='./cowman'
+	source "${MAKEDIR}/.binary"
+)

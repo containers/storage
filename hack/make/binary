@@ -14,7 +14,7 @@ rm -rf "$DEST"
 	. hack/make/binary-daemon
 )
 (
-	DEST="${DEST}-graphtool"
-	ABS_DEST="${ABS_DEST}-graphtool"
-	. hack/make/binary-graphtool
+	DEST="${DEST}-cowman"
+	ABS_DEST="${ABS_DEST}-cowman"
+	. hack/make/binary-cowman
 )

@@ -7,8 +7,8 @@ import (
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func rawStatus(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	status, err := m.RawStatus()
+func status(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+	status, err := m.Status()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "status: %v\n", err)
 		return 1
@@ -21,9 +21,9 @@ func rawStatus(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 
 func init() {
 	commands = append(commands, command{
-		names:   []string{"rawstatus"},
-		usage:   "Check if a raw layer exists",
+		names:   []string{"status"},
+		usage:   "Check on graph driver status",
 		minArgs: 0,
-		action:  rawStatus,
+		action:  status,
 	})
 }

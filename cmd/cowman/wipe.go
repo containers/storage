@@ -7,8 +7,8 @@ import (
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func rawWipe(flags *mflag.FlagSet, action string, m Mall, args []string) int {
-	err := m.RawWipe()
+func wipe(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+	err := m.Wipe()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s: %v\n", err)
 		return 1
@@ -18,9 +18,9 @@ func rawWipe(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 
 func init() {
 	commands = append(commands, command{
-		names:   []string{"rawwipe"},
-		usage:   "Wipe all raw layers",
+		names:   []string{"wipe"},
+		usage:   "Wipe all layers",
 		minArgs: 0,
-		action:  rawWipe,
+		action:  wipe,
 	})
 }

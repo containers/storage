@@ -17,7 +17,7 @@ var (
 	ErrLayerUnknown  = errors.New("layer not known")
 )
 
-type RawLayer struct {
+type Layer struct {
 	ID         string `json:"id"`
 	Name       string `json:"name,omitempty"`
 	Parent     string `json:"parent,omitempty"`
@@ -25,18 +25,18 @@ type RawLayer struct {
 	MountPoint string `json:"mountpoint,omitempty"`
 }
 
-type rawLayerStore struct {
+type layerStore struct {
 	driver   graphdriver.Driver
 	dir      string
-	layers   []RawLayer
-	byid     map[string]*RawLayer
-	byname   map[string]*RawLayer
-	byparent map[string][]*RawLayer
-	bymount  map[string]*RawLayer
+	layers   []Layer
+	byid     map[string]*Layer
+	byname   map[string]*Layer
+	byparent map[string][]*Layer
+	bymount  map[string]*Layer
 }
 
-type RawLayerStore interface {
-	Create(id, parent, name, lastMountPoint string, options map[string]string, writeable bool) (*RawLayer, error)
+type LayerStore interface {
+	Create(id, parent, name, lastMountPoint string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Status() ([][2]string, error)
 	Delete(id string) error
@@ -48,24 +48,24 @@ type RawLayerStore interface {
 	Diff(from, to string) (archive.Reader, error)
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
 	Lookup(name string) (string, error)
-	Layers() ([]RawLayer, error)
+	Layers() ([]Layer, error)
 }
 
-func (r *rawLayerStore) Layers() ([]RawLayer, error) {
+func (r *layerStore) Layers() ([]Layer, error) {
 	return r.layers, nil
 }
 
-func (r *rawLayerStore) Load() error {
+func (r *layerStore) Load() error {
 	rpath := filepath.Join(r.dir, "layers.json")
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	} else {
-		layers := []RawLayer{}
-		ids := make(map[string]*RawLayer)
-		names := make(map[string]*RawLayer)
-		mounts := make(map[string]*RawLayer)
-		parents := make(map[string][]*RawLayer)
+		layers := []Layer{}
+		ids := make(map[string]*Layer)
+		names := make(map[string]*Layer)
+		mounts := make(map[string]*Layer)
+		parents := make(map[string][]*Layer)
 		if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 			for n, layer := range layers {
 				ids[layer.ID] = &layers[n]
@@ -78,7 +78,7 @@ func (r *rawLayerStore) Load() error {
 				if pslice, ok := parents[layer.Parent]; ok {
 					parents[layer.Parent] = append(pslice, &layers[n])
 				} else {
-					parents[layer.Parent] = []*RawLayer{&layers[n]}
+					parents[layer.Parent] = []*Layer{&layers[n]}
 				}
 			}
 		}
@@ -91,7 +91,7 @@ func (r *rawLayerStore) Load() error {
 	return nil
 }
 
-func (r *rawLayerStore) Save() error {
+func (r *layerStore) Save() error {
 	rpath := filepath.Join(r.dir, "layers.json")
 	jdata, err := json.Marshal(&r.layers)
 	if err != nil {
@@ -100,17 +100,17 @@ func (r *rawLayerStore) Save() error {
 	return ioutils.AtomicWriteFile(rpath, jdata, 0600)
 }
 
-func newRawLayerStore(dir string, driver graphdriver.Driver) (RawLayerStore, error) {
+func newLayerStore(dir string, driver graphdriver.Driver) (LayerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	rlstore := rawLayerStore{
+	rlstore := layerStore{
 		driver:   driver,
 		dir:      dir,
-		byid:     make(map[string]*RawLayer),
-		bymount:  make(map[string]*RawLayer),
-		byname:   make(map[string]*RawLayer),
-		byparent: make(map[string][]*RawLayer),
+		byid:     make(map[string]*Layer),
+		bymount:  make(map[string]*Layer),
+		byname:   make(map[string]*Layer),
+		byparent: make(map[string][]*Layer),
 	}
 	if err := rlstore.Load(); err != nil {
 		return nil, err
@@ -118,11 +118,11 @@ func newRawLayerStore(dir string, driver graphdriver.Driver) (RawLayerStore, err
 	return &rlstore, nil
 }
 
-func (r *rawLayerStore) Status() ([][2]string, error) {
+func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *rawLayerStore) Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (layer *RawLayer, err error) {
+func (r *layerStore) Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
 	if layer, ok := r.byname[parent]; ok {
 		parent = layer.ID
 	}
@@ -132,7 +132,7 @@ func (r *rawLayerStore) Create(id, parent, name, mountLabel string, options map[
 		err = r.driver.Create(id, parent, mountLabel, options)
 	}
 	if err == nil {
-		newLayer := RawLayer{
+		newLayer := Layer{
 			ID:         id,
 			Parent:     parent,
 			Name:       name,
@@ -148,14 +148,14 @@ func (r *rawLayerStore) Create(id, parent, name, mountLabel string, options map[
 			pslice = append(pslice, layer)
 			r.byparent[parent] = pslice
 		} else {
-			r.byparent[parent] = []*RawLayer{layer}
+			r.byparent[parent] = []*Layer{layer}
 		}
 		err = r.Save()
 	}
 	return layer, err
 }
 
-func (r *rawLayerStore) Mount(id, mountLabel string) (string, error) {
+func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
 	}
@@ -178,7 +178,7 @@ func (r *rawLayerStore) Mount(id, mountLabel string) (string, error) {
 	return mountpoint, err
 }
 
-func (r *rawLayerStore) Unmount(id string) error {
+func (r *layerStore) Unmount(id string) error {
 	if layer, ok := r.bymount[id]; ok {
 		id = layer.ID
 	}
@@ -198,7 +198,7 @@ func (r *rawLayerStore) Unmount(id string) error {
 	return err
 }
 
-func (r *rawLayerStore) Delete(id string) error {
+func (r *layerStore) Delete(id string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
 	}
@@ -207,7 +207,7 @@ func (r *rawLayerStore) Delete(id string) error {
 	if err == nil {
 		if layer, ok := r.byid[id]; ok {
 			pslice := r.byparent[layer.Parent]
-			newPslice := []*RawLayer{}
+			newPslice := []*Layer{}
 			for _, candidate := range pslice {
 				if candidate.ID != id {
 					newPslice = append(newPslice, candidate)
@@ -224,7 +224,7 @@ func (r *rawLayerStore) Delete(id string) error {
 			if layer.MountPoint != "" {
 				delete(r.bymount, layer.MountPoint)
 			}
-			newLayers := []RawLayer{}
+			newLayers := []Layer{}
 			for _, candidate := range r.layers {
 				if candidate.ID != id {
 					newLayers = append(newLayers, candidate)
@@ -239,7 +239,7 @@ func (r *rawLayerStore) Delete(id string) error {
 	return err
 }
 
-func (r *rawLayerStore) Lookup(name string) (id string, err error) {
+func (r *layerStore) Lookup(name string) (id string, err error) {
 	layer, ok := r.byname[name]
 	if !ok {
 		return "", ErrLayerUnknown
@@ -247,14 +247,14 @@ func (r *rawLayerStore) Lookup(name string) (id string, err error) {
 	return layer.ID, nil
 }
 
-func (r *rawLayerStore) Exists(id string) bool {
+func (r *layerStore) Exists(id string) bool {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
 	}
 	return r.driver.Exists(id)
 }
 
-func (r *rawLayerStore) Wipe() error {
+func (r *layerStore) Wipe() error {
 	ids := []string{}
 	for id, _ := range r.byid {
 		ids = append(ids, id)
@@ -267,7 +267,7 @@ func (r *rawLayerStore) Wipe() error {
 	return nil
 }
 
-func (r *rawLayerStore) Changes(to, from string) ([]archive.Change, error) {
+func (r *layerStore) Changes(to, from string) ([]archive.Change, error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
@@ -285,7 +285,7 @@ func (r *rawLayerStore) Changes(to, from string) ([]archive.Change, error) {
 	return r.driver.Changes(to, from)
 }
 
-func (r *rawLayerStore) Diff(to, from string) (archive.Reader, error) {
+func (r *layerStore) Diff(to, from string) (archive.Reader, error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
@@ -303,7 +303,7 @@ func (r *rawLayerStore) Diff(to, from string) (archive.Reader, error) {
 	return r.driver.Diff(to, from)
 }
 
-func (r *rawLayerStore) DiffSize(to, from string) (size int64, err error) {
+func (r *layerStore) DiffSize(to, from string) (size int64, err error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
@@ -321,7 +321,7 @@ func (r *rawLayerStore) DiffSize(to, from string) (size int64, err error) {
 	return r.driver.DiffSize(to, from)
 }
 
-func (r *rawLayerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err error) {
+func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err error) {
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
 	}
