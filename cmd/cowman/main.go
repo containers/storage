@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/cow"
 	"github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/fsync"
 	"github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/reexec"
 )
@@ -118,17 +118,27 @@ func main() {
 					fmt.Printf("%s: %v\n", graphRoot, err)
 					os.Exit(1)
 				}
-				for _, subdir := range []string{"containers", "mounts", "trust", "tmp", graphDriver} {
+				for _, subdir := range []string{"mounts", "tmp", graphDriver} {
 					if err := os.MkdirAll(filepath.Join(graphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 						fmt.Printf("%s: %v\n", filepath.Join(graphRoot, subdir), err)
 						os.Exit(1)
 					}
 				}
-				if gmutex, err := fsync.Get(filepath.Join(graphRoot, "cowman.lock")); err != nil {
+				if fd, err := syscall.Open(filepath.Join(graphRoot, "cowman.lock"), os.O_RDWR, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
 					fmt.Printf("error obtaining lock: %v\n", err)
 					os.Exit(1)
 				} else {
-					gmutex.Lock()
+					lk := syscall.Flock_t{
+						Type:   syscall.F_WRLCK,
+						Whence: int16(os.SEEK_SET),
+						Start:  0,
+						Len:    0,
+						Pid:    int32(os.Getpid()),
+					}
+					if err = syscall.FcntlFlock(uintptr(fd), syscall.F_SETLKW, &lk); err != nil {
+						fmt.Printf("error obtaining lock: %v\n", err)
+						os.Exit(1)
+					}
 				}
 				mall := cow.MakeMall(graphRoot, graphDriver, graphOptions)
 				os.Exit(command.action(flags, cmd, mall, args))
