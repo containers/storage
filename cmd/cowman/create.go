@@ -11,6 +11,7 @@ import (
 var (
 	MountLabel = ""
 	Name       = ""
+	ID         = ""
 	CreateRO   = false
 )
 
@@ -19,7 +20,7 @@ func create(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int 
 	if len(args) > 0 {
 		parent = args[0]
 	}
-	layer, err := m.Create(parent, Name, MountLabel, !CreateRO)
+	layer, err := m.Create(ID, parent, Name, MountLabel, !CreateRO)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -42,6 +43,7 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&MountLabel, []string{"-label", "l"}, "", "Mount Label")
 			flags.StringVar(&Name, []string{"-name", "n"}, "", "Layer name")
+			flags.StringVar(&ID, []string{"-id", "i"}, "", "Layer ID")
 			flags.BoolVar(&CreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
 		},
 	})

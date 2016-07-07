@@ -22,7 +22,7 @@ type Mall interface {
 	GetGraphDriver() (graphdriver.Driver, error)
 	GetLayerStore() (LayerStore, error)
 
-	Create(parent, name, mountLabel string, writeable bool) (*Layer, error)
+	Create(id, parent, name, mountLabel string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Status() ([][2]string, error)
 	Delete(id string) error
@@ -127,12 +127,14 @@ func (m *mall) GetLayerStore() (LayerStore, error) {
 	return nil, LoadError
 }
 
-func (m *mall) Create(parent, name, mountLabel string, writeable bool) (*Layer, error) {
+func (m *mall) Create(id, parent, name, mountLabel string, writeable bool) (*Layer, error) {
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return nil, err
 	}
-	id := stringid.GenerateRandomID()
+	if id == "" {
+		id = stringid.GenerateRandomID()
+	}
 	return rlstore.Create(id, parent, name, mountLabel, nil, writeable)
 }
 
