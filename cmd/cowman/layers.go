@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/docker/docker/cow"
 	"github.com/docker/docker/pkg/mflag"
 )
 
 var listLayersTree = false
 
-func layers(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func layers(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	layers, err := m.Layers()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

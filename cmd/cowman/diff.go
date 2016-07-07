@@ -5,11 +5,12 @@ import (
 	"io"
 	"os"
 
+	"github.com/docker/docker/cow"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func changes(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func changes(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -38,7 +39,7 @@ func changes(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	return 0
 }
 
-func diff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func diff(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 2 {
 		return 1
 	}
@@ -60,7 +61,7 @@ func diff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	return 0
 }
 
-func applyDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func applyDiff(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -72,7 +73,7 @@ func applyDiff(flags *mflag.FlagSet, action string, m Mall, args []string) int {
 	return 0
 }
 
-func diffSize(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func diffSize(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

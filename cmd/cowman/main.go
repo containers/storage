@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/cow"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/fsync"
 	"github.com/docker/docker/pkg/mflag"
@@ -20,7 +21,7 @@ type command struct {
 	maxArgs     int
 	usage       string
 	addFlags    func(*mflag.FlagSet, *command)
-	action      func(*mflag.FlagSet, string, Mall, []string) int
+	action      func(*mflag.FlagSet, string, cow.Mall, []string) int
 }
 
 var commands = []command{}
@@ -129,7 +130,7 @@ func main() {
 				} else {
 					gmutex.Lock()
 				}
-				mall := MakeMall(graphRoot, graphDriver, graphOptions)
+				mall := cow.MakeMall(graphRoot, graphDriver, graphOptions)
 				os.Exit(command.action(flags, cmd, mall, args))
 				break
 			}

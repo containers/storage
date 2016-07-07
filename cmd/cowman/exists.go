@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/docker/docker/cow"
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func exist(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func exist(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

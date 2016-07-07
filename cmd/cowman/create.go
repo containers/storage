@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/docker/docker/cow"
 	"github.com/docker/docker/pkg/mflag"
 )
 
@@ -13,7 +14,7 @@ var (
 	CreateRO   = false
 )
 
-func create(flags *mflag.FlagSet, action string, m Mall, args []string) int {
+func create(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	parent := ""
 	if len(args) > 0 {
 		parent = args[0]

@@ -1,4 +1,4 @@
-package main
+package cow
 
 import (
 	"encoding/json"
