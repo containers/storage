@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/docker/docker/daemon/graphdriver"
 	_ "github.com/docker/docker/daemon/graphdriver/register"
@@ -44,12 +45,38 @@ type mall struct {
 	LayerStore      LayerStore
 }
 
-func MakeMall(graphRoot, graphDriverName string, graphOptions []string) Mall {
-	return &mall{
+func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
+	if err := os.MkdirAll(graphRoot, 0700); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+	for _, subdir := range []string{"mounts", "tmp", graphDriverName} {
+		if err := os.MkdirAll(filepath.Join(graphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
+			return nil, err
+		}
+	}
+	if fd, err := syscall.Open(filepath.Join(graphRoot, "cowman.lock"), os.O_RDWR, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
+		return nil, err
+	} else {
+		lk := syscall.Flock_t{
+			Type:   syscall.F_WRLCK,
+			Whence: int16(os.SEEK_SET),
+			Start:  0,
+			Len:    0,
+			Pid:    int32(os.Getpid()),
+		}
+		if err = syscall.FcntlFlock(uintptr(fd), syscall.F_SETLKW, &lk); err != nil {
+			return nil, err
+		}
+	}
+	m := &mall{
 		graphRoot:       graphRoot,
 		graphDriverName: graphDriverName,
 		graphOptions:    graphOptions,
 	}
+	if err := m.load(); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (m *mall) GetGraphDriverName() string {
