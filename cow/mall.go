@@ -53,7 +53,7 @@ func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, e
 			return nil, err
 		}
 	}
-	if fd, err := syscall.Open(filepath.Join(graphRoot, "cowman.lock"), os.O_RDWR, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
+	if fd, err := syscall.Open(filepath.Join(graphRoot, "libcow.lock"), os.O_RDWR, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
 		return nil, err
 	} else {
 		lk := syscall.Flock_t{
