@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/ioutils"
+	"github.com/docker/docker/pkg/stringid"
 )
 
 var (
@@ -125,6 +126,9 @@ func (r *layerStore) Status() ([][2]string, error) {
 func (r *layerStore) Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
 	if layer, ok := r.byname[parent]; ok {
 		parent = layer.ID
+	}
+	if id == "" {
+		id = stringid.GenerateRandomID()
 	}
 	if writeable {
 		err = r.driver.CreateReadWrite(id, parent, mountLabel, options)

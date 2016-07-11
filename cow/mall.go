@@ -9,7 +9,6 @@ import (
 	"github.com/docker/docker/daemon/graphdriver"
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/stringid"
 )
 
 var (
@@ -131,9 +130,6 @@ func (m *mall) Create(id, parent, name, mountLabel string, writeable bool) (*Lay
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return nil, err
-	}
-	if id == "" {
-		id = stringid.GenerateRandomID()
 	}
 	return rlstore.Create(id, parent, name, mountLabel, nil, writeable)
 }
