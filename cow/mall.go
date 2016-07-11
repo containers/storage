@@ -16,8 +16,21 @@ var (
 	InvalidImageName = errors.New("invalid name for new image")
 )
 
+// Mall wraps up the various types of stores that we use into a singleton
+// object that initializes and manages them all together.
+//
+// GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve settings that
+// were passed to MakeMall() when the object was created.
+//
+// GetGraphDriver obtains and returns a handle to the graph Driver object used
+// by the Mall.
+//
+// GetLayerStore obtains and returns a handle to the layer store object used by
+// the Mall.
 type Mall interface {
+	GetGraphRoot() string
 	GetGraphDriverName() string
+	GetGraphOptions() []string
 	GetGraphDriver() (graphdriver.Driver, error)
 	GetLayerStore() (LayerStore, error)
 
@@ -44,6 +57,8 @@ type mall struct {
 	LayerStore      LayerStore
 }
 
+// MakeMall creates and initializes a new Mall object, and the underlying
+// storage that it controls.
 func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
 	if err := os.MkdirAll(graphRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
@@ -80,6 +95,14 @@ func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, e
 
 func (m *mall) GetGraphDriverName() string {
 	return m.graphDriverName
+}
+
+func (m *mall) GetGraphRoot() string {
+	return m.graphRoot
+}
+
+func (m *mall) GetGraphOptions() []string {
+	return m.graphOptions
 }
 
 func (m *mall) load() error {

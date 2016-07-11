@@ -18,12 +18,79 @@ var (
 	ErrLayerUnknown  = errors.New("layer not known")
 )
 
+// Layer is a record of a layer that's stored by the lower level graph driver.
+// ID is either one specified at import-time or a randomly-generated value.
+// Name is an optional user-defined convenience value.  Parent is the ID of a
+// layer from which this layer inherits data.  MountLabel is an SELinux label
+// which should be used when attempting to mount the layer.  MountPoint is the
+// path where the layer is mounted, or where it was most recently mounted.
 type Layer struct {
 	ID         string `json:"id"`
 	Name       string `json:"name,omitempty"`
 	Parent     string `json:"parent,omitempty"`
 	MountLabel string `json:"mountlabel,omitempty"`
 	MountPoint string `json:"mountpoint,omitempty"`
+}
+
+// LayerStore wraps a graph driver, adding the ability to refer to layers by
+// name, and keeping track of parent-child relationships.
+//
+// Create creates a new layer, optionally giving it a specified ID rather than
+// a randomly-generated one, either inheriting data from another specified
+// layer or the empty base layer.  The new layer can optionally be given a name
+// and have an SELinux label specified for use when mounting it.  Some
+// underlying drivers can accept a "size" option.  At this time, drivers do not
+// themselves distinguish between writeable and read-only layers.
+//
+// Exists checks if a layer with the specified name or ID is known.
+//
+// Status returns an slice of key-value pairs, suitable for human consumption,
+// relaying whatever status information the driver can share.
+//
+// Delete deletes a layer with the specified name or ID.
+//
+// Wipe deletes all layers.
+//
+// Mount mounts a layer for use.  If the specified layer is the parent of other
+// layers, it should not be written to.  An SELinux label to be applied to the
+// mount can be specified to override the one configured for the layer.
+//
+// Unmount unmounts a layer when it is no longer in use.
+//
+// Changes returns a slice of Change structures, which contain a pathname
+// (Path) and a description of what sort of change (Kind) was made by the
+// layer (either ChangeModify, ChangeAdd, or ChangeDelete), relative to a
+// specified layer.  By default, its parent is used as a reference.
+//
+// Diff produces a tarstream which can be applied to a layer with the contents
+// of the first layer to produce a layer with the contents of the second layer.
+// By default, the parent of the second layer is used as the first layer.
+//
+// DiffSize produces an estimate of the length of the tarstream which would be
+// produced by Diff.
+//
+// ApplyDiff reads tarstream which was created by a previous call to Diff and
+// applies its changes to a specified layer.
+//
+// Lookup attempts to translate a name to an ID.  Most methods do this
+// implicitly.
+//
+// Layers returns a slice of the known layers.
+//
+type LayerStore interface {
+	Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
+	Exists(id string) bool
+	Status() ([][2]string, error)
+	Delete(id string) error
+	Wipe() error
+	Mount(id, mountLabel string) (string, error)
+	Unmount(id string) error
+	Changes(from, to string) ([]archive.Change, error)
+	Diff(from, to string) (archive.Reader, error)
+	DiffSize(from, to string) (int64, error)
+	ApplyDiff(to string, diff archive.Reader) (int64, error)
+	Lookup(name string) (string, error)
+	Layers() ([]Layer, error)
 }
 
 type layerStore struct {
@@ -34,22 +101,6 @@ type layerStore struct {
 	byname   map[string]*Layer
 	byparent map[string][]*Layer
 	bymount  map[string]*Layer
-}
-
-type LayerStore interface {
-	Create(id, parent, name, lastMountPoint string, options map[string]string, writeable bool) (*Layer, error)
-	Exists(id string) bool
-	Status() ([][2]string, error)
-	Delete(id string) error
-	Wipe() error
-	Mount(id, mountLabel string) (string, error)
-	Unmount(id string) error
-	Changes(from, to string) ([]archive.Change, error)
-	DiffSize(from, to string) (int64, error)
-	Diff(from, to string) (archive.Reader, error)
-	ApplyDiff(to string, diff archive.Reader) (int64, error)
-	Lookup(name string) (string, error)
-	Layers() ([]Layer, error)
 }
 
 func (r *layerStore) Layers() ([]Layer, error) {
