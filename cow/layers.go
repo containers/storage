@@ -80,6 +80,7 @@ type Layer struct {
 type LayerStore interface {
 	Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
+	Get(id string) (*Layer, error)
 	Status() ([][2]string, error)
 	Delete(id string) error
 	Wipe() error
@@ -307,6 +308,16 @@ func (r *layerStore) Exists(id string) bool {
 		id = layer.ID
 	}
 	return r.driver.Exists(id)
+}
+
+func (r *layerStore) Get(id string) (*Layer, error) {
+	if l, ok := r.byname[id]; ok {
+		return l, nil
+	}
+	if l, ok := r.byid[id]; ok {
+		return l, nil
+	}
+	return nil, ErrLayerUnknown
 }
 
 func (r *layerStore) Wipe() error {

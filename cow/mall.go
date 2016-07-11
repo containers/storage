@@ -33,8 +33,12 @@ type Mall interface {
 	GetGraphOptions() []string
 	GetGraphDriver() (graphdriver.Driver, error)
 	GetLayerStore() (LayerStore, error)
+	GetImageStore() (ImageStore, error)
+	GetContainerStore() (ContainerStore, error)
 
-	Create(id, parent, name, mountLabel string, writeable bool) (*Layer, error)
+	CreateLayer(id, parent, name, mountLabel string, writeable bool) (*Layer, error)
+	CreateImage(id, name, layer, manifest string) (*Image, error)
+	CreateContainer(id, name, image, layer, config string) (*Container, error)
 	Exists(id string) bool
 	Status() ([][2]string, error)
 	Delete(id string) error
@@ -46,6 +50,8 @@ type Mall interface {
 	Diff(from, to string) (archive.Reader, error)
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
 	Layers() ([]Layer, error)
+	Images() ([]Image, error)
+	Containers() ([]Container, error)
 }
 
 type mall struct {
@@ -54,7 +60,9 @@ type mall struct {
 	graphOptions    []string
 	loaded          bool
 	graphDriver     graphdriver.Driver
-	LayerStore      LayerStore
+	layerStore      LayerStore
+	imageStore      ImageStore
+	containerStore  ContainerStore
 }
 
 // MakeMall creates and initializes a new Mall object, and the underlying
@@ -119,7 +127,25 @@ func (m *mall) load() error {
 	if err != nil {
 		return err
 	}
-	m.LayerStore = rls
+	m.layerStore = rls
+	ripath := filepath.Join(m.graphRoot, "images")
+	if err := os.MkdirAll(ripath, 0700); err != nil {
+		return err
+	}
+	ris, err := newImageStore(ripath)
+	if err != nil {
+		return err
+	}
+	m.imageStore = ris
+	rcpath := filepath.Join(m.graphRoot, "images")
+	if err := os.MkdirAll(rcpath, 0700); err != nil {
+		return err
+	}
+	rcs, err := newContainerStore(rcpath)
+	if err != nil {
+		return err
+	}
+	m.containerStore = rcs
 
 	m.loaded = true
 	return nil
@@ -143,18 +169,92 @@ func (m *mall) GetLayerStore() (LayerStore, error) {
 			return nil, err
 		}
 	}
-	if m.LayerStore != nil {
-		return m.LayerStore, nil
+	if m.layerStore != nil {
+		return m.layerStore, nil
 	}
 	return nil, LoadError
 }
 
-func (m *mall) Create(id, parent, name, mountLabel string, writeable bool) (*Layer, error) {
+func (m *mall) GetImageStore() (ImageStore, error) {
+	if !m.loaded {
+		if err := m.load(); err != nil {
+			return nil, err
+		}
+	}
+	if m.imageStore != nil {
+		return m.imageStore, nil
+	}
+	return nil, LoadError
+}
+
+func (m *mall) GetContainerStore() (ContainerStore, error) {
+	if !m.loaded {
+		if err := m.load(); err != nil {
+			return nil, err
+		}
+	}
+	if m.containerStore != nil {
+		return m.containerStore, nil
+	}
+	return nil, LoadError
+}
+
+func (m *mall) CreateLayer(id, parent, name, mountLabel string, writeable bool) (*Layer, error) {
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return nil, err
 	}
 	return rlstore.Create(id, parent, name, mountLabel, nil, writeable)
+}
+
+func (m *mall) CreateImage(id, name, layer, manifest string) (*Image, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	ilayer, err := rlstore.Get(layer)
+	if err != nil {
+		return nil, err
+	}
+	if ilayer == nil {
+		return nil, ErrLayerUnknown
+	}
+	layer = ilayer.ID
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	return ristore.Create(id, name, layer, manifest)
+}
+
+func (m *mall) CreateContainer(id, name, image, layer, config string) (*Container, error) {
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	cimage, err := ristore.Get(image)
+	if err != nil {
+		return nil, err
+	}
+	if cimage == nil {
+		return nil, ErrImageUnknown
+	}
+	if layer == "" {
+		rlstore, err := m.GetLayerStore()
+		if err != nil {
+			return nil, err
+		}
+		clayer, err := rlstore.Create("", cimage.TopLayer, "", "", nil, true)
+		if err != nil {
+			return nil, err
+		}
+		layer = clayer.ID
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rcstore.Create(id, name, cimage.ID, layer, config)
 }
 
 func (m *mall) Exists(id string) bool {
@@ -174,6 +274,20 @@ func (m *mall) Delete(id string) error {
 }
 
 func (m *mall) Wipe() error {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
+	if err = rcstore.Wipe(); err != nil {
+		return err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+	if err = ristore.Wipe(); err != nil {
+		return err
+	}
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return err
@@ -190,6 +304,13 @@ func (m *mall) Status() ([][2]string, error) {
 }
 
 func (m *mall) Mount(id, mountLabel string) (string, error) {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return "", err
+	}
+	if c, err := rcstore.Get(id); c != nil && err == nil {
+		id = c.LayerID
+	}
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return "", err
@@ -198,6 +319,13 @@ func (m *mall) Mount(id, mountLabel string) (string, error) {
 }
 
 func (m *mall) Unmount(id string) error {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
+	if c, err := rcstore.Get(id); c != nil && err == nil {
+		id = c.LayerID
+	}
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return err
@@ -243,4 +371,20 @@ func (m *mall) Layers() ([]Layer, error) {
 		return nil, err
 	}
 	return rlstore.Layers()
+}
+
+func (m *mall) Images() ([]Image, error) {
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	return ristore.Images()
+}
+
+func (m *mall) Containers() ([]Container, error) {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rcstore.Containers()
 }
