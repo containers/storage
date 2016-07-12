@@ -17,15 +17,15 @@ var ErrContainerUnknown = errors.New("container not known")
 // ID is either one specified at create-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.
 type Container struct {
-	ID      string `json:"id"`
-	Name    string `json:"name,omitempty"`
-	ImageID string `json:"image"`
-	LayerID string `json:"layer"`
-	Config  string `json:"config,omitempty"`
+	ID       string `json:"id"`
+	Name     string `json:"name,omitempty"`
+	ImageID  string `json:"image"`
+	LayerID  string `json:"layer"`
+	Metadata string `json:"metadata,omitempty"`
 }
 
 type ContainerStore interface {
-	Create(id, name, image, layer, config string) (*Container, error)
+	Create(id, name, image, layer, metadata string) (*Container, error)
 	Get(id string) (*Container, error)
 	Exists(id string) bool
 	Delete(id string) error
@@ -93,17 +93,17 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	return &cstore, nil
 }
 
-func (r *containerStore) Create(id, name, image, layer, config string) (container *Container, err error) {
+func (r *containerStore) Create(id, name, image, layer, metadata string) (container *Container, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
 	if err == nil {
 		newContainer := Container{
-			ID:      id,
-			Name:    name,
-			ImageID: image,
-			LayerID: layer,
-			Config:  config,
+			ID:       id,
+			Name:     name,
+			ImageID:  image,
+			LayerID:  layer,
+			Metadata: metadata,
 		}
 		r.containers = append(r.containers, newContainer)
 		container = &r.containers[len(r.containers)-1]

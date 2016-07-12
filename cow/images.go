@@ -13,18 +13,18 @@ import (
 
 var ErrImageUnknown = errors.New("image not known")
 
-// Image is a record of a layer and an associated manifest.
+// Image is a record of a layer and an associated metadata.
 // ID is either one specified at import-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.
 type Image struct {
 	ID       string `json:"id"`
 	Name     string `json:"name,omitempty"`
 	TopLayer string `json:"layer"`
-	Manifest string `json:"manifest,omitempty"`
+	Metadata string `json:"metadata,omitempty"`
 }
 
 type ImageStore interface {
-	Create(id, name, layer, manifest string) (*Image, error)
+	Create(id, name, layer, metadata string) (*Image, error)
 	Exists(id string) bool
 	Get(id string) (*Image, error)
 	Delete(id string) error
@@ -92,7 +92,7 @@ func newImageStore(dir string) (ImageStore, error) {
 	return &istore, nil
 }
 
-func (r *imageStore) Create(id, name, layer, manifest string) (image *Image, err error) {
+func (r *imageStore) Create(id, name, layer, metadata string) (image *Image, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
@@ -101,7 +101,7 @@ func (r *imageStore) Create(id, name, layer, manifest string) (image *Image, err
 			ID:       id,
 			Name:     name,
 			TopLayer: layer,
-			Manifest: manifest,
+			Metadata: metadata,
 		}
 		r.images = append(r.images, newImage)
 		image = &r.images[len(r.images)-1]

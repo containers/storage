@@ -37,8 +37,8 @@ type Mall interface {
 	GetContainerStore() (ContainerStore, error)
 
 	CreateLayer(id, parent, name, mountLabel string, writeable bool) (*Layer, error)
-	CreateImage(id, name, layer, manifest string) (*Image, error)
-	CreateContainer(id, name, image, layer, config string) (*Container, error)
+	CreateImage(id, name, layer, metadata string) (*Image, error)
+	CreateContainer(id, name, image, layer, metadata string) (*Container, error)
 	Exists(id string) bool
 	Status() ([][2]string, error)
 	Delete(id string) error
@@ -207,7 +207,7 @@ func (m *mall) CreateLayer(id, parent, name, mountLabel string, writeable bool) 
 	return rlstore.Create(id, parent, name, mountLabel, nil, writeable)
 }
 
-func (m *mall) CreateImage(id, name, layer, manifest string) (*Image, error) {
+func (m *mall) CreateImage(id, name, layer, metadata string) (*Image, error) {
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return nil, err
@@ -224,10 +224,10 @@ func (m *mall) CreateImage(id, name, layer, manifest string) (*Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ristore.Create(id, name, layer, manifest)
+	return ristore.Create(id, name, layer, metadata)
 }
 
-func (m *mall) CreateContainer(id, name, image, layer, config string) (*Container, error) {
+func (m *mall) CreateContainer(id, name, image, layer, metadata string) (*Container, error) {
 	ristore, err := m.GetImageStore()
 	if err != nil {
 		return nil, err
@@ -254,7 +254,7 @@ func (m *mall) CreateContainer(id, name, image, layer, config string) (*Containe
 	if err != nil {
 		return nil, err
 	}
-	return rcstore.Create(id, name, cimage.ID, layer, config)
+	return rcstore.Create(id, name, cimage.ID, layer, metadata)
 }
 
 func (m *mall) Exists(id string) bool {
