@@ -137,7 +137,7 @@ func (m *mall) load() error {
 		return err
 	}
 	m.imageStore = ris
-	rcpath := filepath.Join(m.graphRoot, "images")
+	rcpath := filepath.Join(m.graphRoot, "containers")
 	if err := os.MkdirAll(rcpath, 0700); err != nil {
 		return err
 	}
