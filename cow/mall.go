@@ -52,6 +52,9 @@ type Mall interface {
 	Layers() ([]Layer, error)
 	Images() ([]Image, error)
 	Containers() ([]Container, error)
+	GetLayer(id string) (*Layer, error)
+	GetImage(id string) (*Image, error)
+	GetContainer(id string) (*Container, error)
 }
 
 type mall struct {
@@ -387,4 +390,28 @@ func (m *mall) Containers() ([]Container, error) {
 		return nil, err
 	}
 	return rcstore.Containers()
+}
+
+func (m *mall) GetLayer(id string) (*Layer, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rlstore.Get(id)
+}
+
+func (m *mall) GetImage(id string) (*Image, error) {
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	return ristore.Get(id)
+}
+
+func (m *mall) GetContainer(id string) (*Container, error) {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rcstore.Get(id)
 }

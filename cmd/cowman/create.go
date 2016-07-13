@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	"github.com/docker/docker/cow"
@@ -9,14 +10,14 @@ import (
 )
 
 var (
-	MountLabel = ""
-	Name       = ""
-	ID         = ""
-	Image      = ""
-	Layer      = ""
-	Manifest   = ""
-	Config     = ""
-	CreateRO   = false
+	MountLabel   = ""
+	Name         = ""
+	ID           = ""
+	Image        = ""
+	Layer        = ""
+	Metadata     = ""
+	MetadataFile = ""
+	CreateRO     = false
 )
 
 func createLayer(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
@@ -38,7 +39,20 @@ func createLayer(flags *mflag.FlagSet, action string, m cow.Mall, args []string)
 }
 
 func createImage(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
-	image, err := m.CreateImage(ID, Name, args[0], Manifest)
+	if MetadataFile != "" {
+		f, err := os.Open(MetadataFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		b, err := ioutil.ReadAll(f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		Metadata = string(b)
+	}
+	image, err := m.CreateImage(ID, Name, args[0], Metadata)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -52,7 +66,20 @@ func createImage(flags *mflag.FlagSet, action string, m cow.Mall, args []string)
 }
 
 func createContainer(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
-	container, err := m.CreateContainer(ID, Name, args[0], Layer, Config)
+	if MetadataFile != "" {
+		f, err := os.Open(MetadataFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		b, err := ioutil.ReadAll(f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		Metadata = string(b)
+	}
+	container, err := m.CreateContainer(ID, Name, args[0], Layer, Metadata)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -89,7 +116,8 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&Name, []string{"-name", "n"}, "", "Image name")
 			flags.StringVar(&ID, []string{"-id", "i"}, "", "Image ID")
-			flags.StringVar(&Manifest, []string{"-manifest", "m"}, "", "Manifest")
+			flags.StringVar(&Metadata, []string{"-metadata", "m"}, "", "Metadata")
+			flags.StringVar(&MetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
 		},
 	})
 	commands = append(commands, command{
@@ -102,7 +130,8 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&Name, []string{"-name", "n"}, "", "Container name")
 			flags.StringVar(&ID, []string{"-id", "i"}, "", "Container ID")
-			flags.StringVar(&Config, []string{"-config", "c"}, "", "Container configuration")
+			flags.StringVar(&Metadata, []string{"-metadata", "m"}, "", "Metadata")
+			flags.StringVar(&MetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
 		},
 	})
 }
