@@ -16,6 +16,10 @@ var ErrContainerUnknown = errors.New("container not known")
 // Container is a read-write layer with a configuration.
 // ID is either one specified at create-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.
+// ImageID is the ID of the image which was used to create the container.
+// LayerID is the ID of the read-write layer for the container itself.
+// It is expected that the image's last layer is the parent of the container's
+// read-write layer.
 type Container struct {
 	ID       string `json:"id"`
 	Name     string `json:"name,omitempty"`
@@ -24,6 +28,21 @@ type Container struct {
 	Metadata string `json:"metadata,omitempty"`
 }
 
+// ContainerStore provides bookkeeping for information about Containers.
+//
+// Create creates a container that has a specified ID (or a random one) and an
+// optional name, based on the specified image, using the specified layer as
+// its read-write layer.
+//
+// Get retrieves information about a container given an ID or name.
+//
+// Exists checks if there is a container with the given ID or name.
+//
+// Delete removes the record of the container.
+//
+// Wipe removes records of all containers.
+//
+// Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	Create(id, name, image, layer, metadata string) (*Container, error)
 	Get(id string) (*Container, error)

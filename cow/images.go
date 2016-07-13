@@ -16,6 +16,7 @@ var ErrImageUnknown = errors.New("image not known")
 // Image is a record of a layer and an associated metadata.
 // ID is either one specified at import-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.
+// TopLayer is the ID of the topmost layer of the image itself.
 type Image struct {
 	ID       string `json:"id"`
 	Name     string `json:"name,omitempty"`
@@ -23,6 +24,21 @@ type Image struct {
 	Metadata string `json:"metadata,omitempty"`
 }
 
+// ImageStore provides bookkeeping for information about Images.
+//
+// Create creates an image that has a specified ID (or a random one) and an
+// optional name, using the specified layer as its topmost (hopefully
+// read-only) layer.
+//
+// Get retrieves information about an image given an ID or name.
+//
+// Exists checks if there is an image with the given ID or name.
+//
+// Delete removes the record of the image.
+//
+// Wipe removes records of all images.
+//
+// Images returns a slice enumerating the known images.
 type ImageStore interface {
 	Create(id, name, layer, metadata string) (*Image, error)
 	Exists(id string) bool
