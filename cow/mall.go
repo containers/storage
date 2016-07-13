@@ -55,6 +55,19 @@ type Mall interface {
 	GetLayer(id string) (*Layer, error)
 	GetImage(id string) (*Image, error)
 	GetContainer(id string) (*Container, error)
+	Crawl(layerID string) (*Users, error)
+}
+
+// Users holds an analysis of which layers, images, and containers depend on a
+// given layer, either directly or indirectly.
+type Users struct {
+	LayerID            string
+	LayersDirect       []string
+	LayersIndirect     []string
+	ImagesDirect       []string
+	ImagesIndirect     []string
+	ContainersDirect   []string
+	ContainersIndirect []string
 }
 
 type mall struct {
@@ -414,4 +427,99 @@ func (m *mall) GetContainer(id string) (*Container, error) {
 		return nil, err
 	}
 	return rcstore.Get(id)
+}
+
+func (m *mall) Crawl(layerID string) (*Users, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+	if layer, err := rlstore.Get(layerID); err == nil {
+		layerID = layer.ID
+	}
+	u := &Users{LayerID: layerID}
+	layers, err := rlstore.Layers()
+	if err != nil {
+		return nil, err
+	}
+	images, err := ristore.Images()
+	if err != nil {
+		return nil, err
+	}
+	containers, err := rcstore.Containers()
+	if err != nil {
+		return nil, err
+	}
+	children := make(map[string]*[]string)
+	for _, layer := range layers {
+		if childs, known := children[layer.Parent]; known {
+			newChildren := append(*childs, layer.ID)
+			children[layer.Parent] = &newChildren
+		} else {
+			children[layer.Parent] = &[]string{layer.ID}
+		}
+	}
+	if childs, known := children[layerID]; known {
+		u.LayersDirect = *childs
+	}
+	indirects := []string{}
+	examined := make(map[string]string)
+	queue := u.LayersDirect
+	for n := 0; n < len(queue); n++ {
+		if _, skip := examined[queue[n]]; skip {
+			continue
+		}
+		examined[queue[n]] = queue[n]
+		more := children[queue[n]]
+		if more != nil {
+			for _, child := range *more {
+				queue = append(queue, child)
+				indirects = append(indirects, child)
+			}
+		}
+	}
+	u.LayersIndirect = indirects
+	for _, image := range images {
+		if image.TopLayer == layerID {
+			if u.ImagesDirect == nil {
+				u.ImagesDirect = []string{image.ID}
+			} else {
+				u.ImagesDirect = append(u.ImagesDirect, image.ID)
+			}
+		} else {
+			if examined[image.TopLayer] == image.TopLayer {
+				if u.ImagesIndirect == nil {
+					u.ImagesIndirect = []string{image.ID}
+				} else {
+					u.ImagesIndirect = append(u.ImagesIndirect, image.ID)
+				}
+			}
+		}
+	}
+	for _, container := range containers {
+		if container.LayerID == layerID {
+			if u.ContainersDirect == nil {
+				u.ContainersDirect = []string{container.ID}
+			} else {
+				u.ContainersDirect = append(u.ContainersDirect, container.ID)
+			}
+		} else {
+			if examined[container.LayerID] == container.LayerID {
+				if u.ContainersIndirect == nil {
+					u.ContainersIndirect = []string{container.LayerID}
+				} else {
+					u.ContainersIndirect = append(u.ContainersIndirect, container.LayerID)
+				}
+			}
+		}
+	}
+	return u, nil
 }
