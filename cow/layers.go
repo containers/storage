@@ -18,7 +18,8 @@ var (
 	ErrLayerUnknown  = errors.New("layer not known")
 )
 
-// Layer is a record of a layer that's stored by the lower level graph driver.
+// A Layer is a record of a copy-on-write layer that's stored by the lower
+// level graph driver.
 // ID is either one specified at import-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.  Parent is the ID of a
 // layer from which this layer inherits data.  MountLabel is an SELinux label
@@ -33,7 +34,8 @@ type Layer struct {
 }
 
 // LayerStore wraps a graph driver, adding the ability to refer to layers by
-// name, and keeping track of parent-child relationships.
+// name, and keeping track of parent-child relationships, along with a list of
+// all known layers.
 //
 // Create creates a new layer, optionally giving it a specified ID rather than
 // a randomly-generated one, either inheriting data from another specified
@@ -60,7 +62,7 @@ type Layer struct {
 // Changes returns a slice of Change structures, which contain a pathname
 // (Path) and a description of what sort of change (Kind) was made by the
 // layer (either ChangeModify, ChangeAdd, or ChangeDelete), relative to a
-// specified layer.  By default, its parent is used as a reference.
+// specified layer.  By default, the layer's parent is used as a reference.
 //
 // Diff produces a tarstream which can be applied to a layer with the contents
 // of the first layer to produce a layer with the contents of the second layer.

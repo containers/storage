@@ -13,7 +13,7 @@ import (
 
 var ErrContainerUnknown = errors.New("container not known")
 
-// Container is a read-write layer with a configuration.
+// A Container is a reference to a read-write layer with a metadata string.
 // ID is either one specified at create-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.
 // ImageID is the ID of the image which was used to create the container.

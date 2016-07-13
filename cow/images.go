@@ -13,7 +13,7 @@ import (
 
 var ErrImageUnknown = errors.New("image not known")
 
-// Image is a record of a layer and an associated metadata.
+// An Image is a reference to a layer and an associated metadata string.
 // ID is either one specified at import-time or a randomly-generated value.
 // Name is an optional user-defined convenience value.
 // TopLayer is the ID of the topmost layer of the image itself.
