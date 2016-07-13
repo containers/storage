@@ -112,6 +112,9 @@ func (r *imageStore) Create(id, name, layer, metadata string) (image *Image, err
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
+	if _, nameInUse := r.byname[name]; nameInUse {
+		return nil, DuplicateName
+	}
 	if err == nil {
 		newImage := Image{
 			ID:       id,

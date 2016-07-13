@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	LoadError        = errors.New("error loading storage metadata")
-	InvalidImageName = errors.New("invalid name for new image")
+	LoadError     = errors.New("error loading storage metadata")
+	DuplicateName = errors.New("that name is already in use")
 )
 
 // Mall wraps up the various types of stores that we use into a singleton

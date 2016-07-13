@@ -11,7 +11,9 @@ import (
 	"github.com/docker/docker/pkg/stringid"
 )
 
-var ErrContainerUnknown = errors.New("container not known")
+var (
+	ErrContainerUnknown = errors.New("container not known")
+)
 
 // A Container is a reference to a read-write layer with a metadata string.
 // ID is either one specified at create-time or a randomly-generated value.
@@ -115,6 +117,9 @@ func newContainerStore(dir string) (ContainerStore, error) {
 func (r *containerStore) Create(id, name, image, layer, metadata string) (container *Container, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
+	}
+	if _, nameInUse := r.byname[name]; nameInUse {
+		return nil, DuplicateName
 	}
 	if err == nil {
 		newContainer := Container{

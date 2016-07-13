@@ -184,6 +184,9 @@ func (r *layerStore) Create(id, parent, name, mountLabel string, options map[str
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
+	if _, nameInUse := r.byname[name]; nameInUse {
+		return nil, DuplicateName
+	}
 	if writeable {
 		err = r.driver.CreateReadWrite(id, parent, mountLabel, options)
 	} else {
