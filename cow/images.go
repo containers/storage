@@ -134,7 +134,7 @@ func (r *imageStore) Delete(id string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
 	}
-	if _, ok := r.byid[id]; ok {
+	if image, ok := r.byid[id]; ok {
 		newImages := []Image{}
 		for _, candidate := range r.images {
 			if candidate.ID != id {
@@ -142,6 +142,9 @@ func (r *imageStore) Delete(id string) error {
 			}
 		}
 		r.images = newImages
+		if image.Name != "" {
+			delete(r.byname, image.Name)
+		}
 		if err := r.Save(); err != nil {
 			return err
 		}

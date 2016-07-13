@@ -139,12 +139,15 @@ func (r *containerStore) Delete(id string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
 	}
-	if _, ok := r.byid[id]; ok {
+	if container, ok := r.byid[id]; ok {
 		newContainers := []Container{}
 		for _, candidate := range r.containers {
 			if candidate.ID != id {
 				newContainers = append(newContainers, candidate)
 			}
+		}
+		if container.Name != "" {
+			delete(r.byname, container.Name)
 		}
 		r.containers = newContainers
 		if err := r.Save(); err != nil {
