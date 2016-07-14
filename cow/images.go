@@ -41,6 +41,7 @@ type Image struct {
 // Images returns a slice enumerating the known images.
 type ImageStore interface {
 	Create(id, name, layer, metadata string) (*Image, error)
+	SetMetadata(id, metadata string) error
 	Exists(id string) bool
 	Get(id string) (*Image, error)
 	Delete(id string) error
@@ -131,6 +132,17 @@ func (r *imageStore) Create(id, name, layer, metadata string) (image *Image, err
 		err = r.Save()
 	}
 	return image, err
+}
+
+func (r *imageStore) SetMetadata(id, metadata string) error {
+	if image, ok := r.byname[id]; ok {
+		id = image.ID
+	}
+	if image, ok := r.byid[id]; ok {
+		image.Metadata = metadata
+		return r.Save()
+	}
+	return ErrImageUnknown
 }
 
 func (r *imageStore) Delete(id string) error {

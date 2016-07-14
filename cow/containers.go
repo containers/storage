@@ -47,6 +47,7 @@ type Container struct {
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	Create(id, name, image, layer, metadata string) (*Container, error)
+	SetMetadata(id, metadata string) error
 	Get(id string) (*Container, error)
 	Exists(id string) bool
 	Delete(id string) error
@@ -138,6 +139,17 @@ func (r *containerStore) Create(id, name, image, layer, metadata string) (contai
 		err = r.Save()
 	}
 	return container, err
+}
+
+func (r *containerStore) SetMetadata(id, metadata string) error {
+	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	}
+	if container, ok := r.byid[id]; ok {
+		container.Metadata = metadata
+		return r.Save()
+	}
+	return ErrContainerUnknown
 }
 
 func (r *containerStore) Delete(id string) error {

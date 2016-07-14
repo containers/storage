@@ -39,6 +39,7 @@ type Mall interface {
 	CreateLayer(id, parent, name, mountLabel string, writeable bool) (*Layer, error)
 	CreateImage(id, name, layer, metadata string) (*Image, error)
 	CreateContainer(id, name, image, layer, metadata string) (*Container, error)
+	SetMetadata(id, metadata string) error
 	Exists(id string) bool
 	Status() ([][2]string, error)
 	Delete(id string) error
@@ -271,6 +272,24 @@ func (m *mall) CreateContainer(id, name, image, layer, metadata string) (*Contai
 		return nil, err
 	}
 	return rcstore.Create(id, name, cimage.ID, layer, metadata)
+}
+
+func (m *mall) SetMetadata(id, metadata string) error {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
+	if rcstore.Exists(id) {
+		return rcstore.SetMetadata(id, metadata)
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+	if ristore.Exists(id) {
+		return ristore.SetMetadata(id, metadata)
+	}
+	return ErrImageUnknown
 }
 
 func (m *mall) Exists(id string) bool {
