@@ -8,7 +8,7 @@ import (
 	"github.com/docker/docker/pkg/mflag"
 )
 
-func deleteLayer(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func deleteThing(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -26,8 +26,8 @@ func init() {
 	commands = append(commands, command{
 		names:       []string{"delete"},
 		optionsHelp: "[LayerNameOrID [...]]",
-		usage:       "Delete a layer",
+		usage:       "Delete a layer or image or container",
 		minArgs:     1,
-		action:      deleteLayer,
+		action:      deleteThing,
 	})
 }

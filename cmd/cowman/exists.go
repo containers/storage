@@ -27,8 +27,8 @@ func exist(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 func init() {
 	commands = append(commands, command{
 		names:       []string{"exists"},
-		optionsHelp: "[LayerNameOrID [...]]",
-		usage:       "Check if a layer exists",
+		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
+		usage:       "Check if a layer or image or container exists",
 		minArgs:     1,
 		action:      exist,
 	})

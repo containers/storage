@@ -274,6 +274,20 @@ func (m *mall) CreateContainer(id, name, image, layer, metadata string) (*Contai
 }
 
 func (m *mall) Exists(id string) bool {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return false
+	}
+	if rcstore.Exists(id) {
+		return true
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return false
+	}
+	if ristore.Exists(id) {
+		return true
+	}
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return false
@@ -282,11 +296,28 @@ func (m *mall) Exists(id string) bool {
 }
 
 func (m *mall) Delete(id string) error {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
+	if rcstore.Exists(id) {
+		return rcstore.Delete(id)
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+	if ristore.Exists(id) {
+		return ristore.Delete(id)
+	}
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return err
 	}
-	return rlstore.Delete(id)
+	if rlstore.Exists(id) {
+		return rlstore.Delete(id)
+	}
+	return ErrLayerUnknown
 }
 
 func (m *mall) Wipe() error {

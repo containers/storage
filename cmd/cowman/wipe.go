@@ -20,7 +20,7 @@ func wipe(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 func init() {
 	commands = append(commands, command{
 		names:   []string{"wipe"},
-		usage:   "Wipe all layers",
+		usage:   "Wipe all layers, images, and containers",
 		minArgs: 0,
 		action:  wipe,
 	})

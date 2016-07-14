@@ -33,8 +33,8 @@ func unmount(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int
 func init() {
 	commands = append(commands, command{
 		names:       []string{"mount"},
-		optionsHelp: "[options [...]] LayerNameOrID",
-		usage:       "Mount a layer",
+		optionsHelp: "[options [...]] LayerOrContainerNameOrID",
+		usage:       "Mount a layer or container",
 		minArgs:     1,
 		action:      mount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
@@ -43,8 +43,8 @@ func init() {
 	})
 	commands = append(commands, command{
 		names:       []string{"unmount", "umount"},
-		optionsHelp: "LayerNameOrID",
-		usage:       "Unmount a layer",
+		optionsHelp: "LayerOrContainerNameOrID",
+		usage:       "Unmount a layer or container",
 		minArgs:     1,
 		action:      unmount,
 	})
