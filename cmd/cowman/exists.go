@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/docker/docker/cow"
 	"github.com/docker/docker/pkg/mflag"
 )
+
+var existQuiet = false
 
 func exist(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	if len(args) < 1 {
@@ -15,7 +16,9 @@ func exist(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
 	allExist := true
 	for _, what := range args {
 		exists := m.Exists(what)
-		fmt.Fprintf(os.Stderr, "%s: %v\n", what, exists)
+		if !existQuiet {
+			fmt.Printf("%s: %v\n", what, exists)
+		}
 		allExist = allExist && exists
 	}
 	if !allExist {
@@ -31,5 +34,8 @@ func init() {
 		usage:       "Check if a layer or image or container exists",
 		minArgs:     1,
 		action:      exist,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.BoolVar(&existQuiet, []string{"-quiet", "q"}, existQuiet, "Don't print names")
+		},
 	})
 }
