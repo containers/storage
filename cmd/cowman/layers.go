@@ -16,6 +16,18 @@ func layers(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int 
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
+	imageMap := make(map[string]cow.Image)
+	if images, err := m.Images(); err == nil {
+		for _, image := range images {
+			imageMap[image.TopLayer] = image
+		}
+	}
+	containerMap := make(map[string]cow.Container)
+	if containers, err := m.Containers(); err == nil {
+		for _, container := range containers {
+			containerMap[container.LayerID] = container
+		}
+	}
 	nodes := []TreeNode{}
 	for _, layer := range layers {
 		if listLayersTree {
@@ -28,16 +40,40 @@ func layers(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int 
 				node.left = "(base)"
 			}
 			if layer.Name != "" {
-				node.notes = append(node.notes, layer.Name)
+				node.notes = append(node.notes, "name: "+layer.Name)
 			}
 			if layer.MountPoint != "" {
-				node.notes = append(node.notes, layer.MountPoint)
+				node.notes = append(node.notes, "mount: "+layer.MountPoint)
+			}
+			if image, ok := imageMap[layer.ID]; ok {
+				node.notes = append(node.notes, fmt.Sprintf("image: %s", image.ID))
+				if image.Name != "" {
+					node.notes = append(node.notes, fmt.Sprintf("image name: %s", image.Name))
+				}
+			}
+			if container, ok := containerMap[layer.ID]; ok {
+				node.notes = append(node.notes, fmt.Sprintf("container: %s", container.ID))
+				if container.Name != "" {
+					node.notes = append(node.notes, fmt.Sprintf("container name: %s", container.Name))
+				}
 			}
 			nodes = append(nodes, node)
 		} else {
 			fmt.Printf("%s\n", layer.ID)
 			if layer.Name != "" {
 				fmt.Printf("\t%s\n", layer.Name)
+				if image, ok := imageMap[layer.ID]; ok {
+					fmt.Printf("\timage: %s\n", image.ID)
+					if image.Name != "" {
+						fmt.Printf("\t\tname: %s\n", image.Name)
+					}
+				}
+				if container, ok := containerMap[layer.ID]; ok {
+					fmt.Printf("\tcontainer: %s\n", container.ID)
+					if container.Name != "" {
+						fmt.Printf("\t\tname: %s\n", container.Name)
+					}
+				}
 			}
 		}
 	}
