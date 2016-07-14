@@ -315,12 +315,21 @@ func (m *mall) Exists(id string) bool {
 }
 
 func (m *mall) Delete(id string) error {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return err
+	}
 	rcstore, err := m.GetContainerStore()
 	if err != nil {
 		return err
 	}
 	if rcstore.Exists(id) {
-		return rcstore.Delete(id)
+		if container, err := rcstore.Get(id); err == nil {
+			if err := rlstore.Delete(container.LayerID); err != nil {
+				return err
+			}
+			return rcstore.Delete(id)
+		}
 	}
 	ristore, err := m.GetImageStore()
 	if err != nil {
@@ -328,10 +337,6 @@ func (m *mall) Delete(id string) error {
 	}
 	if ristore.Exists(id) {
 		return ristore.Delete(id)
-	}
-	rlstore, err := m.GetLayerStore()
-	if err != nil {
-		return err
 	}
 	if rlstore.Exists(id) {
 		return rlstore.Delete(id)
