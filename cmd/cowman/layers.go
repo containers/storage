@@ -61,18 +61,18 @@ func layers(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int 
 		} else {
 			fmt.Printf("%s\n", layer.ID)
 			if layer.Name != "" {
-				fmt.Printf("\t%s\n", layer.Name)
-				if image, ok := imageMap[layer.ID]; ok {
-					fmt.Printf("\timage: %s\n", image.ID)
-					if image.Name != "" {
-						fmt.Printf("\t\tname: %s\n", image.Name)
-					}
+				fmt.Printf("\tname: %s\n", layer.Name)
+			}
+			if image, ok := imageMap[layer.ID]; ok {
+				fmt.Printf("\timage: %s\n", image.ID)
+				if image.Name != "" {
+					fmt.Printf("\t\tname: %s\n", image.Name)
 				}
-				if container, ok := containerMap[layer.ID]; ok {
-					fmt.Printf("\tcontainer: %s\n", container.ID)
-					if container.Name != "" {
-						fmt.Printf("\t\tname: %s\n", container.Name)
-					}
+			}
+			if container, ok := containerMap[layer.ID]; ok {
+				fmt.Printf("\tcontainer: %s\n", container.ID)
+				if container.Name != "" {
+					fmt.Printf("\t\tname: %s\n", container.Name)
 				}
 			}
 		}
