@@ -95,7 +95,7 @@ func main() {
 				}
 				args = flags.Args()
 				if command.minArgs != 0 && len(args) < command.minArgs {
-					fmt.Printf("%s: more arguments required.\n", cmd, args)
+					fmt.Printf("%s: more arguments required.\n", cmd)
 					flags.Usage()
 					os.Exit(1)
 				}
