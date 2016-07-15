@@ -4,7 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"syscall"
+	"sync"
 
 	"github.com/containers/storage/drivers"
 	_ "github.com/containers/storage/drivers/register"
@@ -72,6 +72,7 @@ type Users struct {
 }
 
 type mall struct {
+	lockfile        sync.Locker
 	graphRoot       string
 	graphDriverName string
 	graphOptions    []string
@@ -93,21 +94,14 @@ func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, e
 			return nil, err
 		}
 	}
-	if fd, err := syscall.Open(filepath.Join(graphRoot, "storage.lock"), os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
+	lockfile, err := GetLockfile(filepath.Join(graphRoot, "storage.lock"))
+	if err != nil {
 		return nil, err
 	} else {
-		lk := syscall.Flock_t{
-			Type:   syscall.F_WRLCK,
-			Whence: int16(os.SEEK_SET),
-			Start:  0,
-			Len:    0,
-			Pid:    int32(os.Getpid()),
-		}
-		if err = syscall.FcntlFlock(uintptr(fd), syscall.F_SETLKW, &lk); err != nil {
-			return nil, err
-		}
+		lockfile.Lock()
 	}
 	m := &mall{
+		lockfile:        lockfile,
 		graphRoot:       graphRoot,
 		graphDriverName: graphDriverName,
 		graphOptions:    graphOptions,
