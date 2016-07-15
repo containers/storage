@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/docker/docker/cow"
-	"github.com/docker/docker/pkg/mflag"
+	"github.com/containers/storage/storage"
+	"github.com/containers/storage/pkg/mflag"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 	CreateRO     = false
 )
 
-func createLayer(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	parent := ""
 	if len(args) > 0 {
 		parent = args[0]
@@ -38,7 +38,7 @@ func createLayer(flags *mflag.FlagSet, action string, m cow.Mall, args []string)
 	return 0
 }
 
-func createImage(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	if MetadataFile != "" {
 		f, err := os.Open(MetadataFile)
 		if err != nil {
@@ -65,7 +65,7 @@ func createImage(flags *mflag.FlagSet, action string, m cow.Mall, args []string)
 	return 0
 }
 
-func createContainer(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func createContainer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	if MetadataFile != "" {
 		f, err := os.Open(MetadataFile)
 		if err != nil {

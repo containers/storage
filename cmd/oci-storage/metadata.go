@@ -6,13 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/docker/docker/cow"
-	"github.com/docker/docker/pkg/mflag"
+	"github.com/containers/storage/storage"
+	"github.com/containers/storage/pkg/mflag"
 )
 
 var metadataQuiet = false
 
-func metadata(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func metadata(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -42,7 +42,7 @@ func metadata(flags *mflag.FlagSet, action string, m cow.Mall, args []string) in
 	return 0
 }
 
-func setMetadata(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func setMetadata(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

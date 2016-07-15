@@ -1,4 +1,4 @@
-package cow
+package storage
 
 import (
 	"encoding/json"
@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/daemon/graphdriver"
-	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/ioutils"
-	"github.com/docker/docker/pkg/stringid"
+	"github.com/containers/storage/drivers"
+	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/stringid"
 )
 
 var (
@@ -71,7 +71,7 @@ type Layer struct {
 // DiffSize produces an estimate of the length of the tarstream which would be
 // produced by Diff.
 //
-// ApplyDiff reads tarstream which was created by a previous call to Diff and
+// ApplyDiff reads a tarstream which was created by a previous call to Diff and
 // applies its changes to a specified layer.
 //
 // Lookup attempts to translate a name to an ID.  Most methods do this

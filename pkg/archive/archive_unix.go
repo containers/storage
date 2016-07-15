@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/docker/docker/pkg/system"
+	"github.com/containers/storage/pkg/system"
 )
 
 // fixVolumePathPrefix does platform specific processing to ensure that if

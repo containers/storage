@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/reexec"
-	"github.com/docker/docker/pkg/system"
+	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/reexec"
+	"github.com/containers/storage/pkg/system"
 )
 
 func init() {

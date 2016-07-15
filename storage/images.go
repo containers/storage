@@ -1,4 +1,4 @@
-package cow
+package storage
 
 import (
 	"encoding/json"
@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/pkg/ioutils"
-	"github.com/docker/docker/pkg/stringid"
+	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/stringid"
 )
 
 var ErrImageUnknown = errors.New("image not known")
@@ -30,9 +30,12 @@ type Image struct {
 // optional name, using the specified layer as its topmost (hopefully
 // read-only) layer.
 //
-// Get retrieves information about an image given an ID or name.
+// SetMetadata replaces the metadata associated with an image with the supplied
+// value.
 //
 // Exists checks if there is an image with the given ID or name.
+//
+// Get retrieves information about an image given an ID or name.
 //
 // Delete removes the record of the image.
 //

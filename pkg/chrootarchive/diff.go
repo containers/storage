@@ -1,6 +1,6 @@
 package chrootarchive
 
-import "github.com/docker/docker/pkg/archive"
+import "github.com/containers/storage/pkg/archive"
 
 // ApplyLayer parses a diff in the standard layer format from `layer`,
 // and applies it to the directory `dest`. The stream `layer` can only be

@@ -13,12 +13,12 @@ import (
 	"sync"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/libcontainerd"
-	"github.com/docker/docker/pkg/ioutils"
-	"github.com/docker/docker/pkg/plugins"
-	"github.com/docker/docker/reference"
-	"github.com/docker/docker/registry"
-	"github.com/docker/docker/restartmanager"
+	"github.com/containers/storage/libcontainerd"
+	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/plugins"
+	"github.com/containers/storage/reference"
+	"github.com/containers/storage/registry"
+	"github.com/containers/storage/restartmanager"
 	"github.com/docker/engine-api/types"
 )
 

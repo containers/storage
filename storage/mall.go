@@ -1,4 +1,4 @@
-package cow
+package storage
 
 import (
 	"errors"
@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/docker/docker/daemon/graphdriver"
-	_ "github.com/docker/docker/daemon/graphdriver/register"
-	"github.com/docker/docker/pkg/archive"
+	"github.com/containers/storage/drivers"
+	_ "github.com/containers/storage/drivers/register"
+	"github.com/containers/storage/pkg/archive"
 )
 
 var (
@@ -93,7 +93,7 @@ func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, e
 			return nil, err
 		}
 	}
-	if fd, err := syscall.Open(filepath.Join(graphRoot, "libcow.lock"), os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
+	if fd, err := syscall.Open(filepath.Join(graphRoot, "storage.lock"), os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
 		return nil, err
 	} else {
 		lk := syscall.Flock_t{

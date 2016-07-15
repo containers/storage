@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/docker/docker/pkg/mount"
+	"github.com/containers/storage/pkg/mount"
 )
 
 // chroot on linux uses pivot_root instead of chroot

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-PROJECT=github.com/docker/docker
+PROJECT=github.com/containers/storage
 
 # Downloads dependencies into vendor/ directory
 mkdir -p vendor
 
-if ! go list github.com/docker/docker/docker &> /dev/null; then
+if ! go list github.com/containers/storage/storage &> /dev/null; then
 	rm -rf .gopath
-	mkdir -p .gopath/src/github.com/docker
+	mkdir -p .gopath/src/github.com/containers
 	ln -sf ../../../.. .gopath/src/${PROJECT}
 	export GOPATH="${PWD}/.gopath:${PWD}/vendor"
 fi
@@ -54,46 +54,14 @@ clone() {
 	echo done
 }
 
-# get an ENV from the Dockerfile with support for multiline values
-_dockerfile_env() {
-	local e="$1"
-	awk '
-		$1 == "ENV" && $2 == "'"$e"'" {
-			sub(/^ENV +([^ ]+) +/, "");
-			inEnv = 1;
-		}
-		inEnv {
-			if (sub(/\\$/, "")) {
-				printf "%s", $0;
-				next;
-			}
-			print;
-			exit;
-		}
-	' ${DOCKER_FILE:="Dockerfile"}
-}
-
 clean() {
 	local packages=(
-		"${PROJECT}/cmd/dockerd" # daemon package main
-		"${PROJECT}/cmd/docker" # client package main
-		"${PROJECT}/integration-cli" # external tests
+		"${PROJECT}/cmd/oci-storage"
 	)
-	local dockerPlatforms=( ${DOCKER_ENGINE_OSARCH:="linux/amd64"} $(_dockerfile_env DOCKER_CROSSPLATFORMS) )
-	local dockerBuildTags="$(_dockerfile_env DOCKER_BUILDTAGS)"
+	local storagePlatforms=( ${STORAGE_OSARCH:="linux/amd64"} )
 	local buildTagCombos=(
 		''
 		'experimental'
-		'pkcs11'
-		"$dockerBuildTags"
-		"daemon $dockerBuildTags"
-		"daemon cgo $dockerBuildTags"
-		"experimental $dockerBuildTags"
-		"experimental daemon $dockerBuildTags"
-		"experimental daemon cgo $dockerBuildTags"
-		"pkcs11 $dockerBuildTags"
-		"pkcs11 daemon $dockerBuildTags"
-		"pkcs11 daemon cgo $dockerBuildTags"
 	)
 
 	echo
@@ -101,7 +69,7 @@ clean() {
 	echo -n 'collecting import graph, '
 	local IFS=$'\n'
 	local imports=( $(
-		for platform in "${dockerPlatforms[@]}"; do
+		for platform in "${storagePlatforms[@]}"; do
 			export GOOS="${platform%/*}";
 			export GOARCH="${platform##*/}";
 			for buildTags in "${buildTagCombos[@]}"; do
@@ -114,25 +82,12 @@ clean() {
 	unset IFS
 
 	echo -n 'pruning unused packages, '
-	findArgs=(
-		# This directory contains only .c and .h files which are necessary
-		-path vendor/src/github.com/mattn/go-sqlite3/code
-	)
+	findArgs=
 
-	# This package is required to build the Etcd client,
-	# but Etcd hard codes a local Godep full path.
-	# FIXME: fix_rewritten_imports fixes this problem in most platforms
-	# but it fails in very small corner cases where it makes the vendor
-	# script to remove this package.
-	# See: https://github.com/docker/docker/issues/19231
-	findArgs+=( -or -path vendor/src/github.com/ugorji/go/codec )
 	for import in "${imports[@]}"; do
 		[ "${#findArgs[@]}" -eq 0 ] || findArgs+=( -or )
 		findArgs+=( -path "vendor/src/$import" )
 	done
-
-	# The docker proxy command is built from libnetwork
-	findArgs+=( -or -path vendor/src/github.com/docker/libnetwork/cmd/proxy )
 
 	local IFS=$'\n'
 	local prune=( $($find vendor -depth -type d -not '(' "${findArgs[@]}" ')') )

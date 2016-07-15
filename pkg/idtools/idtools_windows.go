@@ -5,7 +5,7 @@ package idtools
 import (
 	"os"
 
-	"github.com/docker/docker/pkg/system"
+	"github.com/containers/storage/pkg/system"
 )
 
 // Platforms such as Windows do not support the UID/GID concept. So make this

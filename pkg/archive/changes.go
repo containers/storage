@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/pkg/idtools"
-	"github.com/docker/docker/pkg/pools"
-	"github.com/docker/docker/pkg/system"
+	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/pools"
+	"github.com/containers/storage/pkg/system"
 )
 
 // ChangeType represents the change type.

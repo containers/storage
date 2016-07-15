@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/docker/docker/cow"
-	"github.com/docker/docker/pkg/mflag"
+	"github.com/containers/storage/storage"
+	"github.com/containers/storage/pkg/mflag"
 )
 
-func status(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func status(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	status, err := m.Status()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "status: %v\n", err)

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/docker/docker/cow"
-	"github.com/docker/docker/pkg/mflag"
+	"github.com/containers/storage/storage"
+	"github.com/containers/storage/pkg/mflag"
 )
 
-func image(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	images, err := m.Images()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

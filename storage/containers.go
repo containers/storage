@@ -1,4 +1,4 @@
-package cow
+package storage
 
 import (
 	"encoding/json"
@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/pkg/ioutils"
-	"github.com/docker/docker/pkg/stringid"
+	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/stringid"
 )
 
 var (
@@ -36,9 +36,12 @@ type Container struct {
 // optional name, based on the specified image, using the specified layer as
 // its read-write layer.
 //
-// Get retrieves information about a container given an ID or name.
+// SetMetadata replaces the metadata associated with a container with the
+// supplied value.
 //
 // Exists checks if there is a container with the given ID or name.
+//
+// Get retrieves information about a container given an ID or name.
 //
 // Delete removes the record of the container.
 //

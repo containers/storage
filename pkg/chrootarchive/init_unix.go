@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/docker/docker/pkg/reexec"
+	"github.com/containers/storage/pkg/reexec"
 )
 
 func init() {

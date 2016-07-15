@@ -4,25 +4,25 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/docker/docker/cow"
-	"github.com/docker/docker/pkg/mflag"
+	"github.com/containers/storage/storage"
+	"github.com/containers/storage/pkg/mflag"
 )
 
 var listLayersTree = false
 
-func layers(flags *mflag.FlagSet, action string, m cow.Mall, args []string) int {
+func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	layers, err := m.Layers()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	imageMap := make(map[string]cow.Image)
+	imageMap := make(map[string]storage.Image)
 	if images, err := m.Images(); err == nil {
 		for _, image := range images {
 			imageMap[image.TopLayer] = image
 		}
 	}
-	containerMap := make(map[string]cow.Container)
+	containerMap := make(map[string]storage.Container)
 	if containers, err := m.Containers(); err == nil {
 		for _, container := range containers {
 			containerMap[container.LayerID] = container

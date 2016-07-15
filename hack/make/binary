@@ -4,7 +4,7 @@ rm -rf "$DEST"
 
 # This script exists as backwards compatibility for CI
 (
-	DEST="${DEST}-cowman"
-	ABS_DEST="${ABS_DEST}-cowman"
-	. hack/make/binary-cowman
+	DEST="${DEST}-oci-storage"
+	ABS_DEST="${ABS_DEST}-oci-storage"
+	. hack/make/binary-oci-storage
 )

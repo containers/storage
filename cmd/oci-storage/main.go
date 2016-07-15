@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/docker/docker/cow"
-	"github.com/docker/docker/opts"
-	"github.com/docker/docker/pkg/mflag"
-	"github.com/docker/docker/pkg/reexec"
+	"github.com/containers/storage/storage"
+	"github.com/containers/storage/opts"
+	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/pkg/reexec"
 )
 
 type command struct {
@@ -19,7 +19,7 @@ type command struct {
 	maxArgs     int
 	usage       string
 	addFlags    func(*mflag.FlagSet, *command)
-	action      func(*mflag.FlagSet, string, cow.Mall, []string) int
+	action      func(*mflag.FlagSet, string, storage.Mall, []string) int
 }
 
 var commands = []command{}
@@ -29,7 +29,7 @@ func main() {
 		return
 	}
 
-	graphRoot := "/var/lib/cowman"
+	graphRoot := "/var/lib/oci-storage"
 	graphDriver := os.Getenv("DOCKER_GRAPHDRIVER")
 	graphOptions := strings.Split(os.Getenv("DOCKER_STORAGE_OPTS"), ",")
 	if len(graphOptions) == 1 && graphOptions[0] == "" {
@@ -46,9 +46,9 @@ func main() {
 		return flags
 	}
 
-	flags := makeFlags("cowman", mflag.ContinueOnError)
+	flags := makeFlags("oci-storage", mflag.ContinueOnError)
 	flags.Usage = func() {
-		fmt.Printf("Usage: cowman command [options [...]]\n\n")
+		fmt.Printf("Usage: oci-storage command [options [...]]\n\n")
 		fmt.Printf("Commands:\n\n")
 		for _, command := range commands {
 			fmt.Printf("  %-18s%s\n", command.names[0], command.usage)
@@ -83,7 +83,7 @@ func main() {
 					command.addFlags(flags, &command)
 				}
 				flags.Usage = func() {
-					fmt.Printf("Usage: cowman %s %s\n\n", cmd, command.optionsHelp)
+					fmt.Printf("Usage: oci-storage %s %s\n\n", cmd, command.optionsHelp)
 					fmt.Printf("%s\n", command.usage)
 					fmt.Printf("\nOptions:\n")
 					flags.PrintDefaults()
@@ -112,7 +112,7 @@ func main() {
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
-				mall, err := cow.MakeMall(graphRoot, graphDriver, graphOptions)
+				mall, err := storage.MakeMall(graphRoot, graphDriver, graphOptions)
 				if err != nil {
 					fmt.Printf("error initializing: %v\n", err)
 					os.Exit(1)

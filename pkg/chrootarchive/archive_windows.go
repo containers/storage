@@ -3,8 +3,8 @@ package chrootarchive
 import (
 	"io"
 
-	"github.com/docker/docker/pkg/archive"
-	"github.com/docker/docker/pkg/longpath"
+	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/longpath"
 )
 
 // chroot is not supported by Windows

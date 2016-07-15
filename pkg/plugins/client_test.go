@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/pkg/plugins/transport"
+	"github.com/containers/storage/pkg/plugins/transport"
 	"github.com/docker/go-connections/tlsconfig"
 )
 
