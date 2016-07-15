@@ -80,6 +80,7 @@ type Layer struct {
 // Layers returns a slice of the known layers.
 //
 type LayerStore interface {
+	Store
 	Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Get(id string) (*Layer, error)
@@ -97,6 +98,7 @@ type LayerStore interface {
 }
 
 type layerStore struct {
+	lockfile Locker
 	driver   graphdriver.Driver
 	dir      string
 	layers   []Layer
@@ -159,7 +161,14 @@ func newLayerStore(dir string, driver graphdriver.Driver) (LayerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
+	lockfile, err := GetLockfile(filepath.Join(dir, "layers.lock"))
+	if err != nil {
+		return nil, err
+	}
+	lockfile.Lock()
+	defer lockfile.Unlock()
 	rlstore := layerStore{
+		lockfile: lockfile,
 		driver:   driver,
 		dir:      dir,
 		byid:     make(map[string]*Layer),
@@ -401,4 +410,20 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	} else {
 		return r.driver.ApplyDiff(layer.ID, layer.Parent, diff)
 	}
+}
+
+func (r *layerStore) Lock() {
+	r.lockfile.Lock()
+}
+
+func (r *layerStore) Unlock() {
+	r.lockfile.Unlock()
+}
+
+func (r *layerStore) Touch() error {
+	return r.lockfile.Touch()
+}
+
+func (r *layerStore) Modified() (bool, error) {
+	return r.lockfile.Modified()
 }

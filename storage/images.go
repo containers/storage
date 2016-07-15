@@ -43,6 +43,7 @@ type Image struct {
 //
 // Images returns a slice enumerating the known images.
 type ImageStore interface {
+	Store
 	Create(id, name, layer, metadata string) (*Image, error)
 	SetMetadata(id, metadata string) error
 	Exists(id string) bool
@@ -53,10 +54,11 @@ type ImageStore interface {
 }
 
 type imageStore struct {
-	dir    string
-	images []Image
-	byid   map[string]*Image
-	byname map[string]*Image
+	lockfile Locker
+	dir      string
+	images   []Image
+	byid     map[string]*Image
+	byname   map[string]*Image
 }
 
 func (r *imageStore) Images() ([]Image, error) {
@@ -100,11 +102,18 @@ func newImageStore(dir string) (ImageStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
+	lockfile, err := GetLockfile(filepath.Join(dir, "images.lock"))
+	if err != nil {
+		return nil, err
+	}
+	lockfile.Lock()
+	defer lockfile.Unlock()
 	istore := imageStore{
-		dir:    dir,
-		images: []Image{},
-		byid:   make(map[string]*Image),
-		byname: make(map[string]*Image),
+		lockfile: lockfile,
+		dir:      dir,
+		images:   []Image{},
+		byid:     make(map[string]*Image),
+		byname:   make(map[string]*Image),
 	}
 	if err := istore.Load(); err != nil {
 		return nil, err
@@ -201,4 +210,20 @@ func (r *imageStore) Wipe() error {
 		}
 	}
 	return nil
+}
+
+func (r *imageStore) Lock() {
+	r.lockfile.Lock()
+}
+
+func (r *imageStore) Unlock() {
+	r.lockfile.Unlock()
+}
+
+func (r *imageStore) Touch() error {
+	return r.lockfile.Touch()
+}
+
+func (r *imageStore) Modified() (bool, error) {
+	return r.lockfile.Modified()
 }

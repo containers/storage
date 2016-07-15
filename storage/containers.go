@@ -20,7 +20,7 @@ var (
 // Name is an optional user-defined convenience value.
 // ImageID is the ID of the image which was used to create the container.
 // LayerID is the ID of the read-write layer for the container itself.
-// It is expected that the image's last layer is the parent of the container's
+// It is assumed that the image's top layer is the parent of the container's
 // read-write layer.
 type Container struct {
 	ID       string `json:"id"`
@@ -49,6 +49,7 @@ type Container struct {
 //
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
+	Store
 	Create(id, name, image, layer, metadata string) (*Container, error)
 	SetMetadata(id, metadata string) error
 	Get(id string) (*Container, error)
@@ -59,6 +60,7 @@ type ContainerStore interface {
 }
 
 type containerStore struct {
+	lockfile   Locker
 	dir        string
 	containers []Container
 	byid       map[string]*Container
@@ -106,7 +108,14 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
+	lockfile, err := GetLockfile(filepath.Join(dir, "containers.lock"))
+	if err != nil {
+		return nil, err
+	}
+	lockfile.Lock()
+	defer lockfile.Unlock()
 	cstore := containerStore{
+		lockfile:   lockfile,
 		dir:        dir,
 		containers: []Container{},
 		byid:       make(map[string]*Container),
@@ -208,4 +217,20 @@ func (r *containerStore) Wipe() error {
 		}
 	}
 	return nil
+}
+
+func (r *containerStore) Lock() {
+	r.lockfile.Lock()
+}
+
+func (r *containerStore) Unlock() {
+	r.lockfile.Unlock()
+}
+
+func (r *containerStore) Touch() error {
+	return r.lockfile.Touch()
+}
+
+func (r *containerStore) Modified() (bool, error) {
+	return r.lockfile.Modified()
 }
