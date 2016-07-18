@@ -11,7 +11,10 @@ import (
 	"github.com/containers/storage/pkg/stringid"
 )
 
-var ErrImageUnknown = errors.New("image not known")
+var (
+	// ErrImageUnknown indicates that there was no image with the specified name or ID
+	ErrImageUnknown = errors.New("image not known")
+)
 
 // An Image is a reference to a layer and an associated metadata string.
 // ID is either one specified at import-time or a randomly-generated value.
@@ -70,22 +73,21 @@ func (r *imageStore) Load() error {
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
-	} else {
-		images := []Image{}
-		ids := make(map[string]*Image)
-		names := make(map[string]*Image)
-		if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
-			for n, image := range images {
-				ids[image.ID] = &images[n]
-				if image.Name != "" {
-					names[image.Name] = &images[n]
-				}
+	}
+	images := []Image{}
+	ids := make(map[string]*Image)
+	names := make(map[string]*Image)
+	if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
+		for n, image := range images {
+			ids[image.ID] = &images[n]
+			if image.Name != "" {
+				names[image.Name] = &images[n]
 			}
 		}
-		r.images = images
-		r.byid = ids
-		r.byname = names
 	}
+	r.images = images
+	r.byid = ids
+	r.byname = names
 	return nil
 }
 
@@ -126,7 +128,7 @@ func (r *imageStore) Create(id, name, layer, metadata string) (image *Image, err
 		id = stringid.GenerateRandomID()
 	}
 	if _, nameInUse := r.byname[name]; nameInUse {
-		return nil, DuplicateName
+		return nil, errDuplicateName
 	}
 	if err == nil {
 		newImage := Image{

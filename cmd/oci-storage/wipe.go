@@ -11,7 +11,7 @@ import (
 func wipe(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	err := m.Wipe()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s: %v\n", action, err)
 		return 1
 	}
 	return 0

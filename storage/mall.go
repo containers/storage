@@ -6,14 +6,16 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/containers/storage/drivers"
+	// register all of the built-in drivers
 	_ "github.com/containers/storage/drivers/register"
+
+	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 )
 
 var (
-	LoadError     = errors.New("error loading storage metadata")
-	DuplicateName = errors.New("that name is already in use")
+	errLoadError     = errors.New("error loading storage metadata")
+	errDuplicateName = errors.New("that name is already in use")
 )
 
 // Store wraps up the most common methods of the various types of file-based
@@ -184,7 +186,7 @@ func (m *mall) GetGraphDriver() (graphdriver.Driver, error) {
 	if m.graphDriver != nil {
 		return m.graphDriver, nil
 	}
-	return nil, LoadError
+	return nil, errLoadError
 }
 
 func (m *mall) GetLayerStore() (LayerStore, error) {
@@ -196,7 +198,7 @@ func (m *mall) GetLayerStore() (LayerStore, error) {
 	if m.layerStore != nil {
 		return m.layerStore, nil
 	}
-	return nil, LoadError
+	return nil, errLoadError
 }
 
 func (m *mall) GetImageStore() (ImageStore, error) {
@@ -208,7 +210,7 @@ func (m *mall) GetImageStore() (ImageStore, error) {
 	if m.imageStore != nil {
 		return m.imageStore, nil
 	}
-	return nil, LoadError
+	return nil, errLoadError
 }
 
 func (m *mall) GetContainerStore() (ContainerStore, error) {
@@ -220,7 +222,7 @@ func (m *mall) GetContainerStore() (ContainerStore, error) {
 	if m.containerStore != nil {
 		return m.containerStore, nil
 	}
-	return nil, LoadError
+	return nil, errLoadError
 }
 
 func (m *mall) CreateLayer(id, parent, name, mountLabel string, writeable bool) (*Layer, error) {

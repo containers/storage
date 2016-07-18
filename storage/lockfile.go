@@ -33,11 +33,11 @@ type lockfile struct {
 // GetLockfile opens a lock file, creating it if necessary.  The Locker object
 // return will be returned unlocked.
 func GetLockfile(path string) (Locker, error) {
-	if fd, err := syscall.Open(path, os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR); err != nil {
+	fd, err := syscall.Open(path, os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR)
+	if err != nil {
 		return nil, err
-	} else {
-		return &lockfile{file: path, fd: uintptr(fd)}, nil
 	}
+	return &lockfile{file: path, fd: uintptr(fd)}, nil
 }
 
 func (l *lockfile) Lock() {

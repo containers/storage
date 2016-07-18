@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	// ErrContainerUnknown indicates that there was no container with the specified name or ID
 	ErrContainerUnknown = errors.New("container not known")
 )
 
@@ -76,22 +77,21 @@ func (r *containerStore) Load() error {
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
-	} else {
-		containers := []Container{}
-		ids := make(map[string]*Container)
-		names := make(map[string]*Container)
-		if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
-			for n, container := range containers {
-				ids[container.ID] = &containers[n]
-				if container.Name != "" {
-					names[container.Name] = &containers[n]
-				}
+	}
+	containers := []Container{}
+	ids := make(map[string]*Container)
+	names := make(map[string]*Container)
+	if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
+		for n, container := range containers {
+			ids[container.ID] = &containers[n]
+			if container.Name != "" {
+				names[container.Name] = &containers[n]
 			}
 		}
-		r.containers = containers
-		r.byid = ids
-		r.byname = names
 	}
+	r.containers = containers
+	r.byid = ids
+	r.byname = names
 	return nil
 }
 
@@ -132,7 +132,7 @@ func (r *containerStore) Create(id, name, image, layer, metadata string) (contai
 		id = stringid.GenerateRandomID()
 	}
 	if _, nameInUse := r.byname[name]; nameInUse {
-		return nil, DuplicateName
+		return nil, errDuplicateName
 	}
 	if err == nil {
 		newContainer := Container{

@@ -28,10 +28,10 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 			containerMap[container.LayerID] = container
 		}
 	}
-	nodes := []TreeNode{}
+	nodes := []treeNode{}
 	for _, layer := range layers {
 		if listLayersTree {
-			node := TreeNode{
+			node := treeNode{
 				left:  string(layer.Parent),
 				right: string(layer.ID),
 				notes: []string{},
@@ -78,7 +78,7 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 		}
 	}
 	if listLayersTree {
-		PrintTree(nodes)
+		printTree(nodes)
 	}
 	return 0
 }

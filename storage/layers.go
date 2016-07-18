@@ -14,8 +14,10 @@ import (
 )
 
 var (
+	// ErrParentUnknown indicates that we didn't record the ID of the parent of the specified layer
 	ErrParentUnknown = errors.New("parent of layer not known")
-	ErrLayerUnknown  = errors.New("layer not known")
+	// ErrLayerUnknown indicates that there was no layer with the specified name or ID
+	ErrLayerUnknown = errors.New("layer not known")
 )
 
 // A Layer is a record of a copy-on-write layer that's stored by the lower
@@ -117,34 +119,33 @@ func (r *layerStore) Load() error {
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
-	} else {
-		layers := []Layer{}
-		ids := make(map[string]*Layer)
-		names := make(map[string]*Layer)
-		mounts := make(map[string]*Layer)
-		parents := make(map[string][]*Layer)
-		if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
-			for n, layer := range layers {
-				ids[layer.ID] = &layers[n]
-				if layer.Name != "" {
-					names[layer.Name] = &layers[n]
-				}
-				if layer.MountPoint != "" {
-					mounts[layer.MountPoint] = &layers[n]
-				}
-				if pslice, ok := parents[layer.Parent]; ok {
-					parents[layer.Parent] = append(pslice, &layers[n])
-				} else {
-					parents[layer.Parent] = []*Layer{&layers[n]}
-				}
+	}
+	layers := []Layer{}
+	ids := make(map[string]*Layer)
+	names := make(map[string]*Layer)
+	mounts := make(map[string]*Layer)
+	parents := make(map[string][]*Layer)
+	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
+		for n, layer := range layers {
+			ids[layer.ID] = &layers[n]
+			if layer.Name != "" {
+				names[layer.Name] = &layers[n]
+			}
+			if layer.MountPoint != "" {
+				mounts[layer.MountPoint] = &layers[n]
+			}
+			if pslice, ok := parents[layer.Parent]; ok {
+				parents[layer.Parent] = append(pslice, &layers[n])
+			} else {
+				parents[layer.Parent] = []*Layer{&layers[n]}
 			}
 		}
-		r.layers = layers
-		r.byid = ids
-		r.byname = names
-		r.byparent = parents
-		r.bymount = mounts
 	}
+	r.layers = layers
+	r.byid = ids
+	r.byname = names
+	r.byparent = parents
+	r.bymount = mounts
 	return nil
 }
 
@@ -194,7 +195,7 @@ func (r *layerStore) Create(id, parent, name, mountLabel string, options map[str
 		id = stringid.GenerateRandomID()
 	}
 	if _, nameInUse := r.byname[name]; nameInUse {
-		return nil, DuplicateName
+		return nil, errDuplicateName
 	}
 	if writeable {
 		err = r.driver.CreateReadWrite(id, parent, mountLabel, options)
@@ -405,11 +406,11 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
 	}
-	if layer, ok := r.byid[to]; !ok {
+	layer, ok := r.byid[to]
+	if !ok {
 		return -1, ErrParentUnknown
-	} else {
-		return r.driver.ApplyDiff(layer.ID, layer.Parent, diff)
 	}
+	return r.driver.ApplyDiff(layer.ID, layer.Parent, diff)
 }
 
 func (r *layerStore) Lock() {

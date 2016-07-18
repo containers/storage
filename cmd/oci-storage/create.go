@@ -10,14 +10,13 @@ import (
 )
 
 var (
-	MountLabel   = ""
-	Name         = ""
-	ID           = ""
-	Image        = ""
-	Layer        = ""
-	Metadata     = ""
-	MetadataFile = ""
-	CreateRO     = false
+	paramMountLabel   = ""
+	paramName         = ""
+	paramID           = ""
+	paramLayer        = ""
+	paramMetadata     = ""
+	paramMetadataFile = ""
+	paramCreateRO     = false
 )
 
 func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
@@ -25,7 +24,7 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	if len(args) > 0 {
 		parent = args[0]
 	}
-	layer, err := m.CreateLayer(ID, parent, Name, MountLabel, !CreateRO)
+	layer, err := m.CreateLayer(paramID, parent, paramName, paramMountLabel, !paramCreateRO)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -39,8 +38,8 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 }
 
 func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
-	if MetadataFile != "" {
-		f, err := os.Open(MetadataFile)
+	if paramMetadataFile != "" {
+		f, err := os.Open(paramMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
@@ -50,9 +49,9 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		Metadata = string(b)
+		paramMetadata = string(b)
 	}
-	image, err := m.CreateImage(ID, Name, args[0], Metadata)
+	image, err := m.CreateImage(paramID, paramName, args[0], paramMetadata)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -66,8 +65,8 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 }
 
 func createContainer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
-	if MetadataFile != "" {
-		f, err := os.Open(MetadataFile)
+	if paramMetadataFile != "" {
+		f, err := os.Open(paramMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
@@ -77,9 +76,9 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Mall, args [
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		Metadata = string(b)
+		paramMetadata = string(b)
 	}
-	container, err := m.CreateContainer(ID, Name, args[0], Layer, Metadata)
+	container, err := m.CreateContainer(paramID, paramName, args[0], paramLayer, paramMetadata)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -100,10 +99,10 @@ func init() {
 		maxArgs:     1,
 		action:      createLayer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.StringVar(&MountLabel, []string{"-label", "l"}, "", "Mount Label")
-			flags.StringVar(&Name, []string{"-name", "n"}, "", "Layer name")
-			flags.StringVar(&ID, []string{"-id", "i"}, "", "Layer ID")
-			flags.BoolVar(&CreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
+			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
+			flags.StringVar(&paramName, []string{"-name", "n"}, "", "Layer name")
+			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Layer ID")
+			flags.BoolVar(&paramCreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
 		},
 	})
 	commands = append(commands, command{
@@ -114,10 +113,10 @@ func init() {
 		maxArgs:     1,
 		action:      createImage,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.StringVar(&Name, []string{"-name", "n"}, "", "Image name")
-			flags.StringVar(&ID, []string{"-id", "i"}, "", "Image ID")
-			flags.StringVar(&Metadata, []string{"-metadata", "m"}, "", "Metadata")
-			flags.StringVar(&MetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
+			flags.StringVar(&paramName, []string{"-name", "n"}, "", "Image name")
+			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Image ID")
+			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
+			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
 		},
 	})
 	commands = append(commands, command{
@@ -128,10 +127,10 @@ func init() {
 		maxArgs:     1,
 		action:      createContainer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.StringVar(&Name, []string{"-name", "n"}, "", "Container name")
-			flags.StringVar(&ID, []string{"-id", "i"}, "", "Container ID")
-			flags.StringVar(&Metadata, []string{"-metadata", "m"}, "", "Metadata")
-			flags.StringVar(&MetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
+			flags.StringVar(&paramName, []string{"-name", "n"}, "", "Container name")
+			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Container ID")
+			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
+			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
 		},
 	})
 }

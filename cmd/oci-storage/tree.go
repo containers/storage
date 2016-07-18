@@ -12,12 +12,12 @@ const treeThisAndMore = "\u251c"
 const treeJustThis = "\u2514"
 const treeStem = "\u2500"
 
-type TreeNode struct {
+type treeNode struct {
 	left, right string
 	notes       []string
 }
 
-func SelectRoot(nodes []TreeNode) string {
+func selectRoot(nodes []treeNode) string {
 	children := make(map[string][]string)
 	areChildren := make(map[string]bool)
 	for _, node := range nodes {
@@ -42,9 +42,9 @@ func SelectRoot(nodes []TreeNode) string {
 	return favorite
 }
 
-func PrintSubTree(root string, nodes []TreeNode, indent int, continued []int) []TreeNode {
-	leftovers := []TreeNode{}
-	children := []TreeNode{}
+func printSubTree(root string, nodes []treeNode, indent int, continued []int) []treeNode {
+	leftovers := []treeNode{}
+	children := []treeNode{}
 	for _, node := range nodes {
 		if node.left != root {
 			leftovers = append(leftovers, node)
@@ -69,17 +69,17 @@ func PrintSubTree(root string, nodes []TreeNode, indent int, continued []int) []
 		for _, note := range child.notes {
 			fmt.Printf("%s%s%s%s\n", string(istring), noteHeader, strings.Repeat(" ", treeStemWidth), note)
 		}
-		leftovers = PrintSubTree(child.right, leftovers, indent+treeIndentStep, subc)
+		leftovers = printSubTree(child.right, leftovers, indent+treeIndentStep, subc)
 	}
 	return leftovers
 }
 
-func PrintTree(nodes []TreeNode) {
+func printTree(nodes []treeNode) {
 	for len(nodes) > 0 {
-		root := SelectRoot(nodes)
+		root := selectRoot(nodes)
 		fmt.Printf("%s\n", root)
 		oldLength := len(nodes)
-		nodes = PrintSubTree(root, nodes, 0, []int{})
+		nodes = printSubTree(root, nodes, 0, []int{})
 		newLength := len(nodes)
 		if oldLength == newLength {
 			break

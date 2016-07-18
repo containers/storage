@@ -46,12 +46,12 @@ func setMetadata(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	if len(args) < 1 {
 		return 1
 	}
-	if MetadataFile == "" && Metadata == "" {
+	if paramMetadataFile == "" && paramMetadata == "" {
 		fmt.Fprintf(os.Stderr, "no new metadata provided\n")
 		return 1
 	}
-	if MetadataFile != "" {
-		f, err := os.Open(MetadataFile)
+	if paramMetadataFile != "" {
+		f, err := os.Open(paramMetadataFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
@@ -61,9 +61,9 @@ func setMetadata(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		Metadata = string(b)
+		paramMetadata = string(b)
 	}
-	if err := m.SetMetadata(args[0], Metadata); err != nil {
+	if err := m.SetMetadata(args[0], paramMetadata); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
@@ -89,8 +89,8 @@ func init() {
 		maxArgs:     1,
 		action:      setMetadata,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.StringVar(&Metadata, []string{"-metadata", "m"}, "", "Metadata")
-			flags.StringVar(&MetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
+			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
+			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
 		},
 	})
 }

@@ -10,7 +10,7 @@ import (
 
 func mount(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	for _, arg := range args {
-		result, err := m.Mount(arg, MountLabel)
+		result, err := m.Mount(arg, paramMountLabel)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s while mounting %s\n", err, arg)
 			return 1
@@ -38,7 +38,7 @@ func init() {
 		minArgs:     1,
 		action:      mount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.StringVar(&MountLabel, []string{"-label", "l"}, "", "Mount Label")
+			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
 		},
 	})
 	commands = append(commands, command{

@@ -2629,9 +2629,8 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		default:
 			if nthOption > len(defaults) {
 				return nil, fmt.Errorf("devmapper: Unknown option %s\n", key)
-			} else {
-				logrus.Errorf("devmapper: Unknown option %s, ignoring\n", key)
 			}
+			logrus.Errorf("devmapper: Unknown option %s, ignoring\n", key)
 		}
 		settings[key] = val
 	}
