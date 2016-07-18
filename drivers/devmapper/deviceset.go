@@ -22,13 +22,13 @@ import (
 	"github.com/Sirupsen/logrus"
 
 	"github.com/containers/storage/drivers"
-	"github.com/containers/storage/dockerversion"
 	"github.com/containers/storage/pkg/devicemapper"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/loopback"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
+	"github.com/containers/storage/storageversion"
 	"github.com/docker/go-units"
 
 	"github.com/opencontainers/runc/libcontainer/label"
@@ -1669,7 +1669,7 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 
 	// https://github.com/docker/docker/issues/4036
 	if supported := devicemapper.UdevSetSyncSupport(true); !supported {
-		if dockerversion.IAmStatic == "true" {
+		if storageversion.IAmStatic == "true" {
 			logrus.Errorf("devmapper: Udev sync is not supported. This will lead to data loss and unexpected behavior. Install a dynamic binary to use devicemapper or select a different storage driver. For more information, see https://docs.docker.com/engine/reference/commandline/daemon/#daemon-storage-driver-option")
 		} else {
 			logrus.Errorf("devmapper: Udev sync is not supported. This will lead to data loss and unexpected behavior. Install a more recent version of libdevmapper or select a different storage driver. For more information, see https://docs.docker.com/engine/reference/commandline/daemon/#daemon-storage-driver-option")

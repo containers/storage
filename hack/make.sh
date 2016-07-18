@@ -1,65 +1,32 @@
 #!/usr/bin/env bash
 set -e
 
-# This script builds various binary artifacts from a checkout of the docker
+# This script builds various binary artifacts from a checkout of the storage
 # source code.
 #
 # Requirements:
-# - The current directory should be a checkout of the docker source code
-#   (https://github.com/docker/docker). Whatever version is checked out
-#   will be built.
+# - The current directory should be a checkout of the storage source code
+# (https://github.com/containers/storage). Whatever version is checked out will
+# be built.
 # - The VERSION file, at the root of the repository, should exist, and
-#   will be used as Docker binary version and package version.
-# - The hash of the git commit will also be included in the Docker binary,
+#   will be used as the oci-storage binary version and package version.
+# - The hash of the git commit will also be included in the oci-storage binary,
 #   with the suffix -unsupported if the repository isn't clean.
-# - The script is intended to be run inside the docker container specified
-#   in the Dockerfile at the root of the source. In other words:
-#   DO NOT CALL THIS SCRIPT DIRECTLY.
 # - The right way to call this script is to invoke "make" from
-#   your checkout of the Docker repository.
-#   the Makefile will do a "docker build -t docker ." and then
-#   "docker run hack/make.sh" in the resulting image.
-#
+#   your checkout of the storage repository.
 
 set -o pipefail
 
-export DOCKER_PKG='github.com/docker/docker'
+export PKG='github.com/containers/storage'
 export SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export MAKEDIR="$SCRIPTDIR/make"
 export PKG_CONFIG=${PKG_CONFIG:-pkg-config}
 
 : ${TEST_REPEAT:=0}
 
-# We're a nice, sexy, little shell script, and people might try to run us;
-# but really, they shouldn't. We want to be in a container!
-inContainer="AssumeSoInitially"
-if [ "$(go env GOHOSTOS)" = 'windows' ]; then
-	if [ -z "$FROM_DOCKERFILE" ]; then
-		unset inContainer
-	fi
-else
-	if [ "$PWD" != "/go/src/$DOCKER_PKG" ] || [ -z "$DOCKER_CROSSPLATFORMS" ]; then
-		unset inContainer
-	fi
-fi
-
-if [ -z "$inContainer" ]; then
-	{
-		echo "# WARNING! I don't seem to be running in a Docker container."
-		echo "# The result of this command might be an incorrect build, and will not be"
-		echo "# officially supported."
-		echo "#"
-		echo "# Try this instead: make all"
-		echo "#"
-	} >&2
-fi
-
-echo
-
 # List of bundles to create when no argument is passed
 DEFAULT_BUNDLES=(
 	validate-dco
-	validate-default-seccomp
 	validate-gofmt
 	validate-lint
 	validate-pkg
@@ -67,18 +34,13 @@ DEFAULT_BUNDLES=(
 	validate-toml
 	validate-vet
 
-	binary-client
-	binary-daemon
-	binary-graphtool
 	dynbinary
 
 	test-unit
 	test-integration-cli
-	test-docker-py
 
 	cover
 	cross
-	tgz
 )
 
 VERSION=$(< ./VERSION)
@@ -100,20 +62,20 @@ if command -v git &> /dev/null && [ -d .git ] && git rev-parse &> /dev/null; the
 		# If using bash 3.1 which doesn't support --rfc-3389, eg Windows CI
 		BUILDTIME=$(date -u)
 	fi
-elif [ "$DOCKER_GITCOMMIT" ]; then
-	GITCOMMIT="$DOCKER_GITCOMMIT"
+elif [ -n "$GITCOMMIT" ]; then
+	:
 else
-	echo >&2 'error: .git directory missing and DOCKER_GITCOMMIT not specified'
+	echo >&2 'error: .git directory missing and GITCOMMIT not specified'
 	echo >&2 '  Please either build with the .git directory accessible, or specify the'
-	echo >&2 '  exact (--short) commit hash you are building using DOCKER_GITCOMMIT for'
+	echo >&2 '  exact (--short) commit hash you are building using GITCOMMIT for'
 	echo >&2 '  future accountability in diagnosing build issues.  Thanks!'
 	exit 1
 fi
 
 if [ "$AUTO_GOPATH" ]; then
 	rm -rf .gopath
-	mkdir -p .gopath/src/"$(dirname "${DOCKER_PKG}")"
-	ln -sf ../../../.. .gopath/src/"${DOCKER_PKG}"
+	mkdir -p .gopath/src/"$(dirname "${PKG}")"
+	ln -sf ../../../.. .gopath/src/"${PKG}"
 	export GOPATH="${PWD}/.gopath:${PWD}/vendor"
 
 	if [ "$(go env GOOS)" = 'solaris' ]; then
@@ -129,17 +91,10 @@ if [ ! "$GOPATH" ]; then
 	exit 1
 fi
 
-if [ "$DOCKER_EXPERIMENTAL" ]; then
-	echo >&2 '# WARNING! DOCKER_EXPERIMENTAL is set: building experimental features'
+if [ "$EXPERIMENTAL" ]; then
+	echo >&2 '# WARNING! EXPERIMENTAL is set: building experimental features'
 	echo >&2
-	DOCKER_BUILDTAGS+=" experimental"
-fi
-
-DOCKER_BUILDTAGS+=" daemon"
-if ${PKG_CONFIG} 'libsystemd >= 209' 2> /dev/null ; then
-	DOCKER_BUILDTAGS+=" journald"
-elif ${PKG_CONFIG} 'libsystemd-journal' 2> /dev/null ; then
-	DOCKER_BUILDTAGS+=" journald journald_compat"
+	BUILDTAGS+=" experimental"
 fi
 
 # test whether "btrfs/version.h" exists and apply btrfs_noversion appropriately
@@ -147,7 +102,7 @@ if \
 	command -v gcc &> /dev/null \
 	&& ! gcc -E - -o /dev/null &> /dev/null <<<'#include <btrfs/version.h>' \
 ; then
-	DOCKER_BUILDTAGS+=' btrfs_noversion'
+	BUILDTAGS+=' btrfs_noversion'
 fi
 
 # test whether "libdevmapper.h" is new enough to support deferred remove
@@ -156,47 +111,16 @@ if \
 	command -v gcc &> /dev/null \
 	&& ! ( echo -e  '#include <libdevmapper.h>\nint main() { dm_task_deferred_remove(NULL); }'| gcc -xc - -o /dev/null -ldevmapper &> /dev/null ) \
 ; then
-       DOCKER_BUILDTAGS+=' libdm_no_deferred_remove'
+       BUILDTAGS+=' libdm_no_deferred_remove'
 fi
 
 # Use these flags when compiling the tests and final binary
-
-IAMSTATIC='true'
 source "$SCRIPTDIR/make/.go-autogen"
-if [ -z "$DOCKER_DEBUG" ]; then
+if [ -z "$DEBUG" ]; then
 	LDFLAGS='-w'
 fi
 
-LDFLAGS_STATIC=''
-EXTLDFLAGS_STATIC='-static'
-# ORIG_BUILDFLAGS is necessary for the cross target which cannot always build
-# with options like -race.
-ORIG_BUILDFLAGS=( -tags "autogen netgo static_build sqlite_omit_load_extension $DOCKER_BUILDTAGS" -installsuffix netgo )
-# see https://github.com/golang/go/issues/9369#issuecomment-69864440 for why -installsuffix is necessary here
-
-# When $DOCKER_INCREMENTAL_BINARY is set in the environment, enable incremental
-# builds by installing dependent packages to the GOPATH.
-REBUILD_FLAG="-a"
-if [ "$DOCKER_INCREMENTAL_BINARY" ]; then
-	REBUILD_FLAG="-i"
-fi
-ORIG_BUILDFLAGS+=( $REBUILD_FLAG )
-
 BUILDFLAGS=( $BUILDFLAGS "${ORIG_BUILDFLAGS[@]}" )
-# Test timeout.
-
-if [ "${DOCKER_ENGINE_GOARCH}" == "arm" ]; then
-	: ${TIMEOUT:=10m}
-elif [ "${DOCKER_ENGINE_GOARCH}" == "windows" ]; then
-	: ${TIMEOUT:=8m}
-else
-	: ${TIMEOUT:=5m}
-fi
-
-LDFLAGS_STATIC_DOCKER="
-	$LDFLAGS_STATIC
-	-extldflags \"$EXTLDFLAGS_STATIC\"
-"
 
 if [ "$(uname -s)" = 'FreeBSD' ]; then
 	# Tell cgo the compiler is Clang, not GCC
@@ -206,14 +130,6 @@ if [ "$(uname -s)" = 'FreeBSD' ]; then
 	# "-extld clang" is a workaround for
 	# https://code.google.com/p/go/issues/detail?id=6845
 	LDFLAGS="$LDFLAGS -extld clang"
-fi
-
-# If sqlite3.h doesn't exist under /usr/include,
-# check /usr/local/include also just in case
-# (e.g. FreeBSD Ports installs it under the directory)
-if [ ! -e /usr/include/sqlite3.h ] && [ -e /usr/local/include/sqlite3.h ]; then
-	export CGO_CFLAGS='-I/usr/local/include'
-	export CGO_LDFLAGS='-L/usr/local/lib'
 fi
 
 HAVE_GO_TEST_COVER=
@@ -249,7 +165,7 @@ go_test_dir() {
 		testcoverprofile=( -test.coverprofile "$coverprofile" $coverpkg )
 	fi
 	(
-		echo '+ go test' $TESTFLAGS "${DOCKER_PKG}${dir#.}"
+		echo '+ go test' $TESTFLAGS "${PKG}${dir#.}"
 		cd "$dir"
 		export DEST="$ABS_DEST" # we're in a subshell, so this is safe -- our integration-cli tests need DEST, and "cd" screws it up
 		go test -c -o "$testbinary" ${testcover[@]} -ldflags "$LDFLAGS" "${BUILDFLAGS[@]}"
@@ -267,14 +183,6 @@ test_env() {
 	# use "env -i" to tightly control the environment variables that bleed into the tests
 	env -i \
 		DEST="$DEST" \
-		DOCKER_TLS_VERIFY="$DOCKER_TEST_TLS_VERIFY" \
-		DOCKER_CERT_PATH="$DOCKER_TEST_CERT_PATH" \
-		DOCKER_ENGINE_GOARCH="$DOCKER_ENGINE_GOARCH" \
-		DOCKER_GRAPHDRIVER="$DOCKER_GRAPHDRIVER" \
-		DOCKER_USERLANDPROXY="$DOCKER_USERLANDPROXY" \
-		DOCKER_HOST="$DOCKER_HOST" \
-		DOCKER_REMAP_ROOT="$DOCKER_REMAP_ROOT" \
-		DOCKER_REMOTE_DAEMON="$DOCKER_REMOTE_DAEMON" \
 		GOPATH="$GOPATH" \
 		GOTRACEBACK=all \
 		HOME="$ABS_DEST/fake-HOME" \
@@ -285,9 +193,7 @@ test_env() {
 
 # a helper to provide ".exe" when it's appropriate
 binary_extension() {
-	if [ "$(go env GOOS)" = 'windows' ]; then
-		echo -n '.exe'
-	fi
+	echo -n $(go env GOEXE)
 }
 
 hash_files() {
@@ -317,37 +223,6 @@ bundle() {
 	source "$SCRIPTDIR/make/$bundle" "$@"
 }
 
-copy_containerd() {
-	dir="$1"
-	# Add nested executables to bundle dir so we have complete set of
-	# them available, but only if the native OS/ARCH is the same as the
-	# OS/ARCH of the build target
-	if [ "$(go env GOOS)/$(go env GOARCH)" == "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" ]; then
-		if [ -x /usr/local/bin/docker-runc ]; then
-			echo "Copying nested executables into $dir"
-			for file in containerd containerd-shim containerd-ctr runc; do
-				cp `which "docker-$file"` "$dir/"
-				if [ "$2" == "hash" ]; then
-					hash_files "$dir/docker-$file"
-				fi
-			done
-		fi
-	fi
-}
-
-install_binary() {
-	file="$1"
-	target="${DOCKER_MAKE_INSTALL_PREFIX:=/usr/local}/bin/"
-	if [ "$(go env GOOS)" == "linux" ]; then
-		echo "Installing $(basename $file) to ${target}"
-		cp -L "$file" "$target"
-	else
-		echo "Install is only supported on linux"
-		return 1
-	fi
-}
-
-
 main() {
 	# We want this to fail if the bundles already exist and cannot be removed.
 	# This is to avoid mixing bundles from different versions of the code.
@@ -370,6 +245,7 @@ main() {
 	else
 		bundles=($@)
 	fi
+
 	for bundle in ${bundles[@]}; do
 		export DEST="bundles/$VERSION/$(basename "$bundle")"
 		# Cygdrive paths don't play well with go build -o.
