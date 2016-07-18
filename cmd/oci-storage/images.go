@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containers/storage/storage"
 	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/storage"
 )
 
 func images(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {

@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/containers/storage/storage"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/storage"
 )
 
 func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {

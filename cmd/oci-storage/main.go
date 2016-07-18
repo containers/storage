@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/containers/storage/storage"
 	"github.com/containers/storage/opts"
 	"github.com/containers/storage/pkg/mflag"
 	"github.com/containers/storage/pkg/reexec"
+	"github.com/containers/storage/storage"
 )
 
 type command struct {

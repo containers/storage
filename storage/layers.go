@@ -336,7 +336,7 @@ func (r *layerStore) Get(id string) (*Layer, error) {
 
 func (r *layerStore) Wipe() error {
 	ids := []string{}
-	for id, _ := range r.byid {
+	for id := range r.byid {
 		ids = append(ids, id)
 	}
 	for _, id := range ids {

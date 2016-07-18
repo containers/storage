@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/containers/storage/storage"
 	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/storage"
 )
 
 var existQuiet = false

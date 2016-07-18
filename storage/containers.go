@@ -208,7 +208,7 @@ func (r *containerStore) Exists(id string) bool {
 
 func (r *containerStore) Wipe() error {
 	ids := []string{}
-	for id, _ := range r.byid {
+	for id := range r.byid {
 		ids = append(ids, id)
 	}
 	for _, id := range ids {

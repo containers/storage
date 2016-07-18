@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/containers/storage/storage"
 	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/storage"
 )
 
 var metadataQuiet = false

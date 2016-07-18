@@ -201,7 +201,7 @@ func (r *imageStore) Exists(id string) bool {
 
 func (r *imageStore) Wipe() error {
 	ids := []string{}
-	for id, _ := range r.byid {
+	for id := range r.byid {
 		ids = append(ids, id)
 	}
 	for _, id := range ids {
