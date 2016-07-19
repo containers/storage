@@ -1,19 +1,21 @@
-This is oci-storage.  Don't worry, that's a temporary name.
+This is oci-storage, a command line tool for manipulating a layer store.
 
 It depends on 'storage', which is a pretty barebones wrapping of the
 graph drivers that exposes the create/mount/unmount/delete operations
 and adds enough bookkeeping to know about the relationships between
 layers.
 
-On top of that, it provides a way to mark a layer as an image, which
-allows an API caller to attach an arbitrary blob of data to it, or as a
-container, where in addition to noting which image was used to create
-the container, it allows an API caller to attach an arbitrary blob to
-it.
+On top of that, 'storage' provides a notion of a reference to a layer
+which is paired with arbitrary user data (i.e., an image, that data
+being history and configuration metadata).  It also provides a notion of
+a type of layer, which is typically the child of an image's layer, to
+which arbitrary data is directly attached (i.e., a container, where the
+data is typically configuration).
 
-Layers, images, and containers are all identified using an ID which can
-be set when they are created, and can optionally be assigned names which
-are resolved to IDs automatically by the APIs.
+Layers, images, and containers are each identified using IDs which can
+be set when they are created (if not set, random values are generated),
+and can optionally be assigned names which are resolved to IDs
+automatically by the various APIs.
 
 The oci-storage tool is a CLI that wraps that as thinly as possible, so
 that other tooling can use it to import layers from images.  Those other
