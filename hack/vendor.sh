@@ -49,6 +49,7 @@ clone git github.com/Sirupsen/logrus v0.10.0 # logrus is a common dependency amo
 clone git golang.org/x/net 2beffdc2e92c8a3027590f898fe88f69af48a3f8 https://github.com/tonistiigi/net.git
 clone git golang.org/x/sys eb2c74142fd19a79b3f237334c7384d5167b1b46 https://github.com/golang/sys.git
 clone git github.com/docker/go-units 651fc226e7441360384da338d0fd37f2440ffbe3
+clone git github.com/docker/go-connections fa2850ff103453a9ad190da0df0af134f0314b3d
 clone git github.com/docker/engine-api 1d247454d4307fb1ddf10d09fd2996394b085904
 # get graph and distribution packages
 clone git github.com/vbatts/tar-split v0.9.11
