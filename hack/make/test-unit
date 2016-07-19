@@ -7,6 +7,12 @@ set -e
 #
 #   TESTFLAGS='-test.run ^TestBuild$' ./hack/make.sh test-unit
 #
+bundle_test_list() {
+	go list -e -f '{{range .Imports}}{{.}}{{"\n"}}{{end}}' ./cmd/oci-storage "$@" |\
+	grep github.com/containers/storage |\
+	grep -v github.com/containers/storage/vendor |\
+	grep -v github.com/containers/storage/integration-cli
+}
 bundle_test_unit() {
 	TESTFLAGS+=" -test.timeout=${TIMEOUT}"
 	INCBUILD="-i"
@@ -25,14 +31,17 @@ bundle_test_unit() {
 	else
 		TEST_PATH=./${TESTDIRS}
 	fi
-	pkg_list=$(go list -e \
-		-f '{{if ne .Name "github.com/containers/storage"}}
-			{{.ImportPath}}
-		    {{end}}' \
-		"${BUILDFLAGS[@]}" $TEST_PATH \
-		| grep github.com/containers/storage \
-		| grep -v github.com/containers/storage/vendor \
-		| grep -v github.com/containers/storage/integration-cli)
+	pkg_list=$(
+		deps=`bundle_test_list ./cmd/oci-storage`
+		newdeps=
+		while test "$deps" != "$newdeps" ; do
+			deps=${newdeps:-`bundle_test_list ./cmd/oci-storage`}
+			newdeps=`for dep in $deps ; do
+				bundle_test_list "$dep"
+			done | sort -u`
+		done
+		echo $deps
+	)
 	go test $COVER $GCCGOFLAGS -ldflags "$LDFLAGS" "${BUILDFLAGS[@]}" $TESTFLAGS $pkg_list
 }
 

@@ -139,6 +139,7 @@ if \
 ; then
 	HAVE_GO_TEST_COVER=1
 fi
+TIMEOUT=5m
 
 # If $TESTFLAGS is set in the environment, it is passed as extra arguments to 'go test'.
 # You can use this to select certain tests to run, eg.
