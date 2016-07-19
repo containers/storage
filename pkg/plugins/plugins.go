@@ -1,17 +1,18 @@
 // Package plugins provides structures and helper functions to manage Docker
 // plugins.
 //
-// Docker discovers plugins by looking for them in the plugin directory whenever
+// Storage discovers plugins by looking for them in the plugin directory whenever
 // a user or container tries to use one by name. UNIX domain socket files must
-// be located under /run/docker/plugins, whereas spec files can be located
-// either under /etc/docker/plugins or /usr/lib/docker/plugins. This is handled
-// by the Registry interface, which lets you list all plugins or get a plugin by
-// its name if it exists.
+// be located under /run/oci-storage/plugins, whereas spec files can be located
+// either under /etc/oci-storage/plugins or /usr/lib/oci-storage/plugins. This
+// is handled by the Registry interface, which lets you list all plugins or get
+// a plugin by its name if it exists.
 //
 // The plugins need to implement an HTTP server and bind this to the UNIX socket
 // or the address specified in the spec files.
 // A handshake is send at /Plugin.Activate, and plugins are expected to return
-// a Manifest with a list of of Docker subsystems which this plugin implements.
+// a Manifest with a list of subsystems which this plugin implements.  As of
+// this writing, the known subsystem is "GraphDriver".
 //
 // In order to use a plugins, you can use the ``Get`` with the name of the
 // plugin and the subsystem it implements.
@@ -52,7 +53,7 @@ type Manifest struct {
 	Implements []string
 }
 
-// Plugin is the definition of a docker plugin.
+// Plugin is the definition of a storage plugin.
 type Plugin struct {
 	// Name of the plugin
 	name string

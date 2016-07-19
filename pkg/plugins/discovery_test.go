@@ -33,8 +33,8 @@ func TestFileSpecPlugin(t *testing.T) {
 		fail bool
 	}{
 		// TODO Windows: Factor out the unix:// variants.
-		{filepath.Join(tmpdir, "echo.spec"), "echo", "unix://var/lib/docker/plugins/echo.sock", false},
-		{filepath.Join(tmpdir, "echo", "echo.spec"), "echo", "unix://var/lib/docker/plugins/echo.sock", false},
+		{filepath.Join(tmpdir, "echo.spec"), "echo", "unix://var/lib/oci-storage/plugins/echo.sock", false},
+		{filepath.Join(tmpdir, "echo", "echo.spec"), "echo", "unix://var/lib/oci-storage/plugins/echo.sock", false},
 		{filepath.Join(tmpdir, "foo.spec"), "foo", "tcp://localhost:8080", false},
 		{filepath.Join(tmpdir, "foo", "foo.spec"), "foo", "tcp://localhost:8080", false},
 		{filepath.Join(tmpdir, "bar.spec"), "bar", "localhost:8080", true}, // unknown transport
@@ -79,11 +79,11 @@ func TestFileJSONSpecPlugin(t *testing.T) {
 	p := filepath.Join(tmpdir, "example.json")
 	spec := `{
   "Name": "plugin-example",
-  "Addr": "https://example.com/docker/plugin",
+  "Addr": "https://example.com/oci-storage/plugin",
   "TLSConfig": {
-    "CAFile": "/usr/shared/docker/certs/example-ca.pem",
-    "CertFile": "/usr/shared/docker/certs/example-cert.pem",
-    "KeyFile": "/usr/shared/docker/certs/example-key.pem"
+    "CAFile": "/usr/shared/oci-storage/certs/example-ca.pem",
+    "CertFile": "/usr/shared/oci-storage/certs/example-cert.pem",
+    "KeyFile": "/usr/shared/oci-storage/certs/example-key.pem"
 	}
 }`
 
@@ -101,19 +101,19 @@ func TestFileJSONSpecPlugin(t *testing.T) {
 		t.Fatalf("Expected plugin `plugin-example`, got %s\n", plugin.Name)
 	}
 
-	if plugin.Addr != "https://example.com/docker/plugin" {
-		t.Fatalf("Expected plugin addr `https://example.com/docker/plugin`, got %s\n", plugin.Addr)
+	if plugin.Addr != "https://example.com/oci-storage/plugin" {
+		t.Fatalf("Expected plugin addr `https://example.com/oci-storage/plugin`, got %s\n", plugin.Addr)
 	}
 
-	if plugin.TLSConfig.CAFile != "/usr/shared/docker/certs/example-ca.pem" {
-		t.Fatalf("Expected plugin CA `/usr/shared/docker/certs/example-ca.pem`, got %s\n", plugin.TLSConfig.CAFile)
+	if plugin.TLSConfig.CAFile != "/usr/shared/oci-storage/certs/example-ca.pem" {
+		t.Fatalf("Expected plugin CA `/usr/shared/oci-storage/certs/example-ca.pem`, got %s\n", plugin.TLSConfig.CAFile)
 	}
 
-	if plugin.TLSConfig.CertFile != "/usr/shared/docker/certs/example-cert.pem" {
-		t.Fatalf("Expected plugin Certificate `/usr/shared/docker/certs/example-cert.pem`, got %s\n", plugin.TLSConfig.CertFile)
+	if plugin.TLSConfig.CertFile != "/usr/shared/oci-storage/certs/example-cert.pem" {
+		t.Fatalf("Expected plugin Certificate `/usr/shared/oci-storage/certs/example-cert.pem`, got %s\n", plugin.TLSConfig.CertFile)
 	}
 
-	if plugin.TLSConfig.KeyFile != "/usr/shared/docker/certs/example-key.pem" {
-		t.Fatalf("Expected plugin Key `/usr/shared/docker/certs/example-key.pem`, got %s\n", plugin.TLSConfig.KeyFile)
+	if plugin.TLSConfig.KeyFile != "/usr/shared/oci-storage/certs/example-key.pem" {
+		t.Fatalf("Expected plugin Key `/usr/shared/oci-storage/certs/example-key.pem`, got %s\n", plugin.TLSConfig.KeyFile)
 	}
 }
