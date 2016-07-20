@@ -230,12 +230,54 @@ func (m *mall) CreateLayer(id, parent, name, mountLabel string, writeable bool) 
 	if err != nil {
 		return nil, err
 	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
 	defer rlstore.Touch()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	defer ristore.Touch()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	defer rcstore.Touch()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+	if id != "" {
+		if l, err := rlstore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+	}
+	if name != "" {
+		if l, err := rlstore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
 	}
 
 	return rlstore.Create(id, parent, name, mountLabel, nil, writeable)
@@ -250,6 +292,10 @@ func (m *mall) CreateImage(id, name, layer, metadata string) (*Image, error) {
 	if err != nil {
 		return nil, err
 	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
@@ -261,6 +307,34 @@ func (m *mall) CreateImage(id, name, layer, metadata string) (*Image, error) {
 	defer ristore.Touch()
 	if modified, err := ristore.Modified(); modified || err != nil {
 		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	defer rcstore.Touch()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+	if id != "" {
+		if l, err := rlstore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+	}
+	if name != "" {
+		if l, err := rlstore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
 	}
 
 	ilayer, err := rlstore.Get(layer)
@@ -304,6 +378,29 @@ func (m *mall) CreateContainer(id, name, image, layer, metadata string) (*Contai
 	defer rcstore.Touch()
 	if modified, err := rcstore.Modified(); modified || err != nil {
 		rcstore.Load()
+	}
+
+	if id != "" {
+		if l, err := rlstore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(id); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+	}
+	if name != "" {
+		if l, err := rlstore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(name); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
 	}
 
 	cimage, err := ristore.Get(image)
