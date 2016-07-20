@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -14,10 +15,14 @@ func images(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	for _, image := range images {
-		fmt.Printf("%s\n", image.ID)
-		if image.Name != "" {
-			fmt.Printf("\t%s\n", image.Name)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(images)
+	} else {
+		for _, image := range images {
+			fmt.Printf("%s\n", image.ID)
+			if image.Name != "" {
+				fmt.Printf("\t%s\n", image.Name)
+			}
 		}
 	}
 	return 0
@@ -30,5 +35,8 @@ func init() {
 		usage:       "List images",
 		action:      images,
 		maxArgs:     0,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+		},
 	})
 }

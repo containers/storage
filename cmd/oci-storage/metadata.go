@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -16,27 +17,29 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 	if len(args) < 1 {
 		return 1
 	}
-	allExist := true
+	metadataDict := make(map[string]string)
+	missingAny := false
 	for _, what := range args {
-		exists := false
 		if container, err := m.GetContainer(what); err == nil {
-			exists = true
-			if metadataQuiet {
-				fmt.Printf("%s\n", strings.TrimSuffix(container.Metadata, "\n"))
-			} else {
-				fmt.Printf("%s: %s\n", what, strings.TrimSuffix(container.Metadata, "\n"))
-			}
+			metadataDict[what] = strings.TrimSuffix(container.Metadata, "\n")
 		} else if image, err := m.GetImage(what); err == nil {
-			exists = true
+			metadataDict[what] = strings.TrimSuffix(image.Metadata, "\n")
+		} else {
+			missingAny = true
+		}
+	}
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(metadataDict)
+	} else {
+		for id, metadata := range metadataDict {
 			if metadataQuiet {
-				fmt.Printf("%s\n", strings.TrimSuffix(image.Metadata, "\n"))
+				fmt.Printf("%s\n", metadata)
 			} else {
-				fmt.Printf("%s: %s\n", what, strings.TrimSuffix(image.Metadata, "\n"))
+				fmt.Printf("%s: %s\n", id, metadata)
 			}
 		}
-		allExist = allExist && exists
 	}
-	if !allExist {
+	if missingAny {
 		return 1
 	}
 	return 0
@@ -78,7 +81,8 @@ func init() {
 		minArgs:     1,
 		action:      metadata,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.BoolVar(&metadataQuiet, []string{"-quiet", "q"}, metadataQuiet, "Don't print names and IDs")
+			flags.BoolVar(&metadataQuiet, []string{"-quiet", "q"}, metadataQuiet, "Omit names and IDs")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
 		},
 	})
 	commands = append(commands, command{

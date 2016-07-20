@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -14,10 +15,14 @@ func containers(flags *mflag.FlagSet, action string, m storage.Mall, args []stri
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	for _, container := range containers {
-		fmt.Printf("%s\n", container.ID)
-		if container.Name != "" {
-			fmt.Printf("\t%s\n", container.Name)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(containers)
+	} else {
+		for _, container := range containers {
+			fmt.Printf("%s\n", container.ID)
+			if container.Name != "" {
+				fmt.Printf("\t%s\n", container.Name)
+			}
 		}
 	}
 	return 0
@@ -30,5 +35,8 @@ func init() {
 		usage:       "List containers",
 		action:      containers,
 		maxArgs:     0,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+		},
 	})
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,10 +30,14 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	if layer.Name != "" {
-		fmt.Printf("%s\t%s\n", layer.ID, layer.Name)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(layer)
 	} else {
-		fmt.Printf("%s\n", layer.ID)
+		if layer.Name != "" {
+			fmt.Printf("%s\t%s\n", layer.ID, layer.Name)
+		} else {
+			fmt.Printf("%s\n", layer.ID)
+		}
 	}
 	return 0
 }
@@ -56,10 +61,14 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	if image.Name != "" {
-		fmt.Printf("%s\t%s\n", image.ID, image.Name)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(image)
 	} else {
-		fmt.Printf("%s\n", image.ID)
+		if image.Name != "" {
+			fmt.Printf("%s\t%s\n", image.ID, image.Name)
+		} else {
+			fmt.Printf("%s\n", image.ID)
+		}
 	}
 	return 0
 }
@@ -83,10 +92,14 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Mall, args [
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	if container.Name != "" {
-		fmt.Printf("%s\t%s\n", container.ID, container.Name)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(container)
 	} else {
-		fmt.Printf("%s\n", container.ID)
+		if container.Name != "" {
+			fmt.Printf("%s\t%s\n", container.ID, container.Name)
+		} else {
+			fmt.Printf("%s\n", container.ID)
+		}
 	}
 	return 0
 }
@@ -103,6 +116,7 @@ func init() {
 			flags.StringVar(&paramName, []string{"-name", "n"}, "", "Layer name")
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Layer ID")
 			flags.BoolVar(&paramCreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
 		},
 	})
 	commands = append(commands, command{
@@ -117,6 +131,7 @@ func init() {
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Image ID")
 			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
 			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
 		},
 	})
 	commands = append(commands, command{
@@ -131,6 +146,7 @@ func init() {
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Container ID")
 			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
 			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
 		},
 	})
 }

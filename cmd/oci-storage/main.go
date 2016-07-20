@@ -22,7 +22,10 @@ type command struct {
 	action      func(*mflag.FlagSet, string, storage.Mall, []string) int
 }
 
-var commands = []command{}
+var (
+	commands   = []command{}
+	jsonOutput = false
+)
 
 func main() {
 	if reexec.Init() {
@@ -30,18 +33,24 @@ func main() {
 	}
 
 	graphRoot := "/var/lib/oci-storage"
-	graphDriver := os.Getenv("DOCKER_GRAPHDRIVER")
-	graphOptions := strings.Split(os.Getenv("DOCKER_STORAGE_OPTS"), ",")
+	graphDriver := os.Getenv("STORAGE_DRIVER")
+	if graphDriver == "" {
+		graphDriver = os.Getenv("DOCKER_GRAPHDRIVER")
+	}
+	graphOptions := strings.Split(os.Getenv("STORAGE_OPTS"), ",")
 	if len(graphOptions) == 1 && graphOptions[0] == "" {
-		graphOptions = nil
+		graphOptions = strings.Split(os.Getenv("DOCKER_STORAGE_OPTS"), ",")
+		if len(graphOptions) == 1 && graphOptions[0] == "" {
+			graphOptions = nil
+		}
 	}
 	debug := false
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
 		flags.StringVar(&graphRoot, []string{"-graph", "g"}, graphRoot, "Root of the storage tree")
-		flags.StringVar(&graphDriver, []string{"-storage-driver", "s"}, graphDriver, "Storage driver to use ($DOCKER_GRAPHDRIVER)")
-		flags.Var(opts.NewListOptsRef(&graphOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($DOCKER_STORAGE_OPTS)")
+		flags.StringVar(&graphDriver, []string{"-storage-driver", "s"}, graphDriver, "Storage driver to use ($STORAGE_DRIVER)")
+		flags.Var(opts.NewListOptsRef(&graphOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
 		flags.BoolVar(&debug, []string{"-debug", "D"}, debug, "Print debugging information")
 		return flags
 	}

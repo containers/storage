@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -19,11 +20,19 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
+	matches := []storage.Container{}
 	for _, container := range containers {
 		for _, arg := range args {
 			if container.ID != arg && container.Name != "" && container.Name != arg {
 				continue
 			}
+			matches = append(matches, container)
+		}
+	}
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(matches)
+	} else {
+		for _, container := range matches {
 			fmt.Printf("ID: %s\n", container.ID)
 			if container.Name != "" {
 				fmt.Printf("Name: %s\n", container.Name)
@@ -37,6 +46,9 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 			fmt.Printf("Layer: %s\n", container.LayerID)
 		}
 	}
+	if len(matches) != len(args) {
+		return 1
+	}
 	return 0
 }
 
@@ -47,5 +59,8 @@ func init() {
 		usage:       "Examine a container",
 		action:      container,
 		minArgs:     1,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+		},
 	})
 }

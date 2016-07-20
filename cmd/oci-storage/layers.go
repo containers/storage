@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -15,6 +16,10 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
+	}
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(layers)
+		return 0
 	}
 	imageMap := make(map[string]storage.Image)
 	if images, err := m.Images(); err == nil {
@@ -92,6 +97,7 @@ func init() {
 		maxArgs:     0,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&listLayersTree, []string{"-tree", "t"}, listLayersTree, "Use a tree")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
 		},
 	})
 }
