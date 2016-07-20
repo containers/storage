@@ -391,6 +391,17 @@ func (m *mall) CreateContainer(id, name, image, layer, metadata string) (*Contai
 			return nil, errDuplicateName
 		}
 	}
+	if layer != "" {
+		if l, err := rlstore.Get(layer); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := ristore.Get(layer); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+		if l, err := rcstore.Get(layer); l != nil && err == nil {
+			return nil, errDuplicateName
+		}
+	}
 	if name != "" {
 		if l, err := rlstore.Get(name); l != nil && err == nil {
 			return nil, errDuplicateName
@@ -410,13 +421,11 @@ func (m *mall) CreateContainer(id, name, image, layer, metadata string) (*Contai
 	if cimage == nil {
 		return nil, ErrImageUnknown
 	}
-	if layer == "" {
-		clayer, err := rlstore.Create("", cimage.TopLayer, "", "", nil, true)
-		if err != nil {
-			return nil, err
-		}
-		layer = clayer.ID
+	clayer, err := rlstore.Create(layer, cimage.TopLayer, "", "", nil, true)
+	if err != nil {
+		return nil, err
 	}
+	layer = clayer.ID
 	return rcstore.Create(id, name, cimage.ID, layer, metadata)
 }
 
