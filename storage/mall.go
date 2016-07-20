@@ -44,6 +44,78 @@ type Store interface {
 //
 // GetLayerStore obtains and returns a handle to the layer store object used by
 // the Mall.
+//
+// CreateLayer creates a new layer in the underlying storage driver, optionally
+// having the specified ID (one will be assigned if none is specified), with
+// the specified layer (or no layer) as its parent, and with an optional name.
+// (The writeable flag is ignored.)
+//
+// CreateImage creates a new image, optionally with the specified ID (one will
+// be assigned if none is specified), with an optional name, and referring to a
+// specified image and with optional metadata.  An image is a record which
+// associates the ID of a layer with a caller-supplied metadata string which
+// the library stores for the convenience of the caller.
+//
+// CreateContainer creates a new container, optionally with the specified ID
+// (one will be assigned if none is specified), with an optional name, using
+// the specified image's top layer as the basis for the container's layer, and
+// assigning the specified ID to that layer (one will be created if none is
+// specified).  A container is a layer which is associated with a metadata
+// string which the library stores for the convenience of the caller.
+//
+// SetMetadata updates the metadata which is associated with an image or
+// container (whichever the passed-in ID refers to) to match the specified
+// value.  The metadata value can be retrieved at any time using GetImage or
+// GetContainer.
+//
+// Exists checks if there is a layer, image, or container which has the
+// passed-in ID or name.
+//
+// Status asks for a status report, in the form of key-value pairs, from the
+// underlying storage driver.  The contents vary from driver to driver.
+//
+// Delete removes the layer, image, or container which has the passed-in ID or
+// name.  Note that no safety checks are performed, so this can leave images
+// with references to layers which do not exist, and layers with references to
+// parents which no longer exist.
+//
+// Wipe removes all known layers, images, and containers.
+//
+// Mount attempts to mount a layer, image, or container for access, and returns
+// the pathname if it succeeds.
+//
+// Unmount attempts to unmount a layer, image, or container, given an ID, a
+// name, or a mount path.
+//
+// Changes returns a summary of the changes which would need to be made to one
+// layer to make its contents the same as a second layer.  If the first layer
+// is not specified, the second layer's parent is assumed.  Each Change
+// structure contains a Path relative to the layer's root directory, and a Kind
+// which is either ChangeAdd, ChangeModify, or ChangeDelete.
+//
+// DiffSize returns a count of the size of the tarstream which would specify
+// the changes returned by Changes.
+//
+// Diff returns the tarstream which would specify the changes returned by
+// Changes.
+//
+// ApplyDiff applies a tarstream to a layer.
+//
+// Layers returns a list of the currently known layers.
+//
+// Images returns a list of the currently known images.
+//
+// Containers returns a list of the currently known containers.
+//
+// GetLayer returns a specific layer.
+//
+// GetImage returns a specific image.
+//
+// GetContainer returns a specific containers.
+//
+// Crawl enumerates all of the layers, images, and containers which depend on
+// or refer to, either directly or indirectly, the specified layer, top layer
+// of an image, or container layer.
 type Mall interface {
 	GetGraphRoot() string
 	GetGraphDriverName() string
