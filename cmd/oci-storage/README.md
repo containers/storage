@@ -1,16 +1,16 @@
-This is oci-storage, a command line tool for manipulating a layer store.
+This is `oci-storage`, a command line tool for manipulating a layer store.
 
-It depends on 'storage', which is a pretty barebones wrapping of the
+It depends on `storage`, which is a pretty barebones wrapping of the
 graph drivers that exposes the create/mount/unmount/delete operations
 and adds enough bookkeeping to know about the relationships between
 layers.
 
-On top of that, 'storage' provides a notion of a reference to a layer
-which is paired with arbitrary user data (i.e., an image, that data
+On top of that, `storage` provides a notion of a reference to a layer
+which is paired with arbitrary user data (i.e., an `image`, that data
 being history and configuration metadata).  It also provides a notion of
-a type of layer, which is typically the child of an image's layer, to
-which arbitrary data is directly attached (i.e., a container, where the
-data is typically configuration).
+a type of layer, which is typically the child of an image's topmost
+layer, to which arbitrary data is directly attached (i.e., a
+`container`, where the data is typically configuration).
 
 Layers, images, and containers are each identified using IDs which can
 be set when they are created (if not set, random values are generated),
