@@ -107,6 +107,10 @@ type Store interface {
 //
 // Containers returns a list of the currently known containers.
 //
+// GetNames returns the list of names for a layer, image, or container.
+//
+// SetNames changes the list of names for a layer, image, or container.
+//
 // GetLayer returns a specific layer.
 //
 // GetImage returns a specific image.
