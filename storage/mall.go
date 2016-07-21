@@ -161,13 +161,14 @@ type Mall interface {
 // Users holds an analysis of which layers, images, and containers depend on a
 // given layer, either directly or indirectly.
 type Users struct {
-	LayerID            string
-	LayersDirect       []string
-	LayersIndirect     []string
-	ImagesDirect       []string
-	ImagesIndirect     []string
-	ContainersDirect   []string
-	ContainersIndirect []string
+	ID                 string   `json:"id"`
+	LayerID            string   `json:"layer"`
+	LayersDirect       []string `json:"directlayers,omitempty"`
+	LayersIndirect     []string `json:"indirectlayers,omitempty"`
+	ImagesDirect       []string `json:"directimages,omitempty"`
+	ImagesIndirect     []string `json:"indirectimages,omitempty"`
+	ContainersDirect   []string `json:"directcontainers,omitempty"`
+	ContainersIndirect []string `json:"indirectcontainers,omitempty"`
 }
 
 type mall struct {
@@ -1108,10 +1109,23 @@ func (m *mall) Crawl(layerID string) (*Users, error) {
 		rcstore.Load()
 	}
 
+	u := &Users{}
+	if container, err := rcstore.Get(layerID); err == nil {
+		u.ID = container.ID
+		layerID = container.LayerID
+	}
+	if image, err := ristore.Get(layerID); err == nil {
+		u.ID = image.ID
+		layerID = image.TopLayer
+	}
 	if layer, err := rlstore.Get(layerID); err == nil {
+		u.ID = layer.ID
 		layerID = layer.ID
 	}
-	u := &Users{LayerID: layerID}
+	if u.ID == "" {
+		return nil, ErrLayerUnknown
+	}
+	u.LayerID = layerID
 	layers, err := rlstore.Layers()
 	if err != nil {
 		return nil, err
@@ -1124,32 +1138,29 @@ func (m *mall) Crawl(layerID string) (*Users, error) {
 	if err != nil {
 		return nil, err
 	}
-	children := make(map[string]*[]string)
+	children := make(map[string][]string)
 	for _, layer := range layers {
 		if childs, known := children[layer.Parent]; known {
-			newChildren := append(*childs, layer.ID)
-			children[layer.Parent] = &newChildren
+			newChildren := append(childs, layer.ID)
+			children[layer.Parent] = newChildren
 		} else {
-			children[layer.Parent] = &[]string{layer.ID}
+			children[layer.Parent] = []string{layer.ID}
 		}
 	}
 	if childs, known := children[layerID]; known {
-		u.LayersDirect = *childs
+		u.LayersDirect = childs
 	}
 	indirects := []string{}
-	examined := make(map[string]string)
+	examined := make(map[string]bool)
 	queue := u.LayersDirect
 	for n := 0; n < len(queue); n++ {
 		if _, skip := examined[queue[n]]; skip {
 			continue
 		}
-		examined[queue[n]] = queue[n]
-		more := children[queue[n]]
-		if more != nil {
-			for _, child := range *more {
-				queue = append(queue, child)
-				indirects = append(indirects, child)
-			}
+		examined[queue[n]] = true
+		for _, child := range children[queue[n]] {
+			queue = append(queue, child)
+			indirects = append(indirects, child)
 		}
 	}
 	u.LayersIndirect = indirects
@@ -1161,7 +1172,7 @@ func (m *mall) Crawl(layerID string) (*Users, error) {
 				u.ImagesDirect = append(u.ImagesDirect, image.ID)
 			}
 		} else {
-			if examined[image.TopLayer] == image.TopLayer {
+			if _, isDescended := examined[image.TopLayer]; isDescended {
 				if u.ImagesIndirect == nil {
 					u.ImagesIndirect = []string{image.ID}
 				} else {
@@ -1178,11 +1189,11 @@ func (m *mall) Crawl(layerID string) (*Users, error) {
 				u.ContainersDirect = append(u.ContainersDirect, container.ID)
 			}
 		} else {
-			if examined[container.LayerID] == container.LayerID {
+			if _, isDescended := examined[container.LayerID]; isDescended {
 				if u.ContainersIndirect == nil {
-					u.ContainersIndirect = []string{container.LayerID}
+					u.ContainersIndirect = []string{container.ID}
 				} else {
-					u.ContainersIndirect = append(u.ContainersIndirect, container.LayerID)
+					u.ContainersIndirect = append(u.ContainersIndirect, container.ID)
 				}
 			}
 		}
