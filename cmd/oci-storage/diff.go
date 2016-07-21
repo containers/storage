@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -24,17 +25,21 @@ func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string)
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	for _, change := range changes {
-		what := "?"
-		switch change.Kind {
-		case archive.ChangeAdd:
-			what = "Add"
-		case archive.ChangeModify:
-			what = "Modify"
-		case archive.ChangeDelete:
-			what = "Delete"
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(changes)
+	} else {
+		for _, change := range changes {
+			what := "?"
+			switch change.Kind {
+			case archive.ChangeAdd:
+				what = "Add"
+			case archive.ChangeModify:
+				what = "Modify"
+			case archive.ChangeDelete:
+				what = "Delete"
+			}
+			fmt.Printf("%s %q\n", what, change.Path)
 		}
-		fmt.Printf("%s %q\n", what, change.Path)
 	}
 	return 0
 }
@@ -99,6 +104,9 @@ func init() {
 		minArgs:     1,
 		maxArgs:     2,
 		action:      changes,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+		},
 	})
 	commands = append(commands, command{
 		names:       []string{"diffsize"},
