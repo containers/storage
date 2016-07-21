@@ -17,11 +17,18 @@ func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 	}
 	matched := []storage.Image{}
 	for _, image := range images {
+	nextImage:
 		for _, arg := range args {
-			if image.ID != arg && image.Name != "" && image.Name != arg {
-				continue
+			if image.ID == arg {
+				matched = append(matched, image)
+				break nextImage
 			}
-			matched = append(matched, image)
+			for _, name := range image.Names {
+				if name == arg {
+					matched = append(matched, image)
+					break nextImage
+				}
+			}
 		}
 	}
 	if jsonOutput {
@@ -29,8 +36,8 @@ func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 	} else {
 		for _, image := range matched {
 			fmt.Printf("ID: %s\n", image.ID)
-			if image.Name != "" {
-				fmt.Printf("Name: %s\n", image.Name)
+			for _, name := range image.Names {
+				fmt.Printf("Name: %s\n", name)
 			}
 			fmt.Printf("Top Layer: %s\n", image.TopLayer)
 		}

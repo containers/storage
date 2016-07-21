@@ -20,8 +20,8 @@ func images(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 	} else {
 		for _, image := range images {
 			fmt.Printf("%s\n", image.ID)
-			if image.Name != "" {
-				fmt.Printf("\t%s\n", image.Name)
+			for _, name := range image.Names {
+				fmt.Printf("\t%s\n", name)
 			}
 		}
 	}

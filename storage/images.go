@@ -18,13 +18,13 @@ var (
 
 // An Image is a reference to a layer and an associated metadata string.
 // ID is either one specified at import-time or a randomly-generated value.
-// Name is an optional user-defined convenience value.
+// Names is an optional set of user-defined convenience values.
 // TopLayer is the ID of the topmost layer of the image itself.
 type Image struct {
-	ID       string `json:"id"`
-	Name     string `json:"name,omitempty"`
-	TopLayer string `json:"layer"`
-	Metadata string `json:"metadata,omitempty"`
+	ID       string   `json:"id"`
+	Names    []string `json:"names,omitempty"`
+	TopLayer string   `json:"layer"`
+	Metadata string   `json:"metadata,omitempty"`
 }
 
 // ImageStore provides bookkeeping for information about Images.
@@ -47,8 +47,9 @@ type Image struct {
 // Images returns a slice enumerating the known images.
 type ImageStore interface {
 	Store
-	Create(id, name, layer, metadata string) (*Image, error)
+	Create(id string, names []string, layer, metadata string) (*Image, error)
 	SetMetadata(id, metadata string) error
+	SetNames(id string, names []string) error
 	Exists(id string) bool
 	Get(id string) (*Image, error)
 	Delete(id string) error
@@ -80,8 +81,8 @@ func (r *imageStore) Load() error {
 	if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
 		for n, image := range images {
 			ids[image.ID] = &images[n]
-			if image.Name != "" {
-				names[image.Name] = &images[n]
+			for _, name := range image.Names {
+				names[name] = &images[n]
 			}
 		}
 	}
@@ -123,24 +124,26 @@ func newImageStore(dir string) (ImageStore, error) {
 	return &istore, nil
 }
 
-func (r *imageStore) Create(id, name, layer, metadata string) (image *Image, err error) {
+func (r *imageStore) Create(id string, names []string, layer, metadata string) (image *Image, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
-	if _, nameInUse := r.byname[name]; nameInUse {
-		return nil, errDuplicateName
+	for _, name := range names {
+		if _, nameInUse := r.byname[name]; nameInUse {
+			return nil, errDuplicateName
+		}
 	}
 	if err == nil {
 		newImage := Image{
 			ID:       id,
-			Name:     name,
+			Names:    names,
 			TopLayer: layer,
 			Metadata: metadata,
 		}
 		r.images = append(r.images, newImage)
 		image = &r.images[len(r.images)-1]
 		r.byid[id] = image
-		if name != "" {
+		for _, name := range names {
 			r.byname[name] = image
 		}
 		err = r.Save()
@@ -159,6 +162,23 @@ func (r *imageStore) SetMetadata(id, metadata string) error {
 	return ErrImageUnknown
 }
 
+func (r *imageStore) SetNames(id string, names []string) error {
+	if image, ok := r.byname[id]; ok {
+		id = image.ID
+	}
+	if image, ok := r.byid[id]; ok {
+		for _, name := range image.Names {
+			delete(r.byname, name)
+		}
+		for _, name := range names {
+			r.byname[name] = image
+		}
+		image.Names = names
+		return r.Save()
+	}
+	return ErrImageUnknown
+}
+
 func (r *imageStore) Delete(id string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
@@ -171,8 +191,8 @@ func (r *imageStore) Delete(id string) error {
 			}
 		}
 		r.images = newImages
-		if image.Name != "" {
-			delete(r.byname, image.Name)
+		for _, name := range image.Names {
+			delete(r.byname, name)
 		}
 		if err := r.Save(); err != nil {
 			return err

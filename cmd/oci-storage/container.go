@@ -22,11 +22,18 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 	}
 	matches := []storage.Container{}
 	for _, container := range containers {
+	nextContainer:
 		for _, arg := range args {
-			if container.ID != arg && container.Name != "" && container.Name != arg {
-				continue
+			if container.ID == arg {
+				matches = append(matches, container)
+				break nextContainer
 			}
-			matches = append(matches, container)
+			for _, name := range container.Names {
+				if name == arg {
+					matches = append(matches, container)
+					break nextContainer
+				}
+			}
 		}
 	}
 	if jsonOutput {
@@ -34,13 +41,16 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 	} else {
 		for _, container := range matches {
 			fmt.Printf("ID: %s\n", container.ID)
-			if container.Name != "" {
-				fmt.Printf("Name: %s\n", container.Name)
+			for _, name := range container.Names {
+				fmt.Printf("Name: %s\n", name)
 			}
 			fmt.Printf("Image: %s\n", container.ImageID)
 			for _, image := range images {
-				if image.ID == container.ImageID && image.Name != "" {
-					fmt.Printf("Image name: %s\n", image.Name)
+				if image.ID == container.ImageID {
+					for _, name := range image.Names {
+						fmt.Printf("Image name: %s\n", name)
+					}
+					break
 				}
 			}
 			fmt.Printf("Layer: %s\n", container.LayerID)

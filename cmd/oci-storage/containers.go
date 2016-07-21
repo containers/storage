@@ -20,8 +20,8 @@ func containers(flags *mflag.FlagSet, action string, m storage.Mall, args []stri
 	} else {
 		for _, container := range containers {
 			fmt.Printf("%s\n", container.ID)
-			if container.Name != "" {
-				fmt.Printf("\t%s\n", container.Name)
+			for _, name := range container.Names {
+				fmt.Printf("\t%s\n", name)
 			}
 		}
 	}

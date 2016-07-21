@@ -18,17 +18,17 @@ var (
 
 // A Container is a reference to a read-write layer with a metadata string.
 // ID is either one specified at create-time or a randomly-generated value.
-// Name is an optional user-defined convenience value.
+// Names is an optional set of user-defined convenience values.
 // ImageID is the ID of the image which was used to create the container.
 // LayerID is the ID of the read-write layer for the container itself.
 // It is assumed that the image's top layer is the parent of the container's
 // read-write layer.
 type Container struct {
-	ID       string `json:"id"`
-	Name     string `json:"name,omitempty"`
-	ImageID  string `json:"image"`
-	LayerID  string `json:"layer"`
-	Metadata string `json:"metadata,omitempty"`
+	ID       string   `json:"id"`
+	Names    []string `json:"names,omitempty"`
+	ImageID  string   `json:"image"`
+	LayerID  string   `json:"layer"`
+	Metadata string   `json:"metadata,omitempty"`
 }
 
 // ContainerStore provides bookkeeping for information about Containers.
@@ -51,8 +51,9 @@ type Container struct {
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	Store
-	Create(id, name, image, layer, metadata string) (*Container, error)
+	Create(id string, names []string, image, layer, metadata string) (*Container, error)
 	SetMetadata(id, metadata string) error
+	SetNames(id string, names []string) error
 	Get(id string) (*Container, error)
 	Exists(id string) bool
 	Delete(id string) error
@@ -84,8 +85,8 @@ func (r *containerStore) Load() error {
 	if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
 		for n, container := range containers {
 			ids[container.ID] = &containers[n]
-			if container.Name != "" {
-				names[container.Name] = &containers[n]
+			for _, name := range container.Names {
+				names[name] = &containers[n]
 			}
 		}
 	}
@@ -127,17 +128,19 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	return &cstore, nil
 }
 
-func (r *containerStore) Create(id, name, image, layer, metadata string) (container *Container, err error) {
+func (r *containerStore) Create(id string, names []string, image, layer, metadata string) (container *Container, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
-	if _, nameInUse := r.byname[name]; nameInUse {
-		return nil, errDuplicateName
+	for _, name := range names {
+		if _, nameInUse := r.byname[name]; nameInUse {
+			return nil, errDuplicateName
+		}
 	}
 	if err == nil {
 		newContainer := Container{
 			ID:       id,
-			Name:     name,
+			Names:    names,
 			ImageID:  image,
 			LayerID:  layer,
 			Metadata: metadata,
@@ -145,7 +148,7 @@ func (r *containerStore) Create(id, name, image, layer, metadata string) (contai
 		r.containers = append(r.containers, newContainer)
 		container = &r.containers[len(r.containers)-1]
 		r.byid[id] = container
-		if name != "" {
+		for _, name := range names {
 			r.byname[name] = container
 		}
 		err = r.Save()
@@ -164,6 +167,23 @@ func (r *containerStore) SetMetadata(id, metadata string) error {
 	return ErrContainerUnknown
 }
 
+func (r *containerStore) SetNames(id string, names []string) error {
+	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	}
+	if container, ok := r.byid[id]; ok {
+		for _, name := range container.Names {
+			delete(r.byname, name)
+		}
+		for _, name := range names {
+			r.byname[name] = container
+		}
+		container.Names = names
+		return r.Save()
+	}
+	return ErrContainerUnknown
+}
+
 func (r *containerStore) Delete(id string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
@@ -175,8 +195,8 @@ func (r *containerStore) Delete(id string) error {
 				newContainers = append(newContainers, candidate)
 			}
 		}
-		if container.Name != "" {
-			delete(r.byname, container.Name)
+		for _, name := range container.Names {
+			delete(r.byname, name)
 		}
 		r.containers = newContainers
 		if err := r.Save(); err != nil {

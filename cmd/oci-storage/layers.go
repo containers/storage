@@ -44,40 +44,40 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 			if node.left == "" {
 				node.left = "(base)"
 			}
-			if layer.Name != "" {
-				node.notes = append(node.notes, "name: "+layer.Name)
+			for _, name := range layer.Names {
+				node.notes = append(node.notes, "name: "+name)
 			}
 			if layer.MountPoint != "" {
 				node.notes = append(node.notes, "mount: "+layer.MountPoint)
 			}
 			if image, ok := imageMap[layer.ID]; ok {
 				node.notes = append(node.notes, fmt.Sprintf("image: %s", image.ID))
-				if image.Name != "" {
-					node.notes = append(node.notes, fmt.Sprintf("image name: %s", image.Name))
+				for _, name := range image.Names {
+					node.notes = append(node.notes, fmt.Sprintf("image name: %s", name))
 				}
 			}
 			if container, ok := containerMap[layer.ID]; ok {
 				node.notes = append(node.notes, fmt.Sprintf("container: %s", container.ID))
-				if container.Name != "" {
-					node.notes = append(node.notes, fmt.Sprintf("container name: %s", container.Name))
+				for _, name := range container.Names {
+					node.notes = append(node.notes, fmt.Sprintf("container name: %s", name))
 				}
 			}
 			nodes = append(nodes, node)
 		} else {
 			fmt.Printf("%s\n", layer.ID)
-			if layer.Name != "" {
-				fmt.Printf("\tname: %s\n", layer.Name)
+			for _, name := range layer.Names {
+				fmt.Printf("\tname: %s\n", name)
 			}
 			if image, ok := imageMap[layer.ID]; ok {
 				fmt.Printf("\timage: %s\n", image.ID)
-				if image.Name != "" {
-					fmt.Printf("\t\tname: %s\n", image.Name)
+				for _, name := range image.Names {
+					fmt.Printf("\t\tname: %s\n", name)
 				}
 			}
 			if container, ok := containerMap[layer.ID]; ok {
 				fmt.Printf("\tcontainer: %s\n", container.ID)
-				if container.Name != "" {
-					fmt.Printf("\t\tname: %s\n", container.Name)
+				for _, name := range container.Names {
+					fmt.Printf("\t\tname: %s\n", name)
 				}
 			}
 		}

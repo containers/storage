@@ -23,16 +23,17 @@ var (
 // A Layer is a record of a copy-on-write layer that's stored by the lower
 // level graph driver.
 // ID is either one specified at import-time or a randomly-generated value.
-// Name is an optional user-defined convenience value.  Parent is the ID of a
-// layer from which this layer inherits data.  MountLabel is an SELinux label
-// which should be used when attempting to mount the layer.  MountPoint is the
-// path where the layer is mounted, or where it was most recently mounted.
+// Names is an optional set of user-defined convenience values.  Parent is the
+// ID of a layer from which this layer inherits data.  MountLabel is an SELinux
+// label which should be used when attempting to mount the layer.  MountPoint
+// is the path where the layer is mounted, or where it was most recently
+// mounted.
 type Layer struct {
-	ID         string `json:"id"`
-	Name       string `json:"name,omitempty"`
-	Parent     string `json:"parent,omitempty"`
-	MountLabel string `json:"mountlabel,omitempty"`
-	MountPoint string `json:"mountpoint,omitempty"`
+	ID         string   `json:"id"`
+	Names      []string `json:"names,omitempty"`
+	Parent     string   `json:"parent,omitempty"`
+	MountLabel string   `json:"mountlabel,omitempty"`
+	MountPoint string   `json:"mountpoint,omitempty"`
 }
 
 // LayerStore wraps a graph driver, adding the ability to refer to layers by
@@ -83,9 +84,10 @@ type Layer struct {
 //
 type LayerStore interface {
 	Store
-	Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
+	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Get(id string) (*Layer, error)
+	SetNames(id string, names []string) error
 	Status() ([][2]string, error)
 	Delete(id string) error
 	Wipe() error
@@ -128,8 +130,8 @@ func (r *layerStore) Load() error {
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 		for n, layer := range layers {
 			ids[layer.ID] = &layers[n]
-			if layer.Name != "" {
-				names[layer.Name] = &layers[n]
+			for _, name := range layer.Names {
+				names[name] = &layers[n]
 			}
 			if layer.MountPoint != "" {
 				mounts[layer.MountPoint] = &layers[n]
@@ -187,15 +189,17 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *layerStore) Create(id, parent, name, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
+func (r *layerStore) Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
 	if layer, ok := r.byname[parent]; ok {
 		parent = layer.ID
 	}
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
-	if _, nameInUse := r.byname[name]; nameInUse {
-		return nil, errDuplicateName
+	for _, name := range names {
+		if _, nameInUse := r.byname[name]; nameInUse {
+			return nil, errDuplicateName
+		}
 	}
 	if writeable {
 		err = r.driver.CreateReadWrite(id, parent, mountLabel, options)
@@ -206,13 +210,13 @@ func (r *layerStore) Create(id, parent, name, mountLabel string, options map[str
 		newLayer := Layer{
 			ID:         id,
 			Parent:     parent,
-			Name:       name,
+			Names:      names,
 			MountLabel: mountLabel,
 		}
 		r.layers = append(r.layers, newLayer)
 		layer = &r.layers[len(r.layers)-1]
 		r.byid[id] = layer
-		if name != "" {
+		for _, name := range names {
 			r.byname[name] = layer
 		}
 		if pslice, ok := r.byparent[parent]; ok {
@@ -269,6 +273,23 @@ func (r *layerStore) Unmount(id string) error {
 	return err
 }
 
+func (r *layerStore) SetNames(id string, names []string) error {
+	if layer, ok := r.byname[id]; ok {
+		id = layer.ID
+	}
+	if layer, ok := r.byid[id]; ok {
+		for _, name := range layer.Names {
+			delete(r.byname, name)
+		}
+		for _, name := range names {
+			r.byname[name] = layer
+		}
+		layer.Names = names
+		return r.Save()
+	}
+	return ErrLayerUnknown
+}
+
 func (r *layerStore) Delete(id string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
@@ -289,8 +310,8 @@ func (r *layerStore) Delete(id string) error {
 			} else {
 				delete(r.byparent, layer.Parent)
 			}
-			if layer.Name != "" {
-				delete(r.byname, layer.Name)
+			for _, name := range layer.Names {
+				delete(r.byname, name)
 			}
 			if layer.MountPoint != "" {
 				delete(r.bymount, layer.MountPoint)
