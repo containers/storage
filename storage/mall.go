@@ -608,14 +608,23 @@ func (m *mall) SetNames(id string, names []string) error {
 		rcstore.Load()
 	}
 
+	deduped := []string{}
+	seen := make(map[string]bool)
+	for _, name := range names {
+		if _, wasSeen := seen[name]; !wasSeen {
+			seen[name] = true
+			deduped = append(deduped, name)
+		}
+	}
+
 	if rcstore.Exists(id) {
-		return rcstore.SetNames(id, names)
+		return rcstore.SetNames(id, deduped)
 	}
 	if ristore.Exists(id) {
-		return ristore.SetNames(id, names)
+		return ristore.SetNames(id, deduped)
 	}
 	if rlstore.Exists(id) {
-		return rlstore.SetNames(id, names)
+		return rlstore.SetNames(id, deduped)
 	}
 	return ErrLayerUnknown
 }
