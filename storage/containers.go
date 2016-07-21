@@ -48,6 +48,9 @@ type Container struct {
 //
 // Wipe removes records of all containers.
 //
+// Lookup attempts to translate a name to an ID.  Most methods do this
+// implicitly.
+//
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	Store
@@ -58,6 +61,7 @@ type ContainerStore interface {
 	Exists(id string) bool
 	Delete(id string) error
 	Wipe() error
+	Lookup(name string) (string, error)
 	Containers() ([]Container, error)
 }
 
@@ -214,6 +218,14 @@ func (r *containerStore) Get(id string) (*Container, error) {
 		return c, nil
 	}
 	return nil, ErrContainerUnknown
+}
+
+func (r *containerStore) Lookup(name string) (id string, err error) {
+	container, ok := r.byname[name]
+	if !ok {
+		return "", ErrContainerUnknown
+	}
+	return container.ID, nil
 }
 
 func (r *containerStore) Exists(id string) bool {

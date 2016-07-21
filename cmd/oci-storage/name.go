@@ -14,11 +14,16 @@ func setNames(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 	if len(args) < 1 {
 		return 1
 	}
-	if err := m.SetNames(args[0], paramNames); err != nil {
+	id, err := m.Lookup(args[0])
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	names, err := m.GetNames(args[0])
+	if err := m.SetNames(id, paramNames); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	names, err := m.GetNames(id)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1

@@ -111,7 +111,10 @@ type Store interface {
 //
 // GetImage returns a specific image.
 //
-// GetContainer returns a specific containers.
+// GetContainer returns a specific container.
+//
+// Lookup returns the ID of a layer, image, or container with the specified
+// name.
 //
 // Crawl enumerates all of the layers, images, and containers which depend on
 // or refer to, either directly or indirectly, the specified layer, top layer
@@ -147,6 +150,7 @@ type Mall interface {
 	GetLayer(id string) (*Layer, error)
 	GetImage(id string) (*Image, error)
 	GetContainer(id string) (*Container, error)
+	Lookup(name string) (string, error)
 	Crawl(layerID string) (*Users, error)
 }
 
@@ -656,6 +660,48 @@ func (m *mall) GetNames(id string) ([]string, error) {
 		return l.Names, nil
 	}
 	return nil, ErrLayerUnknown
+}
+
+func (m *mall) Lookup(name string) (string, error) {
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return "", err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return "", err
+	}
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return "", err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	if c, err := rcstore.Get(name); c != nil && err == nil {
+		return c.ID, nil
+	}
+	if i, err := ristore.Get(name); i != nil && err == nil {
+		return i.ID, nil
+	}
+	if l, err := rlstore.Get(name); l != nil && err == nil {
+		return l.ID, nil
+	}
+	return "", ErrLayerUnknown
 }
 
 func (m *mall) Delete(id string) error {

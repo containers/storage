@@ -44,6 +44,9 @@ type Image struct {
 //
 // Wipe removes records of all images.
 //
+// Lookup attempts to translate a name to an ID.  Most methods do this
+// implicitly.
+//
 // Images returns a slice enumerating the known images.
 type ImageStore interface {
 	Store
@@ -54,6 +57,7 @@ type ImageStore interface {
 	Get(id string) (*Image, error)
 	Delete(id string) error
 	Wipe() error
+	Lookup(name string) (string, error)
 	Images() ([]Image, error)
 }
 
@@ -209,6 +213,14 @@ func (r *imageStore) Get(id string) (*Image, error) {
 		return image, nil
 	}
 	return nil, ErrImageUnknown
+}
+
+func (r *imageStore) Lookup(name string) (id string, err error) {
+	image, ok := r.byname[name]
+	if !ok {
+		return "", ErrImageUnknown
+	}
+	return image.ID, nil
 }
 
 func (r *imageStore) Exists(id string) bool {

@@ -81,7 +81,6 @@ type Layer struct {
 // implicitly.
 //
 // Layers returns a slice of the known layers.
-//
 type LayerStore interface {
 	Store
 	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
