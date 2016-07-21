@@ -82,7 +82,7 @@ func init() {
 		action:      metadata,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&metadataQuiet, []string{"-quiet", "q"}, metadataQuiet, "Omit names and IDs")
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 	commands = append(commands, command{

@@ -70,7 +70,7 @@ func init() {
 		action:      container,
 		minArgs:     1,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 }

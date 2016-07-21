@@ -117,7 +117,7 @@ func init() {
 			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "Layer name")
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Layer ID")
 			flags.BoolVar(&paramCreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 	commands = append(commands, command{
@@ -132,7 +132,7 @@ func init() {
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Image ID")
 			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
 			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 	commands = append(commands, command{
@@ -147,7 +147,7 @@ func init() {
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Container ID")
 			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
 			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 }

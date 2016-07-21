@@ -37,8 +37,8 @@ func init() {
 		minArgs:     1,
 		action:      setNames,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "new name")
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "New name")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 }

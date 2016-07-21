@@ -77,7 +77,7 @@ func init() {
 		action:      mount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 	commands = append(commands, command{
@@ -87,7 +87,7 @@ func init() {
 		minArgs:     1,
 		action:      unmount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "prefer JSON output")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 }
