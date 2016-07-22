@@ -115,7 +115,14 @@ type Store interface {
 //
 // GetImage returns a specific image.
 //
+// GetImagesByTopLayer returns a list of images which reference the specified
+// layer as their top layer.  They will have different names and may have
+// different metadata.
+//
 // GetContainer returns a specific container.
+//
+// GetContainerByLayer returns a specific container based on its layer ID or
+// name.
 //
 // Lookup returns the ID of a layer, image, or container with the specified
 // name.
@@ -153,7 +160,9 @@ type Mall interface {
 	SetNames(id string, names []string) error
 	GetLayer(id string) (*Layer, error)
 	GetImage(id string) (*Image, error)
+	GetImagesByTopLayer(id string) ([]*Image, error)
 	GetContainer(id string) (*Container, error)
+	GetContainerByLayer(id string) (*Container, error)
 	Lookup(name string) (string, error)
 	Crawl(layerID string) (*Users, error)
 }
@@ -1046,6 +1055,45 @@ func (m *mall) GetImage(id string) (*Image, error) {
 	return ristore.Get(id)
 }
 
+func (m *mall) GetImagesByTopLayer(id string) ([]*Image, error) {
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+
+	layer, err := rlstore.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	images := []*Image{}
+	imageList, err := ristore.Images()
+	if err != nil {
+		return nil, err
+	}
+	for _, image := range imageList {
+		if image.TopLayer == layer.ID {
+			images = append(images, &image)
+		}
+	}
+
+	return images, nil
+}
+
 func (m *mall) GetContainer(id string) (*Container, error) {
 	ristore, err := m.GetImageStore()
 	if err != nil {
@@ -1077,6 +1125,53 @@ func (m *mall) GetContainer(id string) (*Container, error) {
 	}
 
 	return rcstore.Get(id)
+}
+
+func (m *mall) GetContainerByLayer(id string) (*Container, error) {
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	layer, err := rlstore.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	containerList, err := rcstore.Containers()
+	if err != nil {
+		return nil, err
+	}
+	for _, container := range containerList {
+		if container.LayerID == layer.ID {
+			return &container, nil
+		}
+	}
+
+	return nil, ErrContainerUnknown
 }
 
 func (m *mall) Crawl(layerID string) (*Users, error) {

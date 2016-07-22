@@ -22,8 +22,18 @@ func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 		json.NewEncoder(os.Stdout).Encode(users)
 	} else {
 		if listLayersTree {
-			layer := func(l *storage.Layer) treeNode {
-				node := treeNode{left: l.Parent, right: l.ID}
+			layer := func(l *storage.Layer) *treeNode {
+				images, _ := m.GetImagesByTopLayer(l.ID)
+				for _, image := range images {
+					if image.TopLayer == l.ID {
+						return nil
+					}
+				}
+				container, _ := m.GetContainerByLayer(l.ID)
+				if container != nil {
+					return nil
+				}
+				node := &treeNode{left: l.Parent, right: l.ID}
 				node.notes = []string{"type: layer"}
 				for _, name := range l.Names {
 					note := fmt.Sprintf("layer name: %s", name)
@@ -33,17 +43,22 @@ func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 			}
 			image := func(i *storage.Image) treeNode {
 				node := treeNode{left: i.TopLayer, right: i.ID}
+				if topLayer, _ := m.GetLayer(i.TopLayer); topLayer != nil {
+					node.left = topLayer.Parent
+				}
 				node.notes = []string{"type: image"}
 				for _, name := range i.Names {
 					note := fmt.Sprintf("image name: %s", name)
 					node.notes = append(node.notes, note)
 				}
+				note := fmt.Sprintf("image top layer: %s", i.TopLayer)
+				node.notes = append(node.notes, note)
 				return node
 			}
 			container := func(c *storage.Container) treeNode {
 				parent := ""
 				if image, err := m.GetImage(c.ImageID); image != nil && err == nil {
-					parent = image.TopLayer
+					parent = image.ID
 				}
 				node := treeNode{left: parent, right: c.ID}
 				node.notes = []string{"type: container"}
@@ -51,6 +66,8 @@ func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 					note := fmt.Sprintf("container name: %s", name)
 					node.notes = append(node.notes, note)
 				}
+				note := fmt.Sprintf("container layer: %s", c.LayerID)
+				node.notes = append(node.notes, note)
 				return node
 			}
 			tree := []treeNode{}
@@ -62,18 +79,24 @@ func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 				tree = append(tree, root)
 			} else if l, err := m.GetLayer(users.ID); l != nil && err == nil {
 				root := layer(l)
-				tree = append(tree, root)
+				if root != nil {
+					tree = append(tree, *root)
+				}
 			}
 			for _, direct := range users.LayersDirect {
 				if l, err := m.GetLayer(direct); l != nil && err == nil {
 					node := layer(l)
-					tree = append(tree, node)
+					if node != nil {
+						tree = append(tree, *node)
+					}
 				}
 			}
 			for _, indirect := range users.LayersIndirect {
 				if l, err := m.GetLayer(indirect); l != nil && err == nil {
 					node := layer(l)
-					tree = append(tree, node)
+					if node != nil {
+						tree = append(tree, *node)
+					}
 				}
 			}
 			for _, direct := range users.ImagesDirect {
