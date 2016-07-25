@@ -29,10 +29,6 @@ func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 						return nil
 					}
 				}
-				container, _ := m.GetContainerByLayer(l.ID)
-				if container != nil {
-					return nil
-				}
 				node := &treeNode{left: l.Parent, right: l.ID}
 				node.notes = []string{"type: layer"}
 				for _, name := range l.Names {

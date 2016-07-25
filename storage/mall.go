@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	errLoadError     = errors.New("error loading storage metadata")
-	errDuplicateName = errors.New("that name is already in use")
+	errLoadError         = errors.New("error loading storage metadata")
+	errDuplicateName     = errors.New("that name is already in use")
+	errParentIsContainer = errors.New("would-be parent layer is a container")
 )
 
 // Store wraps up the most common methods of the various types of file-based
@@ -371,7 +372,22 @@ func (m *mall) CreateLayer(id, parent string, names []string, mountLabel string,
 			return nil, errDuplicateName
 		}
 	}
-
+	containers, err := rcstore.Containers()
+	if err != nil {
+		return nil, err
+	}
+	if parent != "" {
+		if l, err := rlstore.Get(parent); err == nil && l != nil {
+			parent = l.ID
+		} else {
+			return nil, ErrLayerUnknown
+		}
+	}
+	for _, container := range containers {
+		if container.LayerID == parent {
+			return nil, errParentIsContainer
+		}
+	}
 	return rlstore.Create(id, parent, names, mountLabel, nil, writeable)
 }
 
@@ -1234,7 +1250,13 @@ func (m *mall) Crawl(layerID string) (*Users, error) {
 		return nil, err
 	}
 	children := make(map[string][]string)
+nextLayer:
 	for _, layer := range layers {
+		for _, container := range containers {
+			if container.LayerID == layer.ID {
+				break nextLayer
+			}
+		}
 		if childs, known := children[layer.Parent]; known {
 			newChildren := append(childs, layer.ID)
 			children[layer.Parent] = newChildren
@@ -1277,14 +1299,18 @@ func (m *mall) Crawl(layerID string) (*Users, error) {
 		}
 	}
 	for _, container := range containers {
-		if container.LayerID == layerID {
+		parent := ""
+		if l, _ := rlstore.Get(container.LayerID); l != nil {
+			parent = l.Parent
+		}
+		if parent == layerID {
 			if u.ContainersDirect == nil {
 				u.ContainersDirect = []string{container.ID}
 			} else {
 				u.ContainersDirect = append(u.ContainersDirect, container.ID)
 			}
 		} else {
-			if _, isDescended := examined[container.LayerID]; isDescended {
+			if _, isDescended := examined[parent]; isDescended {
 				if u.ContainersIndirect == nil {
 					u.ContainersIndirect = []string{container.ID}
 				} else {
