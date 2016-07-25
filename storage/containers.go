@@ -138,7 +138,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	}
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	if err == nil {

@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	errLoadError         = errors.New("error loading storage metadata")
-	errDuplicateName     = errors.New("that name is already in use")
-	errParentIsContainer = errors.New("would-be parent layer is a container")
+	ErrLoadError         = errors.New("error loading storage metadata")
+	ErrDuplicateName     = errors.New("that name is already in use")
+	ErrParentIsContainer = errors.New("would-be parent layer is a container")
 )
 
 // Store wraps up the most common methods of the various types of file-based
@@ -279,7 +279,7 @@ func (m *mall) GetGraphDriver() (graphdriver.Driver, error) {
 	if m.graphDriver != nil {
 		return m.graphDriver, nil
 	}
-	return nil, errLoadError
+	return nil, ErrLoadError
 }
 
 func (m *mall) GetLayerStore() (LayerStore, error) {
@@ -291,7 +291,7 @@ func (m *mall) GetLayerStore() (LayerStore, error) {
 	if m.layerStore != nil {
 		return m.layerStore, nil
 	}
-	return nil, errLoadError
+	return nil, ErrLoadError
 }
 
 func (m *mall) GetImageStore() (ImageStore, error) {
@@ -303,7 +303,7 @@ func (m *mall) GetImageStore() (ImageStore, error) {
 	if m.imageStore != nil {
 		return m.imageStore, nil
 	}
-	return nil, errLoadError
+	return nil, ErrLoadError
 }
 
 func (m *mall) GetContainerStore() (ContainerStore, error) {
@@ -315,7 +315,7 @@ func (m *mall) GetContainerStore() (ContainerStore, error) {
 	if m.containerStore != nil {
 		return m.containerStore, nil
 	}
-	return nil, errLoadError
+	return nil, ErrLoadError
 }
 
 func (m *mall) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error) {
@@ -352,24 +352,24 @@ func (m *mall) CreateLayer(id, parent string, names []string, mountLabel string,
 	}
 	if id != "" {
 		if l, err := rlstore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	for _, name := range names {
 		if l, err := rlstore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	containers, err := rcstore.Containers()
@@ -385,7 +385,7 @@ func (m *mall) CreateLayer(id, parent string, names []string, mountLabel string,
 	}
 	for _, container := range containers {
 		if container.LayerID == parent {
-			return nil, errParentIsContainer
+			return nil, ErrParentIsContainer
 		}
 	}
 	return rlstore.Create(id, parent, names, mountLabel, nil, writeable)
@@ -424,24 +424,24 @@ func (m *mall) CreateImage(id string, names []string, layer, metadata string) (*
 	}
 	if id != "" {
 		if l, err := rlstore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	for _, name := range names {
 		if l, err := rlstore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 
@@ -490,35 +490,35 @@ func (m *mall) CreateContainer(id string, names []string, image, layer, metadata
 
 	if id != "" {
 		if l, err := rlstore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(id); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	if layer != "" {
 		if l, err := rlstore.Get(layer); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(layer); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(layer); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	for _, name := range names {
 		if l, err := rlstore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := ristore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 		if l, err := rcstore.Get(name); l != nil && err == nil {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 

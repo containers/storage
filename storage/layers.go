@@ -197,7 +197,7 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 	}
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {
-			return nil, errDuplicateName
+			return nil, ErrDuplicateName
 		}
 	}
 	if writeable {
