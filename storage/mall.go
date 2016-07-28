@@ -11,6 +11,7 @@ import (
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/storageversion"
 )
 
 var (
@@ -131,6 +132,9 @@ type Store interface {
 // Crawl enumerates all of the layers, images, and containers which depend on
 // or refer to, either directly or indirectly, the specified layer, top layer
 // of an image, or container layer.
+//
+// Version returns version information, in the form of key-value pairs, from
+// the storage package.
 type Mall interface {
 	GetGraphRoot() string
 	GetGraphDriverName() string
@@ -166,6 +170,7 @@ type Mall interface {
 	GetContainerByLayer(id string) (*Container, error)
 	Lookup(name string) (string, error)
 	Crawl(layerID string) (*Users, error)
+	Version() ([][2]string, error)
 }
 
 // Users holds an analysis of which layers, images, and containers depend on a
@@ -842,6 +847,14 @@ func (m *mall) Status() ([][2]string, error) {
 		return nil, err
 	}
 	return rlstore.Status()
+}
+
+func (m *mall) Version() ([][2]string, error) {
+	return [][2]string{
+		{"GitCommit", storageversion.GitCommit},
+		{"Version", storageversion.Version},
+		{"BuildTime", storageversion.BuildTime},
+	}, nil
 }
 
 func (m *mall) Mount(id, mountLabel string) (string, error) {
