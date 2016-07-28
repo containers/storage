@@ -11,6 +11,11 @@ import (
 	"github.com/containers/storage/storage"
 )
 
+var (
+	applyDiffFile       = ""
+	applyDiffCompressed = false
+)
+
 func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	if len(args) < 1 {
 		return 1
@@ -70,7 +75,24 @@ func applyDiff(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 	if len(args) < 1 {
 		return 1
 	}
-	_, err := m.ApplyDiff(args[0], os.Stdin)
+	diffStream := io.Reader(os.Stdin)
+	if applyDiffFile != "" {
+		if f, err := os.Open(applyDiffFile); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		} else {
+			diffStream = f
+		}
+	}
+	if applyDiffCompressed {
+		if c, err := archive.DecompressStream(diffStream); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		} else {
+			diffStream = c
+		}
+	}
+	_, err := m.ApplyDiff(args[0], diffStream)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -131,5 +153,9 @@ func init() {
 		minArgs:     1,
 		maxArgs:     1,
 		action:      applyDiff,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.StringVar(&applyDiffFile, []string{"-file", "f"}, "", "Read from file instead of stdin")
+			flags.BoolVar(&applyDiffCompressed, []string{"-compressed", "c"}, applyDiffCompressed, "Diff is compressed")
+		},
 	})
 }
