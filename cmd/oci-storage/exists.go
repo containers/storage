@@ -9,7 +9,12 @@ import (
 	"github.com/containers/storage/storage"
 )
 
-var existQuiet = false
+var (
+	existLayer     = false
+	existImage     = false
+	existContainer = false
+	existQuiet     = false
+)
 
 func exist(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	if len(args) < 1 {
@@ -20,6 +25,21 @@ func exist(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 	for _, what := range args {
 		exists := m.Exists(what)
 		existDict[what] = exists
+		if existContainer {
+			if c, err := m.GetContainer(what); c == nil || err != nil {
+				exists = false
+			}
+		}
+		if existImage {
+			if i, err := m.GetImage(what); i == nil || err != nil {
+				exists = false
+			}
+		}
+		if existLayer {
+			if l, err := m.GetLayer(what); l == nil || err != nil {
+				exists = false
+			}
+		}
 		if !exists {
 			anyMissing = true
 		}
@@ -48,6 +68,9 @@ func init() {
 		action:      exist,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&existQuiet, []string{"-quiet", "q"}, existQuiet, "Don't print names")
+			flags.BoolVar(&existLayer, []string{"-layer", "l"}, existQuiet, "Only succeed if the match is a layer")
+			flags.BoolVar(&existImage, []string{"-image", "i"}, existQuiet, "Only succeed if the match is an image")
+			flags.BoolVar(&existContainer, []string{"-container", "c"}, existQuiet, "Only succeed if the match is a container")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
