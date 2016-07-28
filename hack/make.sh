@@ -38,7 +38,6 @@ DEFAULT_BUNDLES=(
 
 	test-unit
 
-	cover
 	gccgo
 	cross
 )
