@@ -34,12 +34,13 @@ DEFAULT_BUNDLES=(
 	validate-toml
 	validate-vet
 
-	dynbinary
+	binary
 
 	test-unit
 	test-integration-cli
 
 	cover
+	gccgo
 	cross
 )
 
@@ -159,7 +160,7 @@ go_test_dir() {
 	if [ "$HAVE_GO_TEST_COVER" ]; then
 		# if our current go install has -cover, we want to use it :)
 		mkdir -p "$DEST/coverprofiles"
-		coverprofile="docker${dir#.}"
+		coverprofile="storage${dir#.}"
 		coverprofile="$ABS_DEST/coverprofiles/${coverprofile//\//-}"
 		testcover=( -test.cover )
 		testcoverprofile=( -test.coverprofile "$coverprofile" $coverpkg )
@@ -206,9 +207,9 @@ hash_files() {
 			if command -v "${hashAlgo}sum" &> /dev/null; then
 				(
 					# subshell and cd so that we get output files like:
-					#   $HASH docker-$VERSION
+					#   $HASH oci-storage-$VERSION
 					# instead of:
-					#   $HASH /go/src/github.com/.../$VERSION/binary/docker-$VERSION
+					#   $HASH /go/src/github.com/.../$VERSION/binary/oci-storage-$VERSION
 					cd "$dir"
 					"${hashAlgo}sum" "$base" > "$base.$hashAlgo"
 				)

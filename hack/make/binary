@@ -1,10 +1,9 @@
 #!/bin/bash
 set -e
-rm -rf "$DEST"
 
 # This script exists as backwards compatibility for CI
 (
-	DEST="${DEST}-oci-storage"
-	ABS_DEST="${ABS_DEST}-oci-storage"
-	. hack/make/binary-oci-storage
+    DEST="${DEST}-oci-storage"
+    ABS_DEST="${ABS_DEST}-oci-storage"
+    . hack/make/binary-oci-storage
 )

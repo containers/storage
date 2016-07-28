@@ -3,10 +3,8 @@ set -e
 
 (
 	export BINARY_SHORT_NAME='oci-storage'
-	export SOURCE_PATH='./oci-storage'
-	export IAMSTATIC=${IAMSTATIC:-true}
-	if test "$IAMSTATIC" = "true" ; then
-		BUILDFLAGS+=" static_build"
-	fi
+	export SOURCE_PATH='./cmd/oci-storage'
+	export IAMSTATIC='false'
+	export BUILDFLAGS=( "${BUILDFLAGS[@]/static_build /}" ) # we're not building a "static" binary here
 	source "${MAKEDIR}/.binary"
 )

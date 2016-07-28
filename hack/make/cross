@@ -12,6 +12,6 @@ for platform in $CROSSPLATFORMS; do
 		export GOOS=${platform%/*}
 		export GOARCH=${platform##*/}
 
-		source "${MAKEDIR}/dynbinary"
+		source "${MAKEDIR}/binary"
 	)
 done

@@ -1,69 +1,54 @@
-.PHONY: all build build-gccgo cross default docs docs-build dynbinary gccgo test test-integration-cli test-unit validate help
+.PHONY: all binary build build-binary build-gccgo bundles cross default docs gccgo test test-integration-cli test-unit validate help win tgz
 
 # set the graph driver as the current graphdriver if not set
-DRIVER := $(if $(DOCKER_GRAPHDRIVER),$(DOCKER_GRAPHDRIVER),$(shell docker info 2>&1 | grep "Storage Driver" | sed 's/.*: //'))
+DRIVER := $(if $(STORAGE_DRIVER),$(STORAGE_DRIVER),$(if $(DOCKER_GRAPHDRIVER),DOCKER_GRAPHDRIVER),$(shell docker info 2>&1 | grep "Storage Driver" | sed 's/.*: //'))
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
 
-default: all
+RUNINVM := vagrant/runinvm.sh
 
-all: build ## validate all checks, build linux binaries, run all tests\ncross build non-linux binaries and generate archives
-	hack/make.sh
+default all: build ## validate all checks, build linux binaries, run all tests\ncross build non-linux binaries and generate archives
+	$(RUNINVM) hack/make.sh
 
-build: bundles
-	hack/make.sh
+build build-binary: bundles
+	hack/make.sh binary
 
 build-gccgo: bundles
-	hack/make.sh
+	hack/make.sh gccgo
 
-dynbinary: bundles
-	hack/make.sh dynbinary
+binary: bundles
+	$(RUNINVM) hack/make.sh binary
 
 bundles:
-	mkdir bundles
+	mkdir -p bundles
 
 cross: build ## cross build the binaries for darwin, freebsd and\nwindows
-	hack/make.sh dynbinary cross
+	$(RUNINVM) hack/make.sh binary cross
 
 win: build ## cross build the binary for windows
-	hack/make.sh win
+	$(RUNINVM) hack/make.sh win
 
 tgz: build ## build the archives (.zip on windows and .tgz\notherwise) containing the binaries
-	hack/make.sh dynbinary cross tgz
-
-deb: build  ## build the deb packages
-	hack/make.sh dynbinary build-deb
+	hack/make.sh binary cross tgz
 
 docs: ## build the docs
 	$(MAKE) -C docs docs
 
 gccgo: build-gccgo ## build the gcc-go linux binaries
-	hack/make.sh gccgo
+	$(RUNINVM) hack/make.sh gccgo
 
-install: ## install the linux binaries
-	KEEPBUNDLE=1 hack/make.sh install-binary
-
-rpm: build ## build the rpm packages
-	hack/make.sh dynbinary build-rpm
-
-run: build ## run the docker daemon in a container
-	sh -c "KEEPBUNDLE=1 hack/make.sh install-binary run"
-
-test: build ## run the unit, integration and docker-py tests
-	hack/make.sh dynbinary cross test-unit test-integration-cli test-docker-py
-
-test-docker-py: build ## run the docker-py tests
-	hack/make.sh dynbinary test-docker-py
+test: build ## run the unit and integration tests
+	$(RUNINVM) hack/make.sh binary cross test-unit test-integration-cli
 
 test-integration-cli: build ## run the integration tests
-	hack/make.sh dynbinary test-integration-cli
+	$(RUNINVM) hack/make.sh binary test-integration-cli
 
 test-unit: build ## run the unit tests
-	hack/make.sh test-unit
+	$(RUNINVM) hack/make.sh test-unit
 
 validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor 
-	hack/make.sh validate-dco validate-default-seccomp validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet validate-vendor
+	$(RUNINVM) hack/make.sh validate-dco validate-default-seccomp validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet validate-vendor
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {sub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
