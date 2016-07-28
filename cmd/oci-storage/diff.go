@@ -82,6 +82,7 @@ func applyDiff(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 			return 1
 		} else {
 			diffStream = f
+			defer f.Close()
 		}
 	}
 	if applyDiffCompressed {
