@@ -31,7 +31,7 @@ type Image struct {
 //
 // Create creates an image that has a specified ID (or a random one) and an
 // optional name, using the specified layer as its topmost (hopefully
-// read-only) layer.
+// read-only) layer.  That layer can be referenced by multiple images.
 //
 // SetMetadata replaces the metadata associated with an image with the supplied
 // value.
