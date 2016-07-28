@@ -37,7 +37,6 @@ DEFAULT_BUNDLES=(
 	binary
 
 	test-unit
-	test-integration-cli
 
 	cover
 	gccgo
