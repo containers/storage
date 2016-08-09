@@ -234,7 +234,7 @@ func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string)
 	if err := os.MkdirAll(runRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	for _, subdir := range []string{"mounts", "tmp"} {
+	for _, subdir := range []string{"layers"} {
 		if err := os.MkdirAll(filepath.Join(runRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
