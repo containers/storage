@@ -15,22 +15,26 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	if len(args) < 1 {
 		return 1
 	}
-	deleted := make(map[string]error)
+	deleted := make(map[string]string)
 	for _, what := range args {
 		err := m.Delete(what)
-		deleted[what] = err
+		if err != nil {
+			deleted[what] = fmt.Sprintf("%v", err)
+		} else {
+			deleted[what] = ""
+		}
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(deleted)
 	} else {
 		for what, err := range deleted {
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", what, err)
+			if err != "" {
+				fmt.Fprintf(os.Stderr, "%s: %s\n", what, err)
 			}
 		}
 	}
 	for _, err := range deleted {
-		if err != nil {
+		if err != "" {
 			return 1
 		}
 	}
@@ -41,22 +45,26 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	if len(args) < 1 {
 		return 1
 	}
-	deleted := make(map[string]error)
+	deleted := make(map[string]string)
 	for _, what := range args {
 		err := m.DeleteLayer(what)
-		deleted[what] = err
+		if err != nil {
+			deleted[what] = fmt.Sprintf("%v", err)
+		} else {
+			deleted[what] = ""
+		}
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(deleted)
 	} else {
 		for what, err := range deleted {
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", what, err)
+			if err != "" {
+				fmt.Fprintf(os.Stderr, "%s: %s\n", what, err)
 			}
 		}
 	}
 	for _, err := range deleted {
-		if err != nil {
+		if err != "" {
 			return 1
 		}
 	}
@@ -65,7 +73,7 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 
 type deletedImage struct {
 	DeletedLayers []string `json:"deleted-layers,omitifempty"`
-	Error         error    `json:"error,omitifempty"`
+	Error         string   `json:"error,omitifempty"`
 }
 
 func deleteImage(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
@@ -75,14 +83,21 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	deleted := make(map[string]deletedImage)
 	for _, what := range args {
 		layers, err := m.DeleteImage(what, !testDeleteImage)
-		deleted[what] = deletedImage{layers, err}
+		errText := ""
+		if err != nil {
+			errText = fmt.Sprintf("%v", err)
+		}
+		deleted[what] = deletedImage{
+			DeletedLayers: layers,
+			Error:         errText,
+		}
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(deleted)
 	} else {
 		for what, record := range deleted {
-			if record.Error != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", what, record.Error)
+			if record.Error != "" {
+				fmt.Fprintf(os.Stderr, "%s: %s\n", what, record.Error)
 			} else {
 				for _, layer := range record.DeletedLayers {
 					fmt.Fprintf(os.Stderr, "%s: %s\n", what, layer)
@@ -91,7 +106,7 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 		}
 	}
 	for _, record := range deleted {
-		if record.Error != nil {
+		if record.Error != "" {
 			return 1
 		}
 	}
@@ -102,22 +117,26 @@ func deleteContainer(flags *mflag.FlagSet, action string, m storage.Mall, args [
 	if len(args) < 1 {
 		return 1
 	}
-	deleted := make(map[string]error)
+	deleted := make(map[string]string)
 	for _, what := range args {
 		err := m.DeleteContainer(what)
-		deleted[what] = err
+		if err != nil {
+			deleted[what] = fmt.Sprintf("%v", err)
+		} else {
+			deleted[what] = ""
+		}
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(deleted)
 	} else {
 		for what, err := range deleted {
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %v\n", what, err)
+			if err != "" {
+				fmt.Fprintf(os.Stderr, "%s: %s\n", what, err)
 			}
 		}
 	}
 	for _, err := range deleted {
-		if err != nil {
+		if err != "" {
 			return 1
 		}
 	}
