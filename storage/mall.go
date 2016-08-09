@@ -15,9 +15,16 @@ import (
 )
 
 var (
-	ErrLoadError         = errors.New("error loading storage metadata")
-	ErrDuplicateName     = errors.New("that name is already in use")
-	ErrParentIsContainer = errors.New("would-be parent layer is a container")
+	ErrLoadError            = errors.New("error loading storage metadata")
+	ErrDuplicateName        = errors.New("that name is already in use")
+	ErrParentIsContainer    = errors.New("would-be parent layer is a container")
+	ErrNotAContainer        = errors.New("identifier is not a container")
+	ErrNotAnImage           = errors.New("identifier is not an image")
+	ErrNotALayer            = errors.New("identifier is not a layer")
+	ErrLayerHasChildren     = errors.New("layer has children")
+	ErrLayerUsedByImage     = errors.New("layer is in use by an image")
+	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
+	ErrImageUsedByContainer = errors.New("image is in use by a container")
 )
 
 // Store wraps up the most common methods of the various types of file-based
@@ -80,6 +87,24 @@ type Store interface {
 // name.  Note that no safety checks are performed, so this can leave images
 // with references to layers which do not exist, and layers with references to
 // parents which no longer exist.
+//
+// DeleteLayer attempts to remove the specified layer.  If the layer is the
+// parent of any other layer, or is referred to by any images, it will return
+// an error.
+//
+// DeleteImage removes the specified image if it is not referred to by any
+// containers.  If its top layer is then no longer referred to by any other
+// images or the parent of any other layers, its top layer will be removed.  If
+// that layer's parent is no longer referred to by any other images or the
+// parent of any other layers, then it, too, will be removed.  This procedure
+// will be repeated until a layer which should not be removed, or the base
+// layer, is reached, at which point the list of removed layers is returned.
+// If the commit argument is false, the image and layers are not removed, but
+// the list of layers which would be removed is still returned.
+//
+// DeleteContainer removes the specified container and its layer.  If there is
+// no matching container, or if the container exists but its layer does not, an
+// error will be returned.
 //
 // Wipe removes all known layers, images, and containers.
 //
@@ -151,6 +176,9 @@ type Mall interface {
 	Exists(id string) bool
 	Status() ([][2]string, error)
 	Delete(id string) error
+	DeleteLayer(id string) error
+	DeleteImage(id string, commit bool) ([]string, error)
+	DeleteContainer(id string) error
 	Wipe() error
 	Mount(id, mountLabel string) (string, error)
 	Unmount(id string) error
@@ -748,6 +776,245 @@ func (m *mall) Lookup(name string) (string, error) {
 	return "", ErrLayerUnknown
 }
 
+func (m *mall) DeleteLayer(id string) error {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	if rlstore.Exists(id) {
+		defer rlstore.Touch()
+		defer rcstore.Touch()
+		if l, err := rlstore.Get(id); err != nil {
+			id = l.ID
+		}
+		layers, err := rlstore.Layers()
+		if err != nil {
+			return err
+		}
+		for _, layer := range layers {
+			if layer.Parent == id {
+				return ErrLayerHasChildren
+			}
+		}
+		images, err := ristore.Images()
+		if err != nil {
+			return err
+		}
+		for _, image := range images {
+			if image.TopLayer == id {
+				return ErrLayerUsedByImage
+			}
+		}
+		containers, err := rcstore.Containers()
+		if err != nil {
+			return err
+		}
+		for _, container := range containers {
+			if container.LayerID == id {
+				return ErrLayerUsedByContainer
+			}
+		}
+		return rlstore.Delete(id)
+	} else {
+		return ErrNotALayer
+	}
+	return nil
+}
+
+func (m *mall) DeleteImage(id string, commit bool) ([]string, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+	layersToRemove := []string{}
+	if ristore.Exists(id) {
+		image, err := ristore.Get(id)
+		if err != nil {
+			return nil, err
+		}
+		id = image.ID
+		defer rlstore.Touch()
+		defer ristore.Touch()
+		containers, err := rcstore.Containers()
+		if err != nil {
+			return nil, err
+		}
+		aContainerByImage := make(map[string]string)
+		for _, container := range containers {
+			aContainerByImage[container.ImageID] = container.ID
+		}
+		if _, ok := aContainerByImage[id]; ok {
+			return nil, ErrImageUsedByContainer
+		}
+		images, err := ristore.Images()
+		if err != nil {
+			return nil, err
+		}
+		layers, err := rlstore.Layers()
+		if err != nil {
+			return nil, err
+		}
+		childrenByParent := make(map[string]*[]string)
+		for _, layer := range layers {
+			parent := layer.Parent
+			if list, ok := childrenByParent[parent]; ok {
+				newList := append(*list, layer.ID)
+				childrenByParent[parent] = &newList
+			} else {
+				childrenByParent[parent] = &([]string{layer.ID})
+			}
+		}
+		anyImageByTopLayer := make(map[string]string)
+		for _, img := range images {
+			if img.ID != id {
+				anyImageByTopLayer[img.TopLayer] = img.ID
+			}
+		}
+		if commit {
+			if err = ristore.Delete(id); err != nil {
+				return nil, err
+			}
+		}
+		layer := image.TopLayer
+		lastRemoved := ""
+		for layer != "" {
+			if rcstore.Exists(layer) {
+				break
+			}
+			if _, ok := anyImageByTopLayer[layer]; ok {
+				break
+			}
+			parent := ""
+			if l, err := rlstore.Get(layer); err == nil {
+				parent = l.Parent
+			}
+			otherRefs := 0
+			if childList, ok := childrenByParent[layer]; ok && childList != nil {
+				children := *childList
+				for _, child := range children {
+					if child != lastRemoved {
+						otherRefs++
+					}
+				}
+			}
+			if otherRefs != 0 {
+				break
+			}
+			lastRemoved = layer
+			layersToRemove = append(layersToRemove, lastRemoved)
+			layer = parent
+		}
+	} else {
+		return nil, ErrNotAnImage
+	}
+	if commit {
+		for _, layer := range layersToRemove {
+			if err = rlstore.Delete(layer); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return layersToRemove, nil
+}
+
+func (m *mall) DeleteContainer(id string) error {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	if rcstore.Exists(id) {
+		defer rlstore.Touch()
+		defer rcstore.Touch()
+		if container, err := rcstore.Get(id); err == nil {
+			if rlstore.Exists(container.LayerID) {
+				if err := rlstore.Delete(container.LayerID); err != nil {
+					return err
+				}
+				return rcstore.Delete(id)
+			} else {
+				return ErrNotALayer
+			}
+		}
+	} else {
+		return ErrNotAContainer
+	}
+	return nil
+}
+
 func (m *mall) Delete(id string) error {
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
@@ -782,10 +1049,14 @@ func (m *mall) Delete(id string) error {
 		defer rlstore.Touch()
 		defer rcstore.Touch()
 		if container, err := rcstore.Get(id); err == nil {
-			if err := rlstore.Delete(container.LayerID); err != nil {
-				return err
+			if rlstore.Exists(container.LayerID) {
+				if err := rlstore.Delete(container.LayerID); err != nil {
+					return err
+				}
+				return rcstore.Delete(id)
+			} else {
+				return ErrNotALayer
 			}
-			return rcstore.Delete(id)
 		}
 	}
 	if ristore.Exists(id) {
