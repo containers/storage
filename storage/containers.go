@@ -70,6 +70,7 @@ type containerStore struct {
 	dir        string
 	containers []Container
 	byid       map[string]*Container
+	bylayer    map[string]*Container
 	byname     map[string]*Container
 }
 
@@ -84,11 +85,13 @@ func (r *containerStore) Load() error {
 		return err
 	}
 	containers := []Container{}
+	layers := make(map[string]*Container)
 	ids := make(map[string]*Container)
 	names := make(map[string]*Container)
 	if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
 		for n, container := range containers {
 			ids[container.ID] = &containers[n]
+			layers[container.LayerID] = &containers[n]
 			for _, name := range container.Names {
 				names[name] = &containers[n]
 			}
@@ -96,6 +99,7 @@ func (r *containerStore) Load() error {
 	}
 	r.containers = containers
 	r.byid = ids
+	r.bylayer = layers
 	r.byname = names
 	return nil
 }
@@ -124,6 +128,7 @@ func newContainerStore(dir string) (ContainerStore, error) {
 		dir:        dir,
 		containers: []Container{},
 		byid:       make(map[string]*Container),
+		bylayer:    make(map[string]*Container),
 		byname:     make(map[string]*Container),
 	}
 	if err := cstore.Load(); err != nil {
@@ -152,6 +157,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 		r.containers = append(r.containers, newContainer)
 		container = &r.containers[len(r.containers)-1]
 		r.byid[id] = container
+		r.bylayer[layer] = container
 		for _, name := range names {
 			r.byname[name] = container
 		}
@@ -163,6 +169,8 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 func (r *containerStore) SetMetadata(id, metadata string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if container, ok := r.bylayer[id]; ok {
+		id = container.ID
 	}
 	if container, ok := r.byid[id]; ok {
 		container.Metadata = metadata
@@ -173,6 +181,8 @@ func (r *containerStore) SetMetadata(id, metadata string) error {
 
 func (r *containerStore) SetNames(id string, names []string) error {
 	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
 	if container, ok := r.byid[id]; ok {
@@ -190,6 +200,8 @@ func (r *containerStore) SetNames(id string, names []string) error {
 
 func (r *containerStore) Delete(id string) error {
 	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
 	if container, ok := r.byid[id]; ok {
@@ -213,6 +225,8 @@ func (r *containerStore) Delete(id string) error {
 func (r *containerStore) Get(id string) (*Container, error) {
 	if c, ok := r.byname[id]; ok {
 		return c, nil
+	} else if c, ok := r.bylayer[id]; ok {
+		return c, nil
 	}
 	if c, ok := r.byid[id]; ok {
 		return c, nil
@@ -230,6 +244,9 @@ func (r *containerStore) Lookup(name string) (id string, err error) {
 
 func (r *containerStore) Exists(id string) bool {
 	if _, ok := r.byname[id]; ok {
+		return true
+	}
+	if _, ok := r.bylayer[id]; ok {
 		return true
 	}
 	if _, ok := r.byid[id]; ok {
