@@ -21,10 +21,16 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 		json.NewEncoder(os.Stdout).Encode(layers)
 		return 0
 	}
-	imageMap := make(map[string]storage.Image)
+	imageMap := make(map[string]*[]storage.Image)
 	if images, err := m.Images(); err == nil {
 		for _, image := range images {
-			imageMap[image.TopLayer] = image
+			if ilist, ok := imageMap[image.TopLayer]; ok && ilist != nil {
+				list := append(*ilist, image)
+				imageMap[image.TopLayer] = &list
+			} else {
+				list := []storage.Image{image}
+				imageMap[image.TopLayer] = &list
+			}
 		}
 	}
 	containerMap := make(map[string]storage.Container)
@@ -50,10 +56,12 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 			if layer.MountPoint != "" {
 				node.notes = append(node.notes, "mount: "+layer.MountPoint)
 			}
-			if image, ok := imageMap[layer.ID]; ok {
-				node.notes = append(node.notes, fmt.Sprintf("image: %s", image.ID))
-				for _, name := range image.Names {
-					node.notes = append(node.notes, fmt.Sprintf("image name: %s", name))
+			if imageList, ok := imageMap[layer.ID]; ok && imageList != nil {
+				for _, image := range *imageList {
+					node.notes = append(node.notes, fmt.Sprintf("image: %s", image.ID))
+					for _, name := range image.Names {
+						node.notes = append(node.notes, fmt.Sprintf("image name: %s", name))
+					}
 				}
 			}
 			if container, ok := containerMap[layer.ID]; ok {
@@ -68,10 +76,12 @@ func layers(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 			for _, name := range layer.Names {
 				fmt.Printf("\tname: %s\n", name)
 			}
-			if image, ok := imageMap[layer.ID]; ok {
-				fmt.Printf("\timage: %s\n", image.ID)
-				for _, name := range image.Names {
-					fmt.Printf("\t\tname: %s\n", name)
+			if imageList, ok := imageMap[layer.ID]; ok && imageList != nil {
+				for _, image := range *imageList {
+					fmt.Printf("\timage: %s\n", image.ID)
+					for _, name := range image.Names {
+						fmt.Printf("\t\tname: %s\n", name)
+					}
 				}
 			}
 			if container, ok := containerMap[layer.ID]; ok {
