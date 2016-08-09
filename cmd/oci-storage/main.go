@@ -32,6 +32,7 @@ func main() {
 		return
 	}
 
+	runRoot := "/var/run/oci-storage"
 	graphRoot := "/var/lib/oci-storage"
 	graphDriver := os.Getenv("STORAGE_DRIVER")
 	if graphDriver == "" {
@@ -48,6 +49,7 @@ func main() {
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
+		flags.StringVar(&runRoot, []string{"-run", "R"}, runRoot, "Root of the runtime state tree")
 		flags.StringVar(&graphRoot, []string{"-graph", "g"}, graphRoot, "Root of the storage tree")
 		flags.StringVar(&graphDriver, []string{"-storage-driver", "s"}, graphDriver, "Storage driver to use ($STORAGE_DRIVER)")
 		flags.Var(opts.NewListOptsRef(&graphOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
@@ -115,13 +117,14 @@ func main() {
 				}
 				if debug {
 					logrus.SetLevel(logrus.DebugLevel)
+					logrus.Debugf("runRoot: %s", runRoot)
 					logrus.Debugf("graphRoot: %s", graphRoot)
 					logrus.Debugf("graphDriver: %s", graphDriver)
 					logrus.Debugf("graphOptions: %s", graphOptions)
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
-				mall, err := storage.MakeMall(graphRoot, graphDriver, graphOptions)
+				mall, err := storage.MakeMall(runRoot, graphRoot, graphDriver, graphOptions)
 				if err != nil {
 					fmt.Printf("error initializing: %v\n", err)
 					os.Exit(1)

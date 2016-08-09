@@ -45,8 +45,8 @@ type Store interface {
 // Mall wraps up the various types of stores that we use into a singleton
 // object that initializes and manages them all together.
 //
-// GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve settings that
-// were passed to MakeMall() when the object was created.
+// GetRunRoot, GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve
+// settings that were passed to MakeMall() when the object was created.
 //
 // GetGraphDriver obtains and returns a handle to the graph Driver object used
 // by the Mall.
@@ -161,6 +161,7 @@ type Store interface {
 // Version returns version information, in the form of key-value pairs, from
 // the storage package.
 type Mall interface {
+	GetRunRoot() string
 	GetGraphRoot() string
 	GetGraphDriverName() string
 	GetGraphOptions() []string
@@ -215,7 +216,8 @@ type Users struct {
 }
 
 type mall struct {
-	lockfile        sync.Locker
+	runRoot         string
+	graphLock       sync.Locker
 	graphRoot       string
 	graphDriverName string
 	graphOptions    []string
@@ -228,7 +230,15 @@ type mall struct {
 
 // MakeMall creates and initializes a new Mall object, and the underlying
 // storage that it controls.
-func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
+func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
+	if err := os.MkdirAll(runRoot, 0700); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+	for _, subdir := range []string{"mounts", "tmp"} {
+		if err := os.MkdirAll(filepath.Join(runRoot, subdir), 0700); err != nil && !os.IsExist(err) {
+			return nil, err
+		}
+	}
 	if err := os.MkdirAll(graphRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
@@ -237,12 +247,13 @@ func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, e
 			return nil, err
 		}
 	}
-	lockfile, err := GetLockfile(filepath.Join(graphRoot, "storage.lock"))
+	graphLock, err := GetLockfile(filepath.Join(graphRoot, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
 	m := &mall{
-		lockfile:        lockfile,
+		runRoot:         runRoot,
+		graphLock:       graphLock,
 		graphRoot:       graphRoot,
 		graphDriverName: graphDriverName,
 		graphOptions:    graphOptions,
@@ -251,6 +262,10 @@ func MakeMall(graphRoot, graphDriverName string, graphOptions []string) (Mall, e
 		return nil, err
 	}
 	return m, nil
+}
+
+func (m *mall) GetRunRoot() string {
+	return m.runRoot
 }
 
 func (m *mall) GetGraphDriverName() string {
@@ -271,11 +286,15 @@ func (m *mall) load() error {
 		return err
 	}
 
+	rrpath := filepath.Join(m.runRoot, "layers")
+	if err := os.MkdirAll(rrpath, 0700); err != nil {
+		return err
+	}
 	rlpath := filepath.Join(m.graphRoot, "layers")
 	if err := os.MkdirAll(rlpath, 0700); err != nil {
 		return err
 	}
-	rls, err := newLayerStore(rlpath, driver)
+	rls, err := newLayerStore(rrpath, rlpath, driver)
 	if err != nil {
 		return err
 	}

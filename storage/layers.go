@@ -33,7 +33,12 @@ type Layer struct {
 	Names      []string `json:"names,omitempty"`
 	Parent     string   `json:"parent,omitempty"`
 	MountLabel string   `json:"mountlabel,omitempty"`
-	MountPoint string   `json:"mountpoint,omitempty"`
+	MountPoint string   `json:"-"`
+}
+
+type layerMountPoint struct {
+	ID         string `json:"id"`
+	MountPoint string `json:"path"`
 }
 
 // LayerStore wraps a graph driver, adding the ability to refer to layers by
@@ -102,8 +107,9 @@ type LayerStore interface {
 
 type layerStore struct {
 	lockfile Locker
+	rundir   string
 	driver   graphdriver.Driver
-	dir      string
+	layerdir string
 	layers   []Layer
 	byid     map[string]*Layer
 	byname   map[string]*Layer
@@ -116,7 +122,7 @@ func (r *layerStore) Layers() ([]Layer, error) {
 }
 
 func (r *layerStore) Load() error {
-	rpath := filepath.Join(r.dir, "layers.json")
+	rpath := filepath.Join(r.layerdir, "layers.json")
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -132,13 +138,25 @@ func (r *layerStore) Load() error {
 			for _, name := range layer.Names {
 				names[name] = &layers[n]
 			}
-			if layer.MountPoint != "" {
-				mounts[layer.MountPoint] = &layers[n]
-			}
 			if pslice, ok := parents[layer.Parent]; ok {
 				parents[layer.Parent] = append(pslice, &layers[n])
 			} else {
 				parents[layer.Parent] = []*Layer{&layers[n]}
+			}
+		}
+	}
+	mpath := filepath.Join(r.rundir, "mountpoints.json")
+	data, err = ioutil.ReadFile(mpath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	layerMounts := []layerMountPoint{}
+	if err = json.Unmarshal(data, &layerMounts); len(data) == 0 || err == nil {
+		for _, mount := range layerMounts {
+			if mount.MountPoint != "" {
+				if layer, ok := ids[mount.ID]; ok {
+					mounts[mount.MountPoint] = layer
+				}
 			}
 		}
 	}
@@ -151,19 +169,39 @@ func (r *layerStore) Load() error {
 }
 
 func (r *layerStore) Save() error {
-	rpath := filepath.Join(r.dir, "layers.json")
+	rpath := filepath.Join(r.layerdir, "layers.json")
 	jdata, err := json.Marshal(&r.layers)
 	if err != nil {
 		return err
 	}
-	return ioutils.AtomicWriteFile(rpath, jdata, 0600)
+	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
+		return err
+	}
+	mpath := filepath.Join(r.rundir, "mountpoints.json")
+	mounts := []layerMountPoint{}
+	for _, layer := range r.layers {
+		if layer.MountPoint != "" {
+			mounts = append(mounts, layerMountPoint{
+				ID:         layer.ID,
+				MountPoint: layer.MountPoint,
+			})
+		}
+	}
+	jdata, err = json.Marshal(&mounts)
+	if err != nil {
+		return err
+	}
+	return ioutils.AtomicWriteFile(mpath, jdata, 0600)
 }
 
-func newLayerStore(dir string, driver graphdriver.Driver) (LayerStore, error) {
-	if err := os.MkdirAll(dir, 0700); err != nil {
+func newLayerStore(rundir string, layerdir string, driver graphdriver.Driver) (LayerStore, error) {
+	if err := os.MkdirAll(rundir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "layers.lock"))
+	if err := os.MkdirAll(layerdir, 0700); err != nil {
+		return nil, err
+	}
+	lockfile, err := GetLockfile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +210,8 @@ func newLayerStore(dir string, driver graphdriver.Driver) (LayerStore, error) {
 	rlstore := layerStore{
 		lockfile: lockfile,
 		driver:   driver,
-		dir:      dir,
+		rundir:   rundir,
+		layerdir: layerdir,
 		byid:     make(map[string]*Layer),
 		bymount:  make(map[string]*Layer),
 		byname:   make(map[string]*Layer),
