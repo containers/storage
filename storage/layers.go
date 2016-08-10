@@ -228,11 +228,14 @@ func (r *layerStore) Status() ([][2]string, error) {
 }
 
 func (r *layerStore) Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
-	if layer, ok := r.byname[parent]; ok {
-		parent = layer.ID
+	if parentLayer, ok := r.byname[parent]; ok {
+		parent = parentLayer.ID
 	}
 	if id == "" {
 		id = stringid.GenerateRandomID()
+	}
+	if _, idInUse := r.byid[id]; idInUse {
+		return nil, ErrDuplicateID
 	}
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {

@@ -12,11 +12,13 @@ import (
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/storageversion"
 )
 
 var (
 	ErrLoadError            = errors.New("error loading storage metadata")
+	ErrDuplicateID          = errors.New("that ID is already in use")
 	ErrDuplicateName        = errors.New("that name is already in use")
 	ErrParentIsContainer    = errors.New("would-be parent layer is a container")
 	ErrNotAContainer        = errors.New("identifier is not a container")
@@ -412,7 +414,9 @@ func (m *mall) CreateLayer(id, parent string, names []string, mountLabel string,
 	if modified, err := rcstore.Modified(); modified || err != nil {
 		rcstore.Load()
 	}
-	if id != "" {
+	if id == "" {
+		id = stringid.GenerateRandomID()
+	} else {
 		if l, err := rlstore.Get(id); l != nil && err == nil {
 			return nil, ErrDuplicateName
 		}
@@ -484,7 +488,9 @@ func (m *mall) CreateImage(id string, names []string, layer, metadata string) (*
 	if modified, err := rcstore.Modified(); modified || err != nil {
 		rcstore.Load()
 	}
-	if id != "" {
+	if id == "" {
+		id = stringid.GenerateRandomID()
+	} else {
 		if l, err := rlstore.Get(id); l != nil && err == nil {
 			return nil, ErrDuplicateName
 		}
@@ -550,7 +556,9 @@ func (m *mall) CreateContainer(id string, names []string, image, layer, metadata
 		rcstore.Load()
 	}
 
-	if id != "" {
+	if id == "" {
+		id = stringid.GenerateRandomID()
+	} else {
 		if l, err := rlstore.Get(id); l != nil && err == nil {
 			return nil, ErrDuplicateName
 		}

@@ -141,6 +141,9 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	if id == "" {
 		id = stringid.GenerateRandomID()
 	}
+	if _, idInUse := r.byid[id]; idInUse {
+		return nil, ErrDuplicateID
+	}
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {
 			return nil, ErrDuplicateName
