@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	// register all of the built-in drivers
@@ -231,6 +232,15 @@ type mall struct {
 // MakeMall creates and initializes a new Mall object, and the underlying
 // storage that it controls.
 func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
+	if runRoot == "" && graphRoot == "" && graphDriverName == "" && len(graphOptions) == 0 {
+		runRoot = "/var/run/oci-storage"
+		graphRoot = "/var/lib/oci-storage"
+		graphDriverName = os.Getenv("STORAGE_DRIVER")
+		graphOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
+		if len(graphOptions) == 1 && graphOptions[0] == "" {
+			graphOptions = nil
+		}
+	}
 	if err := os.MkdirAll(runRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
