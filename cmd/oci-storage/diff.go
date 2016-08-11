@@ -12,8 +12,7 @@ import (
 )
 
 var (
-	applyDiffFile       = ""
-	applyDiffCompressed = false
+	applyDiffFile = ""
 )
 
 func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
@@ -85,14 +84,6 @@ func applyDiff(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 			defer f.Close()
 		}
 	}
-	if applyDiffCompressed {
-		if c, err := archive.DecompressStream(diffStream); err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
-		} else {
-			diffStream = c
-		}
-	}
 	_, err := m.ApplyDiff(args[0], diffStream)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -156,7 +147,6 @@ func init() {
 		action:      applyDiff,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&applyDiffFile, []string{"-file", "f"}, "", "Read from file instead of stdin")
-			flags.BoolVar(&applyDiffCompressed, []string{"-compressed", "c"}, applyDiffCompressed, "Diff is compressed")
 		},
 	})
 }

@@ -472,6 +472,11 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	if !ok {
 		return -1, ErrParentUnknown
 	}
+	if c, err := archive.DecompressStream(diff); err != nil {
+		return -1, err
+	} else {
+		diff = c
+	}
 	return r.driver.ApplyDiff(layer.ID, layer.Parent, diff)
 }
 
