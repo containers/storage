@@ -24,7 +24,7 @@ func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string)
 	if len(args) >= 2 {
 		from = args[1]
 	}
-	changes, err := m.Changes(to, from)
+	changes, err := m.Changes(from, to)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -57,7 +57,7 @@ func diff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) in
 	if len(args) >= 2 {
 		from = args[1]
 	}
-	reader, err := m.Diff(to, from)
+	reader, err := m.Diff(from, to)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -101,7 +101,7 @@ func diffSize(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 	if len(args) >= 2 {
 		from = args[1]
 	}
-	n, err := m.DiffSize(to, from)
+	n, err := m.DiffSize(from, to)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1

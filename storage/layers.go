@@ -410,7 +410,7 @@ func (r *layerStore) Wipe() error {
 	return nil
 }
 
-func (r *layerStore) Changes(to, from string) ([]archive.Change, error) {
+func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
@@ -428,7 +428,7 @@ func (r *layerStore) Changes(to, from string) ([]archive.Change, error) {
 	return r.driver.Changes(to, from)
 }
 
-func (r *layerStore) Diff(to, from string) (archive.Reader, error) {
+func (r *layerStore) Diff(from, to string) (archive.Reader, error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
@@ -446,7 +446,7 @@ func (r *layerStore) Diff(to, from string) (archive.Reader, error) {
 	return r.driver.Diff(to, from)
 }
 
-func (r *layerStore) DiffSize(to, from string) (size int64, err error) {
+func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
