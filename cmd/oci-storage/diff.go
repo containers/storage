@@ -49,7 +49,7 @@ func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string)
 }
 
 func diff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
-	if len(args) < 2 {
+	if len(args) < 1 {
 		return 1
 	}
 	to := args[0]
