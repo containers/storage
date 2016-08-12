@@ -36,6 +36,9 @@ type Image struct {
 // SetMetadata replaces the metadata associated with an image with the supplied
 // value.
 //
+// SetNames replaces the list of names associated with an image with the
+// supplied values.
+//
 // Exists checks if there is an image with the given ID or name.
 //
 // Get retrieves information about an image given an ID or name.

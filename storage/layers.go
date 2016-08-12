@@ -32,6 +32,7 @@ type Layer struct {
 	ID         string   `json:"id"`
 	Names      []string `json:"names,omitempty"`
 	Parent     string   `json:"parent,omitempty"`
+	Metadata   string   `json:"metadata,omitempty"`
 	MountLabel string   `json:"mountlabel,omitempty"`
 	MountPoint string   `json:"-"`
 }
@@ -53,6 +54,12 @@ type layerMountPoint struct {
 // themselves distinguish between writeable and read-only layers.
 //
 // Exists checks if a layer with the specified name or ID is known.
+//
+// SetMetadata replaces the metadata associated with a layer with the supplied
+// value.
+//
+// SetNames replaces the list of names associated with a layer with the
+// supplied values.
 //
 // Status returns an slice of key-value pairs, suitable for human consumption,
 // relaying whatever status information the driver can share.
@@ -92,6 +99,7 @@ type LayerStore interface {
 	Exists(id string) bool
 	Get(id string) (*Layer, error)
 	SetNames(id string, names []string) error
+	SetMetadata(id, metadata string) error
 	Status() ([][2]string, error)
 	Delete(id string) error
 	Wipe() error
@@ -326,6 +334,17 @@ func (r *layerStore) SetNames(id string, names []string) error {
 			r.byname[name] = layer
 		}
 		layer.Names = names
+		return r.Save()
+	}
+	return ErrLayerUnknown
+}
+
+func (r *layerStore) SetMetadata(id, metadata string) error {
+	if layer, ok := r.byname[id]; ok {
+		id = layer.ID
+	}
+	if layer, ok := r.byid[id]; ok {
+		layer.Metadata = metadata
 		return r.Save()
 	}
 	return ErrLayerUnknown

@@ -24,6 +24,8 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 			metadataDict[what] = strings.TrimSuffix(container.Metadata, "\n")
 		} else if image, err := m.GetImage(what); err == nil {
 			metadataDict[what] = strings.TrimSuffix(image.Metadata, "\n")
+		} else if layer, err := m.GetLayer(what); err == nil {
+			metadataDict[what] = strings.TrimSuffix(layer.Metadata, "\n")
 		} else {
 			missingAny = true
 		}
@@ -76,8 +78,8 @@ func setMetadata(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 func init() {
 	commands = append(commands, command{
 		names:       []string{"metadata"},
-		optionsHelp: "[ImageOrContainerNameOrID [...]]",
-		usage:       "Retrieve image or container metadata",
+		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
+		usage:       "Retrieve layer, image, or container metadata",
 		minArgs:     1,
 		action:      metadata,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
@@ -87,8 +89,8 @@ func init() {
 	})
 	commands = append(commands, command{
 		names:       []string{"set-metadata"},
-		optionsHelp: "[options [...]] imageOrContainerNameOrID",
-		usage:       "Set image or container metadata",
+		optionsHelp: "[options [...]] layerOrImageOrContainerNameOrID",
+		usage:       "Set layer, image, or container metadata",
 		minArgs:     1,
 		maxArgs:     1,
 		action:      setMetadata,

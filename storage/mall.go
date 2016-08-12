@@ -24,6 +24,7 @@ var (
 	ErrNotAContainer        = errors.New("identifier is not a container")
 	ErrNotAnImage           = errors.New("identifier is not an image")
 	ErrNotALayer            = errors.New("identifier is not a layer")
+	ErrNotAnID              = errors.New("identifier is not a layer, image, or container")
 	ErrLayerHasChildren     = errors.New("layer has children")
 	ErrLayerUsedByImage     = errors.New("layer is in use by an image")
 	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
@@ -75,10 +76,10 @@ type Store interface {
 // specified).  A container is a layer which is associated with a metadata
 // string which the library stores for the convenience of the caller.
 //
-// SetMetadata updates the metadata which is associated with an image or
+// SetMetadata updates the metadata which is associated with a layer, image, or
 // container (whichever the passed-in ID refers to) to match the specified
-// value.  The metadata value can be retrieved at any time using GetImage or
-// GetContainer.
+// value.  The metadata value can be retrieved at any time using GetLayer,
+// GetImage, or GetContainer.
 //
 // Exists checks if there is a layer, image, or container which has the
 // passed-in ID or name.
@@ -608,7 +609,7 @@ func (m *mall) CreateContainer(id string, names []string, image, layer, metadata
 }
 
 func (m *mall) SetMetadata(id, metadata string) error {
-	rcstore, err := m.GetContainerStore()
+	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return err
 	}
@@ -616,7 +617,16 @@ func (m *mall) SetMetadata(id, metadata string) error {
 	if err != nil {
 		return err
 	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return err
+	}
 
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
 	ristore.Lock()
 	defer ristore.Unlock()
 	if modified, err := ristore.Modified(); modified || err != nil {
@@ -636,7 +646,11 @@ func (m *mall) SetMetadata(id, metadata string) error {
 		defer ristore.Touch()
 		return ristore.SetMetadata(id, metadata)
 	}
-	return ErrImageUnknown
+	if rlstore.Exists(id) {
+		defer rlstore.Touch()
+		return rlstore.SetMetadata(id, metadata)
+	}
+	return ErrNotAnID
 }
 
 func (m *mall) Exists(id string) bool {
