@@ -13,6 +13,10 @@ import (
 
 var (
 	applyDiffFile = ""
+	diffFile      = ""
+	diffGzip      = false
+	diffBzip2     = false
+	diffXz        = false
 )
 
 func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
@@ -57,12 +61,39 @@ func diff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) in
 	if len(args) >= 2 {
 		from = args[1]
 	}
+	diffStream := io.Writer(os.Stdout)
+	if diffFile != "" {
+		if f, err := os.Create(diffFile); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		} else {
+			diffStream = f
+			defer f.Close()
+		}
+	}
 	reader, err := m.Diff(from, to)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	_, err = io.Copy(os.Stdout, reader)
+	if diffGzip || diffBzip2 || diffXz {
+		compression := archive.Uncompressed
+		if diffGzip {
+			compression = archive.Gzip
+		} else if diffBzip2 {
+			compression = archive.Bzip2
+		} else if diffXz {
+			compression = archive.Xz
+		}
+		compressor, err := archive.CompressStream(diffStream, compression)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		diffStream = compressor
+		defer compressor.Close()
+	}
+	_, err = io.Copy(diffStream, reader)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -137,6 +168,12 @@ func init() {
 		minArgs:     1,
 		maxArgs:     2,
 		action:      diff,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.StringVar(&diffFile, []string{"-file", "f"}, "", "Write to file instead of stdout")
+			flags.BoolVar(&diffGzip, []string{"-gzip", "c"}, diffGzip, "Compress using gzip")
+			flags.BoolVar(&diffBzip2, []string{"-bzip2", "-bz2", "b"}, diffBzip2, "Compress using bzip2")
+			flags.BoolVar(&diffXz, []string{"-xz", "x"}, diffXz, "Compress using xz")
+		},
 	})
 	commands = append(commands, command{
 		names:       []string{"applydiff", "apply-diff"},
