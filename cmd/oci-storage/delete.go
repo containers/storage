@@ -147,7 +147,7 @@ func init() {
 	commands = append(commands, command{
 		names:       []string{"delete"},
 		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
-		usage:       "Delete a layer or image or container",
+		usage:       "Delete a layer or image or container, with no safety checks",
 		minArgs:     1,
 		action:      deleteThing,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
@@ -155,7 +155,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"delete-layer"},
+		names:       []string{"delete-layer", "deletelayer"},
 		optionsHelp: "[LayerNameOrID [...]]",
 		usage:       "Delete a layer, with safety checks",
 		minArgs:     1,
@@ -165,7 +165,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"delete-image"},
+		names:       []string{"delete-image", "deleteimage"},
 		optionsHelp: "[ImageNameOrID [...]]",
 		usage:       "Delete an image, with safety checks",
 		minArgs:     1,
@@ -176,7 +176,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"delete-container"},
+		names:       []string{"delete-container", "deletecontainer"},
 		optionsHelp: "[ContainerNameOrID [...]]",
 		usage:       "Delete a container, with safety checks",
 		minArgs:     1,

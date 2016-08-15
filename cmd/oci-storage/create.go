@@ -107,7 +107,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Mall, args [
 
 func init() {
 	commands = append(commands, command{
-		names:       []string{"create-layer"},
+		names:       []string{"create-layer", "createlayer"},
 		optionsHelp: "[options [...]] [parentLayerNameOrID]",
 		usage:       "Create a new layer",
 		maxArgs:     1,
@@ -121,7 +121,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"create-image"},
+		names:       []string{"create-image", "createimage"},
 		optionsHelp: "[options [...]] topLayerNameOrID",
 		usage:       "Create a new image using layers",
 		minArgs:     1,
@@ -136,7 +136,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"create-container"},
+		names:       []string{"create-container", "createcontainer"},
 		optionsHelp: "[options [...]] parentImageNameOrID",
 		usage:       "Create a new container from an image",
 		minArgs:     1,

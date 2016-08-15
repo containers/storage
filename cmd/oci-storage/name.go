@@ -72,7 +72,7 @@ func setNames(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 
 func init() {
 	commands = append(commands, command{
-		names:       []string{"add-names"},
+		names:       []string{"add-names", "addnames"},
 		optionsHelp: "[options [...]] imageOrContainerNameOrID",
 		usage:       "Add layer, image, or container name or names",
 		minArgs:     1,
@@ -83,7 +83,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"set-names"},
+		names:       []string{"set-names", "setnames"},
 		optionsHelp: "[options [...]] imageOrContainerNameOrID",
 		usage:       "Set layer, image, or container name or names",
 		minArgs:     1,

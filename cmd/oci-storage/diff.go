@@ -123,7 +123,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"diffsize"},
+		names:       []string{"diffsize", "diff-size"},
 		usage:       "Compare two layers",
 		optionsHelp: "[options [...]] layerNameOrID [referenceLayerNameOrID]",
 		minArgs:     1,
@@ -139,7 +139,7 @@ func init() {
 		action:      diff,
 	})
 	commands = append(commands, command{
-		names:       []string{"applydiff"},
+		names:       []string{"applydiff", "apply-diff"},
 		optionsHelp: "[options [...]] layerNameOrID [referenceLayerNameOrID]",
 		usage:       "Apply a diff to a layer",
 		minArgs:     1,

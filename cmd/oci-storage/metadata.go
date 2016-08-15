@@ -88,7 +88,7 @@ func init() {
 		},
 	})
 	commands = append(commands, command{
-		names:       []string{"set-metadata"},
+		names:       []string{"set-metadata", "setmetadata"},
 		optionsHelp: "[options [...]] layerOrImageOrContainerNameOrID",
 		usage:       "Set layer, image, or container metadata",
 		minArgs:     1,

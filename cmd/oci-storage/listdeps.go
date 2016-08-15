@@ -148,7 +148,7 @@ func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 
 func init() {
 	commands = append(commands, command{
-		names:       []string{"list-deps"},
+		names:       []string{"list-deps", "listdeps"},
 		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
 		usage:       "List referrers to a layer, image, or container",
 		minArgs:     1,
