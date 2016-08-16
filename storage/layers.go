@@ -1,8 +1,11 @@
 package storage
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,6 +14,8 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/vbatts/tar-split/tar/asm"
+	"github.com/vbatts/tar-split/tar/storage"
 )
 
 var (
@@ -350,6 +355,10 @@ func (r *layerStore) SetMetadata(id, metadata string) error {
 	return ErrLayerUnknown
 }
 
+func (r *layerStore) tspath(id string) string {
+	return filepath.Join(r.layerdir, id+".tar-split.gz")
+}
+
 func (r *layerStore) Delete(id string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
@@ -357,6 +366,7 @@ func (r *layerStore) Delete(id string) error {
 	r.Unmount(id)
 	err := r.driver.Remove(id)
 	if err == nil {
+		os.Remove(r.tspath(id))
 		if layer, ok := r.byid[id]; ok {
 			pslice := r.byparent[layer.Parent]
 			newPslice := []*Layer{}
@@ -447,7 +457,38 @@ func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
 	return r.driver.Changes(to, from)
 }
 
+type simpleGetCloser struct {
+	r    *layerStore
+	path string
+	id   string
+}
+
+func (s *simpleGetCloser) Get(path string) (io.ReadCloser, error) {
+	return os.Open(filepath.Join(s.path, path))
+}
+
+func (s *simpleGetCloser) Close() error {
+	return s.r.Unmount(s.id)
+}
+
+func (r *layerStore) newFileGetter(id string) (graphdriver.FileGetCloser, error) {
+	if getter, ok := r.driver.(graphdriver.DiffGetterDriver); ok {
+		return getter.DiffGetter(id)
+	}
+	path, err := r.Mount(id, "")
+	if err != nil {
+		return nil, err
+	}
+	return &simpleGetCloser{
+		r:    r,
+		path: path,
+		id:   id,
+	}, nil
+}
+
 func (r *layerStore) Diff(from, to string) (archive.Reader, error) {
+	var metadata storage.Unpacker
+
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
 	}
@@ -462,7 +503,33 @@ func (r *layerStore) Diff(from, to string) (archive.Reader, error) {
 	if to == "" {
 		return nil, ErrParentUnknown
 	}
-	return r.driver.Diff(to, from)
+	if from != r.byid[to].Parent {
+		return r.driver.Diff(to, from)
+	}
+
+	tsfile, err := os.Open(r.tspath(to))
+	if err != nil {
+		return nil, err
+	}
+	decompressor, err := gzip.NewReader(tsfile)
+	if err != nil {
+		return nil, err
+	}
+	tsbytes, err := ioutil.ReadAll(decompressor)
+	if err != nil {
+		return nil, err
+	}
+	decompressor.Close()
+	tsfile.Close()
+
+	metadata = storage.NewJSONUnpacker(bytes.NewBuffer(tsbytes))
+
+	if fgetter, err := r.newFileGetter(to); err != nil {
+		decompressor.Close()
+		return nil, err
+	} else {
+		return asm.NewOutputTarStream(fgetter, metadata), nil
+	}
 }
 
 func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
@@ -491,12 +558,29 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	if !ok {
 		return -1, ErrParentUnknown
 	}
+	tsdata := bytes.Buffer{}
+	compressor, err := gzip.NewWriterLevel(&tsdata, gzip.BestSpeed)
+	if err != nil {
+		compressor = gzip.NewWriter(&tsdata)
+	}
+	metadata := storage.NewJSONPacker(compressor)
 	if c, err := archive.DecompressStream(diff); err != nil {
 		return -1, err
 	} else {
 		diff = c
 	}
-	return r.driver.ApplyDiff(layer.ID, layer.Parent, diff)
+	payload, err := asm.NewInputTarStream(diff, metadata, storage.NewDiscardFilePutter())
+	if err != nil {
+		return -1, err
+	}
+	size, err = r.driver.ApplyDiff(layer.ID, layer.Parent, payload)
+	compressor.Close()
+	if err == nil {
+		if err := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); err != nil {
+			return -1, err
+		}
+	}
+	return size, err
 }
 
 func (r *layerStore) Lock() {
