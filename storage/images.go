@@ -197,6 +197,9 @@ func (r *imageStore) Delete(id string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
 	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
 	if image, ok := r.byid[id]; ok {
 		newImages := []Image{}
 		for _, candidate := range r.images {

@@ -416,7 +416,14 @@ func (r *layerStore) Delete(id string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
 	}
-	r.Unmount(id)
+	if _, ok := r.byid[id]; !ok {
+		return ErrLayerUnknown
+	}
+	for r.byid[id].MountCount > 0 {
+		if err := r.Unmount(id); err != nil {
+			return err
+		}
+	}
 	err := r.driver.Remove(id)
 	if err == nil {
 		os.Remove(r.tspath(id))

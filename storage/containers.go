@@ -211,6 +211,9 @@ func (r *containerStore) Delete(id string) error {
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrContainerUnknown
+	}
 	if container, ok := r.byid[id]; ok {
 		newContainers := []Container{}
 		for _, candidate := range r.containers {
