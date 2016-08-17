@@ -18,6 +18,10 @@ import (
 	"github.com/vbatts/tar-split/tar/storage"
 )
 
+const (
+	tarSplitSuffix = ".tar-split.gz"
+)
+
 var (
 	// ErrParentUnknown indicates that we didn't record the ID of the parent of the specified layer
 	ErrParentUnknown = errors.New("parent of layer not known")
@@ -134,8 +138,16 @@ func (r *layerStore) Layers() ([]Layer, error) {
 	return r.layers, nil
 }
 
+func (r *layerStore) mountspath() string {
+	return filepath.Join(r.rundir, "mountpoints.json")
+}
+
+func (r *layerStore) layerspath() string {
+	return filepath.Join(r.layerdir, "layers.json")
+}
+
 func (r *layerStore) Load() error {
-	rpath := filepath.Join(r.layerdir, "layers.json")
+	rpath := r.layerspath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -158,7 +170,7 @@ func (r *layerStore) Load() error {
 			}
 		}
 	}
-	mpath := filepath.Join(r.rundir, "mountpoints.json")
+	mpath := r.mountspath()
 	data, err = ioutil.ReadFile(mpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -182,7 +194,7 @@ func (r *layerStore) Load() error {
 }
 
 func (r *layerStore) Save() error {
-	rpath := filepath.Join(r.layerdir, "layers.json")
+	rpath := r.layerspath()
 	jdata, err := json.Marshal(&r.layers)
 	if err != nil {
 		return err
@@ -190,7 +202,7 @@ func (r *layerStore) Save() error {
 	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
 		return err
 	}
-	mpath := filepath.Join(r.rundir, "mountpoints.json")
+	mpath := r.mountspath()
 	mounts := []layerMountPoint{}
 	for _, layer := range r.layers {
 		if layer.MountPoint != "" {
@@ -356,7 +368,7 @@ func (r *layerStore) SetMetadata(id, metadata string) error {
 }
 
 func (r *layerStore) tspath(id string) string {
-	return filepath.Join(r.layerdir, id+".tar-split.gz")
+	return filepath.Join(r.layerdir, id+tarSplitSuffix)
 }
 
 func (r *layerStore) Delete(id string) error {

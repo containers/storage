@@ -76,8 +76,12 @@ func (r *imageStore) Images() ([]Image, error) {
 	return r.images, nil
 }
 
+func (r *imageStore) imagespath() string {
+	return filepath.Join(r.dir, "images.json")
+}
+
 func (r *imageStore) Load() error {
-	rpath := filepath.Join(r.dir, "images.json")
+	rpath := r.imagespath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -100,7 +104,7 @@ func (r *imageStore) Load() error {
 }
 
 func (r *imageStore) Save() error {
-	rpath := filepath.Join(r.dir, "images.json")
+	rpath := r.imagespath()
 	jdata, err := json.Marshal(&r.images)
 	if err != nil {
 		return err

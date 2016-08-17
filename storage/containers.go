@@ -78,8 +78,12 @@ func (r *containerStore) Containers() ([]Container, error) {
 	return r.containers, nil
 }
 
+func (r *containerStore) containerspath() string {
+	return filepath.Join(r.dir, "containers.json")
+}
+
 func (r *containerStore) Load() error {
-	rpath := filepath.Join(r.dir, "containers.json")
+	rpath := r.containerspath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
@@ -105,7 +109,7 @@ func (r *containerStore) Load() error {
 }
 
 func (r *containerStore) Save() error {
-	rpath := filepath.Join(r.dir, "containers.json")
+	rpath := r.containerspath()
 	jdata, err := json.Marshal(&r.containers)
 	if err != nil {
 		return err
