@@ -44,11 +44,13 @@ type Layer struct {
 	Metadata   string   `json:"metadata,omitempty"`
 	MountLabel string   `json:"mountlabel,omitempty"`
 	MountPoint string   `json:"-"`
+	MountCount int      `json:"-"`
 }
 
 type layerMountPoint struct {
 	ID         string `json:"id"`
 	MountPoint string `json:"path"`
+	MountCount int    `json:"count"`
 }
 
 // LayerStore wraps a graph driver, adding the ability to refer to layers by
@@ -181,6 +183,7 @@ func (r *layerStore) Load() error {
 			if mount.MountPoint != "" {
 				if layer, ok := ids[mount.ID]; ok {
 					mounts[mount.MountPoint] = layer
+					layer.MountCount = mount.MountCount
 				}
 			}
 		}
@@ -209,6 +212,7 @@ func (r *layerStore) Save() error {
 			mounts = append(mounts, layerMountPoint{
 				ID:         layer.ID,
 				MountPoint: layer.MountPoint,
+				MountCount: layer.MountCount,
 			})
 		}
 	}
@@ -217,6 +221,24 @@ func (r *layerStore) Save() error {
 		return err
 	}
 	return ioutils.AtomicWriteFile(mpath, jdata, 0600)
+}
+
+type layerStoreGetPutWrapper struct {
+	r *layerStore
+}
+
+func (l *layerStoreGetPutWrapper) Get(id, mountContext string) (string, error) {
+	return l.r.Mount(id, mountContext)
+}
+
+func (l *layerStoreGetPutWrapper) Put(id string) error {
+	return l.r.Unmount(id)
+}
+
+func newGetPutWrapper(r *layerStore) graphdriver.GetPutWrapper {
+	return &layerStoreGetPutWrapper{
+		r: r,
+	}
 }
 
 func newLayerStore(rundir string, layerdir string, driver graphdriver.Driver) (LayerStore, error) {
@@ -244,6 +266,9 @@ func newLayerStore(rundir string, layerdir string, driver graphdriver.Driver) (L
 	}
 	if err := rlstore.Load(); err != nil {
 		return nil, err
+	}
+	if gpw, ok := driver.(*graphdriver.NaiveDiffDriver); ok {
+		gpw.SetGetPutWrapper(newGetPutWrapper(&rlstore))
 	}
 	return &rlstore, nil
 }
@@ -300,6 +325,14 @@ func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
 	}
+	if _, ok := r.byid[id]; !ok {
+		return "", ErrLayerUnknown
+	}
+	layer := r.byid[id]
+	if layer.MountCount > 0 {
+		layer.MountCount++
+		return layer.MountPoint, r.Save()
+	}
 	if mountLabel == "" {
 		if layer, ok := r.byid[id]; ok {
 			mountLabel = layer.MountLabel
@@ -325,6 +358,14 @@ func (r *layerStore) Unmount(id string) error {
 	}
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrLayerUnknown
+	}
+	layer := r.byid[id]
+	if layer.MountCount > 0 {
+		layer.MountCount--
+		return r.Save()
 	}
 	err := r.driver.Put(id)
 	if err == nil {
