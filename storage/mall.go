@@ -247,7 +247,7 @@ func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string)
 	if err := os.MkdirAll(runRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	for _, subdir := range []string{"layers"} {
+	for _, subdir := range []string{} {
 		if err := os.MkdirAll(filepath.Join(runRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
@@ -298,12 +298,13 @@ func (m *mall) load() error {
 	if err != nil {
 		return err
 	}
+	driverPrefix := driver.String() + "-"
 
-	rrpath := filepath.Join(m.runRoot, "layers")
+	rrpath := filepath.Join(m.runRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(rrpath, 0700); err != nil {
 		return err
 	}
-	rlpath := filepath.Join(m.graphRoot, "layers")
+	rlpath := filepath.Join(m.graphRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(rlpath, 0700); err != nil {
 		return err
 	}
@@ -312,7 +313,7 @@ func (m *mall) load() error {
 		return err
 	}
 	m.layerStore = rls
-	ripath := filepath.Join(m.graphRoot, "images")
+	ripath := filepath.Join(m.graphRoot, driverPrefix+"images")
 	if err := os.MkdirAll(ripath, 0700); err != nil {
 		return err
 	}
@@ -321,7 +322,7 @@ func (m *mall) load() error {
 		return err
 	}
 	m.imageStore = ris
-	rcpath := filepath.Join(m.graphRoot, "containers")
+	rcpath := filepath.Join(m.graphRoot, driverPrefix+"containers")
 	if err := os.MkdirAll(rcpath, 0700); err != nil {
 		return err
 	}
