@@ -52,7 +52,7 @@ clone git github.com/docker/go-units 651fc226e7441360384da338d0fd37f2440ffbe3
 clone git github.com/docker/go-connections fa2850ff103453a9ad190da0df0af134f0314b3d
 clone git github.com/docker/engine-api 1d247454d4307fb1ddf10d09fd2996394b085904
 # get graph and distribution packages
-clone git github.com/vbatts/tar-split v0.9.11
+clone git github.com/vbatts/tar-split v0.9.13
 # get go-zfs packages
 clone git github.com/mistifyio/go-zfs 22c9b32c84eb0d0c6f4043b6e90fc94073de92fa
 clone git github.com/pborman/uuid v1.0

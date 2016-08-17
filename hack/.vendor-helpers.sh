@@ -58,7 +58,8 @@ clean() {
 	local packages=(
 		"${PROJECT}/cmd/oci-storage"
 	)
-	local storagePlatforms=( ${STORAGE_OSARCH:="linux/amd64"} )
+	local storagePlatforms=( ${STORAGE_OSARCH:="linux/amd64 linux/i386 linux/arm freebsd/amd64 freebsd/386 freebsd/arm windows/amd64"} )
+
 	local buildTagCombos=(
 		''
 		'experimental'
@@ -82,7 +83,7 @@ clean() {
 	unset IFS
 
 	echo -n 'pruning unused packages, '
-	findArgs=
+	findArgs=-false
 
 	for import in "${imports[@]}"; do
 		[ "${#findArgs[@]}" -eq 0 ] || findArgs+=( -or )
