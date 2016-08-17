@@ -509,6 +509,9 @@ func (r *layerStore) Diff(from, to string) (archive.Reader, error) {
 
 	tsfile, err := os.Open(r.tspath(to))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return r.driver.Diff(to, from)
+		}
 		return nil, err
 	}
 	decompressor, err := gzip.NewReader(tsfile)
