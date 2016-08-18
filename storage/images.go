@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -21,10 +22,11 @@ var (
 // Names is an optional set of user-defined convenience values.
 // TopLayer is the ID of the topmost layer of the image itself.
 type Image struct {
-	ID       string   `json:"id"`
-	Names    []string `json:"names,omitempty"`
-	TopLayer string   `json:"layer"`
-	Metadata string   `json:"metadata,omitempty"`
+	ID           string   `json:"id"`
+	Names        []string `json:"names,omitempty"`
+	TopLayer     string   `json:"layer"`
+	Metadata     string   `json:"metadata,omitempty"`
+	BigDataNames []string `json:"big-data-names,omitempty"`
 }
 
 // ImageStore provides bookkeeping for information about Images.
@@ -51,6 +53,12 @@ type Image struct {
 // implicitly.
 //
 // Images returns a slice enumerating the known images.
+//
+// SetBigData stores a (potentially large) piece of data associated with this
+// image.
+//
+// GetBigData retrieves a (potentially large) piece of data associated with
+// this image, if it has previously been set.
 type ImageStore interface {
 	Store
 	Create(id string, names []string, layer, metadata string) (*Image, error)
@@ -62,6 +70,9 @@ type ImageStore interface {
 	Wipe() error
 	Lookup(name string) (string, error)
 	Images() ([]Image, error)
+	SetBigData(id, key string, data []byte) error
+	GetBigData(id, key string) ([]byte, error)
+	GetBigDataNames(id string) ([]string, error)
 }
 
 type imageStore struct {
@@ -78,6 +89,14 @@ func (r *imageStore) Images() ([]Image, error) {
 
 func (r *imageStore) imagespath() string {
 	return filepath.Join(r.dir, "images.json")
+}
+
+func (r *imageStore) datadir(id string) string {
+	return filepath.Join(r.dir, id)
+}
+
+func (r *imageStore) datapath(id, key string) string {
+	return filepath.Join(r.datadir(id), base64.StdEncoding.EncodeToString([]byte(key)))
 }
 
 func (r *imageStore) Load() error {
@@ -214,6 +233,9 @@ func (r *imageStore) Delete(id string) error {
 		if err := r.Save(); err != nil {
 			return err
 		}
+		if err := os.RemoveAll(r.datadir(id)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -244,6 +266,53 @@ func (r *imageStore) Exists(id string) bool {
 		return true
 	}
 	return false
+}
+
+func (r *imageStore) GetBigData(id, key string) ([]byte, error) {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return nil, ErrImageUnknown
+	}
+	return ioutil.ReadFile(r.datapath(id, key))
+}
+
+func (r *imageStore) GetBigDataNames(id string) ([]string, error) {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return nil, ErrImageUnknown
+	}
+	return r.byid[id].BigDataNames, nil
+}
+
+func (r *imageStore) SetBigData(id, key string, data []byte) error {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
+	if err := os.MkdirAll(r.datadir(id), 0700); err != nil {
+		return err
+	}
+	err := ioutils.AtomicWriteFile(r.datapath(id, key), data, 0600)
+	if err == nil {
+		add := true
+		for _, name := range r.byid[id].BigDataNames {
+			if name == key {
+				add = false
+				break
+			}
+		}
+		if add {
+			r.byid[id].BigDataNames = append(r.byid[id].BigDataNames, key)
+			err = r.Save()
+		}
+	}
+	return err
 }
 
 func (r *imageStore) Wipe() error {

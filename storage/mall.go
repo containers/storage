@@ -142,6 +142,12 @@ type Store interface {
 //
 // SetNames changes the list of names for a layer, image, or container.
 //
+// GetImageBigData retrieves a (possibly large) chunk of named data associated
+// with an image.
+//
+// SetImageBigData stores a (possibly large) chunk of named data associated
+// with an image.
+//
 // GetLayer returns a specific layer.
 //
 // GetImage returns a specific image.
@@ -196,6 +202,8 @@ type Mall interface {
 	Containers() ([]Container, error)
 	GetNames(id string) ([]string, error)
 	SetNames(id string, names []string) error
+	GetImageBigData(id, key string) ([]byte, error)
+	SetImageBigData(id, key string, data []byte) error
 	GetLayer(id string) (*Layer, error)
 	GetImage(id string) (*Image, error)
 	GetImagesByTopLayer(id string) ([]*Image, error)
@@ -652,6 +660,54 @@ func (m *mall) SetMetadata(id, metadata string) error {
 		return rlstore.SetMetadata(id, metadata)
 	}
 	return ErrNotAnID
+}
+
+func (m *mall) GetImageBigData(id, key string) ([]byte, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+
+	return ristore.GetBigData(id, key)
+}
+
+func (m *mall) SetImageBigData(id, key string, data []byte) error {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+
+	return ristore.SetBigData(id, key, data)
 }
 
 func (m *mall) Exists(id string) bool {
