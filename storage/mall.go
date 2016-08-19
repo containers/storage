@@ -159,11 +159,17 @@ type BigDataStore interface {
 //
 // SetNames changes the list of names for a layer, image, or container.
 //
+// ListImageBigData retrieves a list of the (possibly large) chunks of named
+// data associated with an image.
+//
 // GetImageBigData retrieves a (possibly large) chunk of named data associated
 // with an image.
 //
 // SetImageBigData stores a (possibly large) chunk of named data associated
 // with an image.
+//
+// ListContainerBigData retrieves a list of the (possibly large) chunks of
+// named data associated with a container.
 //
 // GetContainerBigData retrieves a (possibly large) chunk of named data
 // associated with an image.
@@ -225,8 +231,10 @@ type Mall interface {
 	Containers() ([]Container, error)
 	GetNames(id string) ([]string, error)
 	SetNames(id string, names []string) error
+	ListImageBigData(id string) ([]string, error)
 	GetImageBigData(id, key string) ([]byte, error)
 	SetImageBigData(id, key string, data []byte) error
+	ListContainerBigData(id string) ([]string, error)
 	GetContainerBigData(id, key string) ([]byte, error)
 	SetContainerBigData(id, key string, data []byte) error
 	GetLayer(id string) (*Layer, error)
@@ -687,6 +695,30 @@ func (m *mall) SetMetadata(id, metadata string) error {
 	return ErrNotAnID
 }
 
+func (m *mall) ListImageBigData(id string) ([]string, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+
+	return ristore.GetBigDataNames(id)
+}
+
 func (m *mall) GetImageBigData(id, key string) ([]byte, error) {
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
@@ -733,6 +765,39 @@ func (m *mall) SetImageBigData(id, key string, data []byte) error {
 	}
 
 	return ristore.SetBigData(id, key, data)
+}
+
+func (m *mall) ListContainerBigData(id string) ([]string, error) {
+	rlstore, err := m.GetLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	ristore, err := m.GetImageStore()
+	if err != nil {
+		return nil, err
+	}
+	rcstore, err := m.GetContainerStore()
+	if err != nil {
+		return nil, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	return rcstore.GetBigDataNames(id)
 }
 
 func (m *mall) GetContainerBigData(id, key string) ([]byte, error) {

@@ -67,6 +67,23 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 	return 0
 }
 
+func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+	container, err := m.GetContainer(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	d, err := m.ListContainerBigData(container.ID)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(d)
+	} else {
+		for _, name := range d {
+			fmt.Printf("%s\n", name)
+		}
+	}
+	return 0
+}
+
 func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	container, err := m.GetContainer(args[0])
 	if err != nil {
@@ -128,6 +145,17 @@ func init() {
 			usage:       "Examine a container",
 			action:      container,
 			minArgs:     1,
+			addFlags: func(flags *mflag.FlagSet, cmd *command) {
+				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			},
+		},
+		command{
+			names:       []string{"list-container-data", "listcontainerdata"},
+			optionsHelp: "[options [...]] containerNameOrID",
+			usage:       "List data items that are attached to an container",
+			action:      listContainerBigData,
+			minArgs:     1,
+			maxArgs:     1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},

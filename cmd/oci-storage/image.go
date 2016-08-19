@@ -53,6 +53,23 @@ func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 	return 0
 }
 
+func listImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+	image, err := m.GetImage(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	d, err := m.ListImageBigData(image.ID)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(d)
+	} else {
+		for _, name := range d {
+			fmt.Printf("%s\n", name)
+		}
+	}
+	return 0
+}
+
 func getImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
 	image, err := m.GetImage(args[0])
 	if err != nil {
@@ -114,6 +131,17 @@ func init() {
 			usage:       "Examine an image",
 			action:      image,
 			minArgs:     1,
+			addFlags: func(flags *mflag.FlagSet, cmd *command) {
+				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			},
+		},
+		command{
+			names:       []string{"list-image-data", "listimagedata"},
+			optionsHelp: "[options [...]] imageNameOrID",
+			usage:       "List data items that are attached to an image",
+			action:      listImageBigData,
+			minArgs:     1,
+			maxArgs:     1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},
