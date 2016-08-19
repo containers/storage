@@ -166,11 +166,12 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	}
 	if err == nil {
 		newContainer := Container{
-			ID:       id,
-			Names:    names,
-			ImageID:  image,
-			LayerID:  layer,
-			Metadata: metadata,
+			ID:           id,
+			Names:        names,
+			ImageID:      image,
+			LayerID:      layer,
+			Metadata:     metadata,
+			BigDataNames: []string{},
 		}
 		r.containers = append(r.containers, newContainer)
 		container = &r.containers[len(r.containers)-1]

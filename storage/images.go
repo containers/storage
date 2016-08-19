@@ -160,10 +160,11 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 	}
 	if err == nil {
 		newImage := Image{
-			ID:       id,
-			Names:    names,
-			TopLayer: layer,
-			Metadata: metadata,
+			ID:           id,
+			Names:        names,
+			TopLayer:     layer,
+			Metadata:     metadata,
+			BigDataNames: []string{},
 		}
 		r.images = append(r.images, newImage)
 		image = &r.images[len(r.images)-1]
