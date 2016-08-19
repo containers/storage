@@ -345,6 +345,7 @@ func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 				delete(r.bymount, layer.MountPoint)
 			}
 			layer.MountPoint = mountpoint
+			layer.MountCount++
 			r.bymount[layer.MountPoint] = layer
 			err = r.Save()
 		}
@@ -363,7 +364,7 @@ func (r *layerStore) Unmount(id string) error {
 		return ErrLayerUnknown
 	}
 	layer := r.byid[id]
-	if layer.MountCount > 0 {
+	if layer.MountCount > 1 {
 		layer.MountCount--
 		return r.Save()
 	}
@@ -373,6 +374,7 @@ func (r *layerStore) Unmount(id string) error {
 			if layer.MountPoint != "" {
 				delete(r.bymount, layer.MountPoint)
 			}
+			layer.MountCount--
 			layer.MountPoint = ""
 			err = r.Save()
 		}
