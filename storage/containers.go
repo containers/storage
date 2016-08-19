@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -24,11 +25,12 @@ var (
 // It is assumed that the image's top layer is the parent of the container's
 // read-write layer.
 type Container struct {
-	ID       string   `json:"id"`
-	Names    []string `json:"names,omitempty"`
-	ImageID  string   `json:"image"`
-	LayerID  string   `json:"layer"`
-	Metadata string   `json:"metadata,omitempty"`
+	ID           string   `json:"id"`
+	Names        []string `json:"names,omitempty"`
+	ImageID      string   `json:"image"`
+	LayerID      string   `json:"layer"`
+	Metadata     string   `json:"metadata,omitempty"`
+	BigDataNames []string `json:"big-data-names,omitempty"`
 }
 
 // ContainerStore provides bookkeeping for information about Containers.
@@ -54,6 +56,7 @@ type Container struct {
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	Store
+	BigDataStore
 	Create(id string, names []string, image, layer, metadata string) (*Container, error)
 	SetMetadata(id, metadata string) error
 	SetNames(id string, names []string) error
@@ -80,6 +83,14 @@ func (r *containerStore) Containers() ([]Container, error) {
 
 func (r *containerStore) containerspath() string {
 	return filepath.Join(r.dir, "containers.json")
+}
+
+func (r *containerStore) datadir(id string) string {
+	return filepath.Join(r.dir, id)
+}
+
+func (r *containerStore) datapath(id, key string) string {
+	return filepath.Join(r.datadir(id), base64.StdEncoding.EncodeToString([]byte(key)))
 }
 
 func (r *containerStore) Load() error {
@@ -228,6 +239,9 @@ func (r *containerStore) Delete(id string) error {
 		if err := r.Save(); err != nil {
 			return err
 		}
+		if err := os.RemoveAll(r.datadir(id)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -263,6 +277,53 @@ func (r *containerStore) Exists(id string) bool {
 		return true
 	}
 	return false
+}
+
+func (r *containerStore) GetBigData(id, key string) ([]byte, error) {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return nil, ErrImageUnknown
+	}
+	return ioutil.ReadFile(r.datapath(id, key))
+}
+
+func (r *containerStore) GetBigDataNames(id string) ([]string, error) {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return nil, ErrImageUnknown
+	}
+	return r.byid[id].BigDataNames, nil
+}
+
+func (r *containerStore) SetBigData(id, key string, data []byte) error {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
+	if err := os.MkdirAll(r.datadir(id), 0700); err != nil {
+		return err
+	}
+	err := ioutils.AtomicWriteFile(r.datapath(id, key), data, 0600)
+	if err == nil {
+		add := true
+		for _, name := range r.byid[id].BigDataNames {
+			if name == key {
+				add = false
+				break
+			}
+		}
+		if add {
+			r.byid[id].BigDataNames = append(r.byid[id].BigDataNames, key)
+			err = r.Save()
+		}
+	}
+	return err
 }
 
 func (r *containerStore) Wipe() error {

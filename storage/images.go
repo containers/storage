@@ -53,14 +53,9 @@ type Image struct {
 // implicitly.
 //
 // Images returns a slice enumerating the known images.
-//
-// SetBigData stores a (potentially large) piece of data associated with this
-// image.
-//
-// GetBigData retrieves a (potentially large) piece of data associated with
-// this image, if it has previously been set.
 type ImageStore interface {
 	Store
+	BigDataStore
 	Create(id string, names []string, layer, metadata string) (*Image, error)
 	SetMetadata(id, metadata string) error
 	SetNames(id string, names []string) error
@@ -70,9 +65,6 @@ type ImageStore interface {
 	Wipe() error
 	Lookup(name string) (string, error)
 	Images() ([]Image, error)
-	SetBigData(id, key string, data []byte) error
-	GetBigData(id, key string) ([]byte, error)
-	GetBigDataNames(id string) ([]string, error)
 }
 
 type imageStore struct {

@@ -62,7 +62,7 @@ func main() {
 		fmt.Printf("Usage: oci-storage command [options [...]]\n\n")
 		fmt.Printf("Commands:\n\n")
 		for _, command := range commands {
-			fmt.Printf("  %-18s%s\n", command.names[0], command.usage)
+			fmt.Printf("  %-20s%s\n", command.names[0], command.usage)
 		}
 		fmt.Printf("\nOptions:\n")
 		flags.PrintDefaults()
