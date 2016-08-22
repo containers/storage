@@ -390,10 +390,11 @@ func (d *Driver) Put(id string) error {
 
 	logrus.Debugf(`[zfs] unmount("%s")`, mountpoint)
 
-	if err := mount.Unmount(mountpoint); err != nil {
+	err = mount.Unmount(mountpoint)
+	if err != nil {
 		return fmt.Errorf("error unmounting to %s: %v", mountpoint, err)
 	}
-	return nil
+	return err
 }
 
 // Exists checks to see if the cache entry exists for the given id.

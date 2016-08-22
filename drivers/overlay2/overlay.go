@@ -439,10 +439,11 @@ func (d *Driver) Put(id string) error {
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	if err := syscall.Unmount(mountpoint, 0); err != nil {
+	err := syscall.Unmount(mountpoint, 0)
+	if err != nil {
 		logrus.Debugf("Failed to unmount %s overlay: %v", id, err)
 	}
-	return nil
+	return err
 }
 
 // Exists checks to see if the id is already mounted.
