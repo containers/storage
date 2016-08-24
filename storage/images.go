@@ -188,6 +188,16 @@ func (r *imageStore) SetMetadata(id, metadata string) error {
 	return ErrImageUnknown
 }
 
+func (r *imageStore) removeName(image *Image, name string) {
+	newNames := []string{}
+	for _, oldName := range image.Names {
+		if oldName != name {
+			newNames = append(newNames, oldName)
+		}
+	}
+	image.Names = newNames
+}
+
 func (r *imageStore) SetNames(id string, names []string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
@@ -197,6 +207,9 @@ func (r *imageStore) SetNames(id string, names []string) error {
 			delete(r.byname, name)
 		}
 		for _, name := range names {
+			if otherImage, ok := r.byname[name]; ok {
+				r.removeName(otherImage, name)
+			}
 			r.byname[name] = image
 		}
 		image.Names = names

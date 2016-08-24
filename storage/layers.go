@@ -383,6 +383,16 @@ func (r *layerStore) Unmount(id string) error {
 	return err
 }
 
+func (r *layerStore) removeName(layer *Layer, name string) {
+	newNames := []string{}
+	for _, oldName := range layer.Names {
+		if oldName != name {
+			newNames = append(newNames, oldName)
+		}
+	}
+	layer.Names = newNames
+}
+
 func (r *layerStore) SetNames(id string, names []string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
@@ -392,6 +402,9 @@ func (r *layerStore) SetNames(id string, names []string) error {
 			delete(r.byname, name)
 		}
 		for _, name := range names {
+			if otherLayer, ok := r.byname[name]; ok {
+				r.removeName(otherLayer, name)
+			}
 			r.byname[name] = layer
 		}
 		layer.Names = names

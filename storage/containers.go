@@ -198,6 +198,16 @@ func (r *containerStore) SetMetadata(id, metadata string) error {
 	return ErrContainerUnknown
 }
 
+func (r *containerStore) removeName(container *Container, name string) {
+	newNames := []string{}
+	for _, oldName := range container.Names {
+		if oldName != name {
+			newNames = append(newNames, oldName)
+		}
+	}
+	container.Names = newNames
+}
+
 func (r *containerStore) SetNames(id string, names []string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
@@ -209,6 +219,9 @@ func (r *containerStore) SetNames(id string, names []string) error {
 			delete(r.byname, name)
 		}
 		for _, name := range names {
+			if otherContainer, ok := r.byname[name]; ok {
+				r.removeName(otherContainer, name)
+			}
 			r.byname[name] = container
 		}
 		container.Names = names
