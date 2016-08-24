@@ -183,6 +183,7 @@ func (r *layerStore) Load() error {
 			if mount.MountPoint != "" {
 				if layer, ok := ids[mount.ID]; ok {
 					mounts[mount.MountPoint] = layer
+					layer.MountPoint = mount.MountPoint
 					layer.MountCount = mount.MountCount
 				}
 			}
