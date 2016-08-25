@@ -381,6 +381,11 @@ func (d *Driver) Put(id string) error {
 	}
 	err := syscall.Unmount(mountpoint, 0)
 	if err != nil {
+		rootDir := path.Join(d.dir(id), "root")
+		if _, err := os.Stat(rootDir); err == nil {
+			// We weren't mounting a "merged" directory anyway
+			return nil
+		}
 		logrus.Debugf("Failed to unmount %s overlay: %v", id, err)
 	}
 	return err
