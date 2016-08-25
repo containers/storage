@@ -17,20 +17,12 @@ var (
 	ApplyUncompressedLayer = chrootarchive.ApplyUncompressedLayer
 )
 
-// GetPutWrapper is an interface which can be used to add additional logic
-// around Get() and Put() calls by setting one via a callback.
-type GetPutWrapper interface {
-	Get(string, string) (string, error)
-	Put(string) error
-}
-
 // NaiveDiffDriver takes a ProtoDriver and adds the
 // capability of the Diffing methods which it may or may not
 // support on its own. See the comment on the exported
 // NewNaiveDiffDriver function below.
 // Notably, the AUFS driver doesn't need to be wrapped like this.
 type NaiveDiffDriver struct {
-	gp GetPutWrapper
 	ProtoDriver
 	uidMaps []idtools.IDMap
 	gidMaps []idtools.IDMap
@@ -49,30 +41,20 @@ func NewNaiveDiffDriver(driver ProtoDriver, uidMaps, gidMaps []idtools.IDMap) Dr
 		uidMaps:     uidMaps,
 		gidMaps:     gidMaps,
 	}
-	gdw.SetGetPutWrapper(gdw)
 	return gdw
-}
-
-// SetGetPutWrapper sets callbacks which the driver will use when it needs to
-// Get() or Put() itself in order to service some other method call.
-func (gdw *NaiveDiffDriver) SetGetPutWrapper(gp GetPutWrapper) {
-	if gp == nil {
-		gp = gdw
-	}
-	gdw.gp = gp
 }
 
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
 func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err error) {
-	layerFs, err := gdw.gp.Get(id, "")
+	layerFs, err := gdw.Get(id, "")
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
 		if err != nil {
-			gdw.gp.Put(id)
+			gdw.Put(id)
 		}
 	}()
 
@@ -83,16 +65,16 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 		}
 		return ioutils.NewReadCloserWrapper(archive, func() error {
 			err := archive.Close()
-			gdw.gp.Put(id)
+			gdw.Put(id)
 			return err
 		}), nil
 	}
 
-	parentFs, err := gdw.gp.Get(parent, "")
+	parentFs, err := gdw.Get(parent, "")
 	if err != nil {
 		return nil, err
 	}
-	defer gdw.gp.Put(parent)
+	defer gdw.Put(parent)
 
 	changes, err := archive.ChangesDirs(layerFs, parentFs)
 	if err != nil {
@@ -106,7 +88,7 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 
 	return ioutils.NewReadCloserWrapper(archive, func() error {
 		err := archive.Close()
-		gdw.gp.Put(id)
+		gdw.Put(id)
 		return err
 	}), nil
 }
@@ -114,20 +96,20 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 // Changes produces a list of changes between the specified layer
 // and its parent layer. If parent is "", then all changes will be ADD changes.
 func (gdw *NaiveDiffDriver) Changes(id, parent string) ([]archive.Change, error) {
-	layerFs, err := gdw.gp.Get(id, "")
+	layerFs, err := gdw.Get(id, "")
 	if err != nil {
 		return nil, err
 	}
-	defer gdw.gp.Put(id)
+	defer gdw.Put(id)
 
 	parentFs := ""
 
 	if parent != "" {
-		parentFs, err = gdw.gp.Get(parent, "")
+		parentFs, err = gdw.Get(parent, "")
 		if err != nil {
 			return nil, err
 		}
-		defer gdw.gp.Put(parent)
+		defer gdw.Put(parent)
 	}
 
 	return archive.ChangesDirs(layerFs, parentFs)
@@ -138,11 +120,11 @@ func (gdw *NaiveDiffDriver) Changes(id, parent string) ([]archive.Change, error)
 // new layer in bytes.
 func (gdw *NaiveDiffDriver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error) {
 	// Mount the root filesystem so we can apply the diff/layer.
-	layerFs, err := gdw.gp.Get(id, "")
+	layerFs, err := gdw.Get(id, "")
 	if err != nil {
 		return
 	}
-	defer gdw.gp.Put(id)
+	defer gdw.Put(id)
 
 	options := &archive.TarOptions{UIDMaps: gdw.uidMaps,
 		GIDMaps: gdw.gidMaps}
@@ -165,11 +147,11 @@ func (gdw *NaiveDiffDriver) DiffSize(id, parent string) (size int64, err error) 
 		return
 	}
 
-	layerFs, err := gdw.gp.Get(id, "")
+	layerFs, err := gdw.Get(id, "")
 	if err != nil {
 		return
 	}
-	defer gdw.gp.Put(id)
+	defer gdw.Put(id)
 
 	return archive.ChangesSize(layerFs, changes), nil
 }

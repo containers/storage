@@ -224,24 +224,6 @@ func (r *layerStore) Save() error {
 	return ioutils.AtomicWriteFile(mpath, jmdata, 0600)
 }
 
-type layerStoreGetPutWrapper struct {
-	r *layerStore
-}
-
-func (l *layerStoreGetPutWrapper) Get(id, mountContext string) (string, error) {
-	return l.r.Mount(id, mountContext)
-}
-
-func (l *layerStoreGetPutWrapper) Put(id string) error {
-	return l.r.Unmount(id)
-}
-
-func newGetPutWrapper(r *layerStore) graphdriver.GetPutWrapper {
-	return &layerStoreGetPutWrapper{
-		r: r,
-	}
-}
-
 func newLayerStore(rundir string, layerdir string, driver graphdriver.Driver) (LayerStore, error) {
 	if err := os.MkdirAll(rundir, 0700); err != nil {
 		return nil, err
@@ -267,9 +249,6 @@ func newLayerStore(rundir string, layerdir string, driver graphdriver.Driver) (L
 	}
 	if err := rlstore.Load(); err != nil {
 		return nil, err
-	}
-	if gpw, ok := driver.(*graphdriver.NaiveDiffDriver); ok {
-		gpw.SetGetPutWrapper(newGetPutWrapper(&rlstore))
 	}
 	return &rlstore, nil
 }
