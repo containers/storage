@@ -65,8 +65,6 @@ func (gdw *NaiveDiffDriver) SetGetPutWrapper(gp GetPutWrapper) {
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
 func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err error) {
-	driver := gdw.ProtoDriver
-
 	layerFs, err := gdw.gp.Get(id, "")
 	if err != nil {
 		return nil, err
@@ -85,7 +83,7 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 		}
 		return ioutils.NewReadCloserWrapper(archive, func() error {
 			err := archive.Close()
-			driver.Put(id)
+			gdw.gp.Put(id)
 			return err
 		}), nil
 	}

@@ -370,15 +370,13 @@ func (r *layerStore) Unmount(id string) error {
 		return r.Save()
 	}
 	err := r.driver.Put(id)
-	if err == nil {
-		if layer, ok := r.byid[id]; ok {
-			if layer.MountPoint != "" {
-				delete(r.bymount, layer.MountPoint)
-			}
-			layer.MountCount--
-			layer.MountPoint = ""
-			err = r.Save()
+	if err == nil || os.IsNotExist(err) {
+		if layer.MountPoint != "" {
+			delete(r.bymount, layer.MountPoint)
 		}
+		layer.MountCount--
+		layer.MountPoint = ""
+		err = r.Save()
 	}
 	return err
 }
