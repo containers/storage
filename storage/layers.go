@@ -199,17 +199,14 @@ func (r *layerStore) Load() error {
 
 func (r *layerStore) Save() error {
 	rpath := r.layerspath()
-	jdata, err := json.Marshal(&r.layers)
+	jldata, err := json.Marshal(&r.layers)
 	if err != nil {
-		return err
-	}
-	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
 		return err
 	}
 	mpath := r.mountspath()
 	mounts := []layerMountPoint{}
 	for _, layer := range r.layers {
-		if layer.MountPoint != "" {
+		if layer.MountPoint != "" && layer.MountCount > 0 {
 			mounts = append(mounts, layerMountPoint{
 				ID:         layer.ID,
 				MountPoint: layer.MountPoint,
@@ -217,11 +214,14 @@ func (r *layerStore) Save() error {
 			})
 		}
 	}
-	jdata, err = json.Marshal(&mounts)
+	jmdata, err := json.Marshal(&mounts)
 	if err != nil {
 		return err
 	}
-	return ioutils.AtomicWriteFile(mpath, jdata, 0600)
+	if err := ioutils.AtomicWriteFile(rpath, jldata, 0600); err != nil {
+		return err
+	}
+	return ioutils.AtomicWriteFile(mpath, jmdata, 0600)
 }
 
 type layerStoreGetPutWrapper struct {
