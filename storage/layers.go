@@ -567,21 +567,22 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 		}
 		return nil, err
 	}
+	defer tsfile.Close()
+
 	decompressor, err := gzip.NewReader(tsfile)
 	if err != nil {
 		return nil, err
 	}
+	defer decompressor.Close()
+
 	tsbytes, err := ioutil.ReadAll(decompressor)
 	if err != nil {
 		return nil, err
 	}
-	decompressor.Close()
-	tsfile.Close()
 
 	metadata = storage.NewJSONUnpacker(bytes.NewBuffer(tsbytes))
 
 	if fgetter, err := r.newFileGetter(to); err != nil {
-		decompressor.Close()
 		return nil, err
 	} else {
 		stream := asm.NewOutputTarStream(fgetter, metadata)
