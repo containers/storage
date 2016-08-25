@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -224,7 +225,7 @@ type Mall interface {
 	Unmount(id string) error
 	Changes(from, to string) ([]archive.Change, error)
 	DiffSize(from, to string) (int64, error)
-	Diff(from, to string) (archive.Reader, error)
+	Diff(from, to string) (io.ReadCloser, error)
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
 	Layers() ([]Layer, error)
 	Images() ([]Image, error)
@@ -1478,7 +1479,7 @@ func (m *mall) DiffSize(from, to string) (int64, error) {
 	return rlstore.DiffSize(from, to)
 }
 
-func (m *mall) Diff(from, to string) (archive.Reader, error) {
+func (m *mall) Diff(from, to string) (io.ReadCloser, error) {
 	rlstore, err := m.GetLayerStore()
 	if err != nil {
 		return nil, err

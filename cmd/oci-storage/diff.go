@@ -94,6 +94,7 @@ func diff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) in
 		defer compressor.Close()
 	}
 	_, err = io.Copy(diffStream, reader)
+	reader.Close()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1

@@ -117,7 +117,7 @@ type LayerStore interface {
 	Mount(id, mountLabel string) (string, error)
 	Unmount(id string) error
 	Changes(from, to string) ([]archive.Change, error)
-	Diff(from, to string) (archive.Reader, error)
+	Diff(from, to string) (io.ReadCloser, error)
 	DiffSize(from, to string) (int64, error)
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
 	Lookup(name string) (string, error)
@@ -560,7 +560,7 @@ func (r *layerStore) newFileGetter(id string) (graphdriver.FileGetCloser, error)
 	}, nil
 }
 
-func (r *layerStore) Diff(from, to string) (archive.Reader, error) {
+func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 	var metadata storage.Unpacker
 
 	if layer, ok := r.byname[from]; ok {
@@ -605,7 +605,15 @@ func (r *layerStore) Diff(from, to string) (archive.Reader, error) {
 		decompressor.Close()
 		return nil, err
 	} else {
-		return asm.NewOutputTarStream(fgetter, metadata), nil
+		stream := asm.NewOutputTarStream(fgetter, metadata)
+		return ioutils.NewReadCloserWrapper(stream, func() error {
+			err1 := stream.Close()
+			err2 := fgetter.Close()
+			if err2 == nil {
+				return err1
+			}
+			return err2
+		}), nil
 	}
 }
 
