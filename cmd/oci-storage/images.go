@@ -21,7 +21,10 @@ func images(flags *mflag.FlagSet, action string, m storage.Mall, args []string) 
 		for _, image := range images {
 			fmt.Printf("%s\n", image.ID)
 			for _, name := range image.Names {
-				fmt.Printf("\t%s\n", name)
+				fmt.Printf("\tname: %s\n", name)
+			}
+			for _, name := range image.BigDataNames {
+				fmt.Printf("\tdata: %s\n", name)
 			}
 		}
 	}

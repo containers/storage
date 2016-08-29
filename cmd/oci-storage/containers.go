@@ -21,7 +21,10 @@ func containers(flags *mflag.FlagSet, action string, m storage.Mall, args []stri
 		for _, container := range containers {
 			fmt.Printf("%s\n", container.ID)
 			for _, name := range container.Names {
-				fmt.Printf("\t%s\n", name)
+				fmt.Printf("\tname: %s\n", name)
+			}
+			for _, name := range container.BigDataNames {
+				fmt.Printf("\tdata: %s\n", name)
 			}
 		}
 	}

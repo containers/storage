@@ -59,6 +59,9 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 				}
 			}
 			fmt.Printf("Layer: %s\n", container.LayerID)
+			for _, name := range container.BigDataNames {
+				fmt.Printf("Data: %s\n", name)
+			}
 		}
 	}
 	if len(matches) != len(args) {

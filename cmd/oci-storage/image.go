@@ -45,6 +45,9 @@ func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 				fmt.Printf("Name: %s\n", name)
 			}
 			fmt.Printf("Top Layer: %s\n", image.TopLayer)
+			for _, name := range image.BigDataNames {
+				fmt.Printf("Data: %s\n", name)
+			}
 		}
 	}
 	if len(matched) != len(args) {
