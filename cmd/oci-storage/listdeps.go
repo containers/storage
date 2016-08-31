@@ -9,7 +9,7 @@ import (
 	"github.com/containers/storage/storage"
 )
 
-func listDeps(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func listDeps(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

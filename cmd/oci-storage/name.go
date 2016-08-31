@@ -10,7 +10,7 @@ import (
 	"github.com/containers/storage/storage"
 )
 
-func addNames(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -46,7 +46,7 @@ func addNames(flags *mflag.FlagSet, action string, m storage.Mall, args []string
 	return 0
 }
 
-func setNames(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func setNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

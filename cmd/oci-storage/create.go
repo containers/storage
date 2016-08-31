@@ -21,7 +21,7 @@ var (
 	paramCreateRO     = false
 )
 
-func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	parent := ""
 	if len(args) > 0 {
 		parent = args[0]
@@ -43,7 +43,7 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	return 0
 }
 
-func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if paramMetadataFile != "" {
 		f, err := os.Open(paramMetadataFile)
 		if err != nil {
@@ -74,7 +74,7 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	return 0
 }
 
-func createContainer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if paramMetadataFile != "" {
 		f, err := os.Open(paramMetadataFile)
 		if err != nil {

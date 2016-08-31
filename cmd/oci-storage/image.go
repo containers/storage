@@ -14,7 +14,7 @@ var (
 	paramImageDataFile = ""
 )
 
-func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	images, err := m.Images()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -56,7 +56,7 @@ func image(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 	return 0
 }
 
-func listImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.GetImage(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -73,7 +73,7 @@ func listImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args 
 	return 0
 }
 
-func getImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.GetImage(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -98,7 +98,7 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args [
 	return 0
 }
 
-func setImageBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func setImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.GetImage(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

@@ -19,7 +19,7 @@ var (
 	diffXz        = false
 )
 
-func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -52,7 +52,7 @@ func changes(flags *mflag.FlagSet, action string, m storage.Mall, args []string)
 	return 0
 }
 
-func diff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -102,7 +102,7 @@ func diff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) in
 	return 0
 }
 
-func applyDiff(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func applyDiff(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -124,7 +124,7 @@ func applyDiff(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 	return 0
 }
 
-func diffSize(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func diffSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

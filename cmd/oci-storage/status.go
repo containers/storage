@@ -9,7 +9,7 @@ import (
 	"github.com/containers/storage/storage"
 )
 
-func status(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func status(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	status, err := m.Status()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "status: %v\n", err)

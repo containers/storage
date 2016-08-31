@@ -16,7 +16,7 @@ var (
 	existQuiet     = false
 )
 
-func exist(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func exist(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

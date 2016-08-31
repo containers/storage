@@ -54,7 +54,7 @@ type Image struct {
 //
 // Images returns a slice enumerating the known images.
 type ImageStore interface {
-	Store
+	FileBasedStore
 	BigDataStore
 	Create(id string, names []string, layer, metadata string) (*Image, error)
 	SetMetadata(id, metadata string) error

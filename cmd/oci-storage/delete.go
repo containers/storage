@@ -11,7 +11,7 @@ import (
 
 var testDeleteImage = false
 
-func deleteThing(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -41,7 +41,7 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	return 0
 }
 
-func deleteLayer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -76,7 +76,7 @@ type deletedImage struct {
 	Error         string   `json:"error,omitifempty"`
 }
 
-func deleteImage(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}
@@ -113,7 +113,7 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Mall, args []str
 	return 0
 }
 
-func deleteContainer(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	if len(args) < 1 {
 		return 1
 	}

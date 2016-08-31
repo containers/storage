@@ -9,7 +9,7 @@ import (
 	"github.com/containers/storage/storage"
 )
 
-func images(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	images, err := m.Images()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

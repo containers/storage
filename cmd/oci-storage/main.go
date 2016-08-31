@@ -19,7 +19,7 @@ type command struct {
 	maxArgs     int
 	usage       string
 	addFlags    func(*mflag.FlagSet, *command)
-	action      func(*mflag.FlagSet, string, storage.Mall, []string) int
+	action      func(*mflag.FlagSet, string, storage.Store, []string) int
 }
 
 var (
@@ -124,12 +124,12 @@ func main() {
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
-				mall, err := storage.MakeMall(runRoot, graphRoot, graphDriver, graphOptions)
+				store, err := storage.MakeStore(runRoot, graphRoot, graphDriver, graphOptions)
 				if err != nil {
 					fmt.Printf("error initializing: %v\n", err)
 					os.Exit(1)
 				}
-				os.Exit(command.action(flags, cmd, mall, args))
+				os.Exit(command.action(flags, cmd, store, args))
 				break
 			}
 		}

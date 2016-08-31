@@ -55,7 +55,7 @@ type Container struct {
 //
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
-	Store
+	FileBasedStore
 	BigDataStore
 	Create(id string, names []string, image, layer, metadata string) (*Container, error)
 	SetMetadata(id, metadata string) error

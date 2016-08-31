@@ -105,7 +105,7 @@ type layerMountPoint struct {
 //
 // Layers returns a slice of the known layers.
 type LayerStore interface {
-	Store
+	FileBasedStore
 	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Get(id string) (*Layer, error)

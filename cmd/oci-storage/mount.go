@@ -19,7 +19,7 @@ type mountPointError struct {
 	Error string `json:"error"`
 }
 
-func mount(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	moes := []mountPointOrError{}
 	for _, arg := range args {
 		result, err := m.Mount(arg, paramMountLabel)
@@ -47,7 +47,7 @@ func mount(flags *mflag.FlagSet, action string, m storage.Mall, args []string) i
 	return 0
 }
 
-func unmount(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	mes := []mountPointError{}
 	errors := false
 	for _, arg := range args {

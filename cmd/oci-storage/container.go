@@ -14,7 +14,7 @@ var (
 	paramContainerDataFile = ""
 )
 
-func container(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func container(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	images, err := m.Images()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -70,7 +70,7 @@ func container(flags *mflag.FlagSet, action string, m storage.Mall, args []strin
 	return 0
 }
 
-func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.GetContainer(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -87,7 +87,7 @@ func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, a
 	return 0
 }
 
-func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.GetContainer(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -112,7 +112,7 @@ func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, ar
 	return 0
 }
 
-func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Mall, args []string) int {
+func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.GetContainer(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
