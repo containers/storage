@@ -11,7 +11,7 @@ import (
 	// register all of the built-in drivers
 	_ "github.com/containers/storage/drivers/register"
 
-	"github.com/containers/storage/drivers"
+	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/storageversion"
@@ -205,7 +205,7 @@ type Store interface {
 	GetGraphRoot() string
 	GetGraphDriverName() string
 	GetGraphOptions() []string
-	GetGraphDriver() (graphdriver.Driver, error)
+	GetGraphDriver() (drivers.Driver, error)
 	GetLayerStore() (LayerStore, error)
 	GetImageStore() (ImageStore, error)
 	GetContainerStore() (ContainerStore, error)
@@ -273,7 +273,7 @@ type store struct {
 	graphDriverName string
 	graphOptions    []string
 	loaded          bool
-	graphDriver     graphdriver.Driver
+	graphDriver     drivers.Driver
 	layerStore      LayerStore
 	imageStore      ImageStore
 	containerStore  ContainerStore
@@ -341,7 +341,7 @@ func (s *store) GetGraphOptions() []string {
 }
 
 func (s *store) load() error {
-	driver, err := graphdriver.New(s.graphRoot, s.graphDriverName, s.graphOptions, nil, nil)
+	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -383,7 +383,7 @@ func (s *store) load() error {
 	return nil
 }
 
-func (s *store) GetGraphDriver() (graphdriver.Driver, error) {
+func (s *store) GetGraphDriver() (drivers.Driver, error) {
 	if !s.loaded {
 		if err := s.load(); err != nil {
 			return nil, err

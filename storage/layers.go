@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/containers/storage/drivers"
+	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
@@ -127,7 +127,7 @@ type LayerStore interface {
 type layerStore struct {
 	lockfile Locker
 	rundir   string
-	driver   graphdriver.Driver
+	driver   drivers.Driver
 	layerdir string
 	layers   []Layer
 	byid     map[string]*Layer
@@ -224,7 +224,7 @@ func (r *layerStore) Save() error {
 	return ioutils.AtomicWriteFile(mpath, jmdata, 0600)
 }
 
-func newLayerStore(rundir string, layerdir string, driver graphdriver.Driver) (LayerStore, error) {
+func newLayerStore(rundir string, layerdir string, driver drivers.Driver) (LayerStore, error) {
 	if err := os.MkdirAll(rundir, 0700); err != nil {
 		return nil, err
 	}
@@ -524,8 +524,8 @@ func (s *simpleGetCloser) Close() error {
 	return s.r.Unmount(s.id)
 }
 
-func (r *layerStore) newFileGetter(id string) (graphdriver.FileGetCloser, error) {
-	if getter, ok := r.driver.(graphdriver.DiffGetterDriver); ok {
+func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
+	if getter, ok := r.driver.(drivers.DiffGetterDriver); ok {
 		return getter.DiffGetter(id)
 	}
 	path, err := r.Mount(id, "")
