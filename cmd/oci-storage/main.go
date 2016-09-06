@@ -124,7 +124,7 @@ func main() {
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
-				store, err := storage.MakeStore(runRoot, graphRoot, graphDriver, graphOptions)
+				store, err := storage.MakeStore(runRoot, graphRoot, graphDriver, graphOptions, nil, nil)
 				if err != nil {
 					fmt.Printf("error initializing: %v\n", err)
 					os.Exit(1)

@@ -13,6 +13,7 @@ import (
 
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/storageversion"
 )
@@ -272,6 +273,8 @@ type store struct {
 	graphRoot       string
 	graphDriverName string
 	graphOptions    []string
+	uidMap          []idtools.IDMap
+	gidMap          []idtools.IDMap
 	loaded          bool
 	graphDriver     drivers.Driver
 	layerStore      LayerStore
@@ -281,7 +284,7 @@ type store struct {
 
 // MakeStore creates and initializes a new Store object, and the underlying
 // storage that it controls.
-func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
+func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string, uidMap, gidMap []idtools.IDMap) (Mall, error) {
 	if runRoot == "" && graphRoot == "" && graphDriverName == "" && len(graphOptions) == 0 {
 		runRoot = "/var/run/oci-storage"
 		graphRoot = "/var/lib/oci-storage"
@@ -317,11 +320,22 @@ func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string
 		graphRoot:       graphRoot,
 		graphDriverName: graphDriverName,
 		graphOptions:    graphOptions,
+		uidMap:          copyIDMap(uidMap),
+		gidMap:          copyIDMap(gidMap),
 	}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
 	return s, nil
+}
+
+func copyIDMap(idmap []idtools.IDMap) []idtools.IDMap {
+	m := []idtools.IDMap{}
+	if idmap != nil {
+		m = make([]idtools.IDMap, len(idmap))
+		copy(m, idmap)
+	}
+	return m[:]
 }
 
 func (s *store) GetRunRoot() string {
@@ -1808,5 +1822,5 @@ nextLayer:
 
 // MakeMall was the old name of MakeStore.  It will be dropped at some point.
 func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
-	return MakeStore(runRoot, graphRoot, graphDriverName, graphOptions)
+	return MakeStore(runRoot, graphRoot, graphDriverName, graphOptions, nil, nil)
 }
