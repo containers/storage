@@ -355,7 +355,7 @@ func (s *store) GetGraphOptions() []string {
 }
 
 func (s *store) load() error {
-	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, nil, nil)
+	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, s.uidMap, s.gidMap)
 	if err != nil {
 		return err
 	}
