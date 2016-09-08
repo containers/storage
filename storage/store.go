@@ -335,7 +335,10 @@ func copyIDMap(idmap []idtools.IDMap) []idtools.IDMap {
 		m = make([]idtools.IDMap, len(idmap))
 		copy(m, idmap)
 	}
-	return m[:]
+	if len(m) > 0 {
+		return m[:]
+	}
+	return nil
 }
 
 func (s *store) GetRunRoot() string {
