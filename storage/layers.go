@@ -66,6 +66,8 @@ type layerMountPoint struct {
 //
 // Exists checks if a layer with the specified name or ID is known.
 //
+// GetMetadata retrieves a layer's metadata.
+//
 // SetMetadata replaces the metadata associated with a layer with the supplied
 // value.
 //
@@ -106,11 +108,11 @@ type layerMountPoint struct {
 // Layers returns a slice of the known layers.
 type LayerStore interface {
 	FileBasedStore
+	MetadataStore
 	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Get(id string) (*Layer, error)
 	SetNames(id string, names []string) error
-	SetMetadata(id, metadata string) error
 	Status() ([][2]string, error)
 	Delete(id string) error
 	Wipe() error
@@ -388,6 +390,16 @@ func (r *layerStore) SetNames(id string, names []string) error {
 		return r.Save()
 	}
 	return ErrLayerUnknown
+}
+
+func (r *layerStore) GetMetadata(id string) (string, error) {
+	if layer, ok := r.byname[id]; ok {
+		id = layer.ID
+	}
+	if layer, ok := r.byid[id]; ok {
+		return layer.Metadata, nil
+	}
+	return "", ErrLayerUnknown
 }
 
 func (r *layerStore) SetMetadata(id, metadata string) error {

@@ -35,6 +35,8 @@ type Image struct {
 // optional name, using the specified layer as its topmost (hopefully
 // read-only) layer.  That layer can be referenced by multiple images.
 //
+// GetMetadata retrieves an image's metadata.
+//
 // SetMetadata replaces the metadata associated with an image with the supplied
 // value.
 //
@@ -55,9 +57,9 @@ type Image struct {
 // Images returns a slice enumerating the known images.
 type ImageStore interface {
 	FileBasedStore
+	MetadataStore
 	BigDataStore
 	Create(id string, names []string, layer, metadata string) (*Image, error)
-	SetMetadata(id, metadata string) error
 	SetNames(id string, names []string) error
 	Exists(id string) bool
 	Get(id string) (*Image, error)
@@ -175,6 +177,16 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 		err = r.Save()
 	}
 	return image, err
+}
+
+func (r *imageStore) GetMetadata(id string) (string, error) {
+	if image, ok := r.byname[id]; ok {
+		id = image.ID
+	}
+	if image, ok := r.byid[id]; ok {
+		return image.Metadata, nil
+	}
+	return "", ErrImageUnknown
 }
 
 func (r *imageStore) SetMetadata(id, metadata string) error {

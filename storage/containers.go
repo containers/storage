@@ -39,6 +39,8 @@ type Container struct {
 // optional name, based on the specified image, using the specified layer as
 // its read-write layer.
 //
+// GetMetadata retrieves a container's metadata.
+//
 // SetMetadata replaces the metadata associated with a container with the
 // supplied value.
 //
@@ -56,9 +58,9 @@ type Container struct {
 // Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	FileBasedStore
+	MetadataStore
 	BigDataStore
 	Create(id string, names []string, image, layer, metadata string) (*Container, error)
-	SetMetadata(id, metadata string) error
 	SetNames(id string, names []string) error
 	Get(id string) (*Container, error)
 	Exists(id string) bool
@@ -183,6 +185,18 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 		err = r.Save()
 	}
 	return container, err
+}
+
+func (r *containerStore) GetMetadata(id string) (string, error) {
+	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	} else if container, ok := r.bylayer[id]; ok {
+		id = container.ID
+	}
+	if container, ok := r.byid[id]; ok {
+		return container.Metadata, nil
+	}
+	return "", ErrContainerUnknown
 }
 
 func (r *containerStore) SetMetadata(id, metadata string) error {

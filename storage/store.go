@@ -48,6 +48,16 @@ type FileBasedStore interface {
 	Save() error
 }
 
+// MetadataStore wraps up methods for getting and setting metadata associated with IDs.
+//
+// GetMetadata() reads metadata associated with an item with the specified ID.
+//
+// SetMetadata() updates the metadata associated with the item with the specified ID.
+type MetadataStore interface {
+	GetMetadata(id string) (string, error)
+	SetMetadata(id, metadata string) error
+}
+
 // A BigDataStore wraps up the most common methods of the various types of
 // file-based lookaside stores that we implement.
 //
@@ -95,10 +105,13 @@ type BigDataStore interface {
 // specified).  A container is a layer which is associated with a metadata
 // string which the library stores for the convenience of the caller.
 //
+// GetMetadata retrieves the metadata which is associated with a layer, image,
+// or container (whichever the passed-in ID refers to).
+//
 // SetMetadata updates the metadata which is associated with a layer, image, or
 // container (whichever the passed-in ID refers to) to match the specified
-// value.  The metadata value can be retrieved at any time using GetLayer,
-// GetImage, or GetContainer.
+// value.  The metadata value can be retrieved at any time using GetMetadata,
+// or using GetLayer, GetImage, or GetContainer and reading the object directly.
 //
 // Exists checks if there is a layer, image, or container which has the
 // passed-in ID or name.
@@ -214,6 +227,7 @@ type Store interface {
 	CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error)
 	CreateImage(id string, names []string, layer, metadata string) (*Image, error)
 	CreateContainer(id string, names []string, image, layer, metadata string) (*Container, error)
+	GetMetadata(id string) (string, error)
 	SetMetadata(id, metadata string) error
 	Exists(id string) bool
 	Status() ([][2]string, error)
@@ -646,6 +660,48 @@ func (s *store) SetMetadata(id, metadata string) error {
 		return rlstore.SetMetadata(id, metadata)
 	}
 	return ErrNotAnID
+}
+
+func (s *store) GetMetadata(id string) (string, error) {
+	rlstore, err := s.GetLayerStore()
+	if err != nil {
+		return "", err
+	}
+	ristore, err := s.GetImageStore()
+	if err != nil {
+		return "", err
+	}
+	rcstore, err := s.GetContainerStore()
+	if err != nil {
+		return "", err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	if rcstore.Exists(id) {
+		return rcstore.GetMetadata(id)
+	}
+	if ristore.Exists(id) {
+		return ristore.GetMetadata(id)
+	}
+	if rlstore.Exists(id) {
+		return rlstore.GetMetadata(id)
+	}
+	return "", ErrNotAnID
 }
 
 func (s *store) ListImageBigData(id string) ([]string, error) {

@@ -20,12 +20,8 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	metadataDict := make(map[string]string)
 	missingAny := false
 	for _, what := range args {
-		if container, err := m.GetContainer(what); err == nil {
-			metadataDict[what] = strings.TrimSuffix(container.Metadata, "\n")
-		} else if image, err := m.GetImage(what); err == nil {
-			metadataDict[what] = strings.TrimSuffix(image.Metadata, "\n")
-		} else if layer, err := m.GetLayer(what); err == nil {
-			metadataDict[what] = strings.TrimSuffix(layer.Metadata, "\n")
+		if metadata, err := m.GetMetadata(what); err == nil {
+			metadataDict[what] = strings.TrimSuffix(metadata, "\n")
 		} else {
 			missingAny = true
 		}
@@ -33,11 +29,11 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(metadataDict)
 	} else {
-		for id, metadata := range metadataDict {
+		for _, what := range args {
 			if metadataQuiet {
-				fmt.Printf("%s\n", metadata)
+				fmt.Printf("%s\n", metadataDict[what])
 			} else {
-				fmt.Printf("%s: %s\n", id, metadata)
+				fmt.Printf("%s: %s\n", what, metadataDict[what])
 			}
 		}
 	}
