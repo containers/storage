@@ -75,6 +75,16 @@ type BigDataStore interface {
 	GetBigDataNames(id string) ([]string, error)
 }
 
+// A FlaggableStore can have flags set and cleared on items which it manages.
+//
+// ClearFlag removes a named flag from an item in the store.
+//
+// SetFlag sets a named flag and its value on an item in the store.
+type FlaggableStore interface {
+	ClearFlag(id string, flag string) error
+	SetFlag(id string, flag string, value interface{}) error
+}
+
 // Store wraps up the various types of file-based stores that we use into a
 // singleton object that initializes and manages them all together.
 //

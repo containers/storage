@@ -25,12 +25,13 @@ var (
 // It is assumed that the image's top layer is the parent of the container's
 // read-write layer.
 type Container struct {
-	ID           string   `json:"id"`
-	Names        []string `json:"names,omitempty"`
-	ImageID      string   `json:"image"`
-	LayerID      string   `json:"layer"`
-	Metadata     string   `json:"metadata,omitempty"`
-	BigDataNames []string `json:"big-data-names,omitempty"`
+	ID           string                 `json:"id"`
+	Names        []string               `json:"names,omitempty"`
+	ImageID      string                 `json:"image"`
+	LayerID      string                 `json:"layer"`
+	Metadata     string                 `json:"metadata,omitempty"`
+	BigDataNames []string               `json:"big-data-names,omitempty"`
+	Flags        map[string]interface{} `json:"flags,omitempty"`
 }
 
 // ContainerStore provides bookkeeping for information about Containers.
@@ -60,6 +61,7 @@ type ContainerStore interface {
 	FileBasedStore
 	MetadataStore
 	BigDataStore
+	FlaggableStore
 	Create(id string, names []string, image, layer, metadata string) (*Container, error)
 	SetNames(id string, names []string) error
 	Get(id string) (*Container, error)
@@ -154,6 +156,34 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	return &cstore, nil
 }
 
+func (r *containerStore) ClearFlag(id string, flag string) error {
+	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	} else if container, ok := r.bylayer[id]; ok {
+		id = container.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
+	container := r.byid[id]
+	delete(container.Flags, flag)
+	return r.Save()
+}
+
+func (r *containerStore) SetFlag(id string, flag string, value interface{}) error {
+	if container, ok := r.byname[id]; ok {
+		id = container.ID
+	} else if container, ok := r.bylayer[id]; ok {
+		id = container.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
+	container := r.byid[id]
+	container.Flags[flag] = value
+	return r.Save()
+}
+
 func (r *containerStore) Create(id string, names []string, image, layer, metadata string) (container *Container, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
@@ -174,6 +204,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 			LayerID:      layer,
 			Metadata:     metadata,
 			BigDataNames: []string{},
+			Flags:        make(map[string]interface{}),
 		}
 		r.containers = append(r.containers, newContainer)
 		container = &r.containers[len(r.containers)-1]

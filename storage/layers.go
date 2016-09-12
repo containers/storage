@@ -38,13 +38,14 @@ var (
 // is the path where the layer is mounted, or where it was most recently
 // mounted.
 type Layer struct {
-	ID         string   `json:"id"`
-	Names      []string `json:"names,omitempty"`
-	Parent     string   `json:"parent,omitempty"`
-	Metadata   string   `json:"metadata,omitempty"`
-	MountLabel string   `json:"mountlabel,omitempty"`
-	MountPoint string   `json:"-"`
-	MountCount int      `json:"-"`
+	ID         string                 `json:"id"`
+	Names      []string               `json:"names,omitempty"`
+	Parent     string                 `json:"parent,omitempty"`
+	Metadata   string                 `json:"metadata,omitempty"`
+	MountLabel string                 `json:"mountlabel,omitempty"`
+	MountPoint string                 `json:"-"`
+	MountCount int                    `json:"-"`
+	Flags      map[string]interface{} `json:"flags,omitempty"`
 }
 
 type layerMountPoint struct {
@@ -109,6 +110,7 @@ type layerMountPoint struct {
 type LayerStore interface {
 	FileBasedStore
 	MetadataStore
+	FlaggableStore
 	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
 	Exists(id string) bool
 	Get(id string) (*Layer, error)
@@ -255,6 +257,30 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver) (Layer
 	return &rlstore, nil
 }
 
+func (r *layerStore) ClearFlag(id string, flag string) error {
+	if layer, ok := r.byname[id]; ok {
+		id = layer.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrLayerUnknown
+	}
+	layer := r.byid[id]
+	delete(layer.Flags, flag)
+	return r.Save()
+}
+
+func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
+	if layer, ok := r.byname[id]; ok {
+		id = layer.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrLayerUnknown
+	}
+	layer := r.byid[id]
+	layer.Flags[flag] = value
+	return r.Save()
+}
+
 func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
@@ -285,6 +311,7 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 			Parent:     parent,
 			Names:      names,
 			MountLabel: mountLabel,
+			Flags:      make(map[string]interface{}),
 		}
 		r.layers = append(r.layers, newLayer)
 		layer = &r.layers[len(r.layers)-1]

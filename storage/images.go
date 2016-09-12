@@ -22,11 +22,12 @@ var (
 // Names is an optional set of user-defined convenience values.
 // TopLayer is the ID of the topmost layer of the image itself.
 type Image struct {
-	ID           string   `json:"id"`
-	Names        []string `json:"names,omitempty"`
-	TopLayer     string   `json:"layer"`
-	Metadata     string   `json:"metadata,omitempty"`
-	BigDataNames []string `json:"big-data-names,omitempty"`
+	ID           string                 `json:"id"`
+	Names        []string               `json:"names,omitempty"`
+	TopLayer     string                 `json:"layer"`
+	Metadata     string                 `json:"metadata,omitempty"`
+	BigDataNames []string               `json:"big-data-names,omitempty"`
+	Flags        map[string]interface{} `json:"flags,omitempty"`
 }
 
 // ImageStore provides bookkeeping for information about Images.
@@ -59,6 +60,7 @@ type ImageStore interface {
 	FileBasedStore
 	MetadataStore
 	BigDataStore
+	FlaggableStore
 	Create(id string, names []string, layer, metadata string) (*Image, error)
 	SetNames(id string, names []string) error
 	Exists(id string) bool
@@ -148,6 +150,30 @@ func newImageStore(dir string) (ImageStore, error) {
 	return &istore, nil
 }
 
+func (r *imageStore) ClearFlag(id string, flag string) error {
+	if image, ok := r.byname[id]; ok {
+		id = image.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
+	image := r.byid[id]
+	delete(image.Flags, flag)
+	return r.Save()
+}
+
+func (r *imageStore) SetFlag(id string, flag string, value interface{}) error {
+	if image, ok := r.byname[id]; ok {
+		id = image.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return ErrImageUnknown
+	}
+	image := r.byid[id]
+	image.Flags[flag] = value
+	return r.Save()
+}
+
 func (r *imageStore) Create(id string, names []string, layer, metadata string) (image *Image, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
@@ -167,6 +193,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 			TopLayer:     layer,
 			Metadata:     metadata,
 			BigDataNames: []string{},
+			Flags:        make(map[string]interface{}),
 		}
 		r.images = append(r.images, newImage)
 		image = &r.images[len(r.images)-1]
