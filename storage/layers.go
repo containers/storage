@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	tarSplitSuffix = ".tar-split.gz"
+	tarSplitSuffix   = ".tar-split.gz"
+	deleteOnInitFlag = "delete-on-init"
 )
 
 var (
@@ -64,6 +65,10 @@ type layerMountPoint struct {
 // and have an SELinux label specified for use when mounting it.  Some
 // underlying drivers can accept a "size" option.  At this time, drivers do not
 // themselves distinguish between writeable and read-only layers.
+//
+// CreateWithFlags combines the functions of Create and SetFlag.
+//
+// Put combines the functions of CreateWithFlags and ApplyDiff.
 //
 // Exists checks if a layer with the specified name or ID is known.
 //
@@ -112,6 +117,8 @@ type LayerStore interface {
 	MetadataStore
 	FlaggableStore
 	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
+	CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
+	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, err error)
 	Exists(id string) bool
 	Get(id string) (*Layer, error)
 	SetNames(id string, names []string) error
@@ -198,7 +205,21 @@ func (r *layerStore) Load() error {
 	r.byname = names
 	r.byparent = parents
 	r.bymount = mounts
-	return nil
+	err = nil
+	// Last step: try to remove anything that a previous user of this
+	// storage area marked for deletion but didn't manage to actually
+	// delete.
+	for _, layer := range r.layers {
+		if cleanup, ok := layer.Flags[deleteOnInitFlag]; ok {
+			if b, ok := cleanup.(bool); ok && b {
+				err = r.Delete(layer.ID)
+				if err != nil {
+					break
+				}
+			}
+		}
+	}
+	return err
 }
 
 func (r *layerStore) Save() error {
@@ -285,7 +306,7 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *layerStore) Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
+func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, err error) {
 	if parentLayer, ok := r.byname[parent]; ok {
 		parent = parentLayer.ID
 	}
@@ -325,6 +346,29 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 		} else {
 			r.byparent[parent] = []*Layer{layer}
 		}
+		for flag, value := range flags {
+			layer.Flags[flag] = value
+		}
+		if diff != nil {
+			layer.Flags[deleteOnInitFlag] = true
+		}
+		err = r.Save()
+		if err != nil {
+			// We don't have a record of this layer, but at least
+			// try to clean it up underneath us.
+			r.driver.Remove(id)
+			return nil, err
+		}
+		_, err = r.ApplyDiff(layer.ID, diff)
+		if err != nil {
+			if r.Delete(layer.ID) != nil {
+				// Either a driver error or an error saving.
+				// We now have a layer that's been marked for
+				// deletion but which we failed to remove.
+			}
+			return nil, err
+		}
+		delete(layer.Flags, deleteOnInitFlag)
 		err = r.Save()
 		if err != nil {
 			// We don't have a record of this layer, but at least
@@ -334,6 +378,14 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 		}
 	}
 	return layer, err
+}
+
+func (r *layerStore) CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error) {
+	return r.Put(id, parent, names, mountLabel, options, writeable, flags, nil)
+}
+
+func (r *layerStore) Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {
+	return r.CreateWithFlags(id, parent, names, mountLabel, options, writeable, nil)
 }
 
 func (r *layerStore) Mount(id, mountLabel string) (string, error) {

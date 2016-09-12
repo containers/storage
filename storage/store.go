@@ -102,6 +102,9 @@ type FlaggableStore interface {
 // the specified layer (or no layer) as its parent, and with an optional name.
 // (The writeable flag is ignored.)
 //
+// PutLayer combines the functions of CreateLayer and ApplyDiff, marking the
+// layer for automatic removal if applying the diff fails for any reason.
+//
 // CreateImage creates a new image, optionally with the specified ID (one will
 // be assigned if none is specified), with an optional name, and referring to a
 // specified image and with optional metadata.  An image is a record which
@@ -235,6 +238,7 @@ type Store interface {
 	GetContainerStore() (ContainerStore, error)
 
 	CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error)
+	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, error)
 	CreateImage(id string, names []string, layer, metadata string) (*Image, error)
 	CreateContainer(id string, names []string, image, layer, metadata string) (*Container, error)
 	GetMetadata(id string) (string, error)
@@ -449,7 +453,7 @@ func (s *store) GetContainerStore() (ContainerStore, error) {
 	return nil, ErrLoadError
 }
 
-func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error) {
+func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, error) {
 	rlstore, err := s.GetLayerStore()
 	if err != nil {
 		return nil, err
@@ -500,7 +504,11 @@ func (s *store) CreateLayer(id, parent string, names []string, mountLabel string
 			}
 		}
 	}
-	return rlstore.Create(id, parent, names, mountLabel, nil, writeable)
+	return rlstore.Put(id, parent, names, mountLabel, nil, writeable, nil, diff)
+}
+
+func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error) {
+	return s.PutLayer(id, parent, names, mountLabel, writeable, nil)
 }
 
 func (s *store) CreateImage(id string, names []string, layer, metadata string) (*Image, error) {
