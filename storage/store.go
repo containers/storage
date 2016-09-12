@@ -97,6 +97,12 @@ type FlaggableStore interface {
 // GetLayerStore obtains and returns a handle to the layer store object used by
 // the Store.
 //
+// GetImageStore obtains and returns a handle to the image store object used by
+// the Store.
+//
+// GetContainerStore obtains and returns a handle to the container store object
+// used by the Store.
+//
 // CreateLayer creates a new layer in the underlying storage driver, optionally
 // having the specified ID (one will be assigned if none is specified), with
 // the specified layer (or no layer) as its parent, and with an optional name.
