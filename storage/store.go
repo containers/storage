@@ -289,7 +289,6 @@ type store struct {
 	graphOptions    []string
 	uidMap          []idtools.IDMap
 	gidMap          []idtools.IDMap
-	loaded          bool
 	graphDriver     drivers.Driver
 	layerStore      LayerStore
 	imageStore      ImageStore
@@ -409,17 +408,10 @@ func (s *store) load() error {
 		return err
 	}
 	s.containerStore = rcs
-
-	s.loaded = true
 	return nil
 }
 
 func (s *store) GetGraphDriver() (drivers.Driver, error) {
-	if !s.loaded {
-		if err := s.load(); err != nil {
-			return nil, err
-		}
-	}
 	if s.graphDriver != nil {
 		return s.graphDriver, nil
 	}
@@ -427,11 +419,6 @@ func (s *store) GetGraphDriver() (drivers.Driver, error) {
 }
 
 func (s *store) GetLayerStore() (LayerStore, error) {
-	if !s.loaded {
-		if err := s.load(); err != nil {
-			return nil, err
-		}
-	}
 	if s.layerStore != nil {
 		return s.layerStore, nil
 	}
@@ -439,11 +426,6 @@ func (s *store) GetLayerStore() (LayerStore, error) {
 }
 
 func (s *store) GetImageStore() (ImageStore, error) {
-	if !s.loaded {
-		if err := s.load(); err != nil {
-			return nil, err
-		}
-	}
 	if s.imageStore != nil {
 		return s.imageStore, nil
 	}
@@ -451,11 +433,6 @@ func (s *store) GetImageStore() (ImageStore, error) {
 }
 
 func (s *store) GetContainerStore() (ContainerStore, error) {
-	if !s.loaded {
-		if err := s.load(); err != nil {
-			return nil, err
-		}
-	}
 	if s.containerStore != nil {
 		return s.containerStore, nil
 	}
