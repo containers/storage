@@ -326,6 +326,12 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 			r.byparent[parent] = []*Layer{layer}
 		}
 		err = r.Save()
+		if err != nil {
+			// We don't have a record of this layer, but at least
+			// try to clean it up underneath us.
+			r.driver.Remove(id)
+			return nil, err
+		}
 	}
 	return layer, err
 }
