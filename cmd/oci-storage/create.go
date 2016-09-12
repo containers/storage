@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 
@@ -27,6 +28,38 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		parent = args[0]
 	}
 	layer, err := m.CreateLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(layer)
+	} else {
+		fmt.Printf("%s", layer.ID)
+		for _, name := range layer.Names {
+			fmt.Printf("\t%s\n", name)
+		}
+		fmt.Printf("\n")
+	}
+	return 0
+}
+
+func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	parent := ""
+	if len(args) > 0 {
+		parent = args[0]
+	}
+	diffStream := io.Reader(os.Stdin)
+	if applyDiffFile != "" {
+		if f, err := os.Open(applyDiffFile); err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		} else {
+			diffStream = f
+			defer f.Close()
+		}
+	}
+	layer, err := m.PutLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, diffStream)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -118,6 +151,21 @@ func init() {
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Layer ID")
 			flags.BoolVar(&paramCreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+		},
+	})
+	commands = append(commands, command{
+		names:       []string{"import-layer", "importlayer"},
+		optionsHelp: "[options [...]] [parentLayerNameOrID]",
+		usage:       "Import a new layer",
+		maxArgs:     1,
+		action:      importLayer,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
+			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "Layer name")
+			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Layer ID")
+			flags.BoolVar(&paramCreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			flags.StringVar(&applyDiffFile, []string{"-file", "f"}, "", "Read from file instead of stdin")
 		},
 	})
 	commands = append(commands, command{
