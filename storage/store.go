@@ -181,7 +181,10 @@ type FlaggableStore interface {
 // Diff returns the tarstream which would specify the changes returned by
 // Changes.
 //
-// ApplyDiff applies a tarstream to a layer.
+// ApplyDiff applies a tarstream to a layer.  Information about the tarstream
+// is cached with the layer.  Typically, a layer which is populated using a
+// tarstream will be expected to not be modified in any other way, either
+// before or after the diff is applied.
 //
 // Layers returns a list of the currently known layers.
 //
