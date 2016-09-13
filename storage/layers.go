@@ -603,7 +603,10 @@ func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
 		}
 	}
 	if to == "" {
-		return nil, ErrParentUnknown
+		return nil, ErrLayerUnknown
+	}
+	if _, ok := r.byid[to]; !ok {
+		return nil, ErrLayerUnknown
 	}
 	return r.driver.Changes(to, from)
 }
@@ -653,6 +656,9 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 	}
 	if to == "" {
 		return nil, ErrParentUnknown
+	}
+	if _, ok := r.byid[to]; !ok {
+		return nil, ErrLayerUnknown
 	}
 	compression := archive.Uncompressed
 	if cflag, ok := r.byid[to].Flags[compressionFlag]; ok {
@@ -751,6 +757,9 @@ func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	if to == "" {
 		return -1, ErrParentUnknown
 	}
+	if _, ok := r.byid[to]; !ok {
+		return -1, ErrLayerUnknown
+	}
 	return r.driver.DiffSize(to, from)
 }
 
@@ -760,7 +769,7 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	}
 	layer, ok := r.byid[to]
 	if !ok {
-		return -1, ErrParentUnknown
+		return -1, ErrLayerUnknown
 	}
 
 	header := make([]byte, 10240)
