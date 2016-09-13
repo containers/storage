@@ -411,7 +411,7 @@ func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 			if layer.MountPoint != "" {
 				delete(r.bymount, layer.MountPoint)
 			}
-			layer.MountPoint = mountpoint
+			layer.MountPoint = filepath.Clean(mountpoint)
 			layer.MountCount++
 			r.bymount[layer.MountPoint] = layer
 			err = r.Save()
@@ -421,7 +421,7 @@ func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 }
 
 func (r *layerStore) Unmount(id string) error {
-	if layer, ok := r.bymount[id]; ok {
+	if layer, ok := r.bymount[filepath.Clean(id)]; ok {
 		id = layer.ID
 	}
 	if layer, ok := r.byname[id]; ok {
