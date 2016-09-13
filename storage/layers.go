@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	tarSplitSuffix   = ".tar-split.gz"
-	deleteOnInitFlag = "delete-on-init"
+	tarSplitSuffix = ".tar-split.gz"
+	incompleteFlag = "incomplete"
 )
 
 var (
@@ -210,7 +210,7 @@ func (r *layerStore) Load() error {
 	// storage area marked for deletion but didn't manage to actually
 	// delete.
 	for _, layer := range r.layers {
-		if cleanup, ok := layer.Flags[deleteOnInitFlag]; ok {
+		if cleanup, ok := layer.Flags[incompleteFlag]; ok {
 			if b, ok := cleanup.(bool); ok && b {
 				err = r.Delete(layer.ID)
 				if err != nil {
@@ -350,7 +350,7 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 			layer.Flags[flag] = value
 		}
 		if diff != nil {
-			layer.Flags[deleteOnInitFlag] = true
+			layer.Flags[incompleteFlag] = true
 		}
 		err = r.Save()
 		if err != nil {
@@ -368,7 +368,7 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 			}
 			return nil, err
 		}
-		delete(layer.Flags, deleteOnInitFlag)
+		delete(layer.Flags, incompleteFlag)
 		err = r.Save()
 		if err != nil {
 			// We don't have a record of this layer, but at least
