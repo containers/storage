@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	tarSplitSuffix = ".tar-split.gz"
-	incompleteFlag = "incomplete"
+	tarSplitSuffix  = ".tar-split.gz"
+	incompleteFlag  = "incomplete"
+	compressionFlag = "diff-compression"
 )
 
 var (
@@ -653,8 +654,31 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 	if to == "" {
 		return nil, ErrParentUnknown
 	}
+	compression := archive.Uncompressed
+	if cflag, ok := r.byid[to].Flags[compressionFlag]; ok {
+		if ctype, ok := cflag.(float64); ok {
+			compression = archive.Compression(ctype)
+		}
+	}
 	if from != r.byid[to].Parent {
-		return r.driver.Diff(to, from)
+		diff, err := r.driver.Diff(to, from)
+		if err == nil && (compression != archive.Uncompressed) {
+			preader, pwriter := io.Pipe()
+			compressor, err := archive.CompressStream(pwriter, compression)
+			if err != nil {
+				diff.Close()
+				pwriter.Close()
+				return nil, err
+			}
+			go func() {
+				io.Copy(compressor, diff)
+				diff.Close()
+				compressor.Close()
+				pwriter.Close()
+			}()
+			diff = preader
+		}
+		return diff, err
 	}
 
 	tsfile, err := os.Open(r.tspath(to))
@@ -682,7 +706,25 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 	if fgetter, err := r.newFileGetter(to); err != nil {
 		return nil, err
 	} else {
-		stream := asm.NewOutputTarStream(fgetter, metadata)
+		var stream io.ReadCloser
+		if compression != archive.Uncompressed {
+			preader, pwriter := io.Pipe()
+			compressor, err := archive.CompressStream(pwriter, compression)
+			if err != nil {
+				fgetter.Close()
+				pwriter.Close()
+				preader.Close()
+				return nil, err
+			}
+			go func() {
+				asm.WriteOutputTarStream(fgetter, metadata, compressor)
+				compressor.Close()
+				pwriter.Close()
+			}()
+			stream = preader
+		} else {
+			stream = asm.NewOutputTarStream(fgetter, metadata)
+		}
 		return ioutils.NewReadCloserWrapper(stream, func() error {
 			err1 := stream.Close()
 			err2 := fgetter.Close()
