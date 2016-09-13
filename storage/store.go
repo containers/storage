@@ -1117,7 +1117,6 @@ func (s *store) DeleteLayer(id string) error {
 	} else {
 		return ErrNotALayer
 	}
-	return nil
 }
 
 func (s *store) DeleteImage(id string, commit bool) (layers []string, err error) {
