@@ -720,18 +720,28 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	if !ok {
 		return -1, ErrParentUnknown
 	}
+
+	header := make([]byte, 10240)
+	n, err := diff.Read(header)
+	if err != nil && err != io.EOF {
+		return -1, err
+	}
+
+	compression := archive.DetectCompression(header[:n])
+	defragmented := io.MultiReader(bytes.NewBuffer(header[:n]), diff)
+
 	tsdata := bytes.Buffer{}
 	compressor, err := gzip.NewWriterLevel(&tsdata, gzip.BestSpeed)
 	if err != nil {
 		compressor = gzip.NewWriter(&tsdata)
 	}
 	metadata := storage.NewJSONPacker(compressor)
-	if c, err := archive.DecompressStream(diff); err != nil {
+	if c, err := archive.DecompressStream(defragmented); err != nil {
 		return -1, err
 	} else {
-		diff = c
+		defragmented = c
 	}
-	payload, err := asm.NewInputTarStream(diff, metadata, storage.NewDiscardFilePutter())
+	payload, err := asm.NewInputTarStream(defragmented, metadata, storage.NewDiscardFilePutter())
 	if err != nil {
 		return -1, err
 	}
@@ -742,6 +752,13 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 			return -1, err
 		}
 	}
+
+	if compression != archive.Uncompressed {
+		layer.Flags[compressionFlag] = compression
+	} else {
+		delete(layer.Flags, compressionFlag)
+	}
+
 	return size, err
 }
 
