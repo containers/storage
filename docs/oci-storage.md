@@ -67,17 +67,17 @@ The *oci-storage* command's features are broken down into several subcommands:
  **oci-storage diff(1)**                Compare two layers
  **oci-storage diffsize(1)**            Compare two layers
  **oci-storage exists(1)**              Check if a layer or image or container exists
- **oci-storage get-container-data(1)**  Get data that is attached to an container
+ **oci-storage get-container-data(1)**  Get data that is attached to a container
  **oci-storage get-image-data(1)**      Get data that is attached to an image
  **oci-storage image(1)**               Examine an image
  **oci-storage images(1)**              List images
  **oci-storage layers(1)**              List layers
- **oci-storage list-container-data(1)** List data items that are attached to an container
+ **oci-storage list-container-data(1)** List data items that are attached to a container
  **oci-storage list-deps(1)**           List referrers to a layer, image, or container
  **oci-storage list-image-data(1)**     List data items that are attached to an image
  **oci-storage metadata(1)**            Retrieve layer, image, or container metadata
  **oci-storage mount(1)**               Mount a layer or container
- **oci-storage set-container-data(1)**  Set data that is attached to an container
+ **oci-storage set-container-data(1)**  Set data that is attached to a container
  **oci-storage set-image-data(1)**      Set data that is attached to an image
  **oci-storage set-metadata(1)**        Set layer, image, or container metadata
  **oci-storage set-names(1)**           Set layer, image, or container name or names
