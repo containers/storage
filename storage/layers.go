@@ -526,6 +526,7 @@ func (r *layerStore) Delete(id string) error {
 					newPslice = append(newPslice, candidate)
 				}
 			}
+			delete(r.byid, layer.ID)
 			if len(newPslice) > 0 {
 				r.byparent[layer.Parent] = newPslice
 			} else {
@@ -537,7 +538,6 @@ func (r *layerStore) Delete(id string) error {
 			if layer.MountPoint != "" {
 				delete(r.bymount, layer.MountPoint)
 			}
-			delete(r.byid, layer.ID)
 			newLayers := []Layer{}
 			for _, candidate := range r.layers {
 				if candidate.ID != id {

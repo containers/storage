@@ -271,10 +271,11 @@ func (r *imageStore) Delete(id string) error {
 				newImages = append(newImages, candidate)
 			}
 		}
-		r.images = newImages
+		delete(r.byid, image.ID)
 		for _, name := range image.Names {
 			delete(r.byname, name)
 		}
+		r.images = newImages
 		if err := r.Save(); err != nil {
 			return err
 		}

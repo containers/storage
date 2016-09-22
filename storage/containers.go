@@ -291,6 +291,8 @@ func (r *containerStore) Delete(id string) error {
 				newContainers = append(newContainers, candidate)
 			}
 		}
+		delete(r.byid, container.ID)
+		delete(r.bylayer, container.LayerID)
 		for _, name := range container.Names {
 			delete(r.byname, name)
 		}
