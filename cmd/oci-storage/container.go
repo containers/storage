@@ -140,6 +140,26 @@ func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	return 0
 }
 
+func getContainerDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	path, err := m.GetContainerDirectory(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	fmt.Printf("%s\n", path)
+	return 0
+}
+
+func getContainerRunDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	path, err := m.GetContainerRunDirectory(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	fmt.Printf("%s\n", path)
+	return 0
+}
+
 func init() {
 	commands = append(commands,
 		command{
@@ -182,5 +202,19 @@ func init() {
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramContainerDataFile, []string{"-file", "f"}, paramContainerDataFile, "Read data from file")
 			},
+		},
+		command{
+			names:       []string{"get-container-dir", "getcontainerdir"},
+			optionsHelp: "[options [...]] containerNameOrID",
+			usage:       "Find the container's associated data directory",
+			action:      getContainerDir,
+			minArgs:     1,
+		},
+		command{
+			names:       []string{"get-container-run-dir", "getcontainerrundir"},
+			optionsHelp: "[options [...]] containerNameOrID",
+			usage:       "Find the container's associated runtime directory",
+			action:      getContainerRunDir,
+			minArgs:     1,
 		})
 }

@@ -230,6 +230,13 @@ type FlaggableStore interface {
 // GetContainerByLayer returns a specific container based on its layer ID or
 // name.
 //
+// GetContainerDirectory returns a path of a directory which the caller can use
+// to store data which should be deleted when the container is deleted.
+//
+// GetContainerRunDirectory returns a path of a directory which the caller can
+// use to store data about the container which should be deleted when the host
+// system is restarted.
+//
 // Lookup returns the ID of a layer, image, or container with the specified
 // name.
 //
@@ -284,6 +291,8 @@ type Store interface {
 	GetImagesByTopLayer(id string) ([]*Image, error)
 	GetContainer(id string) (*Container, error)
 	GetContainerByLayer(id string) (*Container, error)
+	GetContainerDirectory(id string) (string, error)
+	GetContainerRunDirectory(id string) (string, error)
 	Lookup(name string) (string, error)
 	Crawl(layerID string) (*Users, error)
 	Version() ([][2]string, error)
@@ -404,34 +413,38 @@ func (s *store) load() error {
 	s.graphDriverName = driver.String()
 	driverPrefix := s.graphDriverName + "-"
 
-	rrpath := filepath.Join(s.runRoot, driverPrefix+"layers")
-	if err := os.MkdirAll(rrpath, 0700); err != nil {
-		return err
-	}
-	rlpath := filepath.Join(s.graphRoot, driverPrefix+"layers")
+	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(rlpath, 0700); err != nil {
 		return err
 	}
-	rls, err := newLayerStore(rrpath, rlpath, driver)
+	glpath := filepath.Join(s.graphRoot, driverPrefix+"layers")
+	if err := os.MkdirAll(glpath, 0700); err != nil {
+		return err
+	}
+	rls, err := newLayerStore(rlpath, glpath, driver)
 	if err != nil {
 		return err
 	}
 	s.layerStore = rls
-	ripath := filepath.Join(s.graphRoot, driverPrefix+"images")
-	if err := os.MkdirAll(ripath, 0700); err != nil {
+	gipath := filepath.Join(s.graphRoot, driverPrefix+"images")
+	if err := os.MkdirAll(gipath, 0700); err != nil {
 		return err
 	}
-	ris, err := newImageStore(ripath)
+	ris, err := newImageStore(gipath)
 	if err != nil {
 		return err
 	}
 	s.imageStore = ris
-	rcpath := filepath.Join(s.graphRoot, driverPrefix+"containers")
-	if err := os.MkdirAll(rcpath, 0700); err != nil {
+	gcpath := filepath.Join(s.graphRoot, driverPrefix+"containers")
+	if err := os.MkdirAll(gcpath, 0700); err != nil {
 		return err
 	}
-	rcs, err := newContainerStore(rcpath)
+	rcs, err := newContainerStore(gcpath)
 	if err != nil {
+		return err
+	}
+	rcpath := filepath.Join(s.runRoot, driverPrefix+"containers")
+	if err := os.MkdirAll(rcpath, 0700); err != nil {
 		return err
 	}
 	s.containerStore = rcs
@@ -1281,10 +1294,22 @@ func (s *store) DeleteContainer(id string) error {
 		defer rcstore.Touch()
 		if container, err := rcstore.Get(id); err == nil {
 			if rlstore.Exists(container.LayerID) {
-				if err := rlstore.Delete(container.LayerID); err != nil {
+				if err = rlstore.Delete(container.LayerID); err != nil {
 					return err
 				}
-				return rcstore.Delete(id)
+				if err = rcstore.Delete(id); err != nil {
+					return err
+				}
+				middleDir := s.graphDriverName + "-containers"
+				gcpath := filepath.Join(s.GetGraphRoot(), middleDir, container.ID)
+				if err = os.RemoveAll(gcpath); err != nil {
+					return err
+				}
+				rcpath := filepath.Join(s.GetRunRoot(), middleDir, container.ID)
+				if err = os.RemoveAll(rcpath); err != nil {
+					return err
+				}
+				return nil
 			} else {
 				return ErrNotALayer
 			}
@@ -1330,10 +1355,22 @@ func (s *store) Delete(id string) error {
 		defer rcstore.Touch()
 		if container, err := rcstore.Get(id); err == nil {
 			if rlstore.Exists(container.LayerID) {
-				if err := rlstore.Delete(container.LayerID); err != nil {
+				if err = rlstore.Delete(container.LayerID); err != nil {
 					return err
 				}
-				return rcstore.Delete(id)
+				if err = rcstore.Delete(id); err != nil {
+					return err
+				}
+				middleDir := s.graphDriverName + "-containers"
+				gcpath := filepath.Join(s.GetGraphRoot(), middleDir, container.ID, "userdata")
+				if err = os.RemoveAll(gcpath); err != nil {
+					return err
+				}
+				rcpath := filepath.Join(s.GetRunRoot(), middleDir, container.ID, "userdata")
+				if err = os.RemoveAll(rcpath); err != nil {
+					return err
+				}
+				return nil
 			} else {
 				return ErrNotALayer
 			}
@@ -1752,6 +1789,92 @@ func (s *store) GetContainerByLayer(id string) (*Container, error) {
 	}
 
 	return nil, ErrContainerUnknown
+}
+
+func (s *store) GetContainerDirectory(id string) (string, error) {
+	rlstore, err := s.GetLayerStore()
+	if err != nil {
+		return "", err
+	}
+	ristore, err := s.GetImageStore()
+	if err != nil {
+		return "", err
+	}
+	rcstore, err := s.GetContainerStore()
+	if err != nil {
+		return "", err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	id, err = rcstore.Lookup(id)
+	if err != nil {
+		return "", err
+	}
+
+	middleDir := s.graphDriverName + "-containers"
+	gcpath := filepath.Join(s.GetGraphRoot(), middleDir, id, "userdata")
+	if err := os.MkdirAll(gcpath, 0700); err != nil {
+		return "", err
+	}
+	return gcpath, nil
+}
+
+func (s *store) GetContainerRunDirectory(id string) (string, error) {
+	rlstore, err := s.GetLayerStore()
+	if err != nil {
+		return "", err
+	}
+	ristore, err := s.GetImageStore()
+	if err != nil {
+		return "", err
+	}
+	rcstore, err := s.GetContainerStore()
+	if err != nil {
+		return "", err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	id, err = rcstore.Lookup(id)
+	if err != nil {
+		return "", err
+	}
+
+	middleDir := s.graphDriverName + "-containers"
+	rcpath := filepath.Join(s.GetRunRoot(), middleDir, id, "userdata")
+	if err := os.MkdirAll(rcpath, 0700); err != nil {
+		return "", err
+	}
+	return rcpath, nil
 }
 
 func (s *store) Crawl(layerID string) (*Users, error) {
