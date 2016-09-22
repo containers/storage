@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -92,7 +91,7 @@ func (r *imageStore) datadir(id string) string {
 }
 
 func (r *imageStore) datapath(id, key string) string {
-	return filepath.Join(r.datadir(id), base64.StdEncoding.EncodeToString([]byte(key)))
+	return filepath.Join(r.datadir(id), makeBigDataBaseName(key))
 }
 
 func (r *imageStore) Load() error {

@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
@@ -1886,4 +1889,22 @@ nextLayer:
 // MakeMall was the old name of MakeStore.  It will be dropped at some point.
 func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
 	return MakeStore(runRoot, graphRoot, graphDriverName, graphOptions, nil, nil)
+}
+
+// Convert a BigData key name into an acceptable file name.
+func makeBigDataBaseName(key string) string {
+	reader := strings.NewReader(key)
+	for reader.Len() > 0 {
+		ch, size, err := reader.ReadRune()
+		if err != nil || size != 1 {
+			break
+		}
+		if ch != '.' && !(ch >= '0' && ch <= '9') && !(ch >= 'a' && ch <= 'z') {
+			break
+		}
+	}
+	if reader.Len() > 0 {
+		return "=" + base64.StdEncoding.EncodeToString([]byte(key))
+	}
+	return key
 }
