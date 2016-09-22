@@ -352,24 +352,24 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 		}
 		if diff != nil {
 			layer.Flags[incompleteFlag] = true
-		}
-		err = r.Save()
-		if err != nil {
-			// We don't have a record of this layer, but at least
-			// try to clean it up underneath us.
-			r.driver.Remove(id)
-			return nil, err
-		}
-		_, err = r.ApplyDiff(layer.ID, diff)
-		if err != nil {
-			if r.Delete(layer.ID) != nil {
-				// Either a driver error or an error saving.
-				// We now have a layer that's been marked for
-				// deletion but which we failed to remove.
+			err = r.Save()
+			if err != nil {
+				// We don't have a record of this layer, but at least
+				// try to clean it up underneath us.
+				r.driver.Remove(id)
+				return nil, err
 			}
-			return nil, err
+			_, err = r.ApplyDiff(layer.ID, diff)
+			if err != nil {
+				if r.Delete(layer.ID) != nil {
+					// Either a driver error or an error saving.
+					// We now have a layer that's been marked for
+					// deletion but which we failed to remove.
+				}
+				return nil, err
+			}
+			delete(layer.Flags, incompleteFlag)
 		}
-		delete(layer.Flags, incompleteFlag)
 		err = r.Save()
 		if err != nil {
 			// We don't have a record of this layer, but at least
