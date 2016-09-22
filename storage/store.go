@@ -398,7 +398,8 @@ func (s *store) load() error {
 	if err != nil {
 		return err
 	}
-	driverPrefix := driver.String() + "-"
+	s.graphDriverName = driver.String()
+	driverPrefix := s.graphDriverName + "-"
 
 	rrpath := filepath.Join(s.runRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(rrpath, 0700); err != nil {
