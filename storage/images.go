@@ -298,7 +298,10 @@ func (r *imageStore) Get(id string) (*Image, error) {
 func (r *imageStore) Lookup(name string) (id string, err error) {
 	image, ok := r.byname[name]
 	if !ok {
-		return "", ErrImageUnknown
+		image, ok = r.byid[name]
+		if !ok {
+			return "", ErrImageUnknown
+		}
 	}
 	return image.ID, nil
 }

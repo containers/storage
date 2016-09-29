@@ -556,7 +556,10 @@ func (r *layerStore) Delete(id string) error {
 func (r *layerStore) Lookup(name string) (id string, err error) {
 	layer, ok := r.byname[name]
 	if !ok {
-		return "", ErrLayerUnknown
+		layer, ok = r.byid[name]
+		if !ok {
+			return "", ErrLayerUnknown
+		}
 	}
 	return layer.ID, nil
 }

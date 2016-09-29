@@ -321,7 +321,10 @@ func (r *containerStore) Get(id string) (*Container, error) {
 func (r *containerStore) Lookup(name string) (id string, err error) {
 	container, ok := r.byname[name]
 	if !ok {
-		return "", ErrContainerUnknown
+		container, ok = r.byid[name]
+		if !ok {
+			return "", ErrContainerUnknown
+		}
 	}
 	return container.ID, nil
 }
