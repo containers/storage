@@ -51,6 +51,7 @@ clone git golang.org/x/sys eb2c74142fd19a79b3f237334c7384d5167b1b46 https://gith
 clone git github.com/docker/go-units master
 clone git github.com/docker/go-connections master
 clone git github.com/docker/engine-api v0.4.0
+clone git github.com/docker/distribution master
 # get graph and distribution packages
 clone git github.com/vbatts/tar-split v0.9.13
 # get go-zfs packages
@@ -61,5 +62,19 @@ clone git github.com/go-check/check master
 clone git github.com/mattn/go-shellwords master
 clone git github.com/vbatts/tar-split master
 clone git github.com/vdemeester/shakers master
+clone git github.com/tchap/go-patricia master
+
+clone git github.com/containers/image add-storage-transport https://github.com/nalind/image
+clone git github.com/docker/libtrust master
+clone git github.com/ghodss/yaml master
+clone git github.com/imdario/mergo master
+clone git github.com/mtrmac/gpgme master
+clone git github.com/opencontainers/image-spec master
+clone git gopkg.in/cheggaaa/pb.v1 master
+clone git github.com/mattn/go-runewidth master
+clone git k8s.io/kubernetes master https://github.com/kubernetes/kubernetes
+clone git github.com/golang/glog master
+clone git gopkg.in/yaml.v2 master
+clone git github.com/gorilla/mux master
 
 clean
