@@ -12,15 +12,15 @@ import (
 // A Locker represents a file lock where the file is used to cache an
 // identifier of the last party that made changes to whatever's being protected
 // by the lock.
-//
-// Touch() records, for others sharing the lock, that it was updated by the
-// caller.  It should only be called with the lock held.
-//
-// Modified() checks if the most recent writer was a party other than the
-// caller.  It should only be called with the lock held.
 type Locker interface {
 	sync.Locker
+
+	// Touch records, for others sharing the lock, that it was updated by the
+	// caller.  It should only be called with the lock held.
 	Touch() error
+
+	// Modified() checks if the most recent writer was a party other than the
+	// caller.  It should only be called with the lock held.
 	Modified() (bool, error)
 }
 

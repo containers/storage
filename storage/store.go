@@ -38,263 +38,258 @@ var (
 
 // FileBasedStore wraps up the most common methods of the various types of file-based
 // data stores that we implement.
-//
-// Load() reloads the contents of the store from disk.  It should be called
-// with the lock held.
-//
-// Save() saves the contents of the store to disk.  It should be called with
-// the lock held, and Touch() should be called afterward before releasing the
-// lock.
 type FileBasedStore interface {
 	Locker
+
+	// Load reloads the contents of the store from disk.  It should be called
+	// with the lock held.
 	Load() error
+
+	// Save saves the contents of the store to disk.  It should be called with
+	// the lock held, and Touch() should be called afterward before releasing the
+	// lock.
 	Save() error
 }
 
 // MetadataStore wraps up methods for getting and setting metadata associated with IDs.
-//
-// GetMetadata() reads metadata associated with an item with the specified ID.
-//
-// SetMetadata() updates the metadata associated with the item with the specified ID.
 type MetadataStore interface {
+	// GetMetadata reads metadata associated with an item with the specified ID.
 	GetMetadata(id string) (string, error)
+
+	// SetMetadata updates the metadata associated with the item with the specified ID.
 	SetMetadata(id, metadata string) error
 }
 
 // A BigDataStore wraps up the most common methods of the various types of
 // file-based lookaside stores that we implement.
-//
-// SetBigData stores a (potentially large) piece of data associated with this
-// ID.
-//
-// GetBigData retrieves a (potentially large) piece of data associated with
-// this ID, if it has previously been set.
-//
-// GetBigDataNames() returns a list of the names of previously-stored pieces of
-// data.
 type BigDataStore interface {
+	// SetBigData stores a (potentially large) piece of data associated with this
+	// ID.
 	SetBigData(id, key string, data []byte) error
+
+	// GetBigData retrieves a (potentially large) piece of data associated with
+	// this ID, if it has previously been set.
 	GetBigData(id, key string) ([]byte, error)
+
+	// GetBigDataNames() returns a list of the names of previously-stored pieces of
+	// data.
 	GetBigDataNames(id string) ([]string, error)
 }
 
 // A FlaggableStore can have flags set and cleared on items which it manages.
-//
-// ClearFlag removes a named flag from an item in the store.
-//
-// SetFlag sets a named flag and its value on an item in the store.
 type FlaggableStore interface {
+	// ClearFlag removes a named flag from an item in the store.
 	ClearFlag(id string, flag string) error
+
+	// SetFlag sets a named flag and its value on an item in the store.
 	SetFlag(id string, flag string, value interface{}) error
 }
 
 // Store wraps up the various types of file-based stores that we use into a
 // singleton object that initializes and manages them all together.
-//
-// GetRunRoot, GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve
-// settings that were passed to MakeStore() when the object was created.
-//
-// GetGraphDriver obtains and returns a handle to the graph Driver object used
-// by the Store.
-//
-// GetLayerStore obtains and returns a handle to the layer store object used by
-// the Store.
-//
-// GetImageStore obtains and returns a handle to the image store object used by
-// the Store.
-//
-// GetContainerStore obtains and returns a handle to the container store object
-// used by the Store.
-//
-// CreateLayer creates a new layer in the underlying storage driver, optionally
-// having the specified ID (one will be assigned if none is specified), with
-// the specified layer (or no layer) as its parent, and with an optional name.
-// (The writeable flag is ignored.)
-//
-// PutLayer combines the functions of CreateLayer and ApplyDiff, marking the
-// layer for automatic removal if applying the diff fails for any reason.
-//
-// CreateImage creates a new image, optionally with the specified ID (one will
-// be assigned if none is specified), with an optional name, and referring to a
-// specified image and with optional metadata.  An image is a record which
-// associates the ID of a layer with a caller-supplied metadata string which
-// the library stores for the convenience of the caller.
-//
-// CreateContainer creates a new container, optionally with the specified ID
-// (one will be assigned if none is specified), with an optional name, using
-// the specified image's top layer as the basis for the container's layer, and
-// assigning the specified ID to that layer (one will be created if none is
-// specified).  A container is a layer which is associated with a metadata
-// string which the library stores for the convenience of the caller.
-//
-// GetMetadata retrieves the metadata which is associated with a layer, image,
-// or container (whichever the passed-in ID refers to).
-//
-// SetMetadata updates the metadata which is associated with a layer, image, or
-// container (whichever the passed-in ID refers to) to match the specified
-// value.  The metadata value can be retrieved at any time using GetMetadata,
-// or using GetLayer, GetImage, or GetContainer and reading the object directly.
-//
-// Exists checks if there is a layer, image, or container which has the
-// passed-in ID or name.
-//
-// Status asks for a status report, in the form of key-value pairs, from the
-// underlying storage driver.  The contents vary from driver to driver.
-//
-// Delete removes the layer, image, or container which has the passed-in ID or
-// name.  Note that no safety checks are performed, so this can leave images
-// with references to layers which do not exist, and layers with references to
-// parents which no longer exist.
-//
-// DeleteLayer attempts to remove the specified layer.  If the layer is the
-// parent of any other layer, or is referred to by any images, it will return
-// an error.
-//
-// DeleteImage removes the specified image if it is not referred to by any
-// containers.  If its top layer is then no longer referred to by any other
-// images or the parent of any other layers, its top layer will be removed.  If
-// that layer's parent is no longer referred to by any other images or the
-// parent of any other layers, then it, too, will be removed.  This procedure
-// will be repeated until a layer which should not be removed, or the base
-// layer, is reached, at which point the list of removed layers is returned.
-// If the commit argument is false, the image and layers are not removed, but
-// the list of layers which would be removed is still returned.
-//
-// DeleteContainer removes the specified container and its layer.  If there is
-// no matching container, or if the container exists but its layer does not, an
-// error will be returned.
-//
-// Wipe removes all known layers, images, and containers.
-//
-// Mount attempts to mount a layer, image, or container for access, and returns
-// the pathname if it succeeds.
-//
-// Unmount attempts to unmount a layer, image, or container, given an ID, a
-// name, or a mount path.
-//
-// Changes returns a summary of the changes which would need to be made to one
-// layer to make its contents the same as a second layer.  If the first layer
-// is not specified, the second layer's parent is assumed.  Each Change
-// structure contains a Path relative to the layer's root directory, and a Kind
-// which is either ChangeAdd, ChangeModify, or ChangeDelete.
-//
-// DiffSize returns a count of the size of the tarstream which would specify
-// the changes returned by Changes.
-//
-// Diff returns the tarstream which would specify the changes returned by
-// Changes.
-//
-// ApplyDiff applies a tarstream to a layer.  Information about the tarstream
-// is cached with the layer.  Typically, a layer which is populated using a
-// tarstream will be expected to not be modified in any other way, either
-// before or after the diff is applied.
-//
-// Layers returns a list of the currently known layers.
-//
-// Images returns a list of the currently known images.
-//
-// Containers returns a list of the currently known containers.
-//
-// GetNames returns the list of names for a layer, image, or container.
-//
-// SetNames changes the list of names for a layer, image, or container.
-//
-// ListImageBigData retrieves a list of the (possibly large) chunks of named
-// data associated with an image.
-//
-// GetImageBigData retrieves a (possibly large) chunk of named data associated
-// with an image.
-//
-// SetImageBigData stores a (possibly large) chunk of named data associated
-// with an image.
-//
-// ListContainerBigData retrieves a list of the (possibly large) chunks of
-// named data associated with a container.
-//
-// GetContainerBigData retrieves a (possibly large) chunk of named data
-// associated with an image.
-//
-// SetContainerBigData stores a (possibly large) chunk of named data associated
-// with an image.
-//
-// GetLayer returns a specific layer.
-//
-// GetImage returns a specific image.
-//
-// GetImagesByTopLayer returns a list of images which reference the specified
-// layer as their top layer.  They will have different names and may have
-// different metadata.
-//
-// GetContainer returns a specific container.
-//
-// GetContainerByLayer returns a specific container based on its layer ID or
-// name.
-//
-// GetContainerDirectory returns a path of a directory which the caller can use
-// to store data which should be deleted when the container is deleted.
-//
-// GetContainerRunDirectory returns a path of a directory which the caller can
-// use to store data about the container which should be deleted when the host
-// system is restarted.
-//
-// Lookup returns the ID of a layer, image, or container with the specified
-// name.
-//
-// Crawl enumerates all of the layers, images, and containers which depend on
-// or refer to, either directly or indirectly, the specified layer, top layer
-// of an image, or container layer.
-//
-// Version returns version information, in the form of key-value pairs, from
-// the storage package.
 type Store interface {
+	// GetRunRoot, GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve
+	// settings that were passed to MakeStore() when the object was created.
 	GetRunRoot() string
 	GetGraphRoot() string
 	GetGraphDriverName() string
 	GetGraphOptions() []string
+
+	// GetGraphDriver obtains and returns a handle to the graph Driver object used
+	// by the Store.
 	GetGraphDriver() (drivers.Driver, error)
+
+	// GetLayerStore obtains and returns a handle to the layer store object used by
+	// the Store.
 	GetLayerStore() (LayerStore, error)
+
+	// GetImageStore obtains and returns a handle to the image store object used by
+	// the Store.
 	GetImageStore() (ImageStore, error)
+
+	// GetContainerStore obtains and returns a handle to the container store object
+	// used by the Store.
 	GetContainerStore() (ContainerStore, error)
 
+	// CreateLayer creates a new layer in the underlying storage driver, optionally
+	// having the specified ID (one will be assigned if none is specified), with
+	// the specified layer (or no layer) as its parent, and with an optional name.
+	// (The writeable flag is ignored.)
 	CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error)
+
+	// PutLayer combines the functions of CreateLayer and ApplyDiff, marking the
+	// layer for automatic removal if applying the diff fails for any reason.
 	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, error)
+
+	// CreateImage creates a new image, optionally with the specified ID (one will
+	// be assigned if none is specified), with an optional name, and referring to a
+	// specified image and with optional metadata.  An image is a record which
+	// associates the ID of a layer with a caller-supplied metadata string which
+	// the library stores for the convenience of the caller.
 	CreateImage(id string, names []string, layer, metadata string) (*Image, error)
+
+	// CreateContainer creates a new container, optionally with the specified ID
+	// (one will be assigned if none is specified), with an optional name, using
+	// the specified image's top layer as the basis for the container's layer, and
+	// assigning the specified ID to that layer (one will be created if none is
+	// specified).  A container is a layer which is associated with a metadata
+	// string which the library stores for the convenience of the caller.
 	CreateContainer(id string, names []string, image, layer, metadata string) (*Container, error)
+
+	// GetMetadata retrieves the metadata which is associated with a layer, image,
+	// or container (whichever the passed-in ID refers to).
 	GetMetadata(id string) (string, error)
+
+	// SetMetadata updates the metadata which is associated with a layer, image, or
+	// container (whichever the passed-in ID refers to) to match the specified
+	// value.  The metadata value can be retrieved at any time using GetMetadata,
+	// or using GetLayer, GetImage, or GetContainer and reading the object directly.
 	SetMetadata(id, metadata string) error
+
+	// Exists checks if there is a layer, image, or container which has the
+	// passed-in ID or name.
 	Exists(id string) bool
+
+	// Status asks for a status report, in the form of key-value pairs, from the
+	// underlying storage driver.  The contents vary from driver to driver.
 	Status() ([][2]string, error)
+
+	// Delete removes the layer, image, or container which has the passed-in ID or
+	// name.  Note that no safety checks are performed, so this can leave images
+	// with references to layers which do not exist, and layers with references to
+	// parents which no longer exist.
 	Delete(id string) error
+
+	// DeleteLayer attempts to remove the specified layer.  If the layer is the
+	// parent of any other layer, or is referred to by any images, it will return
+	// an error.
 	DeleteLayer(id string) error
+
+	// DeleteImage removes the specified image if it is not referred to by any
+	// containers.  If its top layer is then no longer referred to by any other
+	// images or the parent of any other layers, its top layer will be removed.  If
+	// that layer's parent is no longer referred to by any other images or the
+	// parent of any other layers, then it, too, will be removed.  This procedure
+	// will be repeated until a layer which should not be removed, or the base
+	// layer, is reached, at which point the list of removed layers is returned.
+	// If the commit argument is false, the image and layers are not removed, but
+	// the list of layers which would be removed is still returned.
 	DeleteImage(id string, commit bool) (layers []string, err error)
+
+	// DeleteContainer removes the specified container and its layer.  If there is
+	// no matching container, or if the container exists but its layer does not, an
+	// error will be returned.
 	DeleteContainer(id string) error
+
+	// Wipe removes all known layers, images, and containers.
 	Wipe() error
+
+	// Mount attempts to mount a layer, image, or container for access, and returns
+	// the pathname if it succeeds.
 	Mount(id, mountLabel string) (string, error)
+
+	// Unmount attempts to unmount a layer, image, or container, given an ID, a
+	// name, or a mount path.
 	Unmount(id string) error
+
+	// Changes returns a summary of the changes which would need to be made to one
+	// layer to make its contents the same as a second layer.  If the first layer
+	// is not specified, the second layer's parent is assumed.  Each Change
+	// structure contains a Path relative to the layer's root directory, and a Kind
+	// which is either ChangeAdd, ChangeModify, or ChangeDelete.
 	Changes(from, to string) ([]archive.Change, error)
+
+	// DiffSize returns a count of the size of the tarstream which would specify
+	// the changes returned by Changes.
 	DiffSize(from, to string) (int64, error)
+
+	// Diff returns the tarstream which would specify the changes returned by
+	// Changes.
 	Diff(from, to string) (io.ReadCloser, error)
+
+	// ApplyDiff applies a tarstream to a layer.  Information about the tarstream
+	// is cached with the layer.  Typically, a layer which is populated using a
+	// tarstream will be expected to not be modified in any other way, either
+	// before or after the diff is applied.
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
+
+	// Layers returns a list of the currently known layers.
 	Layers() ([]Layer, error)
+
+	// Images returns a list of the currently known images.
 	Images() ([]Image, error)
+
+	// Containers returns a list of the currently known containers.
 	Containers() ([]Container, error)
+
+	// GetNames returns the list of names for a layer, image, or container.
 	GetNames(id string) ([]string, error)
+
+	// SetNames changes the list of names for a layer, image, or container.
 	SetNames(id string, names []string) error
+
+	// ListImageBigData retrieves a list of the (possibly large) chunks of named
+	// data associated with an image.
 	ListImageBigData(id string) ([]string, error)
+
+	// GetImageBigData retrieves a (possibly large) chunk of named data associated
+	// with an image.
 	GetImageBigData(id, key string) ([]byte, error)
+
+	// SetImageBigData stores a (possibly large) chunk of named data associated
+	// with an image.
 	SetImageBigData(id, key string, data []byte) error
+
+	// ListContainerBigData retrieves a list of the (possibly large) chunks of
+	// named data associated with a container.
 	ListContainerBigData(id string) ([]string, error)
+
+	// GetContainerBigData retrieves a (possibly large) chunk of named data
+	// associated with an image.
 	GetContainerBigData(id, key string) ([]byte, error)
+
+	// SetContainerBigData stores a (possibly large) chunk of named data associated
+	// with an image.
 	SetContainerBigData(id, key string, data []byte) error
+
+	// GetLayer returns a specific layer.
 	GetLayer(id string) (*Layer, error)
+
+	// GetImage returns a specific image.
 	GetImage(id string) (*Image, error)
+
+	// GetImagesByTopLayer returns a list of images which reference the specified
+	// layer as their top layer.  They will have different names and may have
+	// different metadata.
 	GetImagesByTopLayer(id string) ([]*Image, error)
+
+	// GetContainer returns a specific container.
 	GetContainer(id string) (*Container, error)
+
+	// GetContainerByLayer returns a specific container based on its layer ID or
+	// name.
 	GetContainerByLayer(id string) (*Container, error)
+
+	// GetContainerDirectory returns a path of a directory which the caller can use
+	// to store data which should be deleted when the container is deleted.
 	GetContainerDirectory(id string) (string, error)
+
+	// GetContainerRunDirectory returns a path of a directory which the caller can
+	// use to store data about the container which should be deleted when the host
+	// system is restarted.
 	GetContainerRunDirectory(id string) (string, error)
+
+	// Lookup returns the ID of a layer, image, or container with the specified
+	// name.
 	Lookup(name string) (string, error)
+
+	// Crawl enumerates all of the layers, images, and containers which depend on
+	// or refer to, either directly or indirectly, the specified layer, top layer
+	// of an image, or container layer.
 	Crawl(layerID string) (*Users, error)
+
+	// Version returns version information, in the form of key-value pairs, from
+	// the storage package.
 	Version() ([][2]string, error)
 }
 

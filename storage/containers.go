@@ -17,57 +17,57 @@ var (
 )
 
 // A Container is a reference to a read-write layer with a metadata string.
-// ID is either one specified at create-time or a randomly-generated value.
-// Names is an optional set of user-defined convenience values.
-// ImageID is the ID of the image which was used to create the container.
-// LayerID is the ID of the read-write layer for the container itself.
-// It is assumed that the image's top layer is the parent of the container's
-// read-write layer.
 type Container struct {
-	ID           string                 `json:"id"`
-	Names        []string               `json:"names,omitempty"`
-	ImageID      string                 `json:"image"`
-	LayerID      string                 `json:"layer"`
+	// ID is either one specified at create-time or a randomly-generated value.
+	ID string `json:"id"`
+
+	// Names is an optional set of user-defined convenience values.
+	Names []string `json:"names,omitempty"`
+
+	// ImageID is the ID of the image which was used to create the container.
+	ImageID string `json:"image"`
+
+	// LayerID is the ID of the read-write layer for the container itself.
+	// It is assumed that the image's top layer is the parent of the container's
+	// read-write layer.
+	LayerID string `json:"layer"`
+
 	Metadata     string                 `json:"metadata,omitempty"`
 	BigDataNames []string               `json:"big-data-names,omitempty"`
 	Flags        map[string]interface{} `json:"flags,omitempty"`
 }
 
 // ContainerStore provides bookkeeping for information about Containers.
-//
-// Create creates a container that has a specified ID (or a random one) and an
-// optional name, based on the specified image, using the specified layer as
-// its read-write layer.
-//
-// GetMetadata retrieves a container's metadata.
-//
-// SetMetadata replaces the metadata associated with a container with the
-// supplied value.
-//
-// Exists checks if there is a container with the given ID or name.
-//
-// Get retrieves information about a container given an ID or name.
-//
-// Delete removes the record of the container.
-//
-// Wipe removes records of all containers.
-//
-// Lookup attempts to translate a name to an ID.  Most methods do this
-// implicitly.
-//
-// Containers returns a slice enumerating the known containers.
 type ContainerStore interface {
 	FileBasedStore
 	MetadataStore
 	BigDataStore
 	FlaggableStore
+
+	// Create creates a container that has a specified ID (or a random one) and an
+	// optional name, based on the specified image, using the specified layer as
+	// its read-write layer.
 	Create(id string, names []string, image, layer, metadata string) (*Container, error)
+
 	SetNames(id string, names []string) error
+
+	// Get retrieves information about a container given an ID or name.
 	Get(id string) (*Container, error)
+
+	// Exists checks if there is a container with the given ID or name.
 	Exists(id string) bool
+
+	// Delete removes the record of the container.
 	Delete(id string) error
+
+	// Wipe removes records of all containers.
 	Wipe() error
+
+	// Lookup attempts to translate a name to an ID.  Most methods do this
+	// implicitly.
 	Lookup(name string) (string, error)
+
+	// Containers returns a slice enumerating the known containers.
 	Containers() ([]Container, error)
 }
 

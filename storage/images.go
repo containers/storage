@@ -17,13 +17,16 @@ var (
 )
 
 // An Image is a reference to a layer and an associated metadata string.
-// ID is either one specified at import-time or a randomly-generated value.
-// Names is an optional set of user-defined convenience values.
-// TopLayer is the ID of the topmost layer of the image itself.
 type Image struct {
-	ID           string                 `json:"id"`
-	Names        []string               `json:"names,omitempty"`
-	TopLayer     string                 `json:"layer"`
+	// ID is either one specified at import-time or a randomly-generated value.
+	ID string `json:"id"`
+
+	// Names is an optional set of user-defined convenience values.
+	Names []string `json:"names,omitempty"`
+
+	// TopLayer is the ID of the topmost layer of the image itself.
+	TopLayer string `json:"layer"`
+
 	Metadata     string                 `json:"metadata,omitempty"`
 	BigDataNames []string               `json:"big-data-names,omitempty"`
 	Flags        map[string]interface{} `json:"flags,omitempty"`
@@ -31,42 +34,40 @@ type Image struct {
 
 // ImageStore provides bookkeeping for information about Images.
 //
-// Create creates an image that has a specified ID (or a random one) and an
-// optional name, using the specified layer as its topmost (hopefully
-// read-only) layer.  That layer can be referenced by multiple images.
 //
-// GetMetadata retrieves an image's metadata.
 //
-// SetMetadata replaces the metadata associated with an image with the supplied
-// value.
-//
-// SetNames replaces the list of names associated with an image with the
-// supplied values.
-//
-// Exists checks if there is an image with the given ID or name.
-//
-// Get retrieves information about an image given an ID or name.
-//
-// Delete removes the record of the image.
-//
-// Wipe removes records of all images.
-//
-// Lookup attempts to translate a name to an ID.  Most methods do this
-// implicitly.
-//
-// Images returns a slice enumerating the known images.
 type ImageStore interface {
 	FileBasedStore
 	MetadataStore
 	BigDataStore
 	FlaggableStore
+
+	// Create creates an image that has a specified ID (or a random one) and an
+	// optional name, using the specified layer as its topmost (hopefully
+	// read-only) layer.  That layer can be referenced by multiple images.
 	Create(id string, names []string, layer, metadata string) (*Image, error)
+
+	// SetNames replaces the list of names associated with an image with the
+	// supplied values.
 	SetNames(id string, names []string) error
+
+	// Exists checks if there is an image with the given ID or name.
 	Exists(id string) bool
+
+	// Get retrieves information about an image given an ID or name.
 	Get(id string) (*Image, error)
+
+	// Delete removes the record of the image.
 	Delete(id string) error
+
+	// Wipe removes records of all images.
 	Wipe() error
+
+	// Lookup attempts to translate a name to an ID.  Most methods do this
+	// implicitly.
 	Lookup(name string) (string, error)
+
+	// Images returns a slice enumerating the known images.
 	Images() ([]Image, error)
 }
 
