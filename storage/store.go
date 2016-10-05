@@ -1,9 +1,7 @@
 package storage
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"io"
 	"os"
