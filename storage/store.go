@@ -113,7 +113,7 @@ type Store interface {
 
 	// CreateLayer creates a new layer in the underlying storage driver, optionally
 	// having the specified ID (one will be assigned if none is specified), with
-	// the specified layer (or no layer) as its parent, and with an optional name.
+	// the specified layer (or no layer) as its parent, and with optional names.
 	// (The writeable flag is ignored.)
 	CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error)
 
@@ -121,19 +121,21 @@ type Store interface {
 	// layer for automatic removal if applying the diff fails for any reason.
 	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, error)
 
-	// CreateImage creates a new image, optionally with the specified ID (one will
-	// be assigned if none is specified), with an optional name, and referring to a
-	// specified image and with optional metadata.  An image is a record which
-	// associates the ID of a layer with a caller-supplied metadata string which
-	// the library stores for the convenience of the caller.
+	// CreateImage creates a new image, optionally with the specified ID
+	// (one will be assigned if none is specified), with optional names,
+	// referring to a specified image, and with optional metadata.  An
+	// image is a record which associates the ID of a layer with a
+	// additional bookkeeping information which the library stores for the
+	// convenience of its caller.
 	CreateImage(id string, names []string, layer, metadata string) (*Image, error)
 
 	// CreateContainer creates a new container, optionally with the specified ID
-	// (one will be assigned if none is specified), with an optional name, using
-	// the specified image's top layer as the basis for the container's layer, and
-	// assigning the specified ID to that layer (one will be created if none is
-	// specified).  A container is a layer which is associated with a metadata
-	// string which the library stores for the convenience of the caller.
+	// (one will be assigned if none is specified), with optional names,
+	// using the specified image's top layer as the basis for the
+	// container's layer, and assigning the specified ID to that layer (one
+	// will be created if none is specified).  A container is a layer which
+	// is associated with additional bookkeeping information which the
+	// library stores for the convenience of its caller.
 	CreateContainer(id string, names []string, image, layer, metadata string) (*Container, error)
 
 	// GetMetadata retrieves the metadata which is associated with a layer, image,
@@ -165,15 +167,16 @@ type Store interface {
 	// an error.
 	DeleteLayer(id string) error
 
-	// DeleteImage removes the specified image if it is not referred to by any
-	// containers.  If its top layer is then no longer referred to by any other
-	// images or the parent of any other layers, its top layer will be removed.  If
-	// that layer's parent is no longer referred to by any other images or the
-	// parent of any other layers, then it, too, will be removed.  This procedure
-	// will be repeated until a layer which should not be removed, or the base
-	// layer, is reached, at which point the list of removed layers is returned.
-	// If the commit argument is false, the image and layers are not removed, but
-	// the list of layers which would be removed is still returned.
+	// DeleteImage removes the specified image if it is not referred to by
+	// any containers.  If its top layer is then no longer referred to by
+	// any other images and is not the parent of any other layers, its top
+	// layer will be removed.  If that layer's parent is no longer referred
+	// to by any other images and is not the parent of any other layers,
+	// then it, too, will be removed.  This procedure will be repeated
+	// until a layer which should not be removed, or the base layer, is
+	// reached, at which point the list of removed layers is returned.  If
+	// the commit argument is false, the image and layers are not removed,
+	// but the list of layers which would be removed is still returned.
 	DeleteImage(id string, commit bool) (layers []string, err error)
 
 	// DeleteContainer removes the specified container and its layer.  If there is
@@ -259,8 +262,8 @@ type Store interface {
 	GetImage(id string) (*Image, error)
 
 	// GetImagesByTopLayer returns a list of images which reference the specified
-	// layer as their top layer.  They will have different names and may have
-	// different metadata.
+	// layer as their top layer.  They will have different IDs and names
+	// and may have different metadata, big data items, and flags.
 	GetImagesByTopLayer(id string) ([]*Image, error)
 
 	// GetContainer returns a specific container.
@@ -270,22 +273,26 @@ type Store interface {
 	// name.
 	GetContainerByLayer(id string) (*Container, error)
 
-	// GetContainerDirectory returns a path of a directory which the caller can use
-	// to store data which should be deleted when the container is deleted.
+	// GetContainerDirectory returns a path of a directory which the caller
+	// can use to store data, specific to the container, which the library
+	// does not directly manage.  The directory will be deleted when the
+	// container is deleted.
 	GetContainerDirectory(id string) (string, error)
 
-	// GetContainerRunDirectory returns a path of a directory which the caller can
-	// use to store data about the container which should be deleted when the host
-	// system is restarted.
+	// GetContainerRunDirectory returns a path of a directory which the
+	// caller can use to store data, specific to the container, which the
+	// library does not directly manage.  The directory will be deleted
+	// when the host system is restarted.
 	GetContainerRunDirectory(id string) (string, error)
 
 	// Lookup returns the ID of a layer, image, or container with the specified
-	// name.
+	// name or ID.
 	Lookup(name string) (string, error)
 
 	// Crawl enumerates all of the layers, images, and containers which depend on
 	// or refer to, either directly or indirectly, the specified layer, top layer
-	// of an image, or container layer.
+	// of an image, or container layer.  This function is deprecated and
+	// will be removed.
 	Crawl(layerID string) (*Users, error)
 
 	// Version returns version information, in the form of key-value pairs, from
@@ -299,7 +306,7 @@ type Mall interface {
 }
 
 // Users holds an analysis of which layers, images, and containers depend on a
-// given layer, either directly or indirectly.
+// given layer, either directly or indirectly.  This will be removed.
 type Users struct {
 	ID                 string   `json:"id"`
 	LayerID            string   `json:"layer"`
