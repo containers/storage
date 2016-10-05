@@ -33,19 +33,26 @@ var (
 
 // A Layer is a record of a copy-on-write layer that's stored by the lower
 // level graph driver.
-// ID is either one specified at import-time or a randomly-generated value.
-// Names is an optional set of user-defined convenience values.  Parent is the
-// ID of a layer from which this layer inherits data.  MountLabel is an SELinux
-// label which should be used when attempting to mount the layer.  MountPoint
-// is the path where the layer is mounted, or where it was most recently
-// mounted.
 type Layer struct {
-	ID         string                 `json:"id"`
-	Names      []string               `json:"names,omitempty"`
-	Parent     string                 `json:"parent,omitempty"`
-	Metadata   string                 `json:"metadata,omitempty"`
-	MountLabel string                 `json:"mountlabel,omitempty"`
-	MountPoint string                 `json:"-"`
+	// ID is either one specified at import-time or a randomly-generated value.
+	ID string `json:"id"`
+
+	// Names is an optional set of user-defined convenience values.
+	Names []string `json:"names,omitempty"`
+
+	// Parent is the ID of a layer from which this layer inherits data.
+	Parent string `json:"parent,omitempty"`
+
+	Metadata string `json:"metadata,omitempty"`
+
+	// MountLabel is an SELinux label which should be used when attempting to mount
+	// the layer.
+	MountLabel string `json:"mountlabel,omitempty"`
+
+	// MountPoint is the path where the layer is mounted, or where it was most
+	// recently mounted.
+	MountPoint string `json:"-"`
+
 	MountCount int                    `json:"-"`
 	Flags      map[string]interface{} `json:"flags,omitempty"`
 }
@@ -59,80 +66,76 @@ type layerMountPoint struct {
 // LayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
-//
-// Create creates a new layer, optionally giving it a specified ID rather than
-// a randomly-generated one, either inheriting data from another specified
-// layer or the empty base layer.  The new layer can optionally be given a name
-// and have an SELinux label specified for use when mounting it.  Some
-// underlying drivers can accept a "size" option.  At this time, drivers do not
-// themselves distinguish between writeable and read-only layers.
-//
-// CreateWithFlags combines the functions of Create and SetFlag.
-//
-// Put combines the functions of CreateWithFlags and ApplyDiff.
-//
-// Exists checks if a layer with the specified name or ID is known.
-//
-// GetMetadata retrieves a layer's metadata.
-//
-// SetMetadata replaces the metadata associated with a layer with the supplied
-// value.
-//
-// SetNames replaces the list of names associated with a layer with the
-// supplied values.
-//
-// Status returns an slice of key-value pairs, suitable for human consumption,
-// relaying whatever status information the driver can share.
-//
-// Delete deletes a layer with the specified name or ID.
-//
-// Wipe deletes all layers.
-//
-// Mount mounts a layer for use.  If the specified layer is the parent of other
-// layers, it should not be written to.  An SELinux label to be applied to the
-// mount can be specified to override the one configured for the layer.
-//
-// Unmount unmounts a layer when it is no longer in use.
-//
-// Changes returns a slice of Change structures, which contain a pathname
-// (Path) and a description of what sort of change (Kind) was made by the
-// layer (either ChangeModify, ChangeAdd, or ChangeDelete), relative to a
-// specified layer.  By default, the layer's parent is used as a reference.
-//
-// Diff produces a tarstream which can be applied to a layer with the contents
-// of the first layer to produce a layer with the contents of the second layer.
-// By default, the parent of the second layer is used as the first layer.
-//
-// DiffSize produces an estimate of the length of the tarstream which would be
-// produced by Diff.
-//
-// ApplyDiff reads a tarstream which was created by a previous call to Diff and
-// applies its changes to a specified layer.
-//
-// Lookup attempts to translate a name to an ID.  Most methods do this
-// implicitly.
-//
-// Layers returns a slice of the known layers.
 type LayerStore interface {
 	FileBasedStore
 	MetadataStore
 	FlaggableStore
+
+	// Create creates a new layer, optionally giving it a specified ID rather than
+	// a randomly-generated one, either inheriting data from another specified
+	// layer or the empty base layer.  The new layer can optionally be given a name
+	// and have an SELinux label specified for use when mounting it.  Some
+	// underlying drivers can accept a "size" option.  At this time, drivers do not
+	// themselves distinguish between writeable and read-only layers.
 	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
+
+	// CreateWithFlags combines the functions of Create and SetFlag.
 	CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
+
+	// Put combines the functions of CreateWithFlags and ApplyDiff.
 	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, err error)
+
+	// Exists checks if a layer with the specified name or ID is known.
 	Exists(id string) bool
+
 	Get(id string) (*Layer, error)
+
+	// SetNames replaces the list of names associated with a layer with the
+	// supplied values.
 	SetNames(id string, names []string) error
+
+	// Status returns an slice of key-value pairs, suitable for human consumption,
+	// relaying whatever status information the driver can share.
 	Status() ([][2]string, error)
+
+	// Delete deletes a layer with the specified name or ID.
 	Delete(id string) error
+
+	// Wipe deletes all layers.
 	Wipe() error
+
+	// Mount mounts a layer for use.  If the specified layer is the parent of other
+	// layers, it should not be written to.  An SELinux label to be applied to the
+	// mount can be specified to override the one configured for the layer.
 	Mount(id, mountLabel string) (string, error)
+
+	// Unmount unmounts a layer when it is no longer in use.
 	Unmount(id string) error
+
+	// Changes returns a slice of Change structures, which contain a pathname
+	// (Path) and a description of what sort of change (Kind) was made by the
+	// layer (either ChangeModify, ChangeAdd, or ChangeDelete), relative to a
+	// specified layer.  By default, the layer's parent is used as a reference.
 	Changes(from, to string) ([]archive.Change, error)
+
+	// Diff produces a tarstream which can be applied to a layer with the contents
+	// of the first layer to produce a layer with the contents of the second layer.
+	// By default, the parent of the second layer is used as the first layer.
 	Diff(from, to string) (io.ReadCloser, error)
+
+	// DiffSize produces an estimate of the length of the tarstream which would be
+	// produced by Diff.
 	DiffSize(from, to string) (int64, error)
+
+	// ApplyDiff reads a tarstream which was created by a previous call to Diff and
+	// applies its changes to a specified layer.
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
+
+	// Lookup attempts to translate a name to an ID.  Most methods do this
+	// implicitly.
 	Lookup(name string) (string, error)
+
+	// Layers returns a slice of the known layers.
 	Layers() ([]Layer, error)
 }
 
