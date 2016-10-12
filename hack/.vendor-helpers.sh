@@ -57,6 +57,7 @@ clean() {
 	local packages=(
 		"${PROJECT}/cmd/oci-storage"
 		"${PROJECT}/storage"
+		"${PROJECT}/cri"
 	)
 	local storagePlatforms=( ${STORAGE_OSARCH:="linux/amd64 linux/i386 linux/arm freebsd/amd64 freebsd/386 freebsd/arm windows/amd64"} )
 
