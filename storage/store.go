@@ -332,7 +332,7 @@ type store struct {
 
 // MakeStore creates and initializes a new Store object, and the underlying
 // storage that it controls.
-func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string, uidMap, gidMap []idtools.IDMap) (Mall, error) {
+func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string, uidMap, gidMap []idtools.IDMap) (Store, error) {
 	if runRoot == "" && graphRoot == "" && graphDriverName == "" && len(graphOptions) == 0 {
 		runRoot = "/var/run/containers/storage"
 		graphRoot = "/var/lib/containers/storage"
