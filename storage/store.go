@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/storageversion"
 )
@@ -277,11 +279,31 @@ type Store interface {
 	// container is deleted.
 	GetContainerDirectory(id string) (string, error)
 
+	// SetContainerDirectoryFile is a convenience function which stores
+	// a piece of data in the specified file relative to the container's
+	// directory.
+	SetContainerDirectoryFile(id, file string, data []byte) error
+
+	// GetContainerDirectoryFile is a convenience function which reads
+	// the contents of the specified file relative to the container's
+	// directory.
+	GetContainerDirectoryFile(id, file string) ([]byte, error)
+
 	// GetContainerRunDirectory returns a path of a directory which the
 	// caller can use to store data, specific to the container, which the
 	// library does not directly manage.  The directory will be deleted
 	// when the host system is restarted.
 	GetContainerRunDirectory(id string) (string, error)
+
+	// SetContainerRunDirectoryFile is a convenience function which stores
+	// a piece of data in the specified file relative to the container's
+	// run directory.
+	SetContainerRunDirectoryFile(id, file string, data []byte) error
+
+	// GetContainerRunDirectoryFile is a convenience function which reads
+	// the contents of the specified file relative to the container's run
+	// directory.
+	GetContainerRunDirectoryFile(id, file string) ([]byte, error)
 
 	// Lookup returns the ID of a layer, image, or container with the specified
 	// name or ID.
@@ -1875,6 +1897,46 @@ func (s *store) GetContainerRunDirectory(id string) (string, error) {
 		return "", err
 	}
 	return rcpath, nil
+}
+
+func (s *store) SetContainerDirectoryFile(id, file string, data []byte) error {
+	dir, err := s.GetContainerDirectory(id)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Dir(filepath.Join(dir, file)), 0700)
+	if err != nil {
+		return err
+	}
+	return ioutils.AtomicWriteFile(filepath.Join(dir, file), data, 0600)
+}
+
+func (s *store) GetContainerDirectoryFile(id, file string) ([]byte, error) {
+	dir, err := s.GetContainerDirectory(id)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadFile(filepath.Join(dir, file))
+}
+
+func (s *store) SetContainerRunDirectoryFile(id, file string, data []byte) error {
+	dir, err := s.GetContainerRunDirectory(id)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Dir(filepath.Join(dir, file)), 0700)
+	if err != nil {
+		return err
+	}
+	return ioutils.AtomicWriteFile(filepath.Join(dir, file), data, 0600)
+}
+
+func (s *store) GetContainerRunDirectoryFile(id, file string) ([]byte, error) {
+	dir, err := s.GetContainerRunDirectory(id)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadFile(filepath.Join(dir, file))
 }
 
 func (s *store) Crawl(layerID string) (*Users, error) {
