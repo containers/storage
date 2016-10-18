@@ -690,17 +690,17 @@ func (s *store) SetMetadata(id, metadata string) error {
 		rcstore.Load()
 	}
 
-	if rcstore.Exists(id) {
-		defer rcstore.Touch()
-		return rcstore.SetMetadata(id, metadata)
+	if rlstore.Exists(id) {
+		defer rlstore.Touch()
+		return rlstore.SetMetadata(id, metadata)
 	}
 	if ristore.Exists(id) {
 		defer ristore.Touch()
 		return ristore.SetMetadata(id, metadata)
 	}
-	if rlstore.Exists(id) {
-		defer rlstore.Touch()
-		return rlstore.SetMetadata(id, metadata)
+	if rcstore.Exists(id) {
+		defer rcstore.Touch()
+		return rcstore.SetMetadata(id, metadata)
 	}
 	return ErrNotAnID
 }
@@ -735,14 +735,14 @@ func (s *store) GetMetadata(id string) (string, error) {
 		rcstore.Load()
 	}
 
-	if rcstore.Exists(id) {
-		return rcstore.GetMetadata(id)
+	if rlstore.Exists(id) {
+		return rlstore.GetMetadata(id)
 	}
 	if ristore.Exists(id) {
 		return ristore.GetMetadata(id)
 	}
-	if rlstore.Exists(id) {
-		return rlstore.GetMetadata(id)
+	if rcstore.Exists(id) {
+		return rcstore.GetMetadata(id)
 	}
 	return "", ErrNotAnID
 }
@@ -996,14 +996,14 @@ func (s *store) SetNames(id string, names []string) error {
 		}
 	}
 
-	if rcstore.Exists(id) {
-		return rcstore.SetNames(id, deduped)
+	if rlstore.Exists(id) {
+		return rlstore.SetNames(id, deduped)
 	}
 	if ristore.Exists(id) {
 		return ristore.SetNames(id, deduped)
 	}
-	if rlstore.Exists(id) {
-		return rlstore.SetNames(id, deduped)
+	if rcstore.Exists(id) {
+		return rcstore.SetNames(id, deduped)
 	}
 	return ErrLayerUnknown
 }
@@ -1038,14 +1038,14 @@ func (s *store) GetNames(id string) ([]string, error) {
 		rcstore.Load()
 	}
 
-	if c, err := rcstore.Get(id); c != nil && err == nil {
-		return c.Names, nil
+	if l, err := rlstore.Get(id); l != nil && err == nil {
+		return l.Names, nil
 	}
 	if i, err := ristore.Get(id); i != nil && err == nil {
 		return i.Names, nil
 	}
-	if l, err := rlstore.Get(id); l != nil && err == nil {
-		return l.Names, nil
+	if c, err := rcstore.Get(id); c != nil && err == nil {
+		return c.Names, nil
 	}
 	return nil, ErrLayerUnknown
 }
@@ -1080,14 +1080,14 @@ func (s *store) Lookup(name string) (string, error) {
 		rcstore.Load()
 	}
 
-	if c, err := rcstore.Get(name); c != nil && err == nil {
-		return c.ID, nil
+	if l, err := rlstore.Get(name); l != nil && err == nil {
+		return l.ID, nil
 	}
 	if i, err := ristore.Get(name); i != nil && err == nil {
 		return i.ID, nil
 	}
-	if l, err := rlstore.Get(name); l != nil && err == nil {
-		return l.ID, nil
+	if c, err := rcstore.Get(name); c != nil && err == nil {
+		return c.ID, nil
 	}
 	return "", ErrLayerUnknown
 }
