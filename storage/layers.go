@@ -324,6 +324,12 @@ func (r *layerStore) Status() ([][2]string, error) {
 }
 
 func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, err error) {
+	if err := os.MkdirAll(r.rundir, 0700); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(r.layerdir, 0700); err != nil {
+		return nil, err
+	}
 	if parentLayer, ok := r.byname[parent]; ok {
 		parent = parentLayer.ID
 	}

@@ -356,8 +356,8 @@ type store struct {
 // storage that it controls.
 func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string, uidMap, gidMap []idtools.IDMap) (Store, error) {
 	if runRoot == "" && graphRoot == "" && graphDriverName == "" && len(graphOptions) == 0 {
-		runRoot = "/var/run/containers/storage"
-		graphRoot = "/var/lib/containers/storage"
+		runRoot = "/var/run/containers"
+		graphRoot = "/var/lib/containers"
 		graphDriverName = os.Getenv("STORAGE_DRIVER")
 		graphOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
 		if len(graphOptions) == 1 && graphOptions[0] == "" {

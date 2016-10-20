@@ -32,8 +32,8 @@ func main() {
 		return
 	}
 
-	runRoot := "/var/run/containers/storage"
-	graphRoot := "/var/lib/containers/storage"
+	runRoot := "/var/run/containers"
+	graphRoot := "/var/lib/containers"
 	graphDriver := os.Getenv("STORAGE_DRIVER")
 	if graphDriver == "" {
 		graphDriver = os.Getenv("DOCKER_GRAPHDRIVER")
