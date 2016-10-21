@@ -73,7 +73,6 @@ The *oci-storage* command's features are broken down into several subcommands:
  **oci-storage images(1)**              List images
  **oci-storage layers(1)**              List layers
  **oci-storage list-container-data(1)** List data items that are attached to a container
- **oci-storage list-deps(1)**           List referrers to a layer, image, or container
  **oci-storage list-image-data(1)**     List data items that are attached to an image
  **oci-storage metadata(1)**            Retrieve layer, image, or container metadata
  **oci-storage mount(1)**               Mount a layer or container
@@ -81,6 +80,7 @@ The *oci-storage* command's features are broken down into several subcommands:
  **oci-storage set-image-data(1)**      Set data that is attached to an image
  **oci-storage set-metadata(1)**        Set layer, image, or container metadata
  **oci-storage set-names(1)**           Set layer, image, or container name or names
+ **oci-storage shutdown(1)**            Shut down graph driver
  **oci-storage status(1)**              Check on graph driver status
  **oci-storage unmount(1)**             Unmount a layer or container
  **oci-storage version(1)**             Return oci-storage version information

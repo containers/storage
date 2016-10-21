@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	"time"
 
 	// register all of the built-in drivers
 	_ "github.com/containers/storage/drivers/register"
@@ -309,6 +309,12 @@ type Store interface {
 	// name or ID.
 	Lookup(name string) (string, error)
 
+	// Shutdown attempts to free any kernel resources which are being used
+	// by the underlying driver.  If "force" is true, any mounted (i.e., in
+	// use) layers are unmounted beforehand.  If "force" is not true, then
+	// layers being in use is considered to be an error condition.  A list
+	// of still-mounted layers is returned along with possible errors.
+	Shutdown(force bool) (layers []string, err error)
 
 	// Version returns version information, in the form of key-value pairs, from
 	// the storage package.
@@ -338,8 +344,9 @@ type Users struct {
 }
 
 type store struct {
+	lastLoaded      time.Time
 	runRoot         string
-	graphLock       sync.Locker
+	graphLock       Locker
 	graphRoot       string
 	graphDriverName string
 	graphOptions    []string
@@ -427,7 +434,7 @@ func (s *store) GetGraphOptions() []string {
 }
 
 func (s *store) load() error {
-	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, s.uidMap, s.gidMap)
+	driver, err := s.GetGraphDriver()
 	if err != nil {
 		return err
 	}
@@ -435,19 +442,12 @@ func (s *store) load() error {
 	s.graphDriverName = driver.String()
 	driverPrefix := s.graphDriverName + "-"
 
-	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
-	if err := os.MkdirAll(rlpath, 0700); err != nil {
-		return err
-	}
-	glpath := filepath.Join(s.graphRoot, driverPrefix+"layers")
-	if err := os.MkdirAll(glpath, 0700); err != nil {
-		return err
-	}
-	rls, err := newLayerStore(rlpath, glpath, driver)
+	rls, err := s.GetLayerStore()
 	if err != nil {
 		return err
 	}
 	s.layerStore = rls
+
 	gipath := filepath.Join(s.graphRoot, driverPrefix+"images")
 	if err := os.MkdirAll(gipath, 0700); err != nil {
 		return err
@@ -473,18 +473,60 @@ func (s *store) load() error {
 	return nil
 }
 
-func (s *store) GetGraphDriver() (drivers.Driver, error) {
+func (s *store) getGraphDriver() (drivers.Driver, error) {
 	if s.graphDriver != nil {
 		return s.graphDriver, nil
 	}
-	return nil, ErrLoadError
+	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, s.uidMap, s.gidMap)
+	if err != nil {
+		return nil, err
+	}
+	s.graphDriver = driver
+	s.graphDriverName = driver.String()
+	return driver, nil
+}
+
+func (s *store) GetGraphDriver() (drivers.Driver, error) {
+	s.graphLock.Lock()
+	defer s.graphLock.Unlock()
+	if s.graphLock.TouchedSince(s.lastLoaded) {
+		s.graphDriver = nil
+		s.layerStore = nil
+		s.lastLoaded = time.Now()
+	}
+	return s.getGraphDriver()
 }
 
 func (s *store) GetLayerStore() (LayerStore, error) {
+	s.graphLock.Lock()
+	defer s.graphLock.Unlock()
+	if s.graphLock.TouchedSince(s.lastLoaded) {
+		s.graphDriver = nil
+		s.layerStore = nil
+		s.lastLoaded = time.Now()
+	}
 	if s.layerStore != nil {
 		return s.layerStore, nil
 	}
-	return nil, ErrLoadError
+	driver, err := s.getGraphDriver()
+	if err != nil {
+		return nil, err
+	}
+	driverPrefix := s.graphDriverName + "-"
+	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
+	if err := os.MkdirAll(rlpath, 0700); err != nil {
+		return nil, err
+	}
+	glpath := filepath.Join(s.graphRoot, driverPrefix+"layers")
+	if err := os.MkdirAll(glpath, 0700); err != nil {
+		return nil, err
+	}
+	rls, err := newLayerStore(rlpath, glpath, driver)
+	if err != nil {
+		return nil, err
+	}
+	s.layerStore = rls
+	return s.layerStore, nil
 }
 
 func (s *store) GetImageStore() (ImageStore, error) {
@@ -1937,6 +1979,59 @@ func (s *store) GetContainerRunDirectoryFile(id, file string) ([]byte, error) {
 		return nil, err
 	}
 	return ioutil.ReadFile(filepath.Join(dir, file))
+}
+
+func (s *store) Shutdown(force bool) ([]string, error) {
+	mounted := []string{}
+	modified := false
+
+	rlstore, err := s.GetLayerStore()
+	if err != nil {
+		return mounted, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+
+	s.graphLock.Lock()
+	defer s.graphLock.Unlock()
+	layers, err := rlstore.Layers()
+	if err != nil {
+		return mounted, err
+	}
+	for _, layer := range layers {
+		if layer.MountCount == 0 {
+			continue
+		}
+		mounted = append(mounted, layer.ID)
+		if force {
+			for layer.MountCount > 0 {
+				err2 := rlstore.Unmount(layer.ID)
+				if err2 != nil {
+					if err == nil {
+						err = err2
+					}
+					break
+				}
+				modified = true
+			}
+		}
+	}
+	if len(mounted) > 0 && err == nil {
+		err = ErrLayerUsedByContainer
+	}
+	if err == nil {
+		err = s.graphDriver.Cleanup()
+		s.graphLock.Touch()
+		modified = true
+	}
+	if modified {
+		rlstore.Touch()
+	}
+	return mounted, err
 }
 
 // MakeMall was the old name of MakeStore.  It will be dropped at some point.
