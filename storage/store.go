@@ -136,7 +136,7 @@ type Store interface {
 	// will be created if none is specified).  A container is a layer which
 	// is associated with additional bookkeeping information which the
 	// library stores for the convenience of its caller.
-	CreateContainer(id string, names []string, image, layer, metadata string) (*Container, error)
+	CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error)
 
 	// GetMetadata retrieves the metadata which is associated with a layer, image,
 	// or container (whichever the passed-in ID refers to).
@@ -318,6 +318,10 @@ type Store interface {
 	// Version returns version information, in the form of key-value pairs, from
 	// the storage package.
 	Version() ([][2]string, error)
+}
+
+// ContainerOptions is used for passing options to a Store's CreateContainer() method.
+type ContainerOptions struct {
 }
 
 // Mall is just an old name for Store.  This will be dropped at some point.
@@ -606,7 +610,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string) (
 	return ristore.Create(id, names, layer, metadata)
 }
 
-func (s *store) CreateContainer(id string, names []string, image, layer, metadata string) (*Container, error) {
+func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
 	rlstore, err := s.GetLayerStore()
 	if err != nil {
 		return nil, err

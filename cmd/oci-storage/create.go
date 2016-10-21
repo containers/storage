@@ -121,7 +121,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		}
 		paramMetadata = string(b)
 	}
-	container, err := m.CreateContainer(paramID, paramNames, args[0], paramLayer, paramMetadata)
+	container, err := m.CreateContainer(paramID, paramNames, args[0], paramLayer, paramMetadata, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
