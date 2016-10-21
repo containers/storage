@@ -432,6 +432,7 @@ func (s *store) load() error {
 	if err != nil {
 		return err
 	}
+	s.graphDriver = driver
 	s.graphDriverName = driver.String()
 	driverPrefix := s.graphDriverName + "-"
 
