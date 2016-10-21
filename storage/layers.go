@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
@@ -854,4 +855,8 @@ func (r *layerStore) Touch() error {
 
 func (r *layerStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
+}
+
+func (r *layerStore) TouchedSince(when time.Time) bool {
+	return r.lockfile.TouchedSince(when)
 }

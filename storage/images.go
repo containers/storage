@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
@@ -399,4 +400,8 @@ func (r *imageStore) Touch() error {
 
 func (r *imageStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
+}
+
+func (r *imageStore) TouchedSince(when time.Time) bool {
+	return r.lockfile.TouchedSince(when)
 }

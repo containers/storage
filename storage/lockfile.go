@@ -23,6 +23,9 @@ type Locker interface {
 	// Modified() checks if the most recent writer was a party other than the
 	// caller.  It should only be called with the lock held.
 	Modified() (bool, error)
+
+	// TouchedSince() checks if the most recent writer modified the file (likely using Touch()) after the specified time.
+	TouchedSince(when time.Time) bool
 }
 
 type lockfile struct {
@@ -99,6 +102,10 @@ func (l *lockfile) Touch() error {
 	if n != len(id) {
 		return syscall.ENOSPC
 	}
+	err = syscall.Fsync(int(l.fd))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -116,4 +123,14 @@ func (l *lockfile) Modified() (bool, error) {
 		return true, syscall.ENOSPC
 	}
 	return string(id) != l.me, nil
+}
+
+func (l *lockfile) TouchedSince(when time.Time) bool {
+	st := syscall.Stat_t{}
+	err := syscall.Fstat(int(l.fd), &st)
+	if err != nil {
+		return true
+	}
+	touched := time.Unix(st.Mtim.Unix())
+	return when.Before(touched)
 }
