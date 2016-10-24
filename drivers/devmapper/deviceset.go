@@ -2201,6 +2201,9 @@ func (devices *DeviceSet) Shutdown(home string) error {
 		if err != nil {
 			return err
 		}
+		if p == path.Join(home, "mnt") {
+			return nil
+		}
 		if !info.IsDir() {
 			return nil
 		}
