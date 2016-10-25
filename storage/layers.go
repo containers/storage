@@ -584,7 +584,8 @@ func (r *layerStore) Exists(id string) bool {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
 	}
-	return r.driver.Exists(id)
+	l, exists := r.byid[id]
+	return l != nil && exists
 }
 
 func (r *layerStore) Get(id string) (*Layer, error) {
