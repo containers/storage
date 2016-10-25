@@ -2,6 +2,7 @@ package storage
 
 import (
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -25,19 +26,32 @@ type Locker interface {
 }
 
 type lockfile struct {
+	mu   sync.Mutex
 	file string
 	fd   uintptr
 	me   string
 }
 
+var (
+	lockfiles     map[string]*lockfile
+	lockfilesLock sync.Mutex
+)
+
 // GetLockfile opens a lock file, creating it if necessary.  The Locker object
 // return will be returned unlocked.
 func GetLockfile(path string) (Locker, error) {
-	fd, err := syscall.Open(path, os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR)
+	lockfilesLock.Lock()
+	defer lockfilesLock.Unlock()
+	if locker, ok := lockfiles[filepath.Clean(path)]; ok {
+		return locker, nil
+	}
+	fd, err := syscall.Open(filepath.Clean(path), os.O_RDWR|os.O_CREATE, syscall.S_IRUSR|syscall.S_IWUSR)
 	if err != nil {
 		return nil, err
 	}
-	return &lockfile{file: path, fd: uintptr(fd)}, nil
+	locker := &lockfile{file: path, fd: uintptr(fd)}
+	lockfiles[filepath.Clean(path)] = locker
+	return locker, nil
 }
 
 func (l *lockfile) Lock() {
@@ -48,6 +62,7 @@ func (l *lockfile) Lock() {
 		Len:    0,
 		Pid:    int32(os.Getpid()),
 	}
+	l.mu.Lock()
 	for syscall.FcntlFlock(l.fd, syscall.F_SETLKW, &lk) != nil {
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -64,6 +79,7 @@ func (l *lockfile) Unlock() {
 	for syscall.FcntlFlock(l.fd, syscall.F_SETLKW, &lk) != nil {
 		time.Sleep(10 * time.Millisecond)
 	}
+	l.mu.Unlock()
 }
 
 func (l *lockfile) Touch() error {
