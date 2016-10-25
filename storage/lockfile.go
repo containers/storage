@@ -42,6 +42,9 @@ var (
 func GetLockfile(path string) (Locker, error) {
 	lockfilesLock.Lock()
 	defer lockfilesLock.Unlock()
+	if lockfiles == nil {
+		lockfiles = make(map[string]*lockfile)
+	}
 	if locker, ok := lockfiles[filepath.Clean(path)]; ok {
 		return locker, nil
 	}
