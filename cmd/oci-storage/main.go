@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/containers/storage/opts"
@@ -32,27 +31,15 @@ func main() {
 		return
 	}
 
-	runRoot := "/var/run/containers"
-	graphRoot := "/var/lib/containers"
-	graphDriver := os.Getenv("STORAGE_DRIVER")
-	if graphDriver == "" {
-		graphDriver = os.Getenv("DOCKER_GRAPHDRIVER")
-	}
-	graphOptions := strings.Split(os.Getenv("STORAGE_OPTS"), ",")
-	if len(graphOptions) == 1 && graphOptions[0] == "" {
-		graphOptions = strings.Split(os.Getenv("DOCKER_STORAGE_OPTS"), ",")
-		if len(graphOptions) == 1 && graphOptions[0] == "" {
-			graphOptions = nil
-		}
-	}
+	options := storage.DefaultStoreOptions
 	debug := false
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
-		flags.StringVar(&runRoot, []string{"-run", "R"}, runRoot, "Root of the runtime state tree")
-		flags.StringVar(&graphRoot, []string{"-graph", "g"}, graphRoot, "Root of the storage tree")
-		flags.StringVar(&graphDriver, []string{"-storage-driver", "s"}, graphDriver, "Storage driver to use ($STORAGE_DRIVER)")
-		flags.Var(opts.NewListOptsRef(&graphOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
+		flags.StringVar(&options.RunRoot, []string{"-run", "R"}, options.RunRoot, "Root of the runtime state tree")
+		flags.StringVar(&options.GraphRoot, []string{"-graph", "g"}, options.GraphRoot, "Root of the storage tree")
+		flags.StringVar(&options.GraphDriverName, []string{"-storage-driver", "s"}, options.GraphDriverName, "Storage driver to use ($STORAGE_DRIVER)")
+		flags.Var(opts.NewListOptsRef(&options.GraphDriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
 		flags.BoolVar(&debug, []string{"-debug", "D"}, debug, "Print debugging information")
 		return flags
 	}
@@ -117,14 +104,14 @@ func main() {
 				}
 				if debug {
 					logrus.SetLevel(logrus.DebugLevel)
-					logrus.Debugf("runRoot: %s", runRoot)
-					logrus.Debugf("graphRoot: %s", graphRoot)
-					logrus.Debugf("graphDriver: %s", graphDriver)
-					logrus.Debugf("graphOptions: %s", graphOptions)
+					logrus.Debugf("RunRoot: %s", options.RunRoot)
+					logrus.Debugf("GraphRoot: %s", options.GraphRoot)
+					logrus.Debugf("GraphDriverName: %s", options.GraphDriverName)
+					logrus.Debugf("GraphDriverOptions: %s", options.GraphDriverOptions)
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
-				store, err := storage.MakeStore(runRoot, graphRoot, graphDriver, graphOptions, nil, nil)
+				store, err := storage.MakeStore(options)
 				if err != nil {
 					fmt.Printf("error initializing: %v\n", err)
 					os.Exit(1)

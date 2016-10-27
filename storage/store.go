@@ -34,6 +34,7 @@ var (
 	ErrLayerUsedByImage     = errors.New("layer is in use by an image")
 	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
 	ErrImageUsedByContainer = errors.New("image is in use by a container")
+	DefaultStoreOptions     StoreOptions
 )
 
 // FileBasedStore wraps up the most common methods of the various types of file-based
@@ -83,6 +84,29 @@ type FlaggableStore interface {
 
 	// SetFlag sets a named flag and its value on an item in the store.
 	SetFlag(id string, flag string, value interface{}) error
+}
+
+// StoreOptions is used for passing initialization options to MakeStore(), for
+// initializing a Store object and the underlying storage that it controls.
+type StoreOptions struct {
+	// RunRoot is the filesystem path under which we can store run-time
+	// information, such as the locations of active mount points, that we
+	// want to lose if the host is rebooted.
+	RunRoot string `json:"runroot,omitempty"`
+	// GraphRoot is the filesystem path under which we will store the
+	// contents of layers, images, and containers.
+	GraphRoot string `json:"root,omitempty"`
+	// GraphDriverName is the underlying storage driver that we'll be
+	// using.  It only needs to be specified the first time a Store is
+	// initialized for a given RunRoot and GraphRoot.
+	GraphDriverName string `json:"driver,omitempty"`
+	// GraphDriverOptions are driver-specific options.
+	GraphDriverOptions []string `json:"driver-options,omitempty"`
+	// UidMap and GidMap are used mainly for deciding on the ownership of
+	// files in layers as they're stored on disk, which is often necessary
+	// when user namespaces are being used.
+	UidMap []idtools.IDMap `json:"uidmap,omitempty"`
+	GidMap []idtools.IDMap `json:"gidmap,omitempty"`
 }
 
 // Store wraps up the various types of file-based stores that we use into a
@@ -355,44 +379,38 @@ type store struct {
 
 // MakeStore creates and initializes a new Store object, and the underlying
 // storage that it controls.
-func MakeStore(runRoot, graphRoot, graphDriverName string, graphOptions []string, uidMap, gidMap []idtools.IDMap) (Store, error) {
-	if runRoot == "" && graphRoot == "" && graphDriverName == "" && len(graphOptions) == 0 {
-		runRoot = "/var/run/containers"
-		graphRoot = "/var/lib/containers"
-		graphDriverName = os.Getenv("STORAGE_DRIVER")
-		graphOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
-		if len(graphOptions) == 1 && graphOptions[0] == "" {
-			graphOptions = nil
-		}
+func MakeStore(options StoreOptions) (Store, error) {
+	if options.RunRoot == "" && options.GraphRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
+		options = DefaultStoreOptions
 	}
-	if err := os.MkdirAll(runRoot, 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 	for _, subdir := range []string{} {
-		if err := os.MkdirAll(filepath.Join(runRoot, subdir), 0700); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(filepath.Join(options.RunRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(graphRoot, 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	for _, subdir := range []string{"mounts", "tmp", graphDriverName} {
-		if err := os.MkdirAll(filepath.Join(graphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
+	for _, subdir := range []string{"mounts", "tmp", options.GraphDriverName} {
+		if err := os.MkdirAll(filepath.Join(options.GraphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
-	graphLock, err := GetLockfile(filepath.Join(graphRoot, "storage.lock"))
+	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
 	s := &store{
-		runRoot:         runRoot,
+		runRoot:         options.RunRoot,
 		graphLock:       graphLock,
-		graphRoot:       graphRoot,
-		graphDriverName: graphDriverName,
-		graphOptions:    graphOptions,
-		uidMap:          copyIDMap(uidMap),
-		gidMap:          copyIDMap(gidMap),
+		graphRoot:       options.GraphRoot,
+		graphDriverName: options.GraphDriverName,
+		graphOptions:    options.GraphDriverOptions,
+		uidMap:          copyIDMap(options.UidMap),
+		gidMap:          copyIDMap(options.GidMap),
 	}
 	if err := s.load(); err != nil {
 		return nil, err
@@ -2045,4 +2063,14 @@ func makeBigDataBaseName(key string) string {
 		return "=" + base64.StdEncoding.EncodeToString([]byte(key))
 	}
 	return key
+}
+
+func init() {
+	DefaultStoreOptions.RunRoot = "/var/run/containers"
+	DefaultStoreOptions.GraphRoot = "/var/lib/containers"
+	DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
+	DefaultStoreOptions.GraphDriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
+	if len(DefaultStoreOptions.GraphDriverOptions) == 1 && DefaultStoreOptions.GraphDriverOptions[0] == "" {
+		DefaultStoreOptions.GraphDriverOptions = nil
+	}
 }
