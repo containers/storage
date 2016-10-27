@@ -325,11 +325,6 @@ type Store interface {
 type ContainerOptions struct {
 }
 
-// Mall is just an old name for Store.  This will be dropped at some point.
-type Mall interface {
-	Store
-}
-
 // Users holds an analysis of which layers, images, and containers depend on a
 // given layer, either directly or indirectly.  This will be removed.
 type Users struct {
@@ -2032,11 +2027,6 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		rlstore.Touch()
 	}
 	return mounted, err
-}
-
-// MakeMall was the old name of MakeStore.  It will be dropped at some point.
-func MakeMall(runRoot, graphRoot, graphDriverName string, graphOptions []string) (Mall, error) {
-	return MakeStore(runRoot, graphRoot, graphDriverName, graphOptions, nil, nil)
 }
 
 // Convert a BigData key name into an acceptable file name.
