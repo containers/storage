@@ -349,19 +349,6 @@ type Store interface {
 type ContainerOptions struct {
 }
 
-// Users holds an analysis of which layers, images, and containers depend on a
-// given layer, either directly or indirectly.  This will be removed.
-type Users struct {
-	ID                 string   `json:"id"`
-	LayerID            string   `json:"layer"`
-	LayersDirect       []string `json:"directlayers,omitempty"`
-	LayersIndirect     []string `json:"indirectlayers,omitempty"`
-	ImagesDirect       []string `json:"directimages,omitempty"`
-	ImagesIndirect     []string `json:"indirectimages,omitempty"`
-	ContainersDirect   []string `json:"directcontainers,omitempty"`
-	ContainersIndirect []string `json:"indirectcontainers,omitempty"`
-}
-
 type store struct {
 	lastLoaded      time.Time
 	runRoot         string
