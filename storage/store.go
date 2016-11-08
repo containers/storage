@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	// register all of the built-in drivers
@@ -35,6 +36,8 @@ var (
 	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
 	ErrImageUsedByContainer = errors.New("image is in use by a container")
 	DefaultStoreOptions     StoreOptions
+	stores                  []*store
+	storesLock              sync.Mutex
 )
 
 // FileBasedStore wraps up the most common methods of the various types of file-based
@@ -86,7 +89,7 @@ type FlaggableStore interface {
 	SetFlag(id string, flag string, value interface{}) error
 }
 
-// StoreOptions is used for passing initialization options to MakeStore(), for
+// StoreOptions is used for passing initialization options to GetStore(), for
 // initializing a Store object and the underlying storage that it controls.
 type StoreOptions struct {
 	// RunRoot is the filesystem path under which we can store run-time
@@ -113,7 +116,7 @@ type StoreOptions struct {
 // singleton object that initializes and manages them all together.
 type Store interface {
 	// GetRunRoot, GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve
-	// settings that were passed to MakeStore() when the object was created.
+	// settings that were passed to GetStore() when the object was created.
 	GetRunRoot() string
 	GetGraphRoot() string
 	GetGraphDriverName() string
@@ -368,12 +371,14 @@ type store struct {
 	containerStore  ContainerStore
 }
 
-// MakeStore creates and initializes a new Store object, and the underlying
-// storage that it controls.
-func MakeStore(options StoreOptions) (Store, error) {
+// GetStore attempts to find an already-created Store object matching the
+// specified location and graph driver, and if it can't, it creates and
+// initializes a new Store object, and the underlying storage that it controls.
+func GetStore(options StoreOptions) (Store, error) {
 	if options.RunRoot == "" && options.GraphRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
 		options = DefaultStoreOptions
 	}
+
 	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
@@ -390,6 +395,23 @@ func MakeStore(options StoreOptions) (Store, error) {
 			return nil, err
 		}
 	}
+
+	if options.GraphRoot != "" {
+		options.GraphRoot = filepath.Clean(options.GraphRoot)
+	}
+	if options.RunRoot != "" {
+		options.RunRoot = filepath.Clean(options.RunRoot)
+	}
+
+	storesLock.Lock()
+	defer storesLock.Unlock()
+
+	for _, s := range stores {
+		if s.graphRoot == options.GraphRoot && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
+			return s, nil
+		}
+	}
+
 	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
 	if err != nil {
 		return nil, err
@@ -406,6 +428,9 @@ func MakeStore(options StoreOptions) (Store, error) {
 	if err := s.load(); err != nil {
 		return nil, err
 	}
+
+	stores = append(stores, s)
+
 	return s, nil
 }
 
