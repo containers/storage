@@ -35,6 +35,7 @@ var (
 	ErrLayerUsedByImage     = errors.New("layer is in use by an image")
 	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
 	ErrImageUsedByContainer = errors.New("image is in use by a container")
+	ErrIncompleteOptions    = errors.New("missing necessary StoreOptions")
 	DefaultStoreOptions     StoreOptions
 	stores                  []*store
 	storesLock              sync.Mutex
@@ -379,6 +380,29 @@ func GetStore(options StoreOptions) (Store, error) {
 		options = DefaultStoreOptions
 	}
 
+	if options.GraphRoot != "" {
+		options.GraphRoot = filepath.Clean(options.GraphRoot)
+	}
+	if options.RunRoot != "" {
+		options.RunRoot = filepath.Clean(options.RunRoot)
+	}
+
+	storesLock.Lock()
+	defer storesLock.Unlock()
+
+	for _, s := range stores {
+		if s.graphRoot == options.GraphRoot && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
+			return s, nil
+		}
+	}
+
+	if options.GraphRoot == "" {
+		return nil, ErrIncompleteOptions
+	}
+	if options.RunRoot == "" {
+		return nil, ErrIncompleteOptions
+	}
+
 	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
@@ -393,22 +417,6 @@ func GetStore(options StoreOptions) (Store, error) {
 	for _, subdir := range []string{"mounts", "tmp", options.GraphDriverName} {
 		if err := os.MkdirAll(filepath.Join(options.GraphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
-		}
-	}
-
-	if options.GraphRoot != "" {
-		options.GraphRoot = filepath.Clean(options.GraphRoot)
-	}
-	if options.RunRoot != "" {
-		options.RunRoot = filepath.Clean(options.RunRoot)
-	}
-
-	storesLock.Lock()
-	defer storesLock.Unlock()
-
-	for _, s := range stores {
-		if s.graphRoot == options.GraphRoot && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
-			return s, nil
 		}
 	}
 
