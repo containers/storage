@@ -90,7 +90,7 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 		paramMetadata = string(b)
 	}
-	image, err := m.CreateImage(paramID, paramNames, args[0], paramMetadata)
+	image, err := m.CreateImage(paramID, paramNames, args[0], paramMetadata, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1

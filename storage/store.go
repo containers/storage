@@ -151,7 +151,7 @@ type Store interface {
 	// image is a record which associates the ID of a layer with a
 	// additional bookkeeping information which the library stores for the
 	// convenience of its caller.
-	CreateImage(id string, names []string, layer, metadata string) (*Image, error)
+	CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error)
 
 	// CreateContainer creates a new container, optionally with the specified ID
 	// (one will be assigned if none is specified), with optional names,
@@ -343,6 +343,10 @@ type Store interface {
 	// Version returns version information, in the form of key-value pairs, from
 	// the storage package.
 	Version() ([][2]string, error)
+}
+
+// ImageOptions is used for passing options to a Store's CreateImage() method.
+type ImageOptions struct {
 }
 
 // ContainerOptions is used for passing options to a Store's CreateContainer() method.
@@ -601,7 +605,7 @@ func (s *store) CreateLayer(id, parent string, names []string, mountLabel string
 	return s.PutLayer(id, parent, names, mountLabel, writeable, nil)
 }
 
-func (s *store) CreateImage(id string, names []string, layer, metadata string) (*Image, error) {
+func (s *store) CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error) {
 	rlstore, err := s.GetLayerStore()
 	if err != nil {
 		return nil, err
