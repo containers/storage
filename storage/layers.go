@@ -336,6 +336,11 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 	}
 	if id == "" {
 		id = stringid.GenerateRandomID()
+		_, idInUse := r.byid[id]
+		for idInUse {
+			id = stringid.GenerateRandomID()
+			_, idInUse = r.byid[id]
+		}
 	}
 	if _, idInUse := r.byid[id]; idInUse {
 		return nil, ErrDuplicateID

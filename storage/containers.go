@@ -200,6 +200,11 @@ func (r *containerStore) SetFlag(id string, flag string, value interface{}) erro
 func (r *containerStore) Create(id string, names []string, image, layer, metadata string) (container *Container, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
+		_, idInUse := r.byid[id]
+		for idInUse {
+			id = stringid.GenerateRandomID()
+			_, idInUse = r.byid[id]
+		}
 	}
 	if _, idInUse := r.byid[id]; idInUse {
 		return nil, ErrDuplicateID

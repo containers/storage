@@ -186,6 +186,11 @@ func (r *imageStore) SetFlag(id string, flag string, value interface{}) error {
 func (r *imageStore) Create(id string, names []string, layer, metadata string) (image *Image, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
+		_, idInUse := r.byid[id]
+		for idInUse {
+			id = stringid.GenerateRandomID()
+			_, idInUse = r.byid[id]
+		}
 	}
 	if _, idInUse := r.byid[id]; idInUse {
 		return nil, ErrDuplicateID
