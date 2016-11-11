@@ -178,6 +178,7 @@ func (r *layerStore) layerspath() string {
 }
 
 func (r *layerStore) Load() error {
+	needSave := false
 	rpath := r.layerspath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
@@ -192,6 +193,10 @@ func (r *layerStore) Load() error {
 		for n, layer := range layers {
 			ids[layer.ID] = &layers[n]
 			for _, name := range layer.Names {
+				if conflict, ok := names[name]; ok {
+					r.removeName(conflict, name)
+					needSave = true
+				}
 				names[name] = &layers[n]
 			}
 			if pslice, ok := parents[layer.Parent]; ok {
@@ -234,8 +239,13 @@ func (r *layerStore) Load() error {
 				if err != nil {
 					break
 				}
+				needSave = true
 			}
 		}
+	}
+	if needSave {
+		r.Touch()
+		return r.Save()
 	}
 	return err
 }

@@ -105,6 +105,7 @@ func (r *imageStore) datapath(id, key string) string {
 }
 
 func (r *imageStore) Load() error {
+	needSave := false
 	rpath := r.imagespath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
@@ -117,6 +118,10 @@ func (r *imageStore) Load() error {
 		for n, image := range images {
 			ids[image.ID] = &images[n]
 			for _, name := range image.Names {
+				if conflict, ok := names[name]; ok {
+					r.removeName(conflict, name)
+					needSave = true
+				}
 				names[name] = &images[n]
 			}
 		}
@@ -124,6 +129,10 @@ func (r *imageStore) Load() error {
 	r.images = images
 	r.byid = ids
 	r.byname = names
+	if needSave {
+		r.Touch()
+		return r.Save()
+	}
 	return nil
 }
 

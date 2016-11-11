@@ -111,6 +111,7 @@ func (r *containerStore) datapath(id, key string) string {
 }
 
 func (r *containerStore) Load() error {
+	needSave := false
 	rpath := r.containerspath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
@@ -125,6 +126,10 @@ func (r *containerStore) Load() error {
 			ids[container.ID] = &containers[n]
 			layers[container.LayerID] = &containers[n]
 			for _, name := range container.Names {
+				if conflict, ok := names[name]; ok {
+					r.removeName(conflict, name)
+					needSave = true
+				}
 				names[name] = &containers[n]
 			}
 		}
@@ -133,6 +138,10 @@ func (r *containerStore) Load() error {
 	r.byid = ids
 	r.bylayer = layers
 	r.byname = names
+	if needSave {
+		r.Touch()
+		return r.Save()
+	}
 	return nil
 }
 
