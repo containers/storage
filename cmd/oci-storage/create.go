@@ -59,7 +59,7 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			defer f.Close()
 		}
 	}
-	layer, err := m.PutLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, diffStream)
+	layer, _, err := m.PutLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, diffStream)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
