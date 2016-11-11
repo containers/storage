@@ -95,7 +95,7 @@ type LayerStore interface {
 	CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
 
 	// Put combines the functions of CreateWithFlags and ApplyDiff.
-	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, err error)
+	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (*Layer, int64, error)
 
 	// Exists checks if a layer with the specified name or ID is known.
 	Exists(id string) bool
@@ -334,12 +334,13 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, err error) {
+func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, size int64, err error) {
+	size = -1
 	if err := os.MkdirAll(r.rundir, 0700); err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	if err := os.MkdirAll(r.layerdir, 0700); err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	if parentLayer, ok := r.byname[parent]; ok {
 		parent = parentLayer.ID
@@ -353,11 +354,11 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 		}
 	}
 	if _, idInUse := r.byid[id]; idInUse {
-		return nil, ErrDuplicateID
+		return nil, -1, ErrDuplicateID
 	}
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {
-			return nil, ErrDuplicateName
+			return nil, -1, ErrDuplicateName
 		}
 	}
 	if writeable {
@@ -395,16 +396,16 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 				// We don't have a record of this layer, but at least
 				// try to clean it up underneath us.
 				r.driver.Remove(id)
-				return nil, err
+				return nil, -1, err
 			}
-			_, err = r.ApplyDiff(layer.ID, diff)
+			size, err = r.ApplyDiff(layer.ID, diff)
 			if err != nil {
 				if r.Delete(layer.ID) != nil {
 					// Either a driver error or an error saving.
 					// We now have a layer that's been marked for
 					// deletion but which we failed to remove.
 				}
-				return nil, err
+				return nil, -1, err
 			}
 			delete(layer.Flags, incompleteFlag)
 		}
@@ -413,14 +414,15 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 			// We don't have a record of this layer, but at least
 			// try to clean it up underneath us.
 			r.driver.Remove(id)
-			return nil, err
+			return nil, -1, err
 		}
 	}
-	return layer, err
+	return layer, size, err
 }
 
 func (r *layerStore) CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error) {
-	return r.Put(id, parent, names, mountLabel, options, writeable, flags, nil)
+	layer, _, err = r.Put(id, parent, names, mountLabel, options, writeable, flags, nil)
+	return layer, err
 }
 
 func (r *layerStore) Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (layer *Layer, err error) {

@@ -147,7 +147,7 @@ type Store interface {
 
 	// PutLayer combines the functions of CreateLayer and ApplyDiff, marking the
 	// layer for automatic removal if applying the diff fails for any reason.
-	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, error)
+	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, int64, error)
 
 	// CreateImage creates a new image, optionally with the specified ID
 	// (one will be assigned if none is specified), with optional names,
@@ -580,18 +580,18 @@ func (s *store) GetContainerStore() (ContainerStore, error) {
 	return nil, ErrLoadError
 }
 
-func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, error) {
+func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, int64, error) {
 	rlstore, err := s.GetLayerStore()
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	ristore, err := s.GetImageStore()
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	rcstore, err := s.GetContainerStore()
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 
 	rlstore.Lock()
@@ -619,15 +619,15 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 		if l, err := rlstore.Get(parent); err == nil && l != nil {
 			parent = l.ID
 		} else {
-			return nil, ErrLayerUnknown
+			return nil, -1, ErrLayerUnknown
 		}
 		containers, err := rcstore.Containers()
 		if err != nil {
-			return nil, err
+			return nil, -1, err
 		}
 		for _, container := range containers {
 			if container.LayerID == parent {
-				return nil, ErrParentIsContainer
+				return nil, -1, ErrParentIsContainer
 			}
 		}
 	}
@@ -635,7 +635,8 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 }
 
 func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool) (*Layer, error) {
-	return s.PutLayer(id, parent, names, mountLabel, writeable, nil)
+	layer, _, err := s.PutLayer(id, parent, names, mountLabel, writeable, nil)
+	return layer, err
 }
 
 func (s *store) CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error) {
