@@ -709,6 +709,8 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 	if cflag, ok := r.byid[to].Flags[compressionFlag]; ok {
 		if ctype, ok := cflag.(float64); ok {
 			compression = archive.Compression(ctype)
+		} else if ctype, ok := cflag.(archive.Compression); ok {
+			compression = archive.Compression(ctype)
 		}
 	}
 	if from != r.byid[to].Parent {
