@@ -41,6 +41,10 @@ type Image struct {
 	// memory when being read from or written to disk.
 	BigDataNames []string `json:"big-data-names,omitempty"`
 
+	// BigDataSizes maps the names in BigDataNames to the sizes of the data
+	// that has been stored, if they're known.
+	BigDataSizes map[string]int64 `json:"big-data-sizes,omitempty"`
+
 	Flags map[string]interface{} `json:"flags,omitempty"`
 }
 
@@ -216,6 +220,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 			TopLayer:     layer,
 			Metadata:     metadata,
 			BigDataNames: []string{},
+			BigDataSizes: make(map[string]int64),
 			Flags:        make(map[string]interface{}),
 		}
 		r.images = append(r.images, newImage)
@@ -350,6 +355,19 @@ func (r *imageStore) GetBigData(id, key string) ([]byte, error) {
 	return ioutil.ReadFile(r.datapath(id, key))
 }
 
+func (r *imageStore) GetBigDataSize(id, key string) (int64, error) {
+	if img, ok := r.byname[id]; ok {
+		id = img.ID
+	}
+	if _, ok := r.byid[id]; !ok {
+		return -1, ErrImageUnknown
+	}
+	if size, ok := r.byid[id].BigDataSizes[key]; ok {
+		return size, nil
+	}
+	return -1, ErrSizeUnknown
+}
+
 func (r *imageStore) GetBigDataNames(id string) ([]string, error) {
 	if img, ok := r.byname[id]; ok {
 		id = img.ID
@@ -373,6 +391,12 @@ func (r *imageStore) SetBigData(id, key string, data []byte) error {
 	err := ioutils.AtomicWriteFile(r.datapath(id, key), data, 0600)
 	if err == nil {
 		add := true
+		save := false
+		oldSize, ok := r.byid[id].BigDataSizes[key]
+		r.byid[id].BigDataSizes[key] = int64(len(data))
+		if !ok || oldSize != r.byid[id].BigDataSizes[key] {
+			save = true
+		}
 		for _, name := range r.byid[id].BigDataNames {
 			if name == key {
 				add = false
@@ -381,6 +405,9 @@ func (r *imageStore) SetBigData(id, key string, data []byte) error {
 		}
 		if add {
 			r.byid[id].BigDataNames = append(r.byid[id].BigDataNames, key)
+			save = true
+		}
+		if save {
 			err = r.Save()
 		}
 	}

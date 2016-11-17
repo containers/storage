@@ -36,6 +36,7 @@ var (
 	ErrLayerUsedByContainer = errors.New("layer is in use by a container")
 	ErrImageUsedByContainer = errors.New("image is in use by a container")
 	ErrIncompleteOptions    = errors.New("missing necessary StoreOptions")
+	ErrSizeUnknown          = errors.New("size is not known")
 	DefaultStoreOptions     StoreOptions
 	stores                  []*store
 	storesLock              sync.Mutex
@@ -75,6 +76,10 @@ type BigDataStore interface {
 	// GetBigData retrieves a (potentially large) piece of data associated with
 	// this ID, if it has previously been set.
 	GetBigData(id, key string) ([]byte, error)
+
+	// GetBigDataSize retrieves the size of a (potentially large) piece of
+	// data associated with this ID, if it has previously been set.
+	GetBigDataSize(id, key string) (int64, error)
 
 	// GetBigDataNames() returns a list of the names of previously-stored pieces of
 	// data.
@@ -267,6 +272,10 @@ type Store interface {
 	// with an image.
 	GetImageBigData(id, key string) ([]byte, error)
 
+	// GetImageBigDataSize retrieves the size of a (possibly large) chunk
+	// of named data associated with an image.
+	GetImageBigDataSize(id, key string) (int64, error)
+
 	// SetImageBigData stores a (possibly large) chunk of named data associated
 	// with an image.
 	SetImageBigData(id, key string, data []byte) error
@@ -276,11 +285,15 @@ type Store interface {
 	ListContainerBigData(id string) ([]string, error)
 
 	// GetContainerBigData retrieves a (possibly large) chunk of named data
-	// associated with an image.
+	// associated with a container.
 	GetContainerBigData(id, key string) ([]byte, error)
 
-	// SetContainerBigData stores a (possibly large) chunk of named data associated
-	// with an image.
+	// GetContainerBigDataSize retrieves the size of a (possibly large)
+	// chunk of named data associated with a container.
+	GetContainerBigDataSize(id, key string) (int64, error)
+
+	// SetContainerBigData stores a (possibly large) chunk of named data
+	// associated with a container.
 	SetContainerBigData(id, key string, data []byte) error
 
 	// GetLayer returns a specific layer.
@@ -851,6 +864,30 @@ func (s *store) ListImageBigData(id string) ([]string, error) {
 	return ristore.GetBigDataNames(id)
 }
 
+func (s *store) GetImageBigDataSize(id, key string) (int64, error) {
+	rlstore, err := s.GetLayerStore()
+	if err != nil {
+		return -1, err
+	}
+	ristore, err := s.GetImageStore()
+	if err != nil {
+		return -1, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+
+	return ristore.GetBigDataSize(id, key)
+}
+
 func (s *store) GetImageBigData(id, key string) ([]byte, error) {
 	rlstore, err := s.GetLayerStore()
 	if err != nil {
@@ -930,6 +967,39 @@ func (s *store) ListContainerBigData(id string) ([]string, error) {
 	}
 
 	return rcstore.GetBigDataNames(id)
+}
+
+func (s *store) GetContainerBigDataSize(id, key string) (int64, error) {
+	rlstore, err := s.GetLayerStore()
+	if err != nil {
+		return -1, err
+	}
+	ristore, err := s.GetImageStore()
+	if err != nil {
+		return -1, err
+	}
+	rcstore, err := s.GetContainerStore()
+	if err != nil {
+		return -1, err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	ristore.Lock()
+	defer ristore.Unlock()
+	if modified, err := ristore.Modified(); modified || err != nil {
+		ristore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	return rcstore.GetBigDataSize(id, key)
 }
 
 func (s *store) GetContainerBigData(id, key string) ([]byte, error) {
