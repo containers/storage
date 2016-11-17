@@ -55,7 +55,7 @@ func GetLockfile(path string) (Locker, error) {
 	if err != nil {
 		return nil, err
 	}
-	locker := &lockfile{file: path, fd: uintptr(fd)}
+	locker := &lockfile{file: path, fd: uintptr(fd), me: stringid.GenerateRandomID()}
 	lockfiles[filepath.Clean(path)] = locker
 	return locker, nil
 }
