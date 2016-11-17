@@ -185,7 +185,7 @@ func (r *containerStore) ClearFlag(id string, flag string) error {
 		id = container.ID
 	}
 	if _, ok := r.byid[id]; !ok {
-		return ErrImageUnknown
+		return ErrContainerUnknown
 	}
 	container := r.byid[id]
 	delete(container.Flags, flag)
@@ -199,7 +199,7 @@ func (r *containerStore) SetFlag(id string, flag string, value interface{}) erro
 		id = container.ID
 	}
 	if _, ok := r.byid[id]; !ok {
-		return ErrImageUnknown
+		return ErrContainerUnknown
 	}
 	container := r.byid[id]
 	container.Flags[flag] = value
@@ -375,7 +375,7 @@ func (r *containerStore) GetBigData(id, key string) ([]byte, error) {
 		id = img.ID
 	}
 	if _, ok := r.byid[id]; !ok {
-		return nil, ErrImageUnknown
+		return nil, ErrContainerUnknown
 	}
 	return ioutil.ReadFile(r.datapath(id, key))
 }
@@ -385,7 +385,7 @@ func (r *containerStore) GetBigDataNames(id string) ([]string, error) {
 		id = img.ID
 	}
 	if _, ok := r.byid[id]; !ok {
-		return nil, ErrImageUnknown
+		return nil, ErrContainerUnknown
 	}
 	return r.byid[id].BigDataNames, nil
 }
@@ -395,7 +395,7 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 		id = img.ID
 	}
 	if _, ok := r.byid[id]; !ok {
-		return ErrImageUnknown
+		return ErrContainerUnknown
 	}
 	if err := os.MkdirAll(r.datadir(id), 0700); err != nil {
 		return err
