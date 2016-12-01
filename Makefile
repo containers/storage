@@ -5,6 +5,7 @@ DRIVER := $(if $(STORAGE_DRIVER),$(STORAGE_DRIVER),$(if $(DOCKER_GRAPHDRIVER),DO
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
+SYSTEM_GOPATH := ${GOPATH}
 
 RUNINVM := vagrant/runinvm.sh
 
@@ -49,6 +50,35 @@ test-unit: build ## run the unit tests using VMs
 
 validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor\nusing VMs
 	$(RUNINVM) hack/make.sh validate-dco validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet validate-vendor
+
+lint:
+	@which gometalinter > /dev/null 2>/dev/null || (echo "ERROR: gometalinter not found. Consider 'make install.tools' target" && false)
+	@echo "checking lint"
+	@./.tool/lint
+
+.PHONY: .gitvalidation
+# When this is running in travis, it will only check the travis commit range
+.gitvalidation:
+	@which git-validation > /dev/null 2>/dev/null || (echo "ERROR: git-validation not found. Consider 'make install.tools' target" && false)
+ifeq ($(TRAVIS),true)
+	git-validation -q -run DCO,short-subject
+else
+	git-validation -v -run DCO,short-subject -range $(EPOCH_TEST_COMMIT)..HEAD
+endif
+
+.PHONY: install.tools
+
+install.tools: .install.gitvalidation .install.gometalinter .install.md2man
+
+.install.gitvalidation:
+	GOPATH=${SYSTEM_GOPATH} go get github.com/vbatts/git-validation
+
+.install.gometalinter:
+	GOPATH=${SYSTEM_GOPATH} go get github.com/alecthomas/gometalinter
+	GOPATH=${SYSTEM_GOPATH} gometalinter --install
+
+.install.md2man:
+	GOPATH=${SYSTEM_GOPATH} go get github.com/cpuguy83/go-md2man
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-z A-Z_-]+:.*?## / {gsub(" ",",",$$1);gsub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-21s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
