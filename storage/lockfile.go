@@ -16,12 +16,12 @@ import (
 type Locker interface {
 	sync.Locker
 
-	// Touch records, for others sharing the lock, that it was updated by the
-	// caller.  It should only be called with the lock held.
+	// Touch records, for others sharing the lock, that the caller was the
+	// last writer.  It should only be called with the lock held.
 	Touch() error
 
 	// Modified() checks if the most recent writer was a party other than the
-	// caller.  It should only be called with the lock held.
+	// last recorded writer.  It should only be called with the lock held.
 	Modified() (bool, error)
 
 	// TouchedSince() checks if the most recent writer modified the file (likely using Touch()) after the specified time.
@@ -32,7 +32,7 @@ type lockfile struct {
 	mu   sync.Mutex
 	file string
 	fd   uintptr
-	me   string
+	lw   string
 }
 
 var (
@@ -55,7 +55,7 @@ func GetLockfile(path string) (Locker, error) {
 	if err != nil {
 		return nil, err
 	}
-	locker := &lockfile{file: path, fd: uintptr(fd), me: stringid.GenerateRandomID()}
+	locker := &lockfile{file: path, fd: uintptr(fd), lw: stringid.GenerateRandomID()}
 	lockfiles[filepath.Clean(path)] = locker
 	return locker, nil
 }
@@ -89,8 +89,8 @@ func (l *lockfile) Unlock() {
 }
 
 func (l *lockfile) Touch() error {
-	l.me = stringid.GenerateRandomID()
-	id := []byte(l.me)
+	l.lw = stringid.GenerateRandomID()
+	id := []byte(l.lw)
 	_, err := syscall.Seek(int(l.fd), 0, os.SEEK_SET)
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func (l *lockfile) Touch() error {
 }
 
 func (l *lockfile) Modified() (bool, error) {
-	id := []byte(l.me)
+	id := []byte(l.lw)
 	_, err := syscall.Seek(int(l.fd), 0, os.SEEK_SET)
 	if err != nil {
 		return true, err
@@ -122,7 +122,9 @@ func (l *lockfile) Modified() (bool, error) {
 	if n != len(id) {
 		return true, syscall.ENOSPC
 	}
-	return string(id) != l.me, nil
+	lw := l.lw
+	l.lw = string(id)
+	return l.lw != lw, nil
 }
 
 func (l *lockfile) TouchedSince(when time.Time) bool {
