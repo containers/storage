@@ -9,7 +9,7 @@ func matchesNameOrID(filter, ID string, names []string) bool {
 		return true
 	}
 	for _, name := range names {
-		if filter == "" || filter == name {
+		if filter == name {
 			return true
 		}
 	}
