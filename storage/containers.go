@@ -10,6 +10,7 @@ import (
 
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/containers/storage/pkg/truncindex"
 )
 
 var (
@@ -93,6 +94,7 @@ type containerStore struct {
 	lockfile   Locker
 	dir        string
 	containers []Container
+	idindex    *truncindex.TruncIndex
 	byid       map[string]*Container
 	bylayer    map[string]*Container
 	byname     map[string]*Container
@@ -123,10 +125,12 @@ func (r *containerStore) Load() error {
 	}
 	containers := []Container{}
 	layers := make(map[string]*Container)
+	idlist := []string{}
 	ids := make(map[string]*Container)
 	names := make(map[string]*Container)
 	if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
 		for n, container := range containers {
+			idlist = append(idlist, container.ID)
 			ids[container.ID] = &containers[n]
 			layers[container.LayerID] = &containers[n]
 			for _, name := range container.Names {
@@ -139,6 +143,7 @@ func (r *containerStore) Load() error {
 		}
 	}
 	r.containers = containers
+	r.idindex = truncindex.NewTruncIndex(idlist)
 	r.byid = ids
 	r.bylayer = layers
 	r.byname = names
@@ -185,6 +190,8 @@ func newContainerStore(dir string) (ContainerStore, error) {
 func (r *containerStore) ClearFlag(id string, flag string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
@@ -199,6 +206,8 @@ func (r *containerStore) ClearFlag(id string, flag string) error {
 func (r *containerStore) SetFlag(id string, flag string, value interface{}) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
@@ -241,6 +250,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 		r.containers = append(r.containers, newContainer)
 		container = &r.containers[len(r.containers)-1]
 		r.byid[id] = container
+		r.idindex.Add(id)
 		r.bylayer[layer] = container
 		for _, name := range names {
 			r.byname[name] = container
@@ -253,6 +263,8 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 func (r *containerStore) GetMetadata(id string) (string, error) {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
@@ -265,6 +277,8 @@ func (r *containerStore) GetMetadata(id string) (string, error) {
 func (r *containerStore) SetMetadata(id, metadata string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
@@ -288,6 +302,8 @@ func (r *containerStore) removeName(container *Container, name string) {
 func (r *containerStore) SetNames(id string, names []string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
@@ -310,6 +326,8 @@ func (r *containerStore) SetNames(id string, names []string) error {
 func (r *containerStore) Delete(id string) error {
 	if container, ok := r.byname[id]; ok {
 		id = container.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if container, ok := r.bylayer[id]; ok {
 		id = container.ID
 	}
@@ -324,6 +342,7 @@ func (r *containerStore) Delete(id string) error {
 			}
 		}
 		delete(r.byid, container.ID)
+		r.idindex.Delete(container.ID)
 		delete(r.bylayer, container.LayerID)
 		for _, name := range container.Names {
 			delete(r.byname, name)
@@ -342,6 +361,8 @@ func (r *containerStore) Delete(id string) error {
 func (r *containerStore) Get(id string) (*Container, error) {
 	if c, ok := r.byname[id]; ok {
 		return c, nil
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	} else if c, ok := r.bylayer[id]; ok {
 		return c, nil
 	}
@@ -368,16 +389,21 @@ func (r *containerStore) Exists(id string) bool {
 	}
 	if _, ok := r.bylayer[id]; ok {
 		return true
-	}
-	if _, ok := r.byid[id]; ok {
-		return true
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		if _, ok := r.byid[longid]; ok {
+			return true
+		}
 	}
 	return false
 }
 
 func (r *containerStore) GetBigData(id, key string) ([]byte, error) {
-	if img, ok := r.byname[id]; ok {
-		id = img.ID
+	if c, ok := r.byname[id]; ok {
+		id = c.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
+	} else if c, ok := r.bylayer[id]; ok {
+		id = c.ID
 	}
 	if _, ok := r.byid[id]; !ok {
 		return nil, ErrContainerUnknown
@@ -386,8 +412,12 @@ func (r *containerStore) GetBigData(id, key string) ([]byte, error) {
 }
 
 func (r *containerStore) GetBigDataSize(id, key string) (int64, error) {
-	if img, ok := r.byname[id]; ok {
-		id = img.ID
+	if c, ok := r.byname[id]; ok {
+		id = c.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
+	} else if c, ok := r.bylayer[id]; ok {
+		id = c.ID
 	}
 	if _, ok := r.byid[id]; !ok {
 		return -1, ErrContainerUnknown
@@ -399,8 +429,12 @@ func (r *containerStore) GetBigDataSize(id, key string) (int64, error) {
 }
 
 func (r *containerStore) GetBigDataNames(id string) ([]string, error) {
-	if img, ok := r.byname[id]; ok {
-		id = img.ID
+	if c, ok := r.byname[id]; ok {
+		id = c.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
+	} else if c, ok := r.bylayer[id]; ok {
+		id = c.ID
 	}
 	if _, ok := r.byid[id]; !ok {
 		return nil, ErrContainerUnknown
@@ -409,8 +443,12 @@ func (r *containerStore) GetBigDataNames(id string) ([]string, error) {
 }
 
 func (r *containerStore) SetBigData(id, key string, data []byte) error {
-	if img, ok := r.byname[id]; ok {
-		id = img.ID
+	if c, ok := r.byname[id]; ok {
+		id = c.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
+	} else if c, ok := r.bylayer[id]; ok {
+		id = c.ID
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrContainerUnknown

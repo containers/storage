@@ -15,6 +15,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/containers/storage/pkg/truncindex"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
 )
@@ -159,6 +160,7 @@ type layerStore struct {
 	driver   drivers.Driver
 	layerdir string
 	layers   []Layer
+	idindex  *truncindex.TruncIndex
 	byid     map[string]*Layer
 	byname   map[string]*Layer
 	byparent map[string][]*Layer
@@ -185,6 +187,7 @@ func (r *layerStore) Load() error {
 		return err
 	}
 	layers := []Layer{}
+	idlist := []string{}
 	ids := make(map[string]*Layer)
 	names := make(map[string]*Layer)
 	mounts := make(map[string]*Layer)
@@ -192,6 +195,7 @@ func (r *layerStore) Load() error {
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 		for n, layer := range layers {
 			ids[layer.ID] = &layers[n]
+			idlist = append(idlist, layer.ID)
 			for _, name := range layer.Names {
 				if conflict, ok := names[name]; ok {
 					r.removeName(conflict, name)
@@ -224,6 +228,7 @@ func (r *layerStore) Load() error {
 		}
 	}
 	r.layers = layers
+	r.idindex = truncindex.NewTruncIndex(idlist)
 	r.byid = ids
 	r.byname = names
 	r.byparent = parents
@@ -309,6 +314,8 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver) (Layer
 func (r *layerStore) ClearFlag(id string, flag string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrLayerUnknown
@@ -321,6 +328,8 @@ func (r *layerStore) ClearFlag(id string, flag string) error {
 func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrLayerUnknown
@@ -344,6 +353,8 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 	}
 	if parentLayer, ok := r.byname[parent]; ok {
 		parent = parentLayer.ID
+	} else if longparent, err := r.idindex.Get(parent); err == nil {
+		parent = longparent
 	}
 	if id == "" {
 		id = stringid.GenerateRandomID()
@@ -376,6 +387,7 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 		}
 		r.layers = append(r.layers, newLayer)
 		layer = &r.layers[len(r.layers)-1]
+		r.idindex.Add(id)
 		r.byid[id] = layer
 		for _, name := range names {
 			r.byname[name] = layer
@@ -432,6 +444,8 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return "", ErrLayerUnknown
@@ -467,6 +481,8 @@ func (r *layerStore) Unmount(id string) error {
 	}
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrLayerUnknown
@@ -501,6 +517,8 @@ func (r *layerStore) removeName(layer *Layer, name string) {
 func (r *layerStore) SetNames(id string, names []string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if layer, ok := r.byid[id]; ok {
 		for _, name := range layer.Names {
@@ -521,6 +539,8 @@ func (r *layerStore) SetNames(id string, names []string) error {
 func (r *layerStore) GetMetadata(id string) (string, error) {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if layer, ok := r.byid[id]; ok {
 		return layer.Metadata, nil
@@ -531,6 +551,8 @@ func (r *layerStore) GetMetadata(id string) (string, error) {
 func (r *layerStore) SetMetadata(id, metadata string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if layer, ok := r.byid[id]; ok {
 		layer.Metadata = metadata
@@ -546,6 +568,8 @@ func (r *layerStore) tspath(id string) string {
 func (r *layerStore) Delete(id string) error {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrLayerUnknown
@@ -567,6 +591,7 @@ func (r *layerStore) Delete(id string) error {
 				}
 			}
 			delete(r.byid, layer.ID)
+			r.idindex.Delete(layer.ID)
 			if len(newPslice) > 0 {
 				r.byparent[layer.Parent] = newPslice
 			} else {
@@ -596,6 +621,9 @@ func (r *layerStore) Delete(id string) error {
 func (r *layerStore) Lookup(name string) (id string, err error) {
 	layer, ok := r.byname[name]
 	if !ok {
+		if longid, err := r.idindex.Get(name); err == nil {
+			name = longid
+		}
 		layer, ok = r.byid[name]
 		if !ok {
 			return "", ErrLayerUnknown
@@ -607,6 +635,8 @@ func (r *layerStore) Lookup(name string) (id string, err error) {
 func (r *layerStore) Exists(id string) bool {
 	if layer, ok := r.byname[id]; ok {
 		id = layer.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	l, exists := r.byid[id]
 	return l != nil && exists
@@ -615,6 +645,8 @@ func (r *layerStore) Exists(id string) bool {
 func (r *layerStore) Get(id string) (*Layer, error) {
 	if l, ok := r.byname[id]; ok {
 		return l, nil
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if l, ok := r.byid[id]; ok {
 		return l, nil
@@ -638,9 +670,13 @@ func (r *layerStore) Wipe() error {
 func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
+	} else if longfrom, err := r.idindex.Get(from); err == nil {
+		from = longfrom
 	}
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
+	} else if longto, err := r.idindex.Get(to); err == nil {
+		to = longto
 	}
 	if from == "" {
 		if layer, ok := r.byid[to]; ok {
@@ -690,9 +726,13 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
+	} else if longfrom, err := r.idindex.Get(from); err == nil {
+		from = longfrom
 	}
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
+	} else if longto, err := r.idindex.Get(to); err == nil {
+		to = longto
 	}
 	if from == "" {
 		if layer, ok := r.byid[to]; ok {
@@ -793,9 +833,13 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	if layer, ok := r.byname[from]; ok {
 		from = layer.ID
+	} else if longfrom, err := r.idindex.Get(from); err == nil {
+		from = longfrom
 	}
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
+	} else if longto, err := r.idindex.Get(to); err == nil {
+		to = longto
 	}
 	if from == "" {
 		if layer, ok := r.byid[to]; ok {
@@ -814,6 +858,8 @@ func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err error) {
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
+	} else if longto, err := r.idindex.Get(to); err == nil {
+		to = longto
 	}
 	layer, ok := r.byid[to]
 	if !ok {

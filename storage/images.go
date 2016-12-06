@@ -10,6 +10,7 @@ import (
 
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/containers/storage/pkg/truncindex"
 )
 
 var (
@@ -88,6 +89,7 @@ type imageStore struct {
 	lockfile Locker
 	dir      string
 	images   []Image
+	idindex  *truncindex.TruncIndex
 	byid     map[string]*Image
 	byname   map[string]*Image
 }
@@ -116,11 +118,13 @@ func (r *imageStore) Load() error {
 		return err
 	}
 	images := []Image{}
+	idlist := []string{}
 	ids := make(map[string]*Image)
 	names := make(map[string]*Image)
 	if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
 		for n, image := range images {
 			ids[image.ID] = &images[n]
+			idlist = append(idlist, image.ID)
 			for _, name := range image.Names {
 				if conflict, ok := names[name]; ok {
 					r.removeName(conflict, name)
@@ -131,6 +135,7 @@ func (r *imageStore) Load() error {
 		}
 	}
 	r.images = images
+	r.idindex = truncindex.NewTruncIndex(idlist)
 	r.byid = ids
 	r.byname = names
 	if needSave {
@@ -175,6 +180,8 @@ func newImageStore(dir string) (ImageStore, error) {
 func (r *imageStore) ClearFlag(id string, flag string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrImageUnknown
@@ -187,6 +194,8 @@ func (r *imageStore) ClearFlag(id string, flag string) error {
 func (r *imageStore) SetFlag(id string, flag string, value interface{}) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrImageUnknown
@@ -225,6 +234,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 		}
 		r.images = append(r.images, newImage)
 		image = &r.images[len(r.images)-1]
+		r.idindex.Add(id)
 		r.byid[id] = image
 		for _, name := range names {
 			r.byname[name] = image
@@ -237,6 +247,8 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 func (r *imageStore) GetMetadata(id string) (string, error) {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if image, ok := r.byid[id]; ok {
 		return image.Metadata, nil
@@ -247,6 +259,8 @@ func (r *imageStore) GetMetadata(id string) (string, error) {
 func (r *imageStore) SetMetadata(id, metadata string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if image, ok := r.byid[id]; ok {
 		image.Metadata = metadata
@@ -268,6 +282,8 @@ func (r *imageStore) removeName(image *Image, name string) {
 func (r *imageStore) SetNames(id string, names []string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if image, ok := r.byid[id]; ok {
 		for _, name := range image.Names {
@@ -288,6 +304,8 @@ func (r *imageStore) SetNames(id string, names []string) error {
 func (r *imageStore) Delete(id string) error {
 	if image, ok := r.byname[id]; ok {
 		id = image.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrImageUnknown
@@ -300,6 +318,7 @@ func (r *imageStore) Delete(id string) error {
 			}
 		}
 		delete(r.byid, image.ID)
+		r.idindex.Delete(image.ID)
 		for _, name := range image.Names {
 			delete(r.byname, name)
 		}
@@ -317,6 +336,8 @@ func (r *imageStore) Delete(id string) error {
 func (r *imageStore) Get(id string) (*Image, error) {
 	if image, ok := r.byname[id]; ok {
 		return image, nil
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if image, ok := r.byid[id]; ok {
 		return image, nil
@@ -338,6 +359,8 @@ func (r *imageStore) Lookup(name string) (id string, err error) {
 func (r *imageStore) Exists(id string) bool {
 	if _, ok := r.byname[id]; ok {
 		return true
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; ok {
 		return true
@@ -348,6 +371,8 @@ func (r *imageStore) Exists(id string) bool {
 func (r *imageStore) GetBigData(id, key string) ([]byte, error) {
 	if img, ok := r.byname[id]; ok {
 		id = img.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return nil, ErrImageUnknown
@@ -358,6 +383,8 @@ func (r *imageStore) GetBigData(id, key string) ([]byte, error) {
 func (r *imageStore) GetBigDataSize(id, key string) (int64, error) {
 	if img, ok := r.byname[id]; ok {
 		id = img.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return -1, ErrImageUnknown
@@ -371,6 +398,8 @@ func (r *imageStore) GetBigDataSize(id, key string) (int64, error) {
 func (r *imageStore) GetBigDataNames(id string) ([]string, error) {
 	if img, ok := r.byname[id]; ok {
 		id = img.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return nil, ErrImageUnknown
@@ -381,6 +410,8 @@ func (r *imageStore) GetBigDataNames(id string) ([]string, error) {
 func (r *imageStore) SetBigData(id, key string, data []byte) error {
 	if img, ok := r.byname[id]; ok {
 		id = img.ID
+	} else if longid, err := r.idindex.Get(id); err == nil {
+		id = longid
 	}
 	if _, ok := r.byid[id]; !ok {
 		return ErrImageUnknown
