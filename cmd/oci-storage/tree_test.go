@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestTree(*testing.T) {
-	nodes := []TreeNode{
+	nodes := []treeNode{
 		{"F", "H", []string{}},
 		{"F", "I", []string{}},
 		{"F", "J", []string{}},
@@ -21,5 +21,5 @@ func TestTree(*testing.T) {
 		{"Y", "Z", []string{}},
 		{"X", "Y", []string{}},
 	}
-	PrintTree(nodes)
+	printTree(nodes)
 }
