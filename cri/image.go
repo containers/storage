@@ -40,21 +40,25 @@ type ImageServer interface {
 }
 
 func (svc *imageService) ListImages(ctx context.Context, filter string) ([]ImageResult, error) {
-	images, err := svc.store.Images()
-	if err != nil {
-		return nil, err
-	}
 	results := []ImageResult{}
-	for _, image := range images {
-		if filter != "" {
-			if !matchesNameOrID(filter, image.ID, image.Names) {
-				continue
-			}
+	if filter != "" {
+		if image, err := svc.store.GetImage(filter); err == nil {
+			results = append(results, ImageResult{
+				ID:    image.ID,
+				Names: image.Names,
+			})
 		}
-		results = append(results, ImageResult{
-			ID:    image.ID,
-			Names: image.Names,
-		})
+	} else {
+		images, err := svc.store.Images()
+		if err != nil {
+			return nil, err
+		}
+		for _, image := range images {
+			results = append(results, ImageResult{
+				ID:    image.ID,
+				Names: image.Names,
+			})
+		}
 	}
 	return results, nil
 }
