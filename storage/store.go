@@ -2170,6 +2170,17 @@ func makeBigDataBaseName(key string) string {
 	return key
 }
 
+func stringSliceWithoutValue(slice []string, value string) []string {
+	modified := []string{}
+	for _, v := range slice {
+		if v == value {
+			continue
+		}
+		modified = append(modified, v)
+	}
+	return modified
+}
+
 func init() {
 	DefaultStoreOptions.RunRoot = "/var/run/containers"
 	DefaultStoreOptions.GraphRoot = "/var/lib/containers"
