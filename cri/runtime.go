@@ -9,7 +9,6 @@ import (
 	istorage "github.com/containers/image/storage"
 	"github.com/containers/image/transports"
 	"github.com/containers/storage/storage"
-	"golang.org/x/net/context"
 )
 
 var (
@@ -62,7 +61,7 @@ type RuntimeServer interface {
 	// The metadata structure should have its PodName and PodID specified.
 	// The metadata structure should have at least either its ImageName or ImageID specified.
 	// The metadata structure should have its ContainerName and MetadataName specified.
-	CreatePodSandbox(ctx context.Context, metadata RuntimeContainerMetadata) (ContainerInfo, error)
+	CreatePodSandbox(metadata RuntimeContainerMetadata) (ContainerInfo, error)
 	// RemovePodSandbox deletes a pod sandbox's infrastructure container.
 	// The CRI expects that a sandbox can't be removed unless its only
 	// container is its infrastructure container, but we don't enforce that
@@ -78,7 +77,7 @@ type RuntimeServer interface {
 	// The metadata structure should have its PodName and PodID specified.
 	// The metadata structure should have at least either its ImageName or ImageID specified.
 	// The metadata structure should have its ContainerName and MetadataName specified.
-	CreateContainer(ctx context.Context, metadata RuntimeContainerMetadata, containerID string) (ContainerInfo, error)
+	CreateContainer(metadata RuntimeContainerMetadata, containerID string) (ContainerInfo, error)
 	// DeleteContainer deletes a container, unmounting it first if need be.
 	DeleteContainer(idOrName string) error
 
@@ -138,7 +137,7 @@ func (metadata *RuntimeContainerMetadata) SetMountLabel(mountLabel string) {
 	metadata.MountLabel = mountLabel
 }
 
-func (r *runtimeService) createContainerOrPodSandbox(ctx context.Context, metadata RuntimeContainerMetadata, containerID string) (ContainerInfo, error) {
+func (r *runtimeService) createContainerOrPodSandbox(metadata RuntimeContainerMetadata, containerID string) (ContainerInfo, error) {
 	if metadata.PodName == "" || metadata.PodID == "" {
 		return ContainerInfo{}, ErrInvalidPodName
 	}
@@ -186,7 +185,7 @@ func (r *runtimeService) createContainerOrPodSandbox(ctx context.Context, metada
 			return ContainerInfo{}, ErrInvalidImageName
 		}
 		logrus.Debugf("couldn't find image %q, retrieving it", image)
-		ref, err := r.image.PullImage(ctx, image)
+		ref, err := r.image.PullImage(image)
 		if err != nil {
 			return ContainerInfo{}, err
 		}
@@ -202,19 +201,6 @@ func (r *runtimeService) createContainerOrPodSandbox(ctx context.Context, metada
 		metadata.ImageName = img.Names[0]
 	}
 	metadata.ImageID = img.ID
-
-	// For now, we have a default cleanup function.
-	cleanup := func(container *storage.Container) {
-		if err2 := r.image.GetStore().DeleteContainer(container.ID); err2 != nil {
-			if metadata.Pod {
-				logrus.Infof("%v deleting partially-created pod sandbox %q", err2, container.ID)
-			} else {
-				logrus.Infof("%v deleting partially-created container %q", err2, container.ID)
-			}
-			return
-		}
-		logrus.Infof("deleted partially-created container %q", container.ID)
-	}
 
 	// Build metadata to store with the container.
 	mdata, err := json.Marshal(&metadata)
@@ -242,25 +228,38 @@ func (r *runtimeService) createContainerOrPodSandbox(ctx context.Context, metada
 		logrus.Debugf("created container %q", container.ID)
 	}
 
+	// If anything fails after this point, we need to delete the incomplete
+	// container before returning.
+	defer func() {
+		if err != nil {
+			if err2 := r.image.GetStore().DeleteContainer(container.ID); err2 != nil {
+				if metadata.Pod {
+					logrus.Infof("%v deleting partially-created pod sandbox %q", err2, container.ID)
+				} else {
+					logrus.Infof("%v deleting partially-created container %q", err2, container.ID)
+				}
+				return
+			}
+			logrus.Infof("deleted partially-created container %q", container.ID)
+		}
+	}()
+
 	// Add a name to the container's layer so that it's easier to follow
 	// what's going on if we're just looking at the storage-eye view of things.
 	layerName := metadata.ContainerName + "-layer"
 	names, err = r.image.GetStore().GetNames(container.LayerID)
 	if err != nil {
-		cleanup(container)
 		return ContainerInfo{}, err
 	}
 	names = append(names, layerName)
 	err = r.image.GetStore().SetNames(container.LayerID, names)
 	if err != nil {
-		cleanup(container)
 		return ContainerInfo{}, err
 	}
 
 	// Find out where the container work directories are, so that we can return them.
 	containerDir, err := r.image.GetStore().GetContainerDirectory(container.ID)
 	if err != nil {
-		cleanup(container)
 		return ContainerInfo{}, err
 	}
 	if metadata.Pod {
@@ -271,7 +270,6 @@ func (r *runtimeService) createContainerOrPodSandbox(ctx context.Context, metada
 
 	containerRunDir, err := r.image.GetStore().GetContainerRunDirectory(container.ID)
 	if err != nil {
-		cleanup(container)
 		return ContainerInfo{}, err
 	}
 	if metadata.Pod {
@@ -287,14 +285,14 @@ func (r *runtimeService) createContainerOrPodSandbox(ctx context.Context, metada
 	}, nil
 }
 
-func (r *runtimeService) CreatePodSandbox(ctx context.Context, metadata RuntimeContainerMetadata) (ContainerInfo, error) {
+func (r *runtimeService) CreatePodSandbox(metadata RuntimeContainerMetadata) (ContainerInfo, error) {
 	metadata.Pod = true
-	return r.createContainerOrPodSandbox(ctx, metadata, metadata.PodID)
+	return r.createContainerOrPodSandbox(metadata, metadata.PodID)
 }
 
-func (r *runtimeService) CreateContainer(ctx context.Context, metadata RuntimeContainerMetadata, containerID string) (ContainerInfo, error) {
+func (r *runtimeService) CreateContainer(metadata RuntimeContainerMetadata, containerID string) (ContainerInfo, error) {
 	metadata.Pod = false
-	return r.createContainerOrPodSandbox(ctx, metadata, containerID)
+	return r.createContainerOrPodSandbox(metadata, containerID)
 }
 
 func (r *runtimeService) RemovePodSandbox(idOrName string) error {

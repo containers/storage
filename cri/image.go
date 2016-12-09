@@ -7,7 +7,6 @@ import (
 	"github.com/containers/image/transports"
 	"github.com/containers/image/types"
 	"github.com/containers/storage/storage"
-	"golang.org/x/net/context"
 )
 
 // ImageResult wraps a subset of information about an image: its ID, its names,
@@ -27,19 +26,22 @@ type imageService struct {
 // implementation.
 type ImageServer interface {
 	// ListImages returns list of all images which match the filter.
-	ListImages(ctx context.Context, filter string) ([]ImageResult, error)
+	ListImages(filter string) ([]ImageResult, error)
 	// ImageStatus returns status of an image which matches the filter.
-	ImageStatus(ctx context.Context, filter string) (*ImageResult, error)
+	ImageStatus(filter string) (*ImageResult, error)
 	// PullImageUsingContexts imports an image from the specified location.
-	PullImageUsingContexts(ctx context.Context, imageName string, policyContext *signature.PolicyContext, options *copy.Options) (types.ImageReference, error)
+	PullImageUsingContexts(imageName string, policyContext *signature.PolicyContext, options *copy.Options) (types.ImageReference, error)
 	// PullImage imports an image from the specified location and default settings.
-	PullImage(ctx context.Context, imageName string) (types.ImageReference, error)
+	PullImage(imageName string) (types.ImageReference, error)
 	// RemoveImage deletes the specified image.
-	RemoveImage(ctx context.Context, imageName string) error
+	RemoveImage(imageName string) error
+	// GetStore returns the reference to the storage library Store which
+	// the image server uses to hold images, and is the destination used
+	// when it's asked to pull an image.
 	GetStore() storage.Store
 }
 
-func (svc *imageService) ListImages(ctx context.Context, filter string) ([]ImageResult, error) {
+func (svc *imageService) ListImages(filter string) ([]ImageResult, error) {
 	results := []ImageResult{}
 	if filter != "" {
 		if image, err := svc.store.GetImage(filter); err == nil {
@@ -63,7 +65,7 @@ func (svc *imageService) ListImages(ctx context.Context, filter string) ([]Image
 	return results, nil
 }
 
-func (svc *imageService) ImageStatus(ctx context.Context, nameOrID string) (*ImageResult, error) {
+func (svc *imageService) ImageStatus(nameOrID string) (*ImageResult, error) {
 	ref, err := transports.ParseImageName(nameOrID)
 	if err != nil {
 		ref2, err2 := istorage.Transport.ParseStoreReference(svc.store, "@"+nameOrID)
@@ -108,7 +110,7 @@ func imageSize(img types.Image) *uint64 {
 	return nil
 }
 
-func (svc *imageService) PullImageUsingContexts(ctx context.Context, imageName string, policyContext *signature.PolicyContext, options *copy.Options) (types.ImageReference, error) {
+func (svc *imageService) PullImageUsingContexts(imageName string, policyContext *signature.PolicyContext, options *copy.Options) (types.ImageReference, error) {
 	if imageName == "" {
 		return nil, storage.ErrNotAnImage
 	}
@@ -147,7 +149,7 @@ func (svc *imageService) PullImageUsingContexts(ctx context.Context, imageName s
 	return destRef, nil
 }
 
-func (svc *imageService) PullImage(ctx context.Context, imageName string) (types.ImageReference, error) {
+func (svc *imageService) PullImage(imageName string) (types.ImageReference, error) {
 	systemContext := types.SystemContext{}
 	policy, err := signature.DefaultPolicy(&systemContext)
 	if err != nil {
@@ -158,14 +160,14 @@ func (svc *imageService) PullImage(ctx context.Context, imageName string) (types
 		return nil, err
 	}
 	options := copy.Options{}
-	ref, err := svc.PullImageUsingContexts(ctx, imageName, policyContext, &options)
+	ref, err := svc.PullImageUsingContexts(imageName, policyContext, &options)
 	if err != nil {
 		return nil, err
 	}
 	return ref, nil
 }
 
-func (svc *imageService) RemoveImage(ctx context.Context, nameOrID string) error {
+func (svc *imageService) RemoveImage(nameOrID string) error {
 	ref, err := transports.ParseImageName(nameOrID)
 	if err != nil {
 		ref2, err2 := istorage.Transport.ParseStoreReference(svc.store, "@"+nameOrID)
