@@ -28,13 +28,11 @@ type ImageServer interface {
 	// ListImages returns list of all images which match the filter.
 	ListImages(filter string) ([]ImageResult, error)
 	// ImageStatus returns status of an image which matches the filter.
-	ImageStatus(filter string) (*ImageResult, error)
-	// PullImageUsingContexts imports an image from the specified location.
-	PullImageUsingContexts(imageName string, policyContext *signature.PolicyContext, options *copy.Options) (types.ImageReference, error)
-	// PullImage imports an image from the specified location and default settings.
-	PullImage(imageName string) (types.ImageReference, error)
+	ImageStatus(systemContext *types.SystemContext, filter string) (*ImageResult, error)
+	// PullImage imports an image from the specified location.
+	PullImage(systemContext *types.SystemContext, imageName string, options *copy.Options) (types.ImageReference, error)
 	// RemoveImage deletes the specified image.
-	RemoveImage(imageName string) error
+	RemoveImage(systemContext *types.SystemContext, imageName string) error
 	// GetStore returns the reference to the storage library Store which
 	// the image server uses to hold images, and is the destination used
 	// when it's asked to pull an image.
@@ -65,7 +63,7 @@ func (svc *imageService) ListImages(filter string) ([]ImageResult, error) {
 	return results, nil
 }
 
-func (svc *imageService) ImageStatus(nameOrID string) (*ImageResult, error) {
+func (svc *imageService) ImageStatus(systemContext *types.SystemContext, nameOrID string) (*ImageResult, error) {
 	ref, err := transports.ParseImageName(nameOrID)
 	if err != nil {
 		ref2, err2 := istorage.Transport.ParseStoreReference(svc.store, "@"+nameOrID)
@@ -83,8 +81,7 @@ func (svc *imageService) ImageStatus(nameOrID string) (*ImageResult, error) {
 		return nil, err
 	}
 
-	systemContext := types.SystemContext{}
-	img, err := ref.NewImage(&systemContext)
+	img, err := ref.NewImage(systemContext)
 	if err != nil {
 		return nil, err
 	}
@@ -99,20 +96,27 @@ func (svc *imageService) ImageStatus(nameOrID string) (*ImageResult, error) {
 }
 
 func imageSize(img types.Image) *uint64 {
-	if sizer, ok := img.(istorage.Sizer); ok {
-		sum, err := sizer.Size()
-		if err != nil || sum < 0 {
-			return nil
-		}
+	if sum, err := img.Size(); err == nil {
 		usum := uint64(sum)
 		return &usum
 	}
 	return nil
 }
 
-func (svc *imageService) PullImageUsingContexts(imageName string, policyContext *signature.PolicyContext, options *copy.Options) (types.ImageReference, error) {
+func (svc *imageService) PullImage(systemContext *types.SystemContext, imageName string, options *copy.Options) (types.ImageReference, error) {
+	policy, err := signature.DefaultPolicy(systemContext)
+	if err != nil {
+		return nil, err
+	}
+	policyContext, err := signature.NewPolicyContext(policy)
+	if err != nil {
+		return nil, err
+	}
 	if imageName == "" {
 		return nil, storage.ErrNotAnImage
+	}
+	if options == nil {
+		options = &copy.Options{}
 	}
 	srcRef, err := transports.ParseImageName(imageName)
 	if err != nil {
@@ -149,25 +153,7 @@ func (svc *imageService) PullImageUsingContexts(imageName string, policyContext 
 	return destRef, nil
 }
 
-func (svc *imageService) PullImage(imageName string) (types.ImageReference, error) {
-	systemContext := types.SystemContext{}
-	policy, err := signature.DefaultPolicy(&systemContext)
-	if err != nil {
-		return nil, err
-	}
-	policyContext, err := signature.NewPolicyContext(policy)
-	if err != nil {
-		return nil, err
-	}
-	options := copy.Options{}
-	ref, err := svc.PullImageUsingContexts(imageName, policyContext, &options)
-	if err != nil {
-		return nil, err
-	}
-	return ref, nil
-}
-
-func (svc *imageService) RemoveImage(nameOrID string) error {
+func (svc *imageService) RemoveImage(systemContext *types.SystemContext, nameOrID string) error {
 	ref, err := transports.ParseImageName(nameOrID)
 	if err != nil {
 		ref2, err2 := istorage.Transport.ParseStoreReference(svc.store, "@"+nameOrID)
@@ -180,7 +166,6 @@ func (svc *imageService) RemoveImage(nameOrID string) error {
 		}
 		ref = ref2
 	}
-	systemContext := &types.SystemContext{}
 	return ref.DeleteImage(systemContext)
 }
 
