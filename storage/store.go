@@ -325,10 +325,10 @@ type Store interface {
 	// directory.
 	SetContainerDirectoryFile(id, file string, data []byte) error
 
-	// GetContainerDirectoryFile is a convenience function which reads
+	// GetFromContainerDirectory is a convenience function which reads
 	// the contents of the specified file relative to the container's
 	// directory.
-	GetContainerDirectoryFile(id, file string) ([]byte, error)
+	GetFromContainerDirectory(id, file string) ([]byte, error)
 
 	// GetContainerRunDirectory returns a path of a directory which the
 	// caller can use to store data, specific to the container, which the
@@ -341,10 +341,10 @@ type Store interface {
 	// run directory.
 	SetContainerRunDirectoryFile(id, file string, data []byte) error
 
-	// GetContainerRunDirectoryFile is a convenience function which reads
+	// GetFromContainerRunDirectory is a convenience function which reads
 	// the contents of the specified file relative to the container's run
 	// directory.
-	GetContainerRunDirectoryFile(id, file string) ([]byte, error)
+	GetFromContainerRunDirectory(id, file string) ([]byte, error)
 
 	// Lookup returns the ID of a layer, image, or container with the specified
 	// name or ID.
@@ -2061,7 +2061,7 @@ func (s *store) SetContainerDirectoryFile(id, file string, data []byte) error {
 	return ioutils.AtomicWriteFile(filepath.Join(dir, file), data, 0600)
 }
 
-func (s *store) GetContainerDirectoryFile(id, file string) ([]byte, error) {
+func (s *store) GetFromContainerDirectory(id, file string) ([]byte, error) {
 	dir, err := s.GetContainerDirectory(id)
 	if err != nil {
 		return nil, err
@@ -2081,7 +2081,7 @@ func (s *store) SetContainerRunDirectoryFile(id, file string, data []byte) error
 	return ioutils.AtomicWriteFile(filepath.Join(dir, file), data, 0600)
 }
 
-func (s *store) GetContainerRunDirectoryFile(id, file string) ([]byte, error) {
+func (s *store) GetFromContainerRunDirectory(id, file string) ([]byte, error) {
 	dir, err := s.GetContainerRunDirectory(id)
 	if err != nil {
 		return nil, err
