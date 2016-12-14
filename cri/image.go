@@ -120,6 +120,9 @@ func (svc *imageService) PullImage(systemContext *types.SystemContext, imageName
 	}
 	srcRef, err := transports.ParseImageName(imageName)
 	if err != nil {
+		if svc.defaultTransport == "" {
+			return nil, err
+		}
 		srcRef2, err2 := transports.ParseImageName(svc.defaultTransport + imageName)
 		if err2 != nil {
 			return nil, err
