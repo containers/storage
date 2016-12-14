@@ -151,9 +151,6 @@ func (r *runtimeService) createContainerOrPodSandbox(systemContext *types.System
 	if containerName == "" {
 		return ContainerInfo{}, ErrInvalidContainerName
 	}
-	if containerID == "" {
-		containerID = podID
-	}
 	if metadataName == "" {
 		metadataName = containerName
 	}
@@ -328,7 +325,7 @@ func (r *runtimeService) createContainerOrPodSandbox(systemContext *types.System
 }
 
 func (r *runtimeService) CreatePodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, metadataName, uid, namespace string, attempt uint32, copyOptions *copy.Options) (ContainerInfo, error) {
-	return r.createContainerOrPodSandbox(systemContext, podName, podID, imageName, imageID, containerName, "", metadataName, uid, namespace, attempt, "", copyOptions)
+	return r.createContainerOrPodSandbox(systemContext, podName, podID, imageName, imageID, containerName, podID, metadataName, uid, namespace, attempt, "", copyOptions)
 }
 
 func (r *runtimeService) CreateContainer(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName string, attempt uint32, mountLabel string, copyOptions *copy.Options) (ContainerInfo, error) {
