@@ -11,6 +11,7 @@ import (
 	"github.com/containers/image/transports"
 	"github.com/containers/image/types"
 	"github.com/containers/storage/storage"
+	"github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 var (
@@ -48,7 +49,7 @@ type ContainerInfo struct {
 	ID     string
 	Dir    string
 	RunDir string
-	Config []byte
+	Config *v1.Image
 }
 
 // RuntimeServer wraps up various CRI-related activities into a reusable
@@ -208,9 +209,18 @@ func (r *runtimeService) createContainerOrPodSandbox(systemContext *types.System
 		return ContainerInfo{}, err
 	}
 	defer image.Close()
-	config, err := image.ConfigBlob()
+	var imageConfig *v1.Image
+	configBlob, err := image.ConfigBlob()
 	if err != nil {
 		return ContainerInfo{}, err
+	}
+	if len(configBlob) > 0 {
+		config := v1.Image{}
+		err = json.Unmarshal(configBlob, &config)
+		if err != nil {
+			return ContainerInfo{}, err
+		}
+		imageConfig = &config
 	}
 
 	// Update the image name and ID.
@@ -313,7 +323,7 @@ func (r *runtimeService) createContainerOrPodSandbox(systemContext *types.System
 		ID:     container.ID,
 		Dir:    containerDir,
 		RunDir: containerRunDir,
-		Config: config,
+		Config: imageConfig,
 	}, nil
 }
 
