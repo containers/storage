@@ -142,6 +142,7 @@ func (metadata *RuntimeContainerMetadata) SetMountLabel(mountLabel string) {
 }
 
 func (r *runtimeService) createContainerOrPodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName, uid, namespace string, attempt uint32, mountLabel string, options *copy.Options) (ContainerInfo, error) {
+	var ref types.ImageReference
 	if podName == "" || podID == "" {
 		return ContainerInfo{}, ErrInvalidPodName
 	}
@@ -189,7 +190,7 @@ func (r *runtimeService) createContainerOrPodSandbox(systemContext *types.System
 			return ContainerInfo{}, ErrInvalidImageName
 		}
 		logrus.Debugf("couldn't find image %q, retrieving it", image)
-		ref, err := r.image.PullImage(systemContext, image, options)
+		ref, err = r.image.PullImage(systemContext, image, options)
 		if err != nil {
 			return ContainerInfo{}, err
 		}
