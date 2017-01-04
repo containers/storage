@@ -3,6 +3,7 @@ package storage
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -134,6 +135,22 @@ func (l *lockfile) TouchedSince(when time.Time) bool {
 	if err != nil {
 		return true
 	}
-	touched := time.Unix(st.Mtimespec.Unix())
-	return when.Before(touched)
+	t := reflect.TypeOf(st)
+	// OSX
+	if _, found := t.FieldByName("Mtimespec"); found {
+		mtime, ok := reflect.ValueOf(st).FieldByName("Mtimespec").Interface().(unix.Timespec)
+		if !ok {
+			panic("unable to read modification time")
+		}
+		return when.Before(time.Unix(mtime.Unix()))
+	}
+	// Linux
+	if _, found := t.FieldByName("Mtim"); found {
+		mtime, ok := reflect.ValueOf(st).FieldByName("Mtim").Interface().(unix.Timespec)
+		if !ok {
+			panic("unable to read modification time")
+		}
+		return when.Before(time.Unix(mtime.Unix()))
+	}
+	panic("unable to read modification time")
 }
