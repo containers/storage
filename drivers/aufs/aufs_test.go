@@ -311,7 +311,7 @@ func TestCreateWithInvalidParent(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)
 
-	if err := d.Create("1", "docker", "", nil); err == nil {
+	if err := d.Create("1", "storage", "", nil); err == nil {
 		t.Fatalf("Error should not be nil with parent does not exist")
 	}
 }
