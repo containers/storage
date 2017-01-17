@@ -5,6 +5,7 @@ DRIVER := $(if $(STORAGE_DRIVER),$(STORAGE_DRIVER),$(if $(DOCKER_GRAPHDRIVER),DO
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
+EPOCH_TEST_COMMIT := 0418ebf59f9e1f564831c0ba9378b7f8e40a1c73
 SYSTEM_GOPATH := ${GOPATH}
 
 RUNINVM := vagrant/runinvm.sh
@@ -60,10 +61,12 @@ lint:
 # When this is running in travis, it will only check the travis commit range
 .gitvalidation:
 	@which git-validation > /dev/null 2>/dev/null || (echo "ERROR: git-validation not found. Consider 'make install.tools' target" && false)
-ifeq ($(TRAVIS),true)
-	git-validation -q -run DCO,short-subject
+ifeq ($(TRAVIS_EVENT_TYPE),pull_request)
+	git-validation -q -run DCO,short-subject -no-travis -range $(TRAVIS_BRANCH)..$(TRAVIS_COMMIT)
+else ifeq ($(TRAVIS_EVENT_TYPE),push)
+	git-validation -q -run DCO,short-subject -no-travis -range $(EPOCH_TEST_COMMIT)..$(TRAVIS_BRANCH)
 else
-	git-validation -v -run DCO,short-subject -range $(EPOCH_TEST_COMMIT)..HEAD
+	git-validation -q -run DCO,short-subject -range $(EPOCH_TEST_COMMIT)..HEAD
 endif
 
 .PHONY: install.tools

@@ -42,7 +42,7 @@ bundle_test_unit() {
 		done
 		echo $deps
 	)
-	go test $COVER $GCCGOFLAGS -ldflags "$LDFLAGS" "${BUILDFLAGS[@]}" $TESTFLAGS $pkg_list
+	go test $COVER $GCCGOFLAGS -ldflags "$LDFLAGS" "${BUILDFLAGS[@]}" ${BUILDTAGS:+-tags "${BUILDTAGS}"} $TESTFLAGS $pkg_list
 }
 
 
