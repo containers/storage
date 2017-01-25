@@ -62,7 +62,7 @@ lint:
 .gitvalidation:
 	@which git-validation > /dev/null 2>/dev/null || (echo "ERROR: git-validation not found. Consider 'make install.tools' target" && false)
 ifeq ($(TRAVIS_EVENT_TYPE),pull_request)
-	git-validation -q -run DCO,short-subject -no-travis -range $(TRAVIS_BRANCH)..$(TRAVIS_COMMIT)
+	git-validation -q -run DCO,short-subject
 else ifeq ($(TRAVIS_EVENT_TYPE),push)
 	git-validation -q -run DCO,short-subject -no-travis -range $(EPOCH_TEST_COMMIT)..$(TRAVIS_BRANCH)
 else
