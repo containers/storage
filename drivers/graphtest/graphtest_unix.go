@@ -32,7 +32,7 @@ type Driver struct {
 }
 
 func newDriver(t testing.TB, name string, options []string) *Driver {
-	root, err := ioutil.TempDir("", "docker-graphtest-")
+	root, err := ioutil.TempDir("", "storage-graphtest-")
 	if err != nil {
 		t.Fatal(err)
 	}
