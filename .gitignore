@@ -29,3 +29,4 @@ man/man5
 man/man8
 vendor/pkg/
 .vagrant
+storageversion/version_autogen.go
