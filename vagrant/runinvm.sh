@@ -3,10 +3,10 @@ set -e
 export PKG='github.com/containers/storage'
 export VAGRANT_MACHINES="fedora debian"
 if test -z "$VAGRANT_PROVIDER" ; then
-	if lsmod | grep -q '^kvm ' ; then
-		VAGRANT_PROVIDER=libvirt
-	elif lsmod | grep -q '^vboxdrv ' ; then
+	if lsmod | grep -q '^vboxdrv ' ; then
 		VAGRANT_PROVIDER=virtualbox
+	elif lsmod | grep -q '^kvm ' ; then
+		VAGRANT_PROVIDER=libvirt
 	fi
 fi
 export VAGRANT_PROVIDER=${VAGRANT_PROVIDER:-libvirt}
