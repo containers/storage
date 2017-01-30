@@ -41,10 +41,7 @@ gccgo: build-gccgo ## build the gcc-go linux binaries using VMs
 	$(RUNINVM) hack/make.sh gccgo
 
 test: build ## run the unit and integration tests using VMs
-	$(RUNINVM) hack/make.sh binary cross test-unit test-integration-cli
-
-test-integration-cli: build ## run the integration tests using VMs
-	$(RUNINVM) hack/make.sh binary test-integration-cli
+	$(RUNINVM) hack/make.sh binary cross test-unit
 
 test-unit: build ## run the unit tests using VMs
 	$(RUNINVM) hack/make.sh test-unit
