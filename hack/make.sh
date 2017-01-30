@@ -17,6 +17,7 @@ set -e
 
 set -o pipefail
 
+export PATH=/usr/local/go/bin:${PATH}
 export PKG='github.com/containers/storage'
 export SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export MAKEDIR="$SCRIPTDIR/make"
