@@ -47,7 +47,7 @@ test-unit: build ## run the unit tests using VMs
 	$(RUNINVM) hack/make.sh test-unit
 
 validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor\nusing VMs
-	$(RUNINVM) hack/make.sh validate-dco validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet validate-vendor
+	$(RUNINVM) hack/make.sh validate-dco validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet
 
 lint:
 	@which gometalinter > /dev/null 2>/dev/null || (echo "ERROR: gometalinter not found. Consider 'make install.tools' target" && false)
