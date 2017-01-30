@@ -5,13 +5,10 @@ PROJECT=github.com/containers/storage
 # Downloads dependencies into vendor/ directory
 mkdir -p vendor
 
-if ! go list github.com/containers/storage/storage &> /dev/null; then
-	rm -rf .gopath
-	mkdir -p .gopath/src/github.com/containers
-	ln -sf ../../../.. .gopath/src/${PROJECT}
-	export GOPATH="${PWD}/.gopath:${PWD}/vendor"
-fi
-export GOPATH="$GOPATH:${PWD}/vendor"
+rm -rf .gopath
+mkdir -p .gopath/src/github.com/containers
+ln -sf ../../../.. .gopath/src/${PROJECT}
+export GOPATH="${PWD}/.gopath"
 
 find='find'
 if [ "$(go env GOHOSTOS)" = 'windows' ]; then
@@ -25,7 +22,7 @@ clone() {
 	local url="$4"
 
 	: ${url:=https://$pkg}
-	local target="vendor/src/$pkg"
+	local target="vendor/$pkg"
 
 	echo -n "$pkg @ $rev: "
 
@@ -77,7 +74,7 @@ clean() {
 				go list -e -tags "$buildTags" -f '{{join .Deps "\n"}}' "${packages[@]}"
 				go list -e -tags "$buildTags" -f '{{join .TestImports "\n"}}' "${packages[@]}"
 			done
-		done | grep -vE "^${PROJECT}/" | sort -u
+		done | grep -E "^${PROJECT}/vendor/" | sed -e "s:${PROJECT}/vendor/::g" | sort -u
 	) )
 	imports=( $(go list -e -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${imports[@]}") )
 	unset IFS
@@ -87,7 +84,7 @@ clean() {
 
 	for import in "${imports[@]}"; do
 		[ "${#findArgs[@]}" -eq 0 ] || findArgs+=( -or )
-		findArgs+=( -path "vendor/src/$import" )
+		findArgs+=( -path "vendor/$import" )
 	done
 
 	local IFS=$'\n'
@@ -113,7 +110,7 @@ clean() {
 fix_rewritten_imports () {
        local pkg="$1"
        local remove="${pkg}/Godeps/_workspace/src/"
-       local target="vendor/src/$pkg"
+       local target="vendor/$pkg"
 
        echo "$pkg: fixing rewritten imports"
        $find "$target" -name \*.go -exec sed -i'.orig' -e "s|\"${remove}|\"|g" {} \;
