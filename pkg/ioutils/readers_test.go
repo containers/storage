@@ -10,7 +10,7 @@ import (
 type errorReader struct{}
 
 func (r *errorReader) Read(p []byte) (int, error) {
-	return 0, fmt.Errorf("Error reader always fail.")
+	return 0, fmt.Errorf("error reader always fail")
 }
 
 func TestReadCloserWrapperClose(t *testing.T) {
@@ -31,7 +31,7 @@ func TestReaderErrWrapperReadOnError(t *testing.T) {
 		called = true
 	})
 	_, err := wrapper.Read([]byte{})
-	if err == nil || !strings.Contains(err.Error(), "Error reader always fail.") {
+	if err == nil || !strings.Contains(err.Error(), "error reader always fail") {
 		t.Fatalf("readErrWrapper should returned an error")
 	}
 	if !called {
