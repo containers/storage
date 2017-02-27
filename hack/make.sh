@@ -91,21 +91,21 @@ if [ "$EXPERIMENTAL" ]; then
 	BUILDTAGS+=" experimental"
 fi
 
-# test whether "btrfs/version.h" exists and apply btrfs_noversion appropriately
+# test whether "btrfs/version.h" exists and apply btrfs_version appropriately
 if \
 	command -v gcc &> /dev/null \
-	&& ! gcc -E - -o /dev/null &> /dev/null <<<'#include <btrfs/version.h>' \
+	&& gcc -E - -o /dev/null &> /dev/null <<<'#include <btrfs/version.h>' \
 ; then
-	BUILDTAGS+=' btrfs_noversion'
+	BUILDTAGS+=' btrfs_version'
 fi
 
 # test whether "libdevmapper.h" is new enough to support deferred remove
 # functionality.
 if \
 	command -v gcc &> /dev/null \
-	&& ! ( echo -e  '#include <libdevmapper.h>\nint main() { dm_task_deferred_remove(NULL); }'| gcc -xc - -o /dev/null -ldevmapper &> /dev/null ) \
+	&& ( echo -e  '#include <libdevmapper.h>\nint main() { dm_task_deferred_remove(NULL); }'| gcc -xc - -o /dev/null -ldevmapper &> /dev/null ) \
 ; then
-       BUILDTAGS+=' libdm_no_deferred_remove'
+       BUILDTAGS+=' libdm_deferred_remove'
 fi
 
 # Use these flags when compiling the tests and final binary
