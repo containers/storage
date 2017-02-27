@@ -181,7 +181,7 @@ test_env() {
 		GOPATH="$GOPATH" \
 		GOTRACEBACK=all \
 		HOME="$ABS_DEST/fake-HOME" \
-		PATH="/usr/local/go/bin:$PATH" \
+		PATH="${GOPATH}/bin:/usr/local/go/bin:$PATH" \
 		TEMP="$TEMP" \
 		"$@"
 }

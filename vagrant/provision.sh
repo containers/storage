@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -xe
 
 GO_VERSION=1.7.4
 
@@ -33,6 +33,6 @@ esac
 mkdir -p /go/src/github.com/containers
 rm -f /go/src/github.com/containers/storage
 ln -s /vagrant /go/src/github.com/containers/storage
-export GOPATH=/go:/go/src/github.com/containers/storage/vendor
+export GOPATH=/go
 export PATH=/usr/local/go/bin:/go/bin:${PATH}
-go get github.com/golang/lint
+go get github.com/golang/lint/...

@@ -14,5 +14,5 @@ script:
     - make .gitvalidation
     - make build-binary
     - ./hack/make.sh cross
-    - sudo ./hack/make.sh test-unit
+    - sudo -E env "PATH=${PATH}" ./hack/make.sh test-unit
     - make docs
