@@ -102,11 +102,7 @@ func (l *lockfile) Touch() error {
 	if n != len(id) {
 		return syscall.ENOSPC
 	}
-	err = syscall.Fsync(int(l.fd))
-	if err != nil {
-		return err
-	}
-	return nil
+	return syscall.Fsync(int(l.fd))
 }
 
 func (l *lockfile) Modified() (bool, error) {

@@ -134,7 +134,10 @@ func (r *imageStore) Load() error {
 	r.byid = ids
 	r.byname = names
 	if needSave {
-		r.Touch()
+		if innerErr := r.Touch(); innerErr != nil {
+			return innerErr
+		}
+
 		return r.Save()
 	}
 	return nil
