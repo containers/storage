@@ -336,8 +336,8 @@ func TestGetDiff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Truncate(size); err != nil {
-		t.Fatal(err)
+	if truncErr := f.Truncate(size); truncErr != nil {
+		t.Fatal(truncErr)
 	}
 	f.Close()
 
@@ -378,11 +378,11 @@ func TestChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := f.WriteString("testline"); err != nil {
-		t.Fatal(err)
+	if _, writeErr := f.WriteString("testline"); writeErr != nil {
+		t.Fatal(writeErr)
 	}
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
+	if closeErr := f.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 
 	changes, err := d.Changes("2", "")
@@ -403,8 +403,8 @@ func TestChanges(t *testing.T) {
 		t.Fatalf("Change kind should be ChangeAdd got %s", change.Kind)
 	}
 
-	if err := d.CreateReadWrite("3", "2", "", nil); err != nil {
-		t.Fatal(err)
+	if createErr := d.CreateReadWrite("3", "2", "", nil); createErr != nil {
+		t.Fatal(createErr)
 	}
 	mntPoint, err = d.Get("3", "")
 	if err != nil {
@@ -417,11 +417,11 @@ func TestChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := f.WriteString("testline"); err != nil {
-		t.Fatal(err)
+	if _, writeErr := f.WriteString("testline"); writeErr != nil {
+		t.Fatal(writeErr)
 	}
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
+	if closeErr := f.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 
 	changes, err = d.Changes("3", "")
@@ -464,16 +464,16 @@ func TestDiffSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Truncate(size); err != nil {
-		t.Fatal(err)
+	if truncErr := f.Truncate(size); truncErr != nil {
+		t.Fatal(truncErr)
 	}
 	s, err := f.Stat()
 	if err != nil {
 		t.Fatal(err)
 	}
 	size = s.Size()
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
+	if closeErr := f.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 
 	diffSize, err := d.DiffSize("1", "")
@@ -506,16 +506,16 @@ func TestChildDiffSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Truncate(size); err != nil {
-		t.Fatal(err)
+	if truncErr := f.Truncate(size); truncErr != nil {
+		t.Fatal(truncErr)
 	}
 	s, err := f.Stat()
 	if err != nil {
 		t.Fatal(err)
 	}
 	size = s.Size()
-	if err := f.Close(); err != nil {
-		t.Fatal(err)
+	if closeErr := f.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 
 	diffSize, err := d.DiffSize("1", "")
@@ -526,8 +526,8 @@ func TestChildDiffSize(t *testing.T) {
 		t.Fatalf("Expected size to be %d got %d", size, diffSize)
 	}
 
-	if err := d.Create("2", "1", "", nil); err != nil {
-		t.Fatal(err)
+	if createErr := d.Create("2", "1", "", nil); createErr != nil {
+		t.Fatal(createErr)
 	}
 
 	diffSize, err = d.DiffSize("2", "")
@@ -608,8 +608,8 @@ func TestApplyDiff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Truncate(size); err != nil {
-		t.Fatal(err)
+	if truncErr := f.Truncate(size); truncErr != nil {
+		t.Fatal(truncErr)
 	}
 	f.Close()
 
@@ -618,15 +618,15 @@ func TestApplyDiff(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := d.Create("2", "", "", nil); err != nil {
-		t.Fatal(err)
+	if createErr := d.Create("2", "", "", nil); createErr != nil {
+		t.Fatal(createErr)
 	}
-	if err := d.Create("3", "2", "", nil); err != nil {
-		t.Fatal(err)
+	if createErr := d.Create("3", "2", "", nil); createErr != nil {
+		t.Fatal(createErr)
 	}
 
-	if err := d.applyDiff("3", diff); err != nil {
-		t.Fatal(err)
+	if diffErr := d.applyDiff("3", diff); diffErr != nil {
+		t.Fatal(diffErr)
 	}
 
 	// Ensure that the file is in the mount point for id 3
@@ -635,8 +635,8 @@ func TestApplyDiff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(path.Join(mountPoint, "test_file")); err != nil {
-		t.Fatal(err)
+	if _, statErr := os.Stat(path.Join(mountPoint, "test_file")); statErr != nil {
+		t.Fatal(statErr)
 	}
 }
 

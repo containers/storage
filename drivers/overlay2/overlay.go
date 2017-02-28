@@ -4,7 +4,6 @@ package overlay2
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
@@ -87,16 +87,18 @@ type Driver struct {
 var backingFs = "<unknown>"
 
 func init() {
-	graphdriver.Register(driverName, Init)
+	if err := graphdriver.Register(driverName, Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Registering graphdriver: %v\n", err)
+	}
 }
 
 // Init returns the a native diff driver for overlay filesystem.
 // If overlay filesystem is not supported on the host, graphdriver.ErrNotSupported is returned as error.
 // If a overlay filesystem is not supported over a existing filesystem then error graphdriver.ErrIncompatibleFS is returned.
 func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-	opts, err := parseOptions(options)
-	if err != nil {
-		return nil, err
+	opts, optsErr := parseOptions(options)
+	if optsErr != nil {
+		return nil, optsErr
 	}
 
 	if err := supportsOverlay(); err != nil {
@@ -172,7 +174,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				return nil, err
 			}
 		default:
-			return nil, fmt.Errorf("overlay2: Unknown option %s\n", key)
+			return nil, fmt.Errorf("overlay2: Unknown option %s", key)
 		}
 	}
 	return o, nil
@@ -181,7 +183,9 @@ func parseOptions(options []string) (*overlayOptions, error) {
 func supportsOverlay() error {
 	// We can try to modprobe overlay first before looking at
 	// proc/filesystems for when overlay is supported
-	exec.Command("modprobe", "overlay").Run()
+	if err := exec.Command("modprobe", "overlay").Run(); err != nil {
+		return err
+	}
 
 	f, err := os.Open("/proc/filesystems")
 	if err != nil {
@@ -259,9 +263,9 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 
 	dir := d.dir(id)
 
-	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
-	if err != nil {
-		return err
+	rootUID, rootGID, getRootErr := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
+	if getRootErr != nil {
+		return getRootErr
 	}
 	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
 		return err
@@ -269,11 +273,12 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
 		return err
 	}
-
 	defer func() {
 		// Clean up on failure
 		if retErr != nil {
-			os.RemoveAll(dir)
+			if err := os.RemoveAll(dir); err != nil {
+				retErr = errors.Wrap(retErr, err.Error())
+			}
 		}
 	}()
 
@@ -348,8 +353,8 @@ func (d *Driver) dir(id string) string {
 
 func (d *Driver) getLowerDirs(id string) ([]string, error) {
 	var lowersArray []string
-	lowers, err := ioutil.ReadFile(path.Join(d.dir(id), lowerFile))
-	if err == nil {
+	lowers, readErr := ioutil.ReadFile(path.Join(d.dir(id), lowerFile))
+	if readErr == nil {
 		for _, s := range strings.Split(string(lowers), ":") {
 			lp, err := os.Readlink(path.Join(d.home, s))
 			if err != nil {
@@ -357,8 +362,8 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 			}
 			lowersArray = append(lowersArray, path.Clean(path.Join(d.home, "link", lp)))
 		}
-	} else if !os.IsNotExist(err) {
-		return nil, err
+	} else if !os.IsNotExist(readErr) {
+		return nil, readErr
 	}
 	return lowersArray, nil
 }
@@ -380,20 +385,20 @@ func (d *Driver) Remove(id string) error {
 }
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
-func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
+func (d *Driver) Get(id string, mountLabel string) (s string, retErr error) {
 	dir := d.dir(id)
 	if _, err := os.Stat(dir); err != nil {
 		return "", err
 	}
 
 	diffDir := path.Join(dir, "diff")
-	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
-	if err != nil {
+	lowers, readErr := ioutil.ReadFile(path.Join(dir, lowerFile))
+	if readErr != nil {
 		// If no lower, just return diff directory
-		if os.IsNotExist(err) {
+		if os.IsNotExist(readErr) {
 			return diffDir, nil
 		}
-		return "", err
+		return "", readErr
 	}
 
 	mergedDir := path.Join(dir, "merged")
@@ -401,9 +406,11 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		return mergedDir, nil
 	}
 	defer func() {
-		if err != nil {
+		if retErr != nil {
 			if c := d.ctr.Decrement(mergedDir); c <= 0 {
-				syscall.Unmount(mergedDir, 0)
+				if unmountErr := syscall.Unmount(mergedDir, 0); unmountErr != nil {
+					retErr = errors.Wrap(retErr, unmountErr.Error())
+				}
 			}
 		}
 	}()
@@ -439,15 +446,15 @@ func (d *Driver) Put(id string) error {
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	err := syscall.Unmount(mountpoint, 0)
-	if err != nil {
+	unmountErr := syscall.Unmount(mountpoint, 0)
+	if unmountErr != nil {
 		if _, err := ioutil.ReadFile(path.Join(d.dir(id), lowerFile)); err != nil {
 			// We didn't have a "lower" directory, so we weren't mounting a "merged" directory anyway
 			return nil
 		}
-		logrus.Debugf("Failed to unmount %s overlay: %v", id, err)
+		logrus.Debugf("Failed to unmount %s overlay: %v", id, unmountErr)
 	}
-	return err
+	return unmountErr
 }
 
 // Exists checks to see if the id is already mounted.

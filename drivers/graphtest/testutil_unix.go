@@ -29,7 +29,9 @@ func InitLoopbacks() error {
 				uint32(statT.Mode|syscall.S_IFBLK), int((7<<8)|(i&0xff)|((i&0xfff00)<<12))); mkerr != nil {
 				return mkerr
 			}
-			os.Chown(loopPath, int(statT.Uid), int(statT.Gid))
+			if err := os.Chown(loopPath, int(statT.Uid), int(statT.Gid)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -102,7 +104,11 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer driver.Put(name)
+	defer func() {
+		if err := driver.Put(name); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	subdir := path.Join(dir, "a subdir")
 	if err := os.Mkdir(subdir, 0705|os.ModeSticky); err != nil {
@@ -123,7 +129,11 @@ func verifyBase(t testing.TB, driver graphdriver.Driver, name string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer driver.Put(name)
+	defer func() {
+		if putErr := driver.Put(name); putErr != nil {
+			t.Fatal(putErr)
+		}
+	}()
 
 	subdir := path.Join(dir, "a subdir")
 	verifyFile(t, subdir, 0705|os.ModeDir|os.ModeSticky, 1, 2)

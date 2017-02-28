@@ -32,7 +32,9 @@ import (
 )
 
 func init() {
-	graphdriver.Register("btrfs", Init)
+	if err := graphdriver.Register("btrfs", Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Registering graphdriver: %v\n", err)
+	}
 }
 
 var (
@@ -62,12 +64,12 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		return nil, err
 	}
-	if err := idtools.MkdirAllAs(home, 0700, rootUID, rootGID); err != nil {
-		return nil, err
+	if mkdirErr := idtools.MkdirAllAs(home, 0700, rootUID, rootGID); mkdirErr != nil {
+		return nil, mkdirErr
 	}
 
-	if err := mount.MakePrivate(home); err != nil {
-		return nil, err
+	if makeErr := mount.MakePrivate(home); makeErr != nil {
+		return nil, makeErr
 	}
 
 	opt, err := parseOptions(options)

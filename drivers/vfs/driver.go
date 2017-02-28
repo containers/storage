@@ -18,7 +18,9 @@ var (
 )
 
 func init() {
-	graphdriver.Register("vfs", Init)
+	if err := graphdriver.Register("vfs", Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Registering graphdriver: %v", err)
+	}
 }
 
 // Init returns a new VFS driver.
@@ -85,15 +87,17 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAllAs(filepath.Dir(dir), 0700, rootUID, rootGID); err != nil {
-		return err
+	if mkdirErr := idtools.MkdirAllAs(filepath.Dir(dir), 0700, rootUID, rootGID); mkdirErr != nil {
+		return mkdirErr
 	}
-	if err := idtools.MkdirAs(dir, 0755, rootUID, rootGID); err != nil {
-		return err
+	if mkdirErr := idtools.MkdirAs(dir, 0755, rootUID, rootGID); mkdirErr != nil {
+		return mkdirErr
 	}
 	opts := []string{"level:s0"}
-	if _, mountLabel, err := label.InitLabels(opts); err == nil {
-		label.SetFileLabel(dir, mountLabel)
+	if _, mountLabel, initErr := label.InitLabels(opts); initErr == nil {
+		if labelErr := label.SetFileLabel(dir, mountLabel); labelErr != nil {
+			return labelErr
+		}
 	}
 	if parent == "" {
 		return nil
