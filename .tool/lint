@@ -4,7 +4,7 @@ set -o nounset
 set -o pipefail
 
 out=$(
-  for d in $(find . -type d -not -iwholename '*.git*' -a -not -iname '.tool' -a -not -iwholename '*vendor*')
+  for d in $(find . -type d -not -iwholename '*.git*' -a -not -iwholename '*pkg*' -a -not -iname '.tool' -a -not -iwholename '*vendor*')
   do
     gometalinter \
       --exclude='error return value not checked.*(Close|Log|Print).*\(errcheck\)$' \
