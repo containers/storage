@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -34,20 +33,20 @@ func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		return 1
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(changes)
-	} else {
-		for _, change := range changes {
-			what := "?"
-			switch change.Kind {
-			case archive.ChangeAdd:
-				what = "Add"
-			case archive.ChangeModify:
-				what = "Modify"
-			case archive.ChangeDelete:
-				what = "Delete"
-			}
-			fmt.Printf("%s %q\n", what, change.Path)
+		return jsonEncodeToStdout(changes)
+	}
+
+	for _, change := range changes {
+		what := "?"
+		switch change.Kind {
+		case archive.ChangeAdd:
+			what = "Add"
+		case archive.ChangeModify:
+			what = "Modify"
+		case archive.ChangeDelete:
+			what = "Delete"
 		}
+		fmt.Printf("%s %q\n", what, change.Path)
 	}
 	return 0
 }
@@ -63,13 +62,15 @@ func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) i
 	}
 	diffStream := io.Writer(os.Stdout)
 	if diffFile != "" {
-		if f, err := os.Create(diffFile); err != nil {
+		f, err := os.Create(diffFile)
+
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
-		} else {
-			diffStream = f
-			defer f.Close()
 		}
+
+		diffStream = f
+		defer f.Close()
 	}
 	reader, err := m.Diff(from, to)
 	if err != nil {
@@ -85,9 +86,9 @@ func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) i
 		} else if diffXz {
 			compression = archive.Xz
 		}
-		compressor, err := archive.CompressStream(diffStream, compression)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+		compressor, compressErr := archive.CompressStream(diffStream, compression)
+		if compressErr != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", compressErr)
 			return 1
 		}
 		diffStream = compressor
@@ -108,13 +109,13 @@ func applyDiff(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 	}
 	diffStream := io.Reader(os.Stdin)
 	if applyDiffFile != "" {
-		if f, err := os.Open(applyDiffFile); err != nil {
+		f, err := os.Open(applyDiffFile)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
-		} else {
-			diffStream = f
-			defer f.Close()
 		}
+		diffStream = f
+		defer f.Close()
 	}
 	_, err := m.ApplyDiff(args[0], diffStream)
 	if err != nil {

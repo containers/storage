@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,14 +32,14 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		return 1
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(layer)
-	} else {
-		fmt.Printf("%s", layer.ID)
-		for _, name := range layer.Names {
-			fmt.Printf("\t%s\n", name)
-		}
-		fmt.Printf("\n")
+		return jsonEncodeToStdout(layer)
 	}
+
+	fmt.Printf("%s", layer.ID)
+	for _, name := range layer.Names {
+		fmt.Printf("\t%s\n", name)
+	}
+	fmt.Printf("\n")
 	return 0
 }
 
@@ -51,13 +50,14 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	diffStream := io.Reader(os.Stdin)
 	if applyDiffFile != "" {
-		if f, err := os.Open(applyDiffFile); err != nil {
+		f, err := os.Open(applyDiffFile)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
-		} else {
-			diffStream = f
-			defer f.Close()
 		}
+
+		diffStream = f
+		defer f.Close()
 	}
 	layer, _, err := m.PutLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, diffStream)
 	if err != nil {
@@ -65,14 +65,14 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		return 1
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(layer)
-	} else {
-		fmt.Printf("%s", layer.ID)
-		for _, name := range layer.Names {
-			fmt.Printf("\t%s\n", name)
-		}
-		fmt.Printf("\n")
+		return jsonEncodeToStdout(layer)
 	}
+
+	fmt.Printf("%s", layer.ID)
+	for _, name := range layer.Names {
+		fmt.Printf("\t%s\n", name)
+	}
+	fmt.Printf("\n")
 	return 0
 }
 
@@ -95,15 +95,16 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
+
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(image)
-	} else {
-		fmt.Printf("%s", image.ID)
-		for _, name := range image.Names {
-			fmt.Printf("\t%s\n", name)
-		}
-		fmt.Printf("\n")
+		return jsonEncodeToStdout(image)
 	}
+
+	fmt.Printf("%s", image.ID)
+	for _, name := range image.Names {
+		fmt.Printf("\t%s\n", name)
+	}
+	fmt.Printf("\n")
 	return 0
 }
 
@@ -127,14 +128,15 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		return 1
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(container)
-	} else {
-		fmt.Printf("%s", container.ID)
-		for _, name := range container.Names {
-			fmt.Printf("\t%s", name)
-		}
-		fmt.Printf("\n")
+		return jsonEncodeToStdout(container)
 	}
+
+	fmt.Printf("%s", container.ID)
+	for _, name := range container.Names {
+		fmt.Printf("\t%s", name)
+	}
+	fmt.Printf("\n")
+
 	return 0
 }
 

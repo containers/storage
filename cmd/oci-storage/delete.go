@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -25,7 +24,9 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if jsonEncodeToStdout(deleted) != 0 {
+			return 1
+		}
 	} else {
 		for what, err := range deleted {
 			if err != "" {
@@ -55,7 +56,9 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if jsonEncodeToStdout(deleted) != 0 {
+			return 1
+		}
 	} else {
 		for what, err := range deleted {
 			if err != "" {
@@ -93,7 +96,6 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
 	} else {
 		for what, record := range deleted {
 			if record.Error != "" {
@@ -127,7 +129,9 @@ func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if jsonEncodeToStdout(deleted) != 0 {
+			return 1
+		}
 	} else {
 		for what, err := range deleted {
 			if err != "" {

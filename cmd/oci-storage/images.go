@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -16,18 +15,19 @@ func images(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 		return 1
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(images)
-	} else {
-		for _, image := range images {
-			fmt.Printf("%s\n", image.ID)
-			for _, name := range image.Names {
-				fmt.Printf("\tname: %s\n", name)
-			}
-			for _, name := range image.BigDataNames {
-				fmt.Printf("\tdata: %s\n", name)
-			}
+		return jsonEncodeToStdout(images)
+	}
+
+	for _, image := range images {
+		fmt.Printf("%s\n", image.ID)
+		for _, name := range image.Names {
+			fmt.Printf("\tname: %s\n", name)
+		}
+		for _, name := range image.BigDataNames {
+			fmt.Printf("\tdata: %s\n", name)
 		}
 	}
+
 	return 0
 }
 

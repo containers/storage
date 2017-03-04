@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -16,16 +15,16 @@ func containers(flags *mflag.FlagSet, action string, m storage.Store, args []str
 		return 1
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(containers)
-	} else {
-		for _, container := range containers {
-			fmt.Printf("%s\n", container.ID)
-			for _, name := range container.Names {
-				fmt.Printf("\tname: %s\n", name)
-			}
-			for _, name := range container.BigDataNames {
-				fmt.Printf("\tdata: %s\n", name)
-			}
+		return jsonEncodeToStdout(containers)
+	}
+
+	for _, container := range containers {
+		fmt.Printf("%s\n", container.ID)
+		for _, name := range container.Names {
+			fmt.Printf("\tname: %s\n", name)
+		}
+		for _, name := range container.BigDataNames {
+			fmt.Printf("\tdata: %s\n", name)
 		}
 	}
 	return 0
