@@ -46,13 +46,13 @@ test: build ## run the unit and integration tests using VMs
 test-unit: build ## run the unit tests using VMs
 	$(RUNINVM) hack/make.sh test-unit
 
-validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor\nusing VMs
+validate: lint build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isolation, golint, tests, tomls, go vet and vendor\nusing VMs
 	$(RUNINVM) hack/make.sh validate-dco validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet
 
 lint:
 	@which gometalinter > /dev/null 2>/dev/null || (echo "ERROR: gometalinter not found. Consider 'make install.tools' target" && false)
 	@echo "checking lint"
-	@./.tool/lint
+	@./.tool/lint 2>&1 | grep -v WARNING
 
 .PHONY: .gitvalidation
 # When this is running in travis, it will only check the travis commit range
