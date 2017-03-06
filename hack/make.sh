@@ -39,7 +39,7 @@ DEFAULT_BUNDLES=(
 
 	test-unit
 
-	#gccgo -- failing due to 1.7 incompatibilities
+	gccgo
 	cross
 )
 
