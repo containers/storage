@@ -1,8 +1,6 @@
 #!/bin/bash
 set -xe
 
-GO_VERSION=1.7.4
-
 source /etc/os-release
 
 case "${ID_LIKE:-${ID:-unknown}}" in
@@ -16,12 +14,13 @@ case "${ID_LIKE:-${ID:-unknown}}" in
     apt-get -q -y install systemd curl
     apt-get -q -y install apt make git btrfs-progs libdevmapper-dev
     apt-get -q -y install zfs-dkms zfsutils-linux
-    curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -xvz -C /usr/local
+    apt-get -q -y install golang gccgo
     ;;
   fedora)
     dnf -y clean all
     dnf -y install make git gcc btrfs-progs-devel device-mapper-devel
-    curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -xvz -C /usr/local
+    dnf -y install golang gcc-go
+    alternatives --set go /usr/lib/golang/bin/go
     ;;
   unknown)
     echo Unknown box OS, unsure of how to install required packages.
@@ -32,6 +31,6 @@ mkdir -p /go/src/github.com/containers
 rm -f /go/src/github.com/containers/storage
 ln -s /vagrant /go/src/github.com/containers/storage
 export GOPATH=/go
-export PATH=/usr/local/go/bin:/go/bin:${PATH}
+export PATH=/go/bin:${PATH}
 go get github.com/golang/lint/...
 exit 0
