@@ -134,6 +134,6 @@ func (l *lockfile) TouchedSince(when time.Time) bool {
 	if err != nil {
 		return true
 	}
-	touched := time.Unix(st.Mtimespec.Unix())
+	touched := time.Unix(statTMtimeUnix(st))
 	return when.Before(touched)
 }
