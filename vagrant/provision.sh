@@ -17,8 +17,6 @@ case "${ID_LIKE:-${ID:-unknown}}" in
     apt-get -q -y install apt make git btrfs-progs libdevmapper-dev
     apt-get -q -y install zfs-dkms zfsutils-linux
     curl -sSL https://storage.googleapis.com/golang/go${GO_VERSION}.linux-amd64.tar.gz | tar -xvz -C /usr/local
-    modprobe aufs
-    modprobe zfs
     ;;
   fedora)
     dnf -y clean all
@@ -36,3 +34,4 @@ ln -s /vagrant /go/src/github.com/containers/storage
 export GOPATH=/go
 export PATH=/usr/local/go/bin:/go/bin:${PATH}
 go get github.com/golang/lint/...
+exit 0
