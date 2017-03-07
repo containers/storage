@@ -35,6 +35,7 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 	"github.com/vbatts/tar-split/tar/storage"
 
 	"github.com/containers/storage/drivers"
@@ -61,7 +62,9 @@ var (
 )
 
 func init() {
-	graphdriver.Register("aufs", Init)
+	if err := graphdriver.Register("aufs", Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Registring graphdriver: %v", err)
+	}
 }
 
 // Driver contains information about the filesystem mounted.
@@ -145,7 +148,9 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 func supportsAufs() error {
 	// We can try to modprobe aufs first before looking at
 	// proc/filesystems for when aufs is supported
-	exec.Command("modprobe", "aufs").Run()
+	if err := exec.Command("modprobe", "aufs").Run(); err != nil {
+		return err
+	}
 
 	if rsystem.RunningInUserNS() {
 		return ErrAufsNested
@@ -266,7 +271,7 @@ func (a *Driver) createDirsFor(id string) error {
 }
 
 // Remove will unmount and remove the given id.
-func (a *Driver) Remove(id string) error {
+func (a *Driver) Remove(id string) (retErr error) {
 	a.pathCacheLock.Lock()
 	mountpoint, exists := a.pathCache[id]
 	a.pathCacheLock.Unlock()
@@ -285,13 +290,21 @@ func (a *Driver) Remove(id string) error {
 	if err := os.Rename(mountpoint, tmpMntPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	defer os.RemoveAll(tmpMntPath)
+	defer func() {
+		if removeErr := os.RemoveAll(tmpMntPath); removeErr != nil {
+			retErr = errors.Wrap(retErr, removeErr.Error())
+		}
+	}()
 
 	tmpDiffpath := path.Join(a.diffPath(), fmt.Sprintf("%s-removing", id))
 	if err := os.Rename(a.getDiffPath(id), tmpDiffpath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	defer os.RemoveAll(tmpDiffpath)
+	defer func() {
+		if removeErr := os.RemoveAll(tmpDiffpath); removeErr != nil {
+			retErr = errors.Wrap(retErr, removeErr.Error())
+		}
+	}()
 
 	// Remove the layers file for the id
 	if err := os.Remove(path.Join(a.rootPath(), "layers", id)); err != nil && !os.IsNotExist(err) {
@@ -501,7 +514,9 @@ func (a *Driver) Cleanup() error {
 func (a *Driver) aufsMount(ro []string, rw, target, mountLabel string) (err error) {
 	defer func() {
 		if err != nil {
-			Unmount(target)
+			if unmountErr := Unmount(target); unmountErr != nil {
+				err = errors.Wrap(err, unmountErr.Error())
+			}
 		}
 	}()
 
@@ -564,14 +579,22 @@ func useDirperm() bool {
 			logrus.Errorf("error checking dirperm1: %v", err)
 			return
 		}
-		defer os.RemoveAll(base)
+		defer func() {
+			if removeErr := os.RemoveAll(base); removeErr != nil {
+				logrus.Errorf("removeall error: %v", removeErr)
+			}
+		}()
 
 		union, err := ioutil.TempDir("", "storage-aufs-union")
 		if err != nil {
 			logrus.Errorf("error checking dirperm1: %v", err)
 			return
 		}
-		defer os.RemoveAll(union)
+		defer func() {
+			if removeErr := os.RemoveAll(union); removeErr != nil {
+				logrus.Errorf("removeall error: %v", removeErr)
+			}
+		}()
 
 		opts := fmt.Sprintf("br:%s,dirperm1,xino=/dev/shm/aufs.xino", base)
 		if err := mount("none", union, "aufs", 0, opts); err != nil {

@@ -20,6 +20,7 @@ import (
 	"github.com/containers/storage/pkg/parsers"
 	zfs "github.com/mistifyio/go-zfs"
 	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/pkg/errors"
 )
 
 type zfsOptions struct {
@@ -28,7 +29,9 @@ type zfsOptions struct {
 }
 
 func init() {
-	graphdriver.Register("zfs", Init)
+	if err := graphdriver.Register("zfs", Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Registering graphdriver: %v\n", err)
+	}
 }
 
 // Logger returns a zfs logger implementation.
@@ -43,8 +46,6 @@ func (*Logger) Log(cmd []string) {
 // It takes base mount path and an array of options which are represented as key value pairs.
 // Each option is in the for key=value. 'zfs.fsname' is expected to be a valid key in the options.
 func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-	var err error
-
 	if _, err := exec.LookPath("zfs"); err != nil {
 		logrus.Debugf("[zfs] zfs command is not available: %v", err)
 		return nil, graphdriver.ErrPrerequisites
@@ -231,7 +232,9 @@ func (d *Driver) cloneFilesystem(name, parentName string) error {
 	}
 
 	if err != nil {
-		snapshot.Destroy(zfs.DestroyDeferDeletion)
+		if destroyErr := snapshot.Destroy(zfs.DestroyDeferDeletion); destroyErr != nil {
+			err = errors.Wrap(err, destroyErr.Error())
+		}
 		return err
 	}
 	return snapshot.Destroy(zfs.DestroyDeferDeletion)
@@ -283,16 +286,16 @@ func (d *Driver) create(id, parent string, storageOpt map[string]string) error {
 	}
 	if parent == "" {
 		mountoptions := map[string]string{"mountpoint": "legacy"}
-		fs, err := zfs.CreateFilesystem(name, mountoptions)
-		if err == nil {
-			err = setQuota(name, quota)
-			if err == nil {
+		fs, createErr := zfs.CreateFilesystem(name, mountoptions)
+		if createErr == nil {
+			quotaErr := setQuota(name, quota)
+			if quotaErr == nil {
 				d.Lock()
 				d.filesystemsCache[fs.Name] = true
 				d.Unlock()
 			}
 		}
-		return err
+		return createErr
 	}
 	err = d.cloneFilesystem(name, d.zfsPath(parent))
 	if err == nil {
@@ -369,7 +372,9 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 	// this could be our first mount after creation of the filesystem, and the root dir may still have root
 	// permissions instead of the remapped root uid:gid (if user namespaces are enabled):
 	if err := os.Chown(mountpoint, rootUID, rootGID); err != nil {
-		mount.Unmount(mountpoint)
+		if mountErr := mount.Unmount(mountpoint); mountErr != nil {
+			err = errors.Wrap(err, mountErr.Error())
+		}
 		d.ctr.Decrement(mountpoint)
 		return "", fmt.Errorf("error modifying zfs mountpoint (%s) directory ownership: %v", mountpoint, err)
 	}
@@ -401,5 +406,5 @@ func (d *Driver) Put(id string) error {
 func (d *Driver) Exists(id string) bool {
 	d.Lock()
 	defer d.Unlock()
-	return d.filesystemsCache[d.zfsPath(id)] == true
+	return d.filesystemsCache[d.zfsPath(id)]
 }

@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/devicemapper"
@@ -19,7 +20,9 @@ import (
 )
 
 func init() {
-	graphdriver.Register("devicemapper", Init)
+	if err := graphdriver.Register("devicemapper", Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Registring graphdriver: %v\n", err)
+	}
 }
 
 // Driver contains the device set mounted and the home directory
@@ -128,11 +131,7 @@ func (d *Driver) CreateReadWrite(id, parent, mountLabel string, storageOpt map[s
 
 // Create adds a device with a given id and the parent.
 func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]string) error {
-	if err := d.DeviceSet.AddDevice(id, parent, storageOpt); err != nil {
-		return err
-	}
-
-	return nil
+	return d.DeviceSet.AddDevice(id, parent, storageOpt)
 }
 
 // Remove removes a device with a given id, unmounts the filesystem.
@@ -189,7 +188,9 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 
 	if err := idtools.MkdirAllAs(rootFs, 0755, uid, gid); err != nil && !os.IsExist(err) {
 		d.ctr.Decrement(mp)
-		d.DeviceSet.UnmountDevice(id, mp)
+		if unmountErr := d.DeviceSet.UnmountDevice(id, mp); unmountErr != nil {
+			err = errors.Wrap(err, unmountErr.Error())
+		}
 		return "", err
 	}
 
@@ -199,7 +200,9 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 		// of later problems
 		if err := ioutil.WriteFile(idFile, []byte(id), 0600); err != nil {
 			d.ctr.Decrement(mp)
-			d.DeviceSet.UnmountDevice(id, mp)
+			if unmountErr := d.DeviceSet.UnmountDevice(id, mp); unmountErr != nil {
+				err = errors.Wrap(err, unmountErr.Error())
+			}
 			return "", err
 		}
 	}

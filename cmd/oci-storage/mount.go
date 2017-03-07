@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -30,7 +29,9 @@ func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		moes = append(moes, mountPointOrError{arg, result, errText})
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(moes)
+		if jsonEncodeToStdout(moes) != 0 {
+			return 1
+		}
 	} else {
 		for _, mountOrError := range moes {
 			if mountOrError.Error != "" {
@@ -60,7 +61,9 @@ func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		mes = append(mes, mountPointError{arg, errText})
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(mes)
+		if jsonEncodeToStdout(mes) != 0 {
+			return 1
+		}
 	} else {
 		for _, me := range mes {
 			if me.Error != "" {

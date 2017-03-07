@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -37,7 +36,9 @@ func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matched)
+		if jsonEncodeToStdout(matched) != 0 {
+			return 1
+		}
 	} else {
 		for _, image := range matched {
 			fmt.Printf("ID: %s\n", image.ID)
@@ -63,12 +64,17 @@ func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args
 		return 1
 	}
 	d, err := m.ListImageBigData(image.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(d)
-	} else {
-		for _, name := range d {
-			fmt.Printf("%s\n", name)
-		}
+		return jsonEncodeToStdout(d)
+	}
+
+	for _, name := range d {
+		fmt.Printf("%s\n", name)
 	}
 	return 0
 }
@@ -81,9 +87,9 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 	}
 	output := os.Stdout
 	if paramImageDataFile != "" {
-		f, err := os.Create(paramImageDataFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+		f, createErr := os.Create(paramImageDataFile)
+		if createErr != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", createErr)
 			return 1
 		}
 		output = f
@@ -93,7 +99,10 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	output.Write(b)
+	if _, err := output.Write(b); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
 	output.Close()
 	return 0
 }
@@ -106,9 +115,9 @@ func setImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 	}
 	input := os.Stdin
 	if paramImageDataFile != "" {
-		f, err := os.Open(paramImageDataFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+		f, openErr := os.Open(paramImageDataFile)
+		if openErr != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", openErr)
 			return 1
 		}
 		input = f

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,7 +26,9 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(metadataDict)
+		if jsonEncodeToStdout(metadataDict) != 0 {
+			return 1
+		}
 	} else {
 		for _, what := range args {
 			if metadataQuiet {

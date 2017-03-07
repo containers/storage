@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
@@ -97,7 +98,9 @@ type Driver struct {
 }
 
 func init() {
-	graphdriver.Register("overlay", Init)
+	if err := graphdriver.Register("overlay", Init); err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing graph driver: %v", err)
+	}
 }
 
 // Init returns the NaiveDiffDriver, a native diff driver for overlay filesystem.
@@ -149,7 +152,9 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 func supportsOverlay() error {
 	// We can try to modprobe overlay first before looking at
 	// proc/filesystems for when overlay is supported
-	exec.Command("modprobe", "overlay").Run()
+	if err := exec.Command("modprobe", "overlay").Run(); err != nil {
+		return err
+	}
 
 	f, err := os.Open("/proc/filesystems")
 	if err != nil {
@@ -235,50 +240,49 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
-		return err
+	if mkdirErr := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); mkdirErr != nil {
+		return mkdirErr
 	}
-	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
-		return err
+	if mkdirErr := idtools.MkdirAs(dir, 0700, rootUID, rootGID); mkdirErr != nil {
+		return mkdirErr
 	}
 
 	defer func() {
 		// Clean up on failure
 		if retErr != nil {
-			os.RemoveAll(dir)
+			if removeErr := os.RemoveAll(dir); removeErr != nil {
+				retErr = errors.Wrap(retErr, removeErr.Error())
+			}
 		}
 	}()
 
 	// Toplevel images are just a "root" dir
 	if parent == "" {
-		if err := idtools.MkdirAs(path.Join(dir, "root"), 0755, rootUID, rootGID); err != nil {
-			return err
-		}
-		return nil
+		return idtools.MkdirAs(path.Join(dir, "root"), 0755, rootUID, rootGID)
 	}
 
 	parentDir := d.dir(parent)
 
 	// Ensure parent exists
-	if _, err := os.Lstat(parentDir); err != nil {
-		return err
+	if _, statErr := os.Lstat(parentDir); statErr != nil {
+		return statErr
 	}
 
 	// If parent has a root, just do an overlay to it
 	parentRoot := path.Join(parentDir, "root")
 
-	if s, err := os.Lstat(parentRoot); err == nil {
-		if err := idtools.MkdirAs(path.Join(dir, "upper"), s.Mode(), rootUID, rootGID); err != nil {
-			return err
+	if s, statErr := os.Lstat(parentRoot); statErr == nil {
+		if mkdirErr := idtools.MkdirAs(path.Join(dir, "upper"), s.Mode(), rootUID, rootGID); mkdirErr != nil {
+			return mkdirErr
 		}
-		if err := idtools.MkdirAs(path.Join(dir, "work"), 0700, rootUID, rootGID); err != nil {
-			return err
+		if mkdirErr := idtools.MkdirAs(path.Join(dir, "work"), 0700, rootUID, rootGID); mkdirErr != nil {
+			return mkdirErr
 		}
-		if err := idtools.MkdirAs(path.Join(dir, "merged"), 0700, rootUID, rootGID); err != nil {
-			return err
+		if mkdirErr := idtools.MkdirAs(path.Join(dir, "merged"), 0700, rootUID, rootGID); mkdirErr != nil {
+			return mkdirErr
 		}
-		if err := ioutil.WriteFile(path.Join(dir, "lower-id"), []byte(parent), 0666); err != nil {
-			return err
+		if mkdirErr := ioutil.WriteFile(path.Join(dir, "lower-id"), []byte(parent), 0666); mkdirErr != nil {
+			return mkdirErr
 		}
 		return nil
 	}
@@ -290,8 +294,8 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 		return err
 	}
 
-	if err := ioutil.WriteFile(path.Join(dir, "lower-id"), lowerID, 0666); err != nil {
-		return err
+	if writeErr := ioutil.WriteFile(path.Join(dir, "lower-id"), lowerID, 0666); writeErr != nil {
+		return writeErr
 	}
 
 	parentUpperDir := path.Join(parentDir, "upper")
@@ -329,12 +333,12 @@ func (d *Driver) Remove(id string) error {
 // Get creates and mounts the required file system for the given id and returns the mount path.
 func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 	dir := d.dir(id)
-	if _, err := os.Stat(dir); err != nil {
-		return "", err
+	if _, statErr := os.Stat(dir); statErr != nil {
+		return "", statErr
 	}
 	// If id has a root, just return it
 	rootDir := path.Join(dir, "root")
-	if _, err := os.Stat(rootDir); err == nil {
+	if _, statErr := os.Stat(rootDir); statErr == nil {
 		return rootDir, nil
 	}
 	mergedDir := path.Join(dir, "merged")
@@ -344,13 +348,15 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 	defer func() {
 		if err != nil {
 			if c := d.ctr.Decrement(mergedDir); c <= 0 {
-				syscall.Unmount(mergedDir, 0)
+				if mountErr := syscall.Unmount(mergedDir, 0); mountErr != nil {
+					err = errors.Wrap(err, mountErr.Error())
+				}
 			}
 		}
 	}()
-	lowerID, err := ioutil.ReadFile(path.Join(dir, "lower-id"))
-	if err != nil {
-		return "", err
+	lowerID, readErr := ioutil.ReadFile(path.Join(dir, "lower-id"))
+	if readErr != nil {
+		return "", readErr
 	}
 	var (
 		lowerDir = path.Join(d.dir(string(lowerID)), "root")
@@ -358,17 +364,17 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		workDir  = path.Join(dir, "work")
 		opts     = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lowerDir, upperDir, workDir)
 	)
-	if err := syscall.Mount("overlay", mergedDir, "overlay", 0, label.FormatMountLabel(opts, mountLabel)); err != nil {
-		return "", fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
+	if mountErr := syscall.Mount("overlay", mergedDir, "overlay", 0, label.FormatMountLabel(opts, mountLabel)); mountErr != nil {
+		return "", fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, mountErr)
 	}
 	// chown "workdir/work" to the remapped root UID/GID. Overlay fs inside a
 	// user namespace requires this to move a directory from lower to upper.
-	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
-	if err != nil {
-		return "", err
+	rootUID, rootGID, idErr := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
+	if idErr != nil {
+		return "", idErr
 	}
-	if err := os.Chown(path.Join(workDir, "work"), rootUID, rootGID); err != nil {
-		return "", err
+	if chownErr := os.Chown(path.Join(workDir, "work"), rootUID, rootGID); chownErr != nil {
+		return "", chownErr
 	}
 	return mergedDir, nil
 }
@@ -382,7 +388,7 @@ func (d *Driver) Put(id string) error {
 	err := syscall.Unmount(mountpoint, 0)
 	if err != nil {
 		rootDir := path.Join(d.dir(id), "root")
-		if _, err := os.Stat(rootDir); err == nil {
+		if _, statErr := os.Stat(rootDir); statErr == nil {
 			// We weren't mounting a "merged" directory anyway
 			return nil
 		}
@@ -400,7 +406,7 @@ func (d *Driver) ApplyDiff(id string, parent string, diff archive.Reader) (size 
 	}
 
 	parentRootDir := path.Join(d.dir(parent), "root")
-	if _, err := os.Stat(parentRootDir); err != nil {
+	if _, statErr := os.Stat(parentRootDir); statErr != nil {
 		return 0, ErrApplyDiffFallback
 	}
 
@@ -417,12 +423,15 @@ func (d *Driver) ApplyDiff(id string, parent string, diff archive.Reader) (size 
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(tmpRootDir)
+			if removeErr := os.RemoveAll(tmpRootDir); removeErr != nil {
+				err = errors.Wrap(err, removeErr.Error())
+			}
 		} else {
-			os.RemoveAll(path.Join(dir, "upper"))
-			os.RemoveAll(path.Join(dir, "work"))
-			os.RemoveAll(path.Join(dir, "merged"))
-			os.RemoveAll(path.Join(dir, "lower-id"))
+			for _, p := range []string{path.Join(dir, "upper"), path.Join(dir, "work"), path.Join(dir, "merged"), path.Join(dir, "lower-id")} {
+				if removeErr := os.RemoveAll(p); removeErr != nil {
+					err = errors.Wrap(err, removeErr.Error())
+				}
+			}
 		}
 	}()
 

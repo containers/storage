@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -42,7 +41,9 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matches)
+		if jsonEncodeToStdout(matches) != 0 {
+			return 1
+		}
 	} else {
 		for _, container := range matches {
 			fmt.Printf("ID: %s\n", container.ID)
@@ -77,12 +78,16 @@ func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, 
 		return 1
 	}
 	d, err := m.ListContainerBigData(container.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(d)
-	} else {
-		for _, name := range d {
-			fmt.Printf("%s\n", name)
-		}
+		return jsonEncodeToStdout(d)
+	}
+
+	for _, name := range d {
+		fmt.Printf("%s\n", name)
 	}
 	return 0
 }
@@ -95,9 +100,9 @@ func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	}
 	output := os.Stdout
 	if paramContainerDataFile != "" {
-		f, err := os.Create(paramContainerDataFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+		f, createErr := os.Create(paramContainerDataFile)
+		if createErr != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", createErr)
 			return 1
 		}
 		output = f
@@ -107,7 +112,10 @@ func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	output.Write(b)
+	if _, err := output.Write(b); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
 	output.Close()
 	return 0
 }
@@ -120,9 +128,9 @@ func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	}
 	input := os.Stdin
 	if paramContainerDataFile != "" {
-		f, err := os.Open(paramContainerDataFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+		f, openErr := os.Open(paramContainerDataFile)
+		if openErr != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", openErr)
 			return 1
 		}
 		input = f

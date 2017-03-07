@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -16,19 +15,17 @@ var (
 func shutdown(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	_, err := m.Shutdown(forceShutdown)
 	if jsonOutput {
-		if err == nil {
-			json.NewEncoder(os.Stdout).Encode(string(""))
-		} else {
-			json.NewEncoder(os.Stdout).Encode(err)
-		}
-	} else {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", action, err)
+			return jsonEncodeToStdout(err)
 		}
+		return jsonEncodeToStdout("")
 	}
+
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", action, err)
 		return 1
 	}
+
 	return 0
 }
 

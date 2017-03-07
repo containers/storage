@@ -29,12 +29,16 @@ func randomContent(size int, seed int64) []byte {
 	return content
 }
 
-func addFiles(drv graphdriver.Driver, layer string, seed int64) error {
+func addFiles(drv graphdriver.Driver, layer string, seed int64) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	if err := ioutil.WriteFile(path.Join(root, "file-a"), randomContent(64, seed), 0755); err != nil {
 		return err
@@ -49,12 +53,16 @@ func addFiles(drv graphdriver.Driver, layer string, seed int64) error {
 	return ioutil.WriteFile(path.Join(root, "file-c"), randomContent(128*128, seed+2), 0755)
 }
 
-func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) error {
+func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if putErr := drv.Put(layer); putErr != nil && retErr == nil {
+			retErr = putErr
+		}
+	}()
 
 	fileContent, err := ioutil.ReadFile(path.Join(root, filename))
 	if err != nil {
@@ -68,32 +76,44 @@ func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) e
 	return nil
 }
 
-func addFile(drv graphdriver.Driver, layer, filename string, content []byte) error {
+func addFile(drv graphdriver.Driver, layer, filename string, content []byte) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	return ioutil.WriteFile(path.Join(root, filename), content, 0755)
 }
 
-func removeFile(drv graphdriver.Driver, layer, filename string) error {
+func removeFile(drv graphdriver.Driver, layer, filename string) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	return os.Remove(path.Join(root, filename))
 }
 
-func checkFileRemoved(drv graphdriver.Driver, layer, filename string) error {
+func checkFileRemoved(drv graphdriver.Driver, layer, filename string) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	if _, err := os.Stat(path.Join(root, filename)); err == nil {
 		return fmt.Errorf("file still exists: %s", path.Join(root, filename))
@@ -104,12 +124,16 @@ func checkFileRemoved(drv graphdriver.Driver, layer, filename string) error {
 	return nil
 }
 
-func addManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) error {
+func addManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	for i := 0; i < count; i += 100 {
 		dir := path.Join(root, fmt.Sprintf("directory-%d", i))
@@ -127,14 +151,18 @@ func addManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) e
 	return nil
 }
 
-func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) ([]archive.Change, error) {
+func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) (changes []archive.Change, retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return nil, err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
-	changes := []archive.Change{}
+	changes = []archive.Change{}
 	for i := 0; i < count; i += 100 {
 		archiveRoot := fmt.Sprintf("/directory-%d", i)
 		if err := os.MkdirAll(path.Join(root, archiveRoot), 0755); err != nil {
@@ -178,12 +206,16 @@ func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64
 	return changes, nil
 }
 
-func checkManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) error {
+func checkManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	for i := 0; i < count; i += 100 {
 		dir := path.Join(root, fmt.Sprintf("directory-%d", i))
@@ -232,12 +264,16 @@ func checkChanges(expected, actual []archive.Change) error {
 	return nil
 }
 
-func addLayerFiles(drv graphdriver.Driver, layer, parent string, i int) error {
+func addLayerFiles(drv graphdriver.Driver, layer, parent string, i int) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 
 	if err := ioutil.WriteFile(path.Join(root, "top-id"), []byte(layer), 0755); err != nil {
 		return err
@@ -273,12 +309,16 @@ func addManyLayers(drv graphdriver.Driver, baseLayer string, count int) (string,
 	return lastLayer, nil
 }
 
-func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
+func checkManyLayers(drv graphdriver.Driver, layer string, count int) (retErr error) {
 	root, err := drv.Get(layer, "")
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if putErr := drv.Put(layer); putErr != nil && retErr == nil {
+			retErr = putErr
+		}
+	}()
 
 	layerIDBytes, err := ioutil.ReadFile(path.Join(root, "top-id"))
 	if err != nil {

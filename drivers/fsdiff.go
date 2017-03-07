@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
 
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
@@ -54,19 +55,23 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 
 	defer func() {
 		if err != nil {
-			gdw.Put(id)
+			if putErr := gdw.Put(id); putErr != nil {
+				err = errors.Wrap(err, putErr.Error())
+			}
 		}
 	}()
 
 	if parent == "" {
-		archive, err := archive.Tar(layerFs, archive.Uncompressed)
-		if err != nil {
-			return nil, err
+		archive, archiveErr := archive.Tar(layerFs, archive.Uncompressed)
+		if archiveErr != nil {
+			return nil, archiveErr
 		}
 		return ioutils.NewReadCloserWrapper(archive, func() error {
-			err := archive.Close()
-			gdw.Put(id)
-			return err
+			archiveErr := archive.Close()
+			if putErr := gdw.Put(id); putErr != nil {
+				archiveErr = errors.Wrap(archiveErr, putErr.Error())
+			}
+			return archiveErr
 		}), nil
 	}
 
@@ -74,7 +79,11 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 	if err != nil {
 		return nil, err
 	}
-	defer gdw.Put(parent)
+	defer func() {
+		if putErr := gdw.Put(parent); putErr != nil {
+			err = errors.Wrap(err, putErr.Error())
+		}
+	}()
 
 	changes, err := archive.ChangesDirs(layerFs, parentFs)
 	if err != nil {
@@ -87,20 +96,26 @@ func (gdw *NaiveDiffDriver) Diff(id, parent string) (arch archive.Archive, err e
 	}
 
 	return ioutils.NewReadCloserWrapper(archive, func() error {
-		err := archive.Close()
-		gdw.Put(id)
-		return err
+		archiveErr := archive.Close()
+		if putErr := gdw.Put(id); putErr != nil {
+			archiveErr = errors.Wrap(archiveErr, putErr.Error())
+		}
+		return archiveErr
 	}), nil
 }
 
 // Changes produces a list of changes between the specified layer
 // and its parent layer. If parent is "", then all changes will be ADD changes.
-func (gdw *NaiveDiffDriver) Changes(id, parent string) ([]archive.Change, error) {
+func (gdw *NaiveDiffDriver) Changes(id, parent string) (changes []archive.Change, err error) {
 	layerFs, err := gdw.Get(id, "")
 	if err != nil {
 		return nil, err
 	}
-	defer gdw.Put(id)
+	defer func() {
+		if putErr := gdw.Put(id); putErr != nil {
+			err = errors.Wrap(err, putErr.Error())
+		}
+	}()
 
 	parentFs := ""
 
@@ -109,7 +124,11 @@ func (gdw *NaiveDiffDriver) Changes(id, parent string) ([]archive.Change, error)
 		if err != nil {
 			return nil, err
 		}
-		defer gdw.Put(parent)
+		defer func() {
+			if putErr := gdw.Put(parent); putErr != nil {
+				err = errors.Wrap(err, putErr.Error())
+			}
+		}()
 	}
 
 	return archive.ChangesDirs(layerFs, parentFs)
@@ -124,7 +143,11 @@ func (gdw *NaiveDiffDriver) ApplyDiff(id, parent string, diff archive.Reader) (s
 	if err != nil {
 		return
 	}
-	defer gdw.Put(id)
+	defer func() {
+		if putErr := gdw.Put(id); putErr != nil {
+			err = errors.Wrap(err, putErr.Error())
+		}
+	}()
 
 	options := &archive.TarOptions{UIDMaps: gdw.uidMaps,
 		GIDMaps: gdw.gidMaps}
@@ -151,7 +174,11 @@ func (gdw *NaiveDiffDriver) DiffSize(id, parent string) (size int64, err error) 
 	if err != nil {
 		return
 	}
-	defer gdw.Put(id)
+	defer func() {
+		if putErr := gdw.Put(id); putErr != nil {
+			err = errors.Wrap(err, putErr.Error())
+		}
+	}()
 
 	return archive.ChangesSize(layerFs, changes), nil
 }

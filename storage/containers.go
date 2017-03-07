@@ -143,7 +143,10 @@ func (r *containerStore) Load() error {
 	r.bylayer = layers
 	r.byname = names
 	if needSave {
-		r.Touch()
+		if innerErr := r.Touch(); innerErr != nil {
+			return innerErr
+		}
+
 		return r.Save()
 	}
 	return nil

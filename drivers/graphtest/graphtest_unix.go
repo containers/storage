@@ -37,8 +37,8 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 		t.Fatal(err)
 	}
 
-	if err := os.MkdirAll(root, 0755); err != nil {
-		t.Fatal(err)
+	if mkdirErr := os.MkdirAll(root, 0755); mkdirErr != nil {
+		t.Fatal(mkdirErr)
 	}
 
 	d, err := graphdriver.GetDriver(name, root, options, nil, nil)
@@ -56,7 +56,9 @@ func cleanup(t testing.TB, d *Driver) {
 	if err := drv.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
-	os.RemoveAll(d.root)
+	if err := os.RemoveAll(d.root); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // GetDriver create a new driver with given name or return an existing driver with the name updating the reference count.
@@ -117,7 +119,9 @@ func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...str
 		t.Fatal("New directory not empty")
 	}
 
-	driver.Put("empty")
+	if err := driver.Put("empty"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // DriverTestCreateBase create a base driver and verify.
@@ -230,16 +234,16 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 	}
 
 	diff := stringid.GenerateRandomID()
-	if err := driver.Create(diff, base, "", nil); err != nil {
-		t.Fatal(err)
+	if createErr := driver.Create(diff, base, "", nil); createErr != nil {
+		t.Fatal(createErr)
 	}
 
-	if err := checkManyFiles(driver, diff, fileCount, 3); err != nil {
-		t.Fatal(err)
+	if checkErr := checkManyFiles(driver, diff, fileCount, 3); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 
-	if err := checkFile(driver, diff, deleteFile, deleteFileContent); err != nil {
-		t.Fatal(err)
+	if checkErr := checkFile(driver, diff, deleteFile, deleteFileContent); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 
 	arch, err := driver.Diff(upper, base)
@@ -248,11 +252,11 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 	}
 
 	buf := bytes.NewBuffer(nil)
-	if _, err := buf.ReadFrom(arch); err != nil {
+	if _, readErr := buf.ReadFrom(arch); readErr != nil {
 		t.Fatal(err)
 	}
-	if err := arch.Close(); err != nil {
-		t.Fatal(err)
+	if closeErr := arch.Close(); closeErr != nil {
+		t.Fatal(closeErr)
 	}
 
 	applyDiffSize, err := driver.ApplyDiff(diff, base, bytes.NewReader(buf.Bytes()))
@@ -264,12 +268,12 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 		t.Fatalf("Apply diff size different, got %d, expected %d", applyDiffSize, diffSize)
 	}
 
-	if err := checkManyFiles(driver, diff, fileCount, 6); err != nil {
+	if checkErr := checkManyFiles(driver, diff, fileCount, 6); checkErr != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkFileRemoved(driver, diff, deleteFile); err != nil {
-		t.Fatal(err)
+	if checkErr := checkFileRemoved(driver, diff, deleteFile); checkErr != nil {
+		t.Fatal(checkErr)
 	}
 }
 

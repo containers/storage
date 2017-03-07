@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/pkg/errors"
 
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
@@ -244,7 +245,10 @@ func (r *layerStore) Load() error {
 		}
 	}
 	if needSave {
-		r.Touch()
+		if innerErr := r.Touch(); innerErr != nil {
+			return innerErr
+		}
+
 		return r.Save()
 	}
 	return err
@@ -334,13 +338,16 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, size int64, err error) {
-	size = -1
-	if err := os.MkdirAll(r.rundir, 0700); err != nil {
-		return nil, -1, err
+func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (*Layer, int64, error) {
+	var layer *Layer
+	var err error
+
+	size := int64(-1)
+	if innerErr := os.MkdirAll(r.rundir, 0700); innerErr != nil {
+		return nil, -1, innerErr
 	}
-	if err := os.MkdirAll(r.layerdir, 0700); err != nil {
-		return nil, -1, err
+	if innerErr := os.MkdirAll(r.layerdir, 0700); innerErr != nil {
+		return nil, -1, innerErr
 	}
 	if parentLayer, ok := r.byname[parent]; ok {
 		parent = parentLayer.ID
@@ -395,7 +402,9 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 			if err != nil {
 				// We don't have a record of this layer, but at least
 				// try to clean it up underneath us.
-				r.driver.Remove(id)
+				if removeErr := r.driver.Remove(id); removeErr != nil {
+					err = errors.Wrap(err, removeErr.Error())
+				}
 				return nil, -1, err
 			}
 			size, err = r.ApplyDiff(layer.ID, diff)
@@ -413,7 +422,9 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 		if err != nil {
 			// We don't have a record of this layer, but at least
 			// try to clean it up underneath us.
-			r.driver.Remove(id)
+			if removeErr := r.driver.Remove(id); removeErr != nil {
+				err = errors.Wrap(err, removeErr.Error())
+			}
 			return nil, -1, err
 		}
 	}
@@ -555,42 +566,48 @@ func (r *layerStore) Delete(id string) error {
 			return err
 		}
 	}
-	err := r.driver.Remove(id)
-	if err == nil {
-		os.Remove(r.tspath(id))
-		if layer, ok := r.byid[id]; ok {
-			pslice := r.byparent[layer.Parent]
-			newPslice := []*Layer{}
-			for _, candidate := range pslice {
-				if candidate.ID != id {
-					newPslice = append(newPslice, candidate)
-				}
-			}
-			delete(r.byid, layer.ID)
-			if len(newPslice) > 0 {
-				r.byparent[layer.Parent] = newPslice
-			} else {
-				delete(r.byparent, layer.Parent)
-			}
-			for _, name := range layer.Names {
-				delete(r.byname, name)
-			}
-			if layer.MountPoint != "" {
-				delete(r.bymount, layer.MountPoint)
-			}
-			newLayers := []Layer{}
-			for _, candidate := range r.layers {
-				if candidate.ID != id {
-					newLayers = append(newLayers, candidate)
-				}
-			}
-			r.layers = newLayers
-			if err = r.Save(); err != nil {
-				return err
+
+	if err := r.driver.Remove(id); err != nil {
+		return err
+	}
+
+	if err := os.Remove(r.tspath(id)); err != nil {
+		return err
+	}
+
+	if layer, ok := r.byid[id]; ok {
+		pslice := r.byparent[layer.Parent]
+		newPslice := []*Layer{}
+		for _, candidate := range pslice {
+			if candidate.ID != id {
+				newPslice = append(newPslice, candidate)
 			}
 		}
+		delete(r.byid, layer.ID)
+		if len(newPslice) > 0 {
+			r.byparent[layer.Parent] = newPslice
+		} else {
+			delete(r.byparent, layer.Parent)
+		}
+		for _, name := range layer.Names {
+			delete(r.byname, name)
+		}
+		if layer.MountPoint != "" {
+			delete(r.bymount, layer.MountPoint)
+		}
+		newLayers := []Layer{}
+		for _, candidate := range r.layers {
+			if candidate.ID != id {
+				newLayers = append(newLayers, candidate)
+			}
+		}
+		r.layers = newLayers
+		if err := r.Save(); err != nil {
+			return err
+		}
 	}
-	return err
+
+	return nil
 }
 
 func (r *layerStore) Lookup(name string) (id string, err error) {
@@ -710,25 +727,38 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 		if ctype, ok := cflag.(float64); ok {
 			compression = archive.Compression(ctype)
 		} else if ctype, ok := cflag.(archive.Compression); ok {
-			compression = archive.Compression(ctype)
+			compression = ctype
 		}
 	}
 	if from != r.byid[to].Parent {
 		diff, err := r.driver.Diff(to, from)
 		if err == nil && (compression != archive.Uncompressed) {
 			preader, pwriter := io.Pipe()
-			compressor, err := archive.CompressStream(pwriter, compression)
+			compressor, innerErr := archive.CompressStream(pwriter, compression)
 			if err != nil {
 				diff.Close()
 				pwriter.Close()
-				return nil, err
+				return nil, innerErr
 			}
+
+			errChan := make(chan error, 1)
 			go func() {
-				io.Copy(compressor, diff)
+				defer close(errChan)
+
+				if _, copyErr := io.Copy(compressor, diff); copyErr != nil {
+					errChan <- copyErr
+					pwriter.CloseWithError(copyErr)
+				}
+
 				diff.Close()
 				compressor.Close()
 				pwriter.Close()
 			}()
+
+			if copyErr := <-errChan; copyErr != nil {
+				return nil, copyErr
+			}
+
 			diff = preader
 		}
 		return diff, err
@@ -771,11 +801,24 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 			preader.Close()
 			return nil, err
 		}
+
+		errChan := make(chan error, 1)
+
 		go func() {
-			asm.WriteOutputTarStream(fgetter, metadata, compressor)
+			defer close(errChan)
+
+			if writeErr := asm.WriteOutputTarStream(fgetter, metadata, compressor); writeErr != nil {
+				errChan <- writeErr
+				pwriter.CloseWithError(writeErr)
+			}
 			compressor.Close()
 			pwriter.Close()
 		}()
+
+		if writeErr := <-errChan; writeErr != nil {
+			return nil, writeErr
+		}
+
 		stream = preader
 	} else {
 		stream = asm.NewOutputTarStream(fgetter, metadata)
@@ -811,7 +854,7 @@ func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	return r.driver.DiffSize(to, from)
 }
 
-func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err error) {
+func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (int64, error) {
 	if layer, ok := r.byname[to]; ok {
 		to = layer.ID
 	}
@@ -843,11 +886,11 @@ func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err 
 	if err != nil {
 		return -1, err
 	}
-	size, err = r.driver.ApplyDiff(layer.ID, layer.Parent, payload)
+	size, err := r.driver.ApplyDiff(layer.ID, layer.Parent, payload)
 	compressor.Close()
 	if err == nil {
-		if err := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); err != nil {
-			return -1, err
+		if innerErr := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); innerErr != nil {
+			return -1, innerErr
 		}
 	}
 

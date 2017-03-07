@@ -30,7 +30,6 @@ import (
 	"github.com/containers/storage/pkg/longpath"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/containers/storage/pkg/system"
-	"github.com/vbatts/tar-split/tar/storage"
 )
 
 // filterDriver is an HCSShim driver type for the Windows Filter driver.
@@ -468,9 +467,9 @@ func writeTarFromLayer(r hcsshim.LayerReader, w io.Writer) error {
 			hdr := &tar.Header{
 				Name: filepath.ToSlash(filepath.Join(filepath.Dir(name), archive.WhiteoutPrefix+filepath.Base(name))),
 			}
-			err := t.WriteHeader(hdr)
-			if err != nil {
-				return err
+			headerErr := t.WriteHeader(hdr)
+			if headerErr != nil {
+				return headerErr
 			}
 		} else {
 			err = backuptar.WriteTarFileFromBackupStream(t, r, name, size, fileInfo)
@@ -755,11 +754,6 @@ func (fg *fileGetCloserWithBackupPrivileges) Get(filename string) (io.ReadCloser
 
 func (fg *fileGetCloserWithBackupPrivileges) Close() error {
 	return nil
-}
-
-type fileGetDestroyCloser struct {
-	storage.FileGetter
-	path string
 }
 
 func (f *fileGetDestroyCloser) Close() error {

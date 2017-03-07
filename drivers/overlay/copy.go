@@ -115,7 +115,7 @@ func copyDir(srcDir, dstDir string, flags copyFlags) error {
 			}
 
 		default:
-			return fmt.Errorf("Unknown file type for %s\n", srcPath)
+			return fmt.Errorf("unknown file type for %s", srcPath)
 		}
 
 		// Everything below is copying metadata from src to dst. All this metadata
@@ -152,8 +152,12 @@ func copyDir(srcDir, dstDir string, flags copyFlags) error {
 
 		// system.Chtimes doesn't support a NOFOLLOW flag atm
 		if !isSymlink {
-			aTime := time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
-			mTime := time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
+			sec, nsec := stat.Atim.Unix()
+			aTime := time.Unix(sec, nsec)
+
+			sec, nsec = stat.Mtim.Unix()
+			mTime := time.Unix(sec, nsec)
+
 			if err := system.Chtimes(dstPath, aTime, mTime); err != nil {
 				return err
 			}
