@@ -15,6 +15,8 @@ if ${IN_VAGRANT_MACHINE:-false} ; then
 	unset AUTO_GOPATH
 	export GOPATH=/go
 	export PATH=${GOPATH}/bin:/go/src/${PKG}/vendor/src/github.com/golang/lint/golint:${PATH}
+	sudo modprobe aufs || true
+	sudo modprobe zfs || true
 	"$@"
 else
 	vagrant up --provider ${VAGRANT_PROVIDER}
