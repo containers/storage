@@ -25,7 +25,7 @@ import (
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/parsers/kernel"
 
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 var (

@@ -18,7 +18,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 
 	"github.com/containers/storage/pkg/mount"
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 // This is a small wrapper over the NaiveDiffWriter that lets us have a custom

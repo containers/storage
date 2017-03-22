@@ -31,7 +31,7 @@ import (
 	"github.com/containers/storage/storageversion"
 	"github.com/docker/go-units"
 
-	"github.com/opencontainers/runc/libcontainer/label"
+	"github.com/opencontainers/selinux/go-selinux/label"
 )
 
 var (
