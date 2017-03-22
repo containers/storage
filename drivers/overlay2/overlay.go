@@ -172,7 +172,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				return nil, err
 			}
 		default:
-			return nil, fmt.Errorf("overlay2: Unknown option %s\n", key)
+			return nil, fmt.Errorf("overlay2: Unknown option %s", key)
 		}
 	}
 	return o, nil
