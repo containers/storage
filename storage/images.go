@@ -320,7 +320,7 @@ func (r *imageStore) Get(id string) (*Image, error) {
 }
 
 func (r *imageStore) Lookup(name string) (id string, err error) {
-	if image, ok := r.lookup(id); ok {
+	if image, ok := r.lookup(name); ok {
 		return image.ID, nil
 	}
 	return "", ErrImageUnknown
