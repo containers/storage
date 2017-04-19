@@ -619,19 +619,35 @@ func (r *layerStore) Wipe() error {
 	return nil
 }
 
-func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
-	toLayer, ok := r.lookup(to)
+func (r *layerStore) findParentAndLayer(from, to string) (fromID string, toID string, fromLayer *Layer, toLayer *Layer, err error) {
+	var ok bool
+	toLayer, ok = r.lookup(to)
 	if !ok {
+		return "", "", nil, nil, ErrLayerUnknown
+	}
+	to = toLayer.ID
+	if from == "" {
+		from = toLayer.Parent
+	}
+	if from != "" {
+		fromLayer, ok = r.lookup(from)
+		if !ok {
+			fromLayer, ok = r.lookup(toLayer.Parent)
+			if !ok {
+				return "", "", nil, nil, ErrParentUnknown
+			}
+		}
+		from = fromLayer.ID
+	}
+	return from, to, fromLayer, toLayer, nil
+}
+
+func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
+	from, to, _, _, err := r.findParentAndLayer(from, to)
+	if err != nil {
 		return nil, ErrLayerUnknown
 	}
-	fromLayer, ok := r.lookup(from)
-	if !ok {
-		fromLayer, ok = r.lookup(toLayer.Parent)
-		if !ok {
-			return nil, ErrParentUnknown
-		}
-	}
-	return r.driver.Changes(toLayer.ID, fromLayer.ID)
+	return r.driver.Changes(to, from)
 }
 
 type simpleGetCloser struct {
@@ -666,16 +682,9 @@ func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 	var metadata storage.Unpacker
 
-	toLayer, ok := r.lookup(to)
-	if !ok {
+	from, to, _, toLayer, err := r.findParentAndLayer(from, to)
+	if err != nil {
 		return nil, ErrLayerUnknown
-	}
-	fromLayer, ok := r.lookup(from)
-	if !ok {
-		fromLayer, ok = r.lookup(toLayer.Parent)
-		if !ok {
-			return nil, ErrParentUnknown
-		}
 	}
 	compression := archive.Uncompressed
 	if cflag, ok := toLayer.Flags[compressionFlag]; ok {
@@ -685,8 +694,8 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 			compression = archive.Compression(ctype)
 		}
 	}
-	if fromLayer.ID != toLayer.Parent {
-		diff, err := r.driver.Diff(toLayer.ID, fromLayer.ID)
+	if from != toLayer.Parent {
+		diff, err := r.driver.Diff(to, from)
 		if err == nil && (compression != archive.Uncompressed) {
 			preader, pwriter := io.Pipe()
 			compressor, err := archive.CompressStream(pwriter, compression)
@@ -706,10 +715,10 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 		return diff, err
 	}
 
-	tsfile, err := os.Open(r.tspath(toLayer.ID))
+	tsfile, err := os.Open(r.tspath(to))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return r.driver.Diff(toLayer.ID, fromLayer.ID)
+			return r.driver.Diff(to, from)
 		}
 		return nil, err
 	}
@@ -763,18 +772,11 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 }
 
 func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
-	toLayer, ok := r.lookup(to)
-	if !ok {
+	from, to, _, _, err = r.findParentAndLayer(from, to)
+	if err != nil {
 		return -1, ErrLayerUnknown
 	}
-	fromLayer, ok := r.lookup(from)
-	if !ok {
-		fromLayer, ok = r.lookup(toLayer.Parent)
-		if !ok {
-			return -1, ErrParentUnknown
-		}
-	}
-	return r.driver.DiffSize(toLayer.ID, fromLayer.ID)
+	return r.driver.DiffSize(to, from)
 }
 
 func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err error) {
