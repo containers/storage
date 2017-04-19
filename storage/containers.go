@@ -336,7 +336,7 @@ func (r *containerStore) Get(id string) (*Container, error) {
 }
 
 func (r *containerStore) Lookup(name string) (id string, err error) {
-	if container, ok := r.lookup(id); ok {
+	if container, ok := r.lookup(name); ok {
 		return container.ID, nil
 	}
 	return "", ErrContainerUnknown
