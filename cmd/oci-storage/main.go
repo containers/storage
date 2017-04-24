@@ -34,6 +34,7 @@ func main() {
 	options := storage.DefaultStoreOptions
 	g := options.GraphMap[0]
 	debug := false
+	ro_graph := opts.NewListOpts(nil)
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
@@ -42,6 +43,7 @@ func main() {
 		flags.StringVar(&g.DriverName, []string{"-storage-driver", "s"}, g.DriverName, "Storage driver to use ($STORAGE_DRIVER)")
 		flags.Var(opts.NewListOptsRef(&g.DriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
 		flags.BoolVar(&debug, []string{"-debug", "D"}, debug, "Print debugging information")
+		flags.Var(&ro_graph, []string{"-graph"}, "Additional Read/Only Root image tree")
 		return flags
 	}
 
@@ -73,6 +75,14 @@ func main() {
 		return
 	}
 	cmd := args[0]
+
+	for _, root := range ro_graph.GetAll() {
+		var g storage.GraphDriver
+		g.DriverName = "overlay"
+		g.Root = root
+		g.DriverOptions = nil
+		options.GraphMap = append(options.GraphMap, g)
+	}
 
 	for _, command := range commands {
 		for _, name := range command.names {

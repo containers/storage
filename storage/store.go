@@ -53,7 +53,7 @@ var (
 	ErrSizeUnknown = errors.New("size is not known")
 	// DefaultStoreOptions is a reasonable default set of options.
 	DefaultStoreOptions StoreOptions
-	DefaultGraph GraphDriver
+	DefaultGraph        GraphDriver
 	stores              []*store
 	storesLock          sync.Mutex
 )
@@ -2192,7 +2192,7 @@ func stringSliceWithoutValue(slice []string, value string) []string {
 }
 
 func init() {
-        var g GraphDriver
+	var g GraphDriver
 	g.Root = "/var/lib/containers/storage"
 	g.DriverName = os.Getenv("STORAGE_DRIVER")
 	g.DriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
