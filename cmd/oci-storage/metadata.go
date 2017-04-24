@@ -20,7 +20,7 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	metadataDict := make(map[string]string)
 	missingAny := false
 	for _, what := range args {
-		if metadata, err := m.GetMetadata(what); err == nil {
+		if metadata, err := m.Metadata(what); err == nil {
 			metadataDict[what] = strings.TrimSuffix(metadata, "\n")
 		} else {
 			missingAny = true

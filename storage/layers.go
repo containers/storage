@@ -520,7 +520,7 @@ func (r *layerStore) SetNames(id string, names []string) error {
 	return ErrLayerUnknown
 }
 
-func (r *layerStore) GetMetadata(id string) (string, error) {
+func (r *layerStore) Metadata(id string) (string, error) {
 	if layer, ok := r.lookup(id); ok {
 		return layer.Metadata, nil
 	}
