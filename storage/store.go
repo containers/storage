@@ -53,6 +53,7 @@ var (
 	ErrSizeUnknown = errors.New("size is not known")
 	// DefaultStoreOptions is a reasonable default set of options.
 	DefaultStoreOptions StoreOptions
+	DefaultGraph GraphDriver
 	stores              []*store
 	storesLock          sync.Mutex
 )
@@ -131,10 +132,10 @@ type StoreOptions struct {
 	// RunRoot is the filesystem path under which we can store run-time
 	// information, such as the locations of active mount points, that we
 	// want to lose if the host is rebooted.
-	RunRoot string `json:"runroot,omitempty"`
-	GraphMap GraphDriver `json:"graphmap,omitempty"`
-	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
-	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
+	RunRoot  string          `json:"runroot,omitempty"`
+	GraphMap []GraphDriver   `json:"graphmap,omitempty"`
+	UIDMap   []idtools.IDMap `json:"uidmap,omitempty"`
+	GIDMap   []idtools.IDMap `json:"gidmap,omitempty"`
 }
 
 // Store wraps up the various types of file-based stores that we use into a
@@ -389,7 +390,6 @@ type ImageOptions struct {
 type ContainerOptions struct {
 }
 
-
 type store struct {
 	lastLoaded      time.Time
 	runRoot         string
@@ -409,30 +409,30 @@ type store struct {
 // specified location and graph driver, and if it can't, it creates and
 // initializes a new Store object, and the underlying storage that it controls.
 func GetStore(options StoreOptions) (Store, error) {
-	if options.RunRoot == "" && options.GraphMap.Root == "" && options.GraphMap.DriverName == "" && len(options.GraphMap.DriverOptions) == 0 {
+	if options.RunRoot == "" && len(options.GraphMap) == 0 {
 		options = DefaultStoreOptions
 	}
 
-	if options.GraphMap.Root != "" {
-		options.GraphMap.Root = filepath.Clean(options.GraphMap.Root)
-	}
-	if options.RunRoot != "" {
-		options.RunRoot = filepath.Clean(options.RunRoot)
-	}
+	for _, g := range options.GraphMap {
+		if g.Root != "" {
+			g.Root = filepath.Clean(g.Root)
+		}
+		storesLock.Lock()
+		defer storesLock.Unlock()
 
-	storesLock.Lock()
-	defer storesLock.Unlock()
-
-	for _, s := range stores {
-		if s.graphRoot == options.GraphMap.Root && (options.GraphMap.DriverName == "" || s.graphDriverName == options.GraphMap.DriverName) {
-			return s, nil
+		for _, s := range stores {
+			if s.graphRoot == g.Root && (g.DriverName == "" || s.graphDriverName == g.DriverName) {
+				return s, nil
+			}
+		}
+		if g.Root == "" {
+			return nil, ErrIncompleteOptions
 		}
 	}
 
-	if options.GraphMap.Root == "" {
-		return nil, ErrIncompleteOptions
-	}
-	if options.RunRoot == "" {
+	if options.RunRoot != "" {
+		options.RunRoot = filepath.Clean(options.RunRoot)
+	} else {
 		return nil, ErrIncompleteOptions
 	}
 
@@ -444,32 +444,31 @@ func GetStore(options StoreOptions) (Store, error) {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(options.GraphMap.Root, 0700); err != nil && !os.IsExist(err) {
+	g := options.GraphMap[0]
+	if err := os.MkdirAll(g.Root, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	for _, subdir := range []string{"mounts", "tmp", options.GraphMap.DriverName} {
-		if err := os.MkdirAll(filepath.Join(options.GraphMap.Root, subdir), 0700); err != nil && !os.IsExist(err) {
+	for _, subdir := range []string{"mounts", "tmp", g.DriverName} {
+		if err := os.MkdirAll(filepath.Join(g.Root, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
-
-	graphLock, err := GetLockfile(filepath.Join(options.GraphMap.Root, "storage.lock"))
+	graphLock, err := GetLockfile(filepath.Join(g.Root, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
 	s := &store{
 		runRoot:         options.RunRoot,
 		graphLock:       graphLock,
-		graphRoot:       options.GraphMap.Root,
-		graphDriverName: options.GraphMap.DriverName,
-		graphOptions:    options.GraphMap.DriverOptions,
+		graphRoot:       g.Root,
+		graphDriverName: g.DriverName,
+		graphOptions:    g.DriverOptions,
 		uidMap:          copyIDMap(options.UIDMap),
 		gidMap:          copyIDMap(options.GIDMap),
 	}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
-
 	stores = append(stores, s)
 
 	return s, nil
@@ -2193,11 +2192,13 @@ func stringSliceWithoutValue(slice []string, value string) []string {
 }
 
 func init() {
-	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
-	DefaultStoreOptions.GraphMap.Root = "/var/lib/containers/storage"
-	DefaultStoreOptions.GraphMap.DriverName = os.Getenv("STORAGE_DRIVER")
-	DefaultStoreOptions.GraphMap.DriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
-	if len(DefaultStoreOptions.GraphMap.DriverOptions) == 1 && DefaultStoreOptions.GraphMap.DriverOptions[0] == "" {
-		DefaultStoreOptions.GraphMap.DriverOptions = nil
+        var g GraphDriver
+	g.Root = "/var/lib/containers/storage"
+	g.DriverName = os.Getenv("STORAGE_DRIVER")
+	g.DriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
+	if len(g.DriverOptions) == 1 && g.DriverOptions[0] == "" {
+		g.DriverOptions = nil
 	}
+	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
+	DefaultStoreOptions.GraphMap = append(DefaultStoreOptions.GraphMap, g)
 }
