@@ -110,6 +110,21 @@ type FlaggableStore interface {
 	SetFlag(id string, flag string, value interface{}) error
 }
 
+type GraphOptions struct {
+	// Root is the filesystem path under which we will store the
+	// contents of layers, images, and containers.
+	Root string `json:"root,omitempty"`
+	// DriverName is the underlying storage driver that we'll be
+	// using.  It only needs to be specified the first time a Store is
+	// initialized for a given RunRoot and Root.
+	DriverName string `json:"driver,omitempty"`
+	// DriverOptions are driver-specific options.
+	DriverOptions []string `json:"driver-options,omitempty"`
+	// UIDMap and GIDMap are used mainly for deciding on the ownership of
+	// files in layers as they're stored on disk, which is often necessary
+	// when user namespaces are being used.
+}
+
 // StoreOptions is used for passing initialization options to GetStore(), for
 // initializing a Store object and the underlying storage that it controls.
 type StoreOptions struct {
@@ -117,18 +132,7 @@ type StoreOptions struct {
 	// information, such as the locations of active mount points, that we
 	// want to lose if the host is rebooted.
 	RunRoot string `json:"runroot,omitempty"`
-	// GraphRoot is the filesystem path under which we will store the
-	// contents of layers, images, and containers.
-	GraphRoot string `json:"root,omitempty"`
-	// GraphDriverName is the underlying storage driver that we'll be
-	// using.  It only needs to be specified the first time a Store is
-	// initialized for a given RunRoot and GraphRoot.
-	GraphDriverName string `json:"driver,omitempty"`
-	// GraphDriverOptions are driver-specific options.
-	GraphDriverOptions []string `json:"driver-options,omitempty"`
-	// UIDMap and GIDMap are used mainly for deciding on the ownership of
-	// files in layers as they're stored on disk, which is often necessary
-	// when user namespaces are being used.
+	Graph  GraphOptions `json:"graphoptions,omitempty"`
 	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
 	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
 }
@@ -385,6 +389,7 @@ type ImageOptions struct {
 type ContainerOptions struct {
 }
 
+
 type store struct {
 	lastLoaded      time.Time
 	runRoot         string
@@ -404,12 +409,12 @@ type store struct {
 // specified location and graph driver, and if it can't, it creates and
 // initializes a new Store object, and the underlying storage that it controls.
 func GetStore(options StoreOptions) (Store, error) {
-	if options.RunRoot == "" && options.GraphRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
+	if options.RunRoot == "" && options.Graph.Root == "" && options.Graph.DriverName == "" && len(options.Graph.DriverOptions) == 0 {
 		options = DefaultStoreOptions
 	}
 
-	if options.GraphRoot != "" {
-		options.GraphRoot = filepath.Clean(options.GraphRoot)
+	if options.Graph.Root != "" {
+		options.Graph.Root = filepath.Clean(options.Graph.Root)
 	}
 	if options.RunRoot != "" {
 		options.RunRoot = filepath.Clean(options.RunRoot)
@@ -419,12 +424,12 @@ func GetStore(options StoreOptions) (Store, error) {
 	defer storesLock.Unlock()
 
 	for _, s := range stores {
-		if s.graphRoot == options.GraphRoot && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
+		if s.graphRoot == options.Graph.Root && (options.Graph.DriverName == "" || s.graphDriverName == options.Graph.DriverName) {
 			return s, nil
 		}
 	}
 
-	if options.GraphRoot == "" {
+	if options.Graph.Root == "" {
 		return nil, ErrIncompleteOptions
 	}
 	if options.RunRoot == "" {
@@ -439,25 +444,25 @@ func GetStore(options StoreOptions) (Store, error) {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(options.Graph.Root, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	for _, subdir := range []string{"mounts", "tmp", options.GraphDriverName} {
-		if err := os.MkdirAll(filepath.Join(options.GraphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
+	for _, subdir := range []string{"mounts", "tmp", options.Graph.DriverName} {
+		if err := os.MkdirAll(filepath.Join(options.Graph.Root, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
 
-	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
+	graphLock, err := GetLockfile(filepath.Join(options.Graph.Root, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
 	s := &store{
 		runRoot:         options.RunRoot,
 		graphLock:       graphLock,
-		graphRoot:       options.GraphRoot,
-		graphDriverName: options.GraphDriverName,
-		graphOptions:    options.GraphDriverOptions,
+		graphRoot:       options.Graph.Root,
+		graphDriverName: options.Graph.DriverName,
+		graphOptions:    options.Graph.DriverOptions,
 		uidMap:          copyIDMap(options.UIDMap),
 		gidMap:          copyIDMap(options.GIDMap),
 	}
@@ -2189,10 +2194,10 @@ func stringSliceWithoutValue(slice []string, value string) []string {
 
 func init() {
 	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
-	DefaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
-	DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
-	DefaultStoreOptions.GraphDriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
-	if len(DefaultStoreOptions.GraphDriverOptions) == 1 && DefaultStoreOptions.GraphDriverOptions[0] == "" {
-		DefaultStoreOptions.GraphDriverOptions = nil
+	DefaultStoreOptions.Graph.Root = "/var/lib/containers/storage"
+	DefaultStoreOptions.Graph.DriverName = os.Getenv("STORAGE_DRIVER")
+	DefaultStoreOptions.Graph.DriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
+	if len(DefaultStoreOptions.Graph.DriverOptions) == 1 && DefaultStoreOptions.Graph.DriverOptions[0] == "" {
+		DefaultStoreOptions.Graph.DriverOptions = nil
 	}
 }

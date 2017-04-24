@@ -37,9 +37,9 @@ func main() {
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
 		flags.StringVar(&options.RunRoot, []string{"-run", "R"}, options.RunRoot, "Root of the runtime state tree")
-		flags.StringVar(&options.GraphRoot, []string{"-graph", "g"}, options.GraphRoot, "Root of the storage tree")
-		flags.StringVar(&options.GraphDriverName, []string{"-storage-driver", "s"}, options.GraphDriverName, "Storage driver to use ($STORAGE_DRIVER)")
-		flags.Var(opts.NewListOptsRef(&options.GraphDriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
+		flags.StringVar(&options.Graph.Root, []string{"-graph", "g"}, options.Graph.Root, "Root of the storage tree")
+		flags.StringVar(&options.Graph.DriverName, []string{"-storage-driver", "s"}, options.Graph.DriverName, "Storage driver to use ($STORAGE_DRIVER)")
+		flags.Var(opts.NewListOptsRef(&options.Graph.DriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
 		flags.BoolVar(&debug, []string{"-debug", "D"}, debug, "Print debugging information")
 		return flags
 	}
@@ -105,9 +105,9 @@ func main() {
 				if debug {
 					logrus.SetLevel(logrus.DebugLevel)
 					logrus.Debugf("RunRoot: %s", options.RunRoot)
-					logrus.Debugf("GraphRoot: %s", options.GraphRoot)
-					logrus.Debugf("GraphDriverName: %s", options.GraphDriverName)
-					logrus.Debugf("GraphDriverOptions: %s", options.GraphDriverOptions)
+					logrus.Debugf("GraphRoot: %s", options.Graph.Root)
+					logrus.Debugf("GraphDriverName: %s", options.Graph.DriverName)
+					logrus.Debugf("GraphDriverOptions: %s", options.Graph.DriverOptions)
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
