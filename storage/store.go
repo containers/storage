@@ -53,6 +53,7 @@ var (
 	ErrSizeUnknown = errors.New("size is not known")
 	// DefaultStoreOptions is a reasonable default set of options.
 	DefaultStoreOptions StoreOptions
+	DefaultGraph        GraphDriver
 	stores              []*store
 	storesLock          sync.Mutex
 )
@@ -74,8 +75,8 @@ type FileBasedStore interface {
 
 // MetadataStore wraps up methods for getting and setting metadata associated with IDs.
 type MetadataStore interface {
-	// GetMetadata reads metadata associated with an item with the specified ID.
-	GetMetadata(id string) (string, error)
+	// Metadata reads metadata associated with an item with the specified ID.
+	Metadata(id string) (string, error)
 
 	// SetMetadata updates the metadata associated with the item with the specified ID.
 	SetMetadata(id, metadata string) error
@@ -88,17 +89,17 @@ type BigDataStore interface {
 	// ID.
 	SetBigData(id, key string, data []byte) error
 
-	// GetBigData retrieves a (potentially large) piece of data associated with
+	// BigData retrieves a (potentially large) piece of data associated with
 	// this ID, if it has previously been set.
-	GetBigData(id, key string) ([]byte, error)
+	BigData(id, key string) ([]byte, error)
 
-	// GetBigDataSize retrieves the size of a (potentially large) piece of
+	// BigDataSize retrieves the size of a (potentially large) piece of
 	// data associated with this ID, if it has previously been set.
-	GetBigDataSize(id, key string) (int64, error)
+	BigDataSize(id, key string) (int64, error)
 
-	// GetBigDataNames() returns a list of the names of previously-stored pieces of
+	// BigDataNames() returns a list of the names of previously-stored pieces of
 	// data.
-	GetBigDataNames(id string) ([]string, error)
+	BigDataNames(id string) ([]string, error)
 }
 
 // A FlaggableStore can have flags set and cleared on items which it manages.
@@ -110,54 +111,58 @@ type FlaggableStore interface {
 	SetFlag(id string, flag string, value interface{}) error
 }
 
+type GraphDriver struct {
+	// Root is the filesystem path under which we will store the
+	// contents of layers, images, and containers.
+	Root string `json:"root,omitempty"`
+	// DriverName is the underlying storage driver that we'll be
+	// using.  It only needs to be specified the first time a Store is
+	// initialized for a given RunRoot and Root.
+	DriverName string `json:"driver,omitempty"`
+	// DriverOptions are driver-specific options.
+	DriverOptions []string `json:"driver-options,omitempty"`
+	// UIDMap and GIDMap are used mainly for deciding on the ownership of
+	// files in layers as they're stored on disk, which is often necessary
+	// when user namespaces are being used.
+}
+
 // StoreOptions is used for passing initialization options to GetStore(), for
 // initializing a Store object and the underlying storage that it controls.
 type StoreOptions struct {
 	// RunRoot is the filesystem path under which we can store run-time
 	// information, such as the locations of active mount points, that we
 	// want to lose if the host is rebooted.
-	RunRoot string `json:"runroot,omitempty"`
-	// GraphRoot is the filesystem path under which we will store the
-	// contents of layers, images, and containers.
-	GraphRoot string `json:"root,omitempty"`
-	// GraphDriverName is the underlying storage driver that we'll be
-	// using.  It only needs to be specified the first time a Store is
-	// initialized for a given RunRoot and GraphRoot.
-	GraphDriverName string `json:"driver,omitempty"`
-	// GraphDriverOptions are driver-specific options.
-	GraphDriverOptions []string `json:"driver-options,omitempty"`
-	// UIDMap and GIDMap are used mainly for deciding on the ownership of
-	// files in layers as they're stored on disk, which is often necessary
-	// when user namespaces are being used.
-	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
-	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
+	RunRoot  string          `json:"runroot,omitempty"`
+	GraphMap []GraphDriver   `json:"graphmap,omitempty"`
+	UIDMap   []idtools.IDMap `json:"uidmap,omitempty"`
+	GIDMap   []idtools.IDMap `json:"gidmap,omitempty"`
 }
 
 // Store wraps up the various types of file-based stores that we use into a
 // singleton object that initializes and manages them all together.
 type Store interface {
-	// GetRunRoot, GetGraphRoot, GetGraphDriverName, and GetGraphOptions retrieve
+	// RunRoot, GraphRoot, GraphDriverName, and GraphOptions retrieve
 	// settings that were passed to GetStore() when the object was created.
-	GetRunRoot() string
-	GetGraphRoot() string
-	GetGraphDriverName() string
-	GetGraphOptions() []string
+	RunRoot() string
+	GraphRoot() string
+	GraphDriverName() string
+	GraphOptions() []string
 
-	// GetGraphDriver obtains and returns a handle to the graph Driver object used
+	// GraphDriver obtains and returns a handle to the graph Driver object used
 	// by the Store.
-	GetGraphDriver() (drivers.Driver, error)
+	GraphDriver() (drivers.Driver, error)
 
-	// GetLayerStore obtains and returns a handle to the layer store object used by
+	// LayerStore obtains and returns a handle to the layer store object used by
 	// the Store.
-	GetLayerStore() (LayerStore, error)
+	LayerStore() (LayerStore, error)
 
-	// GetImageStore obtains and returns a handle to the image store object used by
+	// ImageStore obtains and returns a handle to the image store object used by
 	// the Store.
-	GetImageStore() (ImageStore, error)
+	ImageStore() (ImageStore, error)
 
-	// GetContainerStore obtains and returns a handle to the container store object
+	// ContainerStore obtains and returns a handle to the container store object
 	// used by the Store.
-	GetContainerStore() (ContainerStore, error)
+	ContainerStore() (ContainerStore, error)
 
 	// CreateLayer creates a new layer in the underlying storage driver, optionally
 	// having the specified ID (one will be assigned if none is specified), with
@@ -186,14 +191,14 @@ type Store interface {
 	// library stores for the convenience of its caller.
 	CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error)
 
-	// GetMetadata retrieves the metadata which is associated with a layer, image,
+	// Metadata retrieves the metadata which is associated with a layer, image,
 	// or container (whichever the passed-in ID refers to).
-	GetMetadata(id string) (string, error)
+	Metadata(id string) (string, error)
 
 	// SetMetadata updates the metadata which is associated with a layer, image, or
 	// container (whichever the passed-in ID refers to) to match the specified
-	// value.  The metadata value can be retrieved at any time using GetMetadata,
-	// or using GetLayer, GetImage, or GetContainer and reading the object directly.
+	// value.  The metadata value can be retrieved at any time using Metadata,
+	// or using Layer, Image, or Container and reading the object directly.
 	SetMetadata(id, metadata string) error
 
 	// Exists checks if there is a layer, image, or container which has the
@@ -274,7 +279,7 @@ type Store interface {
 	Containers() ([]Container, error)
 
 	// GetNames returns the list of names for a layer, image, or container.
-	GetNames(id string) ([]string, error)
+	Names(id string) ([]string, error)
 
 	// SetNames changes the list of names for a layer, image, or container.
 	SetNames(id string, names []string) error
@@ -283,13 +288,13 @@ type Store interface {
 	// data associated with an image.
 	ListImageBigData(id string) ([]string, error)
 
-	// GetImageBigData retrieves a (possibly large) chunk of named data associated
+	// ImageBigData retrieves a (possibly large) chunk of named data associated
 	// with an image.
-	GetImageBigData(id, key string) ([]byte, error)
+	ImageBigData(id, key string) ([]byte, error)
 
-	// GetImageBigDataSize retrieves the size of a (possibly large) chunk
+	// ImageBigDataSize retrieves the size of a (possibly large) chunk
 	// of named data associated with an image.
-	GetImageBigDataSize(id, key string) (int64, error)
+	ImageBigDataSize(id, key string) (int64, error)
 
 	// SetImageBigData stores a (possibly large) chunk of named data associated
 	// with an image.
@@ -299,67 +304,67 @@ type Store interface {
 	// named data associated with a container.
 	ListContainerBigData(id string) ([]string, error)
 
-	// GetContainerBigData retrieves a (possibly large) chunk of named data
+	// ContainerBigData retrieves a (possibly large) chunk of named data
 	// associated with a container.
-	GetContainerBigData(id, key string) ([]byte, error)
+	ContainerBigData(id, key string) ([]byte, error)
 
-	// GetContainerBigDataSize retrieves the size of a (possibly large)
+	// ContainerBigDataSize retrieves the size of a (possibly large)
 	// chunk of named data associated with a container.
-	GetContainerBigDataSize(id, key string) (int64, error)
+	ContainerBigDataSize(id, key string) (int64, error)
 
 	// SetContainerBigData stores a (possibly large) chunk of named data
 	// associated with a container.
 	SetContainerBigData(id, key string, data []byte) error
 
-	// GetLayer returns a specific layer.
-	GetLayer(id string) (*Layer, error)
+	// Layer returns a specific layer.
+	Layer(id string) (*Layer, error)
 
-	// GetImage returns a specific image.
-	GetImage(id string) (*Image, error)
+	// Image returns a specific image.
+	Image(id string) (*Image, error)
 
-	// GetImagesByTopLayer returns a list of images which reference the specified
+	// ImagesByTopLayer returns a list of images which reference the specified
 	// layer as their top layer.  They will have different IDs and names
 	// and may have different metadata, big data items, and flags.
-	GetImagesByTopLayer(id string) ([]*Image, error)
+	ImagesByTopLayer(id string) ([]*Image, error)
 
-	// GetContainer returns a specific container.
-	GetContainer(id string) (*Container, error)
+	// Container returns a specific container.
+	Container(id string) (*Container, error)
 
-	// GetContainerByLayer returns a specific container based on its layer ID or
+	// ContainerByLayer returns a specific container based on its layer ID or
 	// name.
-	GetContainerByLayer(id string) (*Container, error)
+	ContainerByLayer(id string) (*Container, error)
 
-	// GetContainerDirectory returns a path of a directory which the caller
+	// ContainerDirectory returns a path of a directory which the caller
 	// can use to store data, specific to the container, which the library
 	// does not directly manage.  The directory will be deleted when the
 	// container is deleted.
-	GetContainerDirectory(id string) (string, error)
+	ContainerDirectory(id string) (string, error)
 
 	// SetContainerDirectoryFile is a convenience function which stores
 	// a piece of data in the specified file relative to the container's
 	// directory.
 	SetContainerDirectoryFile(id, file string, data []byte) error
 
-	// GetFromContainerDirectory is a convenience function which reads
+	// FromContainerDirectory is a convenience function which reads
 	// the contents of the specified file relative to the container's
 	// directory.
-	GetFromContainerDirectory(id, file string) ([]byte, error)
+	FromContainerDirectory(id, file string) ([]byte, error)
 
-	// GetContainerRunDirectory returns a path of a directory which the
+	// ContainerRunDirectory returns a path of a directory which the
 	// caller can use to store data, specific to the container, which the
 	// library does not directly manage.  The directory will be deleted
 	// when the host system is restarted.
-	GetContainerRunDirectory(id string) (string, error)
+	ContainerRunDirectory(id string) (string, error)
 
 	// SetContainerRunDirectoryFile is a convenience function which stores
 	// a piece of data in the specified file relative to the container's
 	// run directory.
 	SetContainerRunDirectoryFile(id, file string, data []byte) error
 
-	// GetFromContainerRunDirectory is a convenience function which reads
+	// FromContainerRunDirectory is a convenience function which reads
 	// the contents of the specified file relative to the container's run
 	// directory.
-	GetFromContainerRunDirectory(id, file string) ([]byte, error)
+	FromContainerRunDirectory(id, file string) ([]byte, error)
 
 	// Lookup returns the ID of a layer, image, or container with the specified
 	// name or ID.
@@ -404,30 +409,30 @@ type store struct {
 // specified location and graph driver, and if it can't, it creates and
 // initializes a new Store object, and the underlying storage that it controls.
 func GetStore(options StoreOptions) (Store, error) {
-	if options.RunRoot == "" && options.GraphRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
+	if options.RunRoot == "" && len(options.GraphMap) == 0 {
 		options = DefaultStoreOptions
 	}
 
-	if options.GraphRoot != "" {
-		options.GraphRoot = filepath.Clean(options.GraphRoot)
-	}
-	if options.RunRoot != "" {
-		options.RunRoot = filepath.Clean(options.RunRoot)
-	}
+	for _, g := range options.GraphMap {
+		if g.Root != "" {
+			g.Root = filepath.Clean(g.Root)
+		}
+		storesLock.Lock()
+		defer storesLock.Unlock()
 
-	storesLock.Lock()
-	defer storesLock.Unlock()
-
-	for _, s := range stores {
-		if s.graphRoot == options.GraphRoot && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
-			return s, nil
+		for _, s := range stores {
+			if s.graphRoot == g.Root && (g.DriverName == "" || s.graphDriverName == g.DriverName) {
+				return s, nil
+			}
+		}
+		if g.Root == "" {
+			return nil, ErrIncompleteOptions
 		}
 	}
 
-	if options.GraphRoot == "" {
-		return nil, ErrIncompleteOptions
-	}
-	if options.RunRoot == "" {
+	if options.RunRoot != "" {
+		options.RunRoot = filepath.Clean(options.RunRoot)
+	} else {
 		return nil, ErrIncompleteOptions
 	}
 
@@ -439,32 +444,31 @@ func GetStore(options StoreOptions) (Store, error) {
 			return nil, err
 		}
 	}
-	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil && !os.IsExist(err) {
+	g := options.GraphMap[0]
+	if err := os.MkdirAll(g.Root, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	for _, subdir := range []string{"mounts", "tmp", options.GraphDriverName} {
-		if err := os.MkdirAll(filepath.Join(options.GraphRoot, subdir), 0700); err != nil && !os.IsExist(err) {
+	for _, subdir := range []string{"mounts", "tmp", g.DriverName} {
+		if err := os.MkdirAll(filepath.Join(g.Root, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
 		}
 	}
-
-	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
+	graphLock, err := GetLockfile(filepath.Join(g.Root, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
 	s := &store{
 		runRoot:         options.RunRoot,
 		graphLock:       graphLock,
-		graphRoot:       options.GraphRoot,
-		graphDriverName: options.GraphDriverName,
-		graphOptions:    options.GraphDriverOptions,
+		graphRoot:       g.Root,
+		graphDriverName: g.DriverName,
+		graphOptions:    g.DriverOptions,
 		uidMap:          copyIDMap(options.UIDMap),
 		gidMap:          copyIDMap(options.GIDMap),
 	}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
-
 	stores = append(stores, s)
 
 	return s, nil
@@ -482,24 +486,24 @@ func copyIDMap(idmap []idtools.IDMap) []idtools.IDMap {
 	return nil
 }
 
-func (s *store) GetRunRoot() string {
+func (s *store) RunRoot() string {
 	return s.runRoot
 }
 
-func (s *store) GetGraphDriverName() string {
+func (s *store) GraphDriverName() string {
 	return s.graphDriverName
 }
 
-func (s *store) GetGraphRoot() string {
+func (s *store) GraphRoot() string {
 	return s.graphRoot
 }
 
-func (s *store) GetGraphOptions() []string {
+func (s *store) GraphOptions() []string {
 	return s.graphOptions
 }
 
 func (s *store) load() error {
-	driver, err := s.GetGraphDriver()
+	driver, err := s.GraphDriver()
 	if err != nil {
 		return err
 	}
@@ -507,7 +511,7 @@ func (s *store) load() error {
 	s.graphDriverName = driver.String()
 	driverPrefix := s.graphDriverName + "-"
 
-	rls, err := s.GetLayerStore()
+	rls, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
@@ -542,7 +546,7 @@ func (s *store) getGraphDriver() (drivers.Driver, error) {
 	if s.graphDriver != nil {
 		return s.graphDriver, nil
 	}
-	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, s.uidMap, s.gidMap)
+	driver, err := drivers.New(s.graphRoot, s.graphRoot, s.graphDriverName, s.graphOptions, s.uidMap, s.gidMap)
 	if err != nil {
 		return nil, err
 	}
@@ -551,7 +555,7 @@ func (s *store) getGraphDriver() (drivers.Driver, error) {
 	return driver, nil
 }
 
-func (s *store) GetGraphDriver() (drivers.Driver, error) {
+func (s *store) GraphDriver() (drivers.Driver, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
 	if s.graphLock.TouchedSince(s.lastLoaded) {
@@ -562,7 +566,7 @@ func (s *store) GetGraphDriver() (drivers.Driver, error) {
 	return s.getGraphDriver()
 }
 
-func (s *store) GetLayerStore() (LayerStore, error) {
+func (s *store) LayerStore() (LayerStore, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
 	if s.graphLock.TouchedSince(s.lastLoaded) {
@@ -594,14 +598,14 @@ func (s *store) GetLayerStore() (LayerStore, error) {
 	return s.layerStore, nil
 }
 
-func (s *store) GetImageStore() (ImageStore, error) {
+func (s *store) ImageStore() (ImageStore, error) {
 	if s.imageStore != nil {
 		return s.imageStore, nil
 	}
 	return nil, ErrLoadError
 }
 
-func (s *store) GetContainerStore() (ContainerStore, error) {
+func (s *store) ContainerStore() (ContainerStore, error) {
 	if s.containerStore != nil {
 		return s.containerStore, nil
 	}
@@ -609,15 +613,15 @@ func (s *store) GetContainerStore() (ContainerStore, error) {
 }
 
 func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, int64, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, -1, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, -1, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, -1, err
 	}
@@ -668,15 +672,15 @@ func (s *store) CreateLayer(id, parent string, names []string, mountLabel string
 }
 
 func (s *store) CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -714,15 +718,15 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 }
 
 func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -775,15 +779,15 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 }
 
 func (s *store) SetMetadata(id, metadata string) error {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
@@ -819,16 +823,16 @@ func (s *store) SetMetadata(id, metadata string) error {
 	return ErrNotAnID
 }
 
-func (s *store) GetMetadata(id string) (string, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) Metadata(id string) (string, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return "", err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return "", err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return "", err
 	}
@@ -850,23 +854,23 @@ func (s *store) GetMetadata(id string) (string, error) {
 	}
 
 	if rlstore.Exists(id) {
-		return rlstore.GetMetadata(id)
+		return rlstore.Metadata(id)
 	}
 	if ristore.Exists(id) {
-		return ristore.GetMetadata(id)
+		return ristore.Metadata(id)
 	}
 	if rcstore.Exists(id) {
-		return rcstore.GetMetadata(id)
+		return rcstore.Metadata(id)
 	}
 	return "", ErrNotAnID
 }
 
 func (s *store) ListImageBigData(id string) ([]string, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
@@ -882,15 +886,15 @@ func (s *store) ListImageBigData(id string) ([]string, error) {
 		ristore.Load()
 	}
 
-	return ristore.GetBigDataNames(id)
+	return ristore.BigDataNames(id)
 }
 
-func (s *store) GetImageBigDataSize(id, key string) (int64, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) ImageBigDataSize(id, key string) (int64, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return -1, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return -1, err
 	}
@@ -906,15 +910,15 @@ func (s *store) GetImageBigDataSize(id, key string) (int64, error) {
 		ristore.Load()
 	}
 
-	return ristore.GetBigDataSize(id, key)
+	return ristore.BigDataSize(id, key)
 }
 
-func (s *store) GetImageBigData(id, key string) ([]byte, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) ImageBigData(id, key string) ([]byte, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
@@ -930,15 +934,15 @@ func (s *store) GetImageBigData(id, key string) ([]byte, error) {
 		ristore.Load()
 	}
 
-	return ristore.GetBigData(id, key)
+	return ristore.BigData(id, key)
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte) error {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
@@ -958,15 +962,15 @@ func (s *store) SetImageBigData(id, key string, data []byte) error {
 }
 
 func (s *store) ListContainerBigData(id string) ([]string, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -987,19 +991,19 @@ func (s *store) ListContainerBigData(id string) ([]string, error) {
 		rcstore.Load()
 	}
 
-	return rcstore.GetBigDataNames(id)
+	return rcstore.BigDataNames(id)
 }
 
-func (s *store) GetContainerBigDataSize(id, key string) (int64, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return -1, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return -1, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return -1, err
 	}
@@ -1020,19 +1024,19 @@ func (s *store) GetContainerBigDataSize(id, key string) (int64, error) {
 		rcstore.Load()
 	}
 
-	return rcstore.GetBigDataSize(id, key)
+	return rcstore.BigDataSize(id, key)
 }
 
-func (s *store) GetContainerBigData(id, key string) ([]byte, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) ContainerBigData(id, key string) ([]byte, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1053,19 +1057,19 @@ func (s *store) GetContainerBigData(id, key string) ([]byte, error) {
 		rcstore.Load()
 	}
 
-	return rcstore.GetBigData(id, key)
+	return rcstore.BigData(id, key)
 }
 
 func (s *store) SetContainerBigData(id, key string, data []byte) error {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
@@ -1090,15 +1094,15 @@ func (s *store) SetContainerBigData(id, key string, data []byte) error {
 }
 
 func (s *store) Exists(id string) bool {
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return false
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return false
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return false
 	}
@@ -1129,15 +1133,15 @@ func (s *store) Exists(id string) bool {
 }
 
 func (s *store) SetNames(id string, names []string) error {
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
@@ -1179,16 +1183,16 @@ func (s *store) SetNames(id string, names []string) error {
 	return ErrLayerUnknown
 }
 
-func (s *store) GetNames(id string) ([]string, error) {
-	rcstore, err := s.GetContainerStore()
+func (s *store) Names(id string) ([]string, error) {
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1222,15 +1226,15 @@ func (s *store) GetNames(id string) ([]string, error) {
 }
 
 func (s *store) Lookup(name string) (string, error) {
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return "", err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return "", err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return "", err
 	}
@@ -1264,15 +1268,15 @@ func (s *store) Lookup(name string) (string, error) {
 }
 
 func (s *store) DeleteLayer(id string) error {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
@@ -1332,15 +1336,15 @@ func (s *store) DeleteLayer(id string) error {
 }
 
 func (s *store) DeleteImage(id string, commit bool) (layers []string, err error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1452,15 +1456,15 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 }
 
 func (s *store) DeleteContainer(id string) error {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
@@ -1493,11 +1497,11 @@ func (s *store) DeleteContainer(id string) error {
 					return err
 				}
 				middleDir := s.graphDriverName + "-containers"
-				gcpath := filepath.Join(s.GetGraphRoot(), middleDir, container.ID)
+				gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
 				if err = os.RemoveAll(gcpath); err != nil {
 					return err
 				}
-				rcpath := filepath.Join(s.GetRunRoot(), middleDir, container.ID)
+				rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
 				if err = os.RemoveAll(rcpath); err != nil {
 					return err
 				}
@@ -1510,15 +1514,15 @@ func (s *store) DeleteContainer(id string) error {
 }
 
 func (s *store) Delete(id string) error {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
@@ -1551,11 +1555,11 @@ func (s *store) Delete(id string) error {
 					return err
 				}
 				middleDir := s.graphDriverName + "-containers"
-				gcpath := filepath.Join(s.GetGraphRoot(), middleDir, container.ID, "userdata")
+				gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID, "userdata")
 				if err = os.RemoveAll(gcpath); err != nil {
 					return err
 				}
-				rcpath := filepath.Join(s.GetRunRoot(), middleDir, container.ID, "userdata")
+				rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID, "userdata")
 				if err = os.RemoveAll(rcpath); err != nil {
 					return err
 				}
@@ -1576,15 +1580,15 @@ func (s *store) Delete(id string) error {
 }
 
 func (s *store) Wipe() error {
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
@@ -1618,7 +1622,7 @@ func (s *store) Wipe() error {
 }
 
 func (s *store) Status() ([][2]string, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1634,11 +1638,11 @@ func (s *store) Version() ([][2]string, error) {
 }
 
 func (s *store) Mount(id, mountLabel string) (string, error) {
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return "", err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return "", err
 	}
@@ -1662,11 +1666,11 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 }
 
 func (s *store) Unmount(id string) error {
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return err
 	}
@@ -1690,7 +1694,7 @@ func (s *store) Unmount(id string) error {
 }
 
 func (s *store) Changes(from, to string) ([]archive.Change, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1705,7 +1709,7 @@ func (s *store) Changes(from, to string) ([]archive.Change, error) {
 }
 
 func (s *store) DiffSize(from, to string) (int64, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return -1, err
 	}
@@ -1720,7 +1724,7 @@ func (s *store) DiffSize(from, to string) (int64, error) {
 }
 
 func (s *store) Diff(from, to string) (io.ReadCloser, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1735,7 +1739,7 @@ func (s *store) Diff(from, to string) (io.ReadCloser, error) {
 }
 
 func (s *store) ApplyDiff(to string, diff archive.Reader) (int64, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return -1, err
 	}
@@ -1750,7 +1754,7 @@ func (s *store) ApplyDiff(to string, diff archive.Reader) (int64, error) {
 }
 
 func (s *store) Layers() ([]Layer, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1765,11 +1769,11 @@ func (s *store) Layers() ([]Layer, error) {
 }
 
 func (s *store) Images() ([]Image, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1789,15 +1793,15 @@ func (s *store) Images() ([]Image, error) {
 }
 
 func (s *store) Containers() ([]Container, error) {
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1821,8 +1825,8 @@ func (s *store) Containers() ([]Container, error) {
 	return rcstore.Containers()
 }
 
-func (s *store) GetLayer(id string) (*Layer, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) Layer(id string) (*Layer, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1836,12 +1840,12 @@ func (s *store) GetLayer(id string) (*Layer, error) {
 	return rlstore.Get(id)
 }
 
-func (s *store) GetImage(id string) (*Image, error) {
-	ristore, err := s.GetImageStore()
+func (s *store) Image(id string) (*Image, error) {
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1860,12 +1864,12 @@ func (s *store) GetImage(id string) (*Image, error) {
 	return ristore.Get(id)
 }
 
-func (s *store) GetImagesByTopLayer(id string) ([]*Image, error) {
-	ristore, err := s.GetImageStore()
+func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1899,16 +1903,16 @@ func (s *store) GetImagesByTopLayer(id string) ([]*Image, error) {
 	return images, nil
 }
 
-func (s *store) GetContainer(id string) (*Container, error) {
-	ristore, err := s.GetImageStore()
+func (s *store) Container(id string) (*Container, error) {
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1932,16 +1936,16 @@ func (s *store) GetContainer(id string) (*Container, error) {
 	return rcstore.Get(id)
 }
 
-func (s *store) GetContainerByLayer(id string) (*Container, error) {
-	ristore, err := s.GetImageStore()
+func (s *store) ContainerByLayer(id string) (*Container, error) {
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, err
 	}
@@ -1979,16 +1983,16 @@ func (s *store) GetContainerByLayer(id string) (*Container, error) {
 	return nil, ErrContainerUnknown
 }
 
-func (s *store) GetContainerDirectory(id string) (string, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) ContainerDirectory(id string) (string, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return "", err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return "", err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return "", err
 	}
@@ -2015,23 +2019,23 @@ func (s *store) GetContainerDirectory(id string) (string, error) {
 	}
 
 	middleDir := s.graphDriverName + "-containers"
-	gcpath := filepath.Join(s.GetGraphRoot(), middleDir, id, "userdata")
+	gcpath := filepath.Join(s.GraphRoot(), middleDir, id, "userdata")
 	if err := os.MkdirAll(gcpath, 0700); err != nil {
 		return "", err
 	}
 	return gcpath, nil
 }
 
-func (s *store) GetContainerRunDirectory(id string) (string, error) {
-	rlstore, err := s.GetLayerStore()
+func (s *store) ContainerRunDirectory(id string) (string, error) {
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return "", err
 	}
-	ristore, err := s.GetImageStore()
+	ristore, err := s.ImageStore()
 	if err != nil {
 		return "", err
 	}
-	rcstore, err := s.GetContainerStore()
+	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return "", err
 	}
@@ -2058,7 +2062,7 @@ func (s *store) GetContainerRunDirectory(id string) (string, error) {
 	}
 
 	middleDir := s.graphDriverName + "-containers"
-	rcpath := filepath.Join(s.GetRunRoot(), middleDir, id, "userdata")
+	rcpath := filepath.Join(s.RunRoot(), middleDir, id, "userdata")
 	if err := os.MkdirAll(rcpath, 0700); err != nil {
 		return "", err
 	}
@@ -2066,7 +2070,7 @@ func (s *store) GetContainerRunDirectory(id string) (string, error) {
 }
 
 func (s *store) SetContainerDirectoryFile(id, file string, data []byte) error {
-	dir, err := s.GetContainerDirectory(id)
+	dir, err := s.ContainerDirectory(id)
 	if err != nil {
 		return err
 	}
@@ -2077,8 +2081,8 @@ func (s *store) SetContainerDirectoryFile(id, file string, data []byte) error {
 	return ioutils.AtomicWriteFile(filepath.Join(dir, file), data, 0600)
 }
 
-func (s *store) GetFromContainerDirectory(id, file string) ([]byte, error) {
-	dir, err := s.GetContainerDirectory(id)
+func (s *store) FromContainerDirectory(id, file string) ([]byte, error) {
+	dir, err := s.ContainerDirectory(id)
 	if err != nil {
 		return nil, err
 	}
@@ -2086,7 +2090,7 @@ func (s *store) GetFromContainerDirectory(id, file string) ([]byte, error) {
 }
 
 func (s *store) SetContainerRunDirectoryFile(id, file string, data []byte) error {
-	dir, err := s.GetContainerRunDirectory(id)
+	dir, err := s.ContainerRunDirectory(id)
 	if err != nil {
 		return err
 	}
@@ -2097,8 +2101,8 @@ func (s *store) SetContainerRunDirectoryFile(id, file string, data []byte) error
 	return ioutils.AtomicWriteFile(filepath.Join(dir, file), data, 0600)
 }
 
-func (s *store) GetFromContainerRunDirectory(id, file string) ([]byte, error) {
-	dir, err := s.GetContainerRunDirectory(id)
+func (s *store) FromContainerRunDirectory(id, file string) ([]byte, error) {
+	dir, err := s.ContainerRunDirectory(id)
 	if err != nil {
 		return nil, err
 	}
@@ -2109,7 +2113,7 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 	mounted := []string{}
 	modified := false
 
-	rlstore, err := s.GetLayerStore()
+	rlstore, err := s.LayerStore()
 	if err != nil {
 		return mounted, err
 	}
@@ -2188,11 +2192,13 @@ func stringSliceWithoutValue(slice []string, value string) []string {
 }
 
 func init() {
-	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
-	DefaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
-	DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
-	DefaultStoreOptions.GraphDriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
-	if len(DefaultStoreOptions.GraphDriverOptions) == 1 && DefaultStoreOptions.GraphDriverOptions[0] == "" {
-		DefaultStoreOptions.GraphDriverOptions = nil
+	var g GraphDriver
+	g.Root = "/var/lib/containers/storage"
+	g.DriverName = os.Getenv("STORAGE_DRIVER")
+	g.DriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
+	if len(g.DriverOptions) == 1 && g.DriverOptions[0] == "" {
+		g.DriverOptions = nil
 	}
+	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
+	DefaultStoreOptions.GraphMap = append(DefaultStoreOptions.GraphMap, g)
 }

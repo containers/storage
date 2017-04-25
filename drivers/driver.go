@@ -35,7 +35,7 @@ var (
 )
 
 // InitFunc initializes the storage driver.
-type InitFunc func(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error)
+type InitFunc func(root string, rootrw string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error)
 
 // ProtoDriver defines the basic capabilities of a driver.
 // This interface exists solely to be a minimum set of methods
@@ -69,7 +69,7 @@ type ProtoDriver interface {
 	Status() [][2]string
 	// Returns a set of key-value pairs which give low level information
 	// about the image/container driver is managing.
-	GetMetadata(id string) (map[string]string, error)
+	Metadata(id string) (map[string]string, error)
 	// Cleanup performs necessary tasks to release resources
 	// held by the driver, e.g., unmounting all layered filesystems
 	// known to this driver.
@@ -134,9 +134,9 @@ func Register(name string, initFunc InitFunc) error {
 }
 
 // GetDriver initializes and returns the registered driver
-func GetDriver(name, home string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
+func GetDriver(name, home string, homerw string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
 	if initFunc, exists := drivers[name]; exists {
-		return initFunc(filepath.Join(home, name), options, uidMaps, gidMaps)
+		return initFunc(filepath.Join(home, name), filepath.Join(homerw, name), options, uidMaps, gidMaps)
 	}
 	if pluginDriver, err := lookupPlugin(name, home, options); err == nil {
 		return pluginDriver, nil
@@ -146,19 +146,19 @@ func GetDriver(name, home string, options []string, uidMaps, gidMaps []idtools.I
 }
 
 // getBuiltinDriver initializes and returns the registered driver, but does not try to load from plugins
-func getBuiltinDriver(name, home string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
+func getBuiltinDriver(name, home string, homerw string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
 	if initFunc, exists := drivers[name]; exists {
-		return initFunc(filepath.Join(home, name), options, uidMaps, gidMaps)
+		return initFunc(filepath.Join(home, name), filepath.Join(homerw, name), options, uidMaps, gidMaps)
 	}
 	logrus.Errorf("Failed to built-in GetDriver graph %s %s", name, home)
 	return nil, ErrNotSupported
 }
 
 // New creates the driver and initializes it at the specified root.
-func New(root string, name string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
+func New(root string, rootrw string, name string, options []string, uidMaps, gidMaps []idtools.IDMap) (Driver, error) {
 	if name != "" {
 		logrus.Debugf("[graphdriver] trying provided driver %q", name) // so the logs show specified driver
-		return GetDriver(name, root, options, uidMaps, gidMaps)
+		return GetDriver(name, root, rootrw, options, uidMaps, gidMaps)
 	}
 
 	// Guess for prior driver
@@ -171,7 +171,7 @@ func New(root string, name string, options []string, uidMaps, gidMaps []idtools.
 		if _, prior := driversMap[name]; prior {
 			// of the state found from prior drivers, check in order of our priority
 			// which we would prefer
-			driver, err := getBuiltinDriver(name, root, options, uidMaps, gidMaps)
+			driver, err := getBuiltinDriver(name, root, rootrw, options, uidMaps, gidMaps)
 			if err != nil {
 				// unlike below, we will return error here, because there is prior
 				// state, and now it is no longer supported/prereq/compatible, so
@@ -199,7 +199,7 @@ func New(root string, name string, options []string, uidMaps, gidMaps []idtools.
 
 	// Check for priority drivers first
 	for _, name := range priority {
-		driver, err := getBuiltinDriver(name, root, options, uidMaps, gidMaps)
+		driver, err := getBuiltinDriver(name, root, rootrw, options, uidMaps, gidMaps)
 		if err != nil {
 			if isDriverNotSupported(err) {
 				continue
@@ -211,7 +211,7 @@ func New(root string, name string, options []string, uidMaps, gidMaps []idtools.
 
 	// Check all registered drivers if no priority driver is found
 	for name, initFunc := range drivers {
-		driver, err := initFunc(filepath.Join(root, name), options, uidMaps, gidMaps)
+		driver, err := initFunc(filepath.Join(root, name), filepath.Join(rootrw, name), options, uidMaps, gidMaps)
 		if err != nil {
 			if isDriverNotSupported(err) {
 				continue

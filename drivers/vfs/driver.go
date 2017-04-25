@@ -23,7 +23,7 @@ func init() {
 
 // Init returns a new VFS driver.
 // This sets the home directory for the driver and returns NaiveDiffDriver.
-func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
+func Init(home string, homerw string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	d := &Driver{
 		home:    home,
 		uidMaps: uidMaps,
@@ -58,8 +58,8 @@ func (d *Driver) Status() [][2]string {
 	return nil
 }
 
-// GetMetadata is used for implementing the graphdriver.ProtoDriver interface. VFS does not currently have any meta data.
-func (d *Driver) GetMetadata(id string) (map[string]string, error) {
+// Metadata is used for implementing the graphdriver.ProtoDriver interface. VFS does not currently have any meta data.
+func (d *Driver) Metadata(id string) (map[string]string, error) {
 	return nil, nil
 }
 

@@ -42,7 +42,7 @@ func (*Logger) Log(cmd []string) {
 // Init returns a new ZFS driver.
 // It takes base mount path and an array of options which are represented as key value pairs.
 // Each option is in the for key=value. 'zfs.fsname' is expected to be a valid key in the options.
-func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
+func Init(base string, baserw string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	var err error
 
 	if _, err := exec.LookPath("zfs"); err != nil {
@@ -210,8 +210,8 @@ func (d *Driver) Status() [][2]string {
 	}
 }
 
-// GetMetadata returns image/container metadata related to graph driver
-func (d *Driver) GetMetadata(id string) (map[string]string, error) {
+// Metadata returns image/container metadata related to graph driver
+func (d *Driver) Metadata(id string) (map[string]string, error) {
 	return nil, nil
 }
 

@@ -79,6 +79,7 @@ const (
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
 type Driver struct {
 	home    string
+	homerw  string
 	uidMaps []idtools.IDMap
 	gidMaps []idtools.IDMap
 	ctr     *graphdriver.RefCounter
@@ -93,7 +94,7 @@ func init() {
 // Init returns the a native diff driver for overlay filesystem.
 // If overlay filesystem is not supported on the host, graphdriver.ErrNotSupported is returned as error.
 // If a overlay filesystem is not supported over a existing filesystem then error graphdriver.ErrIncompatibleFS is returned.
-func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
+func Init(home string, homerw string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	opts, err := parseOptions(options)
 	if err != nil {
 		return nil, err
@@ -134,17 +135,18 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		return nil, err
 	}
-	// Create the driver home dir
-	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	// Create the driver homerw dir
+	if err := idtools.MkdirAllAs(path.Join(homerw, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 
-	if err := mount.MakePrivate(home); err != nil {
+	if err := mount.MakePrivate(homerw); err != nil {
 		return nil, err
 	}
 
 	d := &Driver{
 		home:    home,
+		homerw:  homerw,
 		uidMaps: uidMaps,
 		gidMaps: gidMaps,
 		ctr:     graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
@@ -211,9 +213,9 @@ func (d *Driver) Status() [][2]string {
 	}
 }
 
-// GetMetadata returns meta data about the overlay driver such as
+// Metadata returns meta data about the overlay driver such as
 // LowerDir, UpperDir, WorkDir and MergeDir used to store data.
-func (d *Driver) GetMetadata(id string) (map[string]string, error) {
+func (d *Driver) Metadata(id string) (map[string]string, error) {
 	dir := d.dir(id)
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err
@@ -240,7 +242,7 @@ func (d *Driver) GetMetadata(id string) (map[string]string, error) {
 // is being shutdown. For now, we just have to unmount the bind mounted
 // we had created.
 func (d *Driver) Cleanup() error {
-	return mount.Unmount(d.home)
+	return mount.Unmount(d.homerw)
 }
 
 // CreateReadWrite creates a layer that is writable for use as a container
@@ -282,7 +284,7 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 	}
 
 	lid := generateID(idLength)
-	if err := os.Symlink(path.Join("..", id, "diff"), path.Join(d.home, linkDir, lid)); err != nil {
+	if err := os.Symlink(path.Join("..", id, "diff"), path.Join(d.homerw, linkDir, lid)); err != nil {
 		return err
 	}
 
@@ -346,6 +348,10 @@ func (d *Driver) dir(id string) string {
 	return path.Join(d.home, id)
 }
 
+func (d *Driver) dirrw(id string) string {
+	return path.Join(d.homerw, id)
+}
+
 func (d *Driver) getLowerDirs(id string) ([]string, error) {
 	var lowersArray []string
 	lowers, err := ioutil.ReadFile(path.Join(d.dir(id), lowerFile))
@@ -365,10 +371,10 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 
 // Remove cleans the directories that are created for this id.
 func (d *Driver) Remove(id string) error {
-	dir := d.dir(id)
+	dir := d.dirrw(id)
 	lid, err := ioutil.ReadFile(path.Join(dir, "link"))
 	if err == nil {
-		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
+		if err := os.RemoveAll(path.Join(d.homerw, linkDir, string(lid))); err != nil {
 			logrus.Debugf("Failed to remove link: %v", err)
 		}
 	}
@@ -415,7 +421,7 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountLabel))
 	}
 
-	if err := mountFrom(d.home, "overlay", path.Join(id, "merged"), "overlay", mountLabel); err != nil {
+	if err := mountFrom(d.homerw, "overlay", path.Join(id, "merged"), "overlay", mountLabel); err != nil {
 		return "", fmt.Errorf("error creating overlay mount to %s: %v", mergedDir, err)
 	}
 

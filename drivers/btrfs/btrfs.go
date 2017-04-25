@@ -47,7 +47,7 @@ type btrfsOptions struct {
 
 // Init returns a new BTRFS driver.
 // An error is returned if BTRFS is not supported.
-func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
+func Init(home string, homerw string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 
 	fsMagic, err := graphdriver.GetFSMagic(home)
 	if err != nil {
@@ -143,8 +143,8 @@ func (d *Driver) Status() [][2]string {
 	return status
 }
 
-// GetMetadata returns empty metadata for this driver.
-func (d *Driver) GetMetadata(id string) (map[string]string, error) {
+// Metadata returns empty metadata for this driver.
+func (d *Driver) Metadata(id string) (map[string]string, error) {
 	return nil, nil
 }
 

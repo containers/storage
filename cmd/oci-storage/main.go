@@ -32,15 +32,18 @@ func main() {
 	}
 
 	options := storage.DefaultStoreOptions
+	g := options.GraphMap[0]
 	debug := false
+	ro_graph := opts.NewListOpts(nil)
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
 		flags.StringVar(&options.RunRoot, []string{"-run", "R"}, options.RunRoot, "Root of the runtime state tree")
-		flags.StringVar(&options.GraphRoot, []string{"-graph", "g"}, options.GraphRoot, "Root of the storage tree")
-		flags.StringVar(&options.GraphDriverName, []string{"-storage-driver", "s"}, options.GraphDriverName, "Storage driver to use ($STORAGE_DRIVER)")
-		flags.Var(opts.NewListOptsRef(&options.GraphDriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
+		flags.StringVar(&g.Root, []string{"-graph", "g"}, g.Root, "Root of the storage tree")
+		flags.StringVar(&g.DriverName, []string{"-storage-driver", "s"}, g.DriverName, "Storage driver to use ($STORAGE_DRIVER)")
+		flags.Var(opts.NewListOptsRef(&g.DriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
 		flags.BoolVar(&debug, []string{"-debug", "D"}, debug, "Print debugging information")
+		flags.Var(&ro_graph, []string{"-graph"}, "Additional Read/Only Root image tree")
 		return flags
 	}
 
@@ -72,6 +75,14 @@ func main() {
 		return
 	}
 	cmd := args[0]
+
+	for _, root := range ro_graph.GetAll() {
+		var g storage.GraphDriver
+		g.DriverName = "overlay"
+		g.Root = root
+		g.DriverOptions = nil
+		options.GraphMap = append(options.GraphMap, g)
+	}
 
 	for _, command := range commands {
 		for _, name := range command.names {
@@ -105,9 +116,9 @@ func main() {
 				if debug {
 					logrus.SetLevel(logrus.DebugLevel)
 					logrus.Debugf("RunRoot: %s", options.RunRoot)
-					logrus.Debugf("GraphRoot: %s", options.GraphRoot)
-					logrus.Debugf("GraphDriverName: %s", options.GraphDriverName)
-					logrus.Debugf("GraphDriverOptions: %s", options.GraphDriverOptions)
+					logrus.Debugf("GraphRoot: %s", options.GraphMap[0].Root)
+					logrus.Debugf("GraphDriverName: %s", options.GraphMap[0].DriverName)
+					logrus.Debugf("GraphDriverOptions: %s", options.GraphMap[0].DriverOptions)
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
