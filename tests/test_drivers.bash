@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TMPDIR=${TMPDIR:-/var/tmp}
+export TMPDIR=${TMPDIR:-/tmp}
 
 aufs() {
 	modprobe aufs 2> /dev/null
@@ -18,6 +18,10 @@ devicemapper() {
 		fi
 	done
 	pkg-config devmapper 2> /dev/null
+}
+
+lvm() {
+	which lvm > /dev/null 2> /dev/null && which losetup > /dev/null 2> /dev/null && which xfs_admin > /dev/null 2> /dev/null && which tune2fs > /dev/null 2> /dev/null
 }
 
 overlay() {
@@ -39,6 +43,9 @@ if [ "$STORAGE_DRIVER" = "" ] ; then
 	fi
 	if devicemapper; then
 		drivers="$drivers devicemapper"
+	fi
+	if lvm ; then
+		drivers="$drivers lvm"
 	fi
 	if overlay; then
 		drivers="$drivers overlay"

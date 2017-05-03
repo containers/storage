@@ -4,7 +4,7 @@ load helpers
 
 @test "idmaps-create-apply-layer" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|devicemapper|lvm|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -97,7 +97,7 @@ load helpers
 
 @test "idmaps-create-diff-layer" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|devicemapper|lvm|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -188,7 +188,7 @@ load helpers
 
 @test "idmaps-create-container" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|devicemapper|lvm|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -319,7 +319,7 @@ load helpers
 
 @test "idmaps-parent-owners" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|devicemapper|lvm|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -385,7 +385,7 @@ load helpers
 
 @test "idmaps-copy" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|devicemapper|lvm|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -551,7 +551,7 @@ load helpers
 
 @test "idmaps-create-mapped-image" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|devicemapper|lvm|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -690,10 +690,10 @@ load helpers
 
 @test "idmaps-create-mapped-container" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	overlay*|vfs)
 		;;
 	*)
-		skip "not supported by driver $STORAGE_DRIVER"
+		skip "imagestore option not supported by driver $STORAGE_DRIVER"
 		;;
 	esac
 	case "$STORAGE_OPTION" in
@@ -837,7 +837,7 @@ load helpers
 	overlay*)
 		;;
 	*)
-		skip "not supported by driver $STORAGE_DRIVER"
+		skip "shifting not supported by driver $STORAGE_DRIVER"
 		;;
 	esac
 	case "$STORAGE_OPTION" in
