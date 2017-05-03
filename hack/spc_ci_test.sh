@@ -16,7 +16,7 @@ export UPDATE_CMD="true"
 case "$DISTRO" in
     *ubuntu*)
         export UPDATE_CMD="apt-get update"
-        export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev ostree libostree-dev"
+        export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev lvm2 ostree libostree-dev xfsprogs"
         ;;
     *fedora*)
         export INSTALL_CMD="dnf -y install bats btrfs-progs btrfs-progs-devel
