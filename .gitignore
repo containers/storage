@@ -10,11 +10,6 @@
 # a .bashrc may be added to customize the build environment
 .bashrc
 .gopath/
-autogen/
-bundles/
-cmd/dockerd/dockerd
-cmd/docker/docker
-dockerversion/version_autogen.go
 docs/AWS_S3_BUCKET
 docs/GITCOMMIT
 docs/GIT_BRANCH
@@ -29,4 +24,3 @@ man/man5
 man/man8
 vendor/pkg/
 .vagrant
-storageversion/version_autogen.go
