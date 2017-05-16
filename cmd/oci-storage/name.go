@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/containers/storage"
 	"github.com/containers/storage/opts"
 	"github.com/containers/storage/pkg/mflag"
-	"github.com/containers/storage/storage"
 )
 
 func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {

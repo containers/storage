@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
-	"github.com/containers/storage/storage"
 )
 
 var (
