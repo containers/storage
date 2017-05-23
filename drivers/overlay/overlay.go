@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -82,6 +83,7 @@ type Driver struct {
 	uidMaps []idtools.IDMap
 	gidMaps []idtools.IDMap
 	ctr     *graphdriver.RefCounter
+	opts    *overlayOptions
 }
 
 var backingFs = "<unknown>"
@@ -149,6 +151,7 @@ func InitWithName(name, home string, options []string, uidMaps, gidMaps []idtool
 		uidMaps: uidMaps,
 		gidMaps: gidMaps,
 		ctr:     graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
+		opts:    opts,
 	}
 
 	return d, nil
@@ -170,6 +173,7 @@ func InitAsOverlay2(home string, options []string, uidMaps, gidMaps []idtools.ID
 
 type overlayOptions struct {
 	overrideKernelCheck bool
+	imageStores         []string
 }
 
 func parseOptions(options []string) (*overlayOptions, error) {
@@ -185,6 +189,22 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			o.overrideKernelCheck, err = strconv.ParseBool(val)
 			if err != nil {
 				return nil, err
+			}
+		case "overlay.imagestore":
+			// Additional read only image stores to use for lower paths
+			for _, store := range strings.Split(val, ",") {
+				store = filepath.Clean(store)
+				if !filepath.IsAbs(store) {
+					return nil, fmt.Errorf("overlay: image path %q is not absolute.  Can not be relative", store)
+				}
+				st, err := os.Stat(store)
+				if err != nil {
+					return nil, fmt.Errorf("overlay: Can't stat imageStore dir %s: %v", store, err)
+				}
+				if !st.IsDir() {
+					return nil, fmt.Errorf("overlay: image path %q must be a directory", store)
+				}
+				o.imageStores = append(o.imageStores, store)
 			}
 		default:
 			return nil, fmt.Errorf("overlay: Unknown option %s", key)
@@ -526,4 +546,9 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 	}
 
 	return archive.OverlayChanges(layers, diffPath)
+}
+
+// AdditionalImageStores returns additional image stores supported by the driver
+func (d *Driver) AdditionalImageStores() []string {
+	return d.opts.imageStores
 }
