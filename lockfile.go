@@ -49,10 +49,14 @@ func GetLockfile(path string) (Locker, error) {
 	if lockfiles == nil {
 		lockfiles = make(map[string]*lockfile)
 	}
-	if locker, ok := lockfiles[filepath.Clean(path)]; ok {
+	cleanPath := filepath.Clean(path)
+	if locker, ok := lockfiles[cleanPath]; ok {
 		return locker, nil
 	}
-	fd, err := unix.Open(filepath.Clean(path), os.O_RDWR|os.O_CREATE, unix.S_IRUSR|unix.S_IWUSR)
+	if err := os.MkdirAll(filepath.Dir(cleanPath), 0700); err != nil {
+		return nil, err
+	}
+	fd, err := unix.Open(cleanPath, os.O_RDWR|os.O_CREATE, unix.S_IRUSR|unix.S_IWUSR)
 	if err != nil {
 		return nil, err
 	}

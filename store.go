@@ -128,6 +128,9 @@ type StoreOptions struct {
 	GraphDriverName string `json:"driver,omitempty"`
 	// GraphDriverOptions are driver-specific options.
 	GraphDriverOptions []string `json:"driver-options,omitempty"`
+	// LockDir alternative directory to store locks,  if you are useing additional read/only shares
+	// you will have to store the lock files in a local writable directory. ("/run/storage/locks")
+	LockDir string `json:"lockdir,omitempty"`
 	// UIDMap and GIDMap are used mainly for deciding on the ownership of
 	// files in layers as they're stored on disk, which is often necessary
 	// when user namespaces are being used.
@@ -449,8 +452,7 @@ func GetStore(options StoreOptions) (Store, error) {
 			return nil, err
 		}
 	}
-
-	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
+	graphLock, err := GetLockfile(filepath.Join(options.LockDir, options.GraphRoot, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -1976,6 +1978,7 @@ type tomlConfig struct {
 		Driver    string                  `toml:"driver"`
 		RunRoot   string                  `toml:"runroot"`
 		GraphRoot string                  `toml:"graphroot"`
+		LockDir   string                  `toml:"lockdir"`
 		Options   struct{ OptionsConfig } `toml:"options"`
 	} `toml:"storage"`
 }
@@ -2007,6 +2010,9 @@ func init() {
 	}
 	if config.Storage.GraphRoot != "" {
 		DefaultStoreOptions.GraphRoot = config.Storage.GraphRoot
+	}
+	if config.Storage.LockDir != "" {
+		DefaultStoreOptions.LockDir = config.Storage.LockDir
 	}
 	for _, s := range config.Storage.Options.AdditionalImageStores {
 		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, s))

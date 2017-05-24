@@ -293,7 +293,7 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver) (Layer
 	if err := os.MkdirAll(layerdir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(layerdir, "layers.lock"))
+	lockfile, err := GetLockfile(filepath.Join(DefaultStoreOptions.LockDir, layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}

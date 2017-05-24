@@ -161,7 +161,7 @@ func newImageStore(dir string) (ImageStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "images.lock"))
+	lockfile, err := GetLockfile(filepath.Join(DefaultStoreOptions.LockDir, dir, "images.lock"))
 	if err != nil {
 		return nil, err
 	}
