@@ -170,7 +170,7 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "containers.lock"))
+	lockfile, err := GetLockfile(filepath.Join(DefaultStoreOptions.LockDir, dir, "containers.lock"))
 	if err != nil {
 		return nil, err
 	}
