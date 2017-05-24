@@ -14,20 +14,20 @@ RUNINVM := vagrant/runinvm.sh
 default all: local-binary docs local-validate local-cross local-gccgo test-unit test-integration ## validate all checks, build and cross-build\nbinaries and docs, run tests in a VM
 
 clean: ## remove all built files
-	$(RM) -f oci-storage oci-storage.* docs/*.1
+	$(RM) -f containers-storage containers-storage.* docs/*.1
 
 binary local-binary: ## build using gc on the host
-	$(GO) build -compiler gc $(BUILDFLAGS) ./cmd/oci-storage
+	$(GO) build -compiler gc $(BUILDFLAGS) ./cmd/containers-storage
 
 local-gccgo: ## build using gccgo on the host
-	GCCGO=$(PWD)/hack/gccgo-wrapper.sh $(GO) build -compiler gccgo $(BUILDFLAGS) -o oci-storage.gccgo ./cmd/oci-storage
+	GCCGO=$(PWD)/hack/gccgo-wrapper.sh $(GO) build -compiler gccgo $(BUILDFLAGS) -o containers-storage.gccgo ./cmd/containers-storage
 
 local-cross: ## cross build the binaries for arm, darwin, and\nfreebsd
 	@for target in linux/amd64 linux/386 linux/arm darwin/amd64 ; do \
 		os=`echo $${target} | cut -f1 -d/` ; \
 		arch=`echo $${target} | cut -f2 -d/` ; \
 		suffix=$${os}.$${arch} ; \
-		$(MAKE) GOOS=$${os} GOARCH=$${arch} FLAGS="-o oci-storage.$${suffix}" AUTOTAGS="$(NATIVETAGS)" local-binary; \
+		$(MAKE) GOOS=$${os} GOARCH=$${arch} FLAGS="-o containers-storage.$${suffix}" AUTOTAGS="$(NATIVETAGS)" local-binary; \
 	done
 
 cross: ## cross build the binaries for arm, darwin, and\nfreebsd using VMs
