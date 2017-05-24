@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -14,6 +15,7 @@ import (
 	// register all of the built-in drivers
 	_ "github.com/containers/storage/drivers/register"
 
+	"github.com/BurntSushi/toml"
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
@@ -1958,11 +1960,64 @@ func stringSliceWithoutValue(slice []string, value string) []string {
 	return modified
 }
 
+const configFile = "/etc/containers/storage.conf"
+
+// OptionsConfig represents the "storage.options" TOML config table.
+type OptionsConfig struct {
+	// AdditionalImagesStores is the location of additional read/only
+	// Image stores.  Usually used to access Networked File System
+	// for shared image content
+	AdditionalImageStores []string `toml:"additionalimagestores"`
+}
+
+// TOML-friendly explicit tables used for conversions.
+type tomlConfig struct {
+	Storage struct {
+		Driver    string                  `toml:"driver"`
+		RunRoot   string                  `toml:"runroot"`
+		GraphRoot string                  `toml:"graphroot"`
+		Options   struct{ OptionsConfig } `toml:"options"`
+	} `toml:"storage"`
+}
+
 func init() {
 	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
 	DefaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
-	DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
-	DefaultStoreOptions.GraphDriverOptions = strings.Split(os.Getenv("STORAGE_OPTS"), ",")
+	DefaultStoreOptions.GraphDriverName = "overlay"
+
+	data, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			fmt.Printf("Failed to read %s %v\n", configFile, err.Error())
+			return
+		}
+	}
+
+	config := new(tomlConfig)
+
+	if _, err := toml.Decode(string(data), config); err != nil {
+		fmt.Printf("Failed to parse %s %v\n", configFile, err.Error())
+		return
+	}
+	if config.Storage.Driver != "" {
+		DefaultStoreOptions.GraphDriverName = config.Storage.Driver
+	}
+	if config.Storage.RunRoot != "" {
+		DefaultStoreOptions.RunRoot = config.Storage.RunRoot
+	}
+	if config.Storage.GraphRoot != "" {
+		DefaultStoreOptions.GraphRoot = config.Storage.GraphRoot
+	}
+	for _, s := range config.Storage.Options.AdditionalImageStores {
+		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, s))
+	}
+
+	if os.Getenv("STORAGE_DRIVER") != "" {
+		DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
+	}
+	if os.Getenv("STORAGE_OPTS") != "" {
+		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, strings.Split(os.Getenv("STORAGE_OPTS"), ",")...)
+	}
 	if len(DefaultStoreOptions.GraphDriverOptions) == 1 && DefaultStoreOptions.GraphDriverOptions[0] == "" {
 		DefaultStoreOptions.GraphDriverOptions = nil
 	}
