@@ -527,7 +527,7 @@ func (r *layerStore) SetMetadata(id, metadata string) error {
 }
 
 func (r *layerStore) tspath(id string) string {
-	return filepath.Join(r.layerdir, id+tarSplitSuffix)
+	return filepath.Join(DefaultStoreOptions.GraphRoot, DefaultStoreOptions.GraphDriverName+"-layers", id+tarSplitSuffix)
 }
 
 func (r *layerStore) Delete(id string) error {

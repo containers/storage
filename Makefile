@@ -8,7 +8,7 @@ GIT_BRANCH_CLEAN := $(shell echo $(GIT_BRANCH) | sed -e "s/[^[:alnum:]]/-/g")
 EPOCH_TEST_COMMIT := 0418ebf59f9e1f564831c0ba9378b7f8e40a1c73
 SYSTEM_GOPATH := ${GOPATH}
 
-RUNINVM := vagrant/runinvm.sh
+RUNINVM := /usr/bin/true
 
 default all: build ## validate all checks, build linux binaries, run all tests\ncross build non-linux binaries and generate archives\nusing VMs
 	$(RUNINVM) hack/make.sh

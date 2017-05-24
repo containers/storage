@@ -353,19 +353,16 @@ func (d *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 
 func (d *Driver) getLower(parent string) (string, error) {
 	parentDir := d.dir(parent)
-
 	// Ensure parent exists
 	if _, err := os.Lstat(parentDir); err != nil {
 		return "", err
 	}
-
 	// Read Parent link fileA
 	parentLink, err := ioutil.ReadFile(path.Join(parentDir, "link"))
 	if err != nil {
 		return "", err
 	}
 	lowers := []string{path.Join(linkDir, string(parentLink))}
-
 	parentLower, err := ioutil.ReadFile(path.Join(parentDir, lowerFile))
 	if err == nil {
 		parentLowers := strings.Split(string(parentLower), ":")
@@ -377,8 +374,18 @@ func (d *Driver) getLower(parent string) (string, error) {
 	return strings.Join(lowers, ":"), nil
 }
 
-func (d *Driver) dir(id string) string {
-	return path.Join(d.home, id)
+func (d *Driver) dir(val string) string {
+	newpath := path.Join(d.home, val)
+	if _, err := os.Stat(newpath); err != nil {
+		for _, p := range d.AdditionalImageStores() {
+			l := path.Join(p, d.name, val)
+			_, err = os.Stat(l)
+			if err == nil {
+				return l
+			}
+		}
+	}
+	return newpath
 }
 
 func (d *Driver) getLowerDirs(id string) ([]string, error) {
@@ -386,11 +393,12 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 	lowers, err := ioutil.ReadFile(path.Join(d.dir(id), lowerFile))
 	if err == nil {
 		for _, s := range strings.Split(string(lowers), ":") {
-			lp, err := os.Readlink(path.Join(d.home, s))
+			lower := d.dir(s)
+			lp, err := os.Readlink(lower)
 			if err != nil {
 				return nil, err
 			}
-			lowersArray = append(lowersArray, path.Clean(path.Join(d.home, "link", lp)))
+			lowersArray = append(lowersArray, path.Clean(d.dir(path.Join("link", lp))))
 		}
 	} else if !os.IsNotExist(err) {
 		return nil, err
@@ -429,6 +437,20 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 			return diffDir, nil
 		}
 		return "", err
+	}
+
+	if _, err = os.Stat(string(lowers)); err != nil {
+		for _, p := range d.AdditionalImageStores() {
+			l := path.Join(p, d.name, string(lowers))
+			_, err = os.Stat(l)
+			if err == nil {
+				lowers = []byte(l)
+				break
+			}
+			if err != nil {
+				return "", err
+			}
+		}
 	}
 
 	mergedDir := path.Join(dir, "merged")
