@@ -1043,12 +1043,15 @@ func (s *store) SetNames(id string, names []string) error {
 	}
 
 	if rlstore.Exists(id) {
+		defer rlstore.Touch()
 		return rlstore.SetNames(id, deduped)
 	}
 	if ristore.Exists(id) {
+		defer ristore.Touch()
 		return ristore.SetNames(id, deduped)
 	}
 	if rcstore.Exists(id) {
+		defer rcstore.Touch()
 		return rcstore.SetNames(id, deduped)
 	}
 	return ErrLayerUnknown
