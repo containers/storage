@@ -287,6 +287,7 @@ func (r *layerStore) Save() error {
 	if err := ioutils.AtomicWriteFile(rpath, jldata, 0600); err != nil {
 		return err
 	}
+	defer r.Touch()
 	return ioutils.AtomicWriteFile(mpath, jmdata, 0600)
 }
 

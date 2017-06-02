@@ -167,6 +167,7 @@ func (r *containerStore) Save() error {
 	if err != nil {
 		return err
 	}
+	defer r.Touch()
 	return ioutils.AtomicWriteFile(rpath, jdata, 0600)
 }
 
