@@ -1,10 +1,10 @@
-## oci-storage-create-image 1 "August 2016"
+## containers-storage-create-image 1 "August 2016"
 
 ## NAME
-oci-storage create-image - Create an image
+containers-storage create-image - Create an image
 
 ## SYNOPSIS
-**oci-storage** **create-image** [*options*...] *topLayerNameOrID*
+**containers-storage** **create-image** [*options*...] *topLayerNameOrID*
 
 ## DESCRIPTION
 Creates an image, referring to the specified layer as the one which should be
@@ -29,9 +29,9 @@ Sets the metadata for the image to the specified value.
 Sets the metadata for the image to the contents of the specified file.
 
 ## EXAMPLE
-**oci-storage create-image -f manifest.json -n new-image somelayer**
+**containers-storage create-image -f manifest.json -n new-image somelayer**
 
 ## SEE ALSO
-oci-storage-create-container(1)
-oci-storage-create-layer(1)
-oci-storage-delete-image(1)
+containers-storage-create-container(1)
+containers-storage-create-layer(1)
+containers-storage-delete-image(1)

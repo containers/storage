@@ -1,10 +1,10 @@
-## oci-storage-create-layer 1 "August 2016"
+## containers-storage-create-layer 1 "August 2016"
 
 ## NAME
-oci-storage create-layer - Create a layer
+containers-storage create-layer - Create a layer
 
 ## SYNOPSIS
-**oci-storage** **create-layer** [*options* [...]] [*parentLayerNameOrID*]
+**containers-storage** **create-layer** [*options* [...]] [*parentLayerNameOrID*]
 
 ## DESCRIPTION
 Creates a new layer which either has a specified layer as its parent, or if no
@@ -34,9 +34,9 @@ Sets the label which should be assigned as an SELinux context when mounting the
 layer.
 
 ## EXAMPLE
-**oci-storage create-layer -f manifest.json -n new-layer somelayer**
+**containers-storage create-layer -f manifest.json -n new-layer somelayer**
 
 ## SEE ALSO
-oci-storage-create-container(1)
-oci-storage-create-image(1)
-oci-storage-delete-layer(1)
+containers-storage-create-container(1)
+containers-storage-create-image(1)
+containers-storage-delete-layer(1)

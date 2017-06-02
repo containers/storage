@@ -44,9 +44,9 @@ func main() {
 		return flags
 	}
 
-	flags := makeFlags("oci-storage", mflag.ContinueOnError)
+	flags := makeFlags("containers-storage", mflag.ContinueOnError)
 	flags.Usage = func() {
-		fmt.Printf("Usage: oci-storage command [options [...]]\n\n")
+		fmt.Printf("Usage: containers-storage command [options [...]]\n\n")
 		fmt.Printf("Commands:\n\n")
 		for _, command := range commands {
 			fmt.Printf("  %-22s%s\n", command.names[0], command.usage)
@@ -81,7 +81,7 @@ func main() {
 					command.addFlags(flags, &command)
 				}
 				flags.Usage = func() {
-					fmt.Printf("Usage: oci-storage %s %s\n\n", cmd, command.optionsHelp)
+					fmt.Printf("Usage: containers-storage %s %s\n\n", cmd, command.optionsHelp)
 					fmt.Printf("%s\n", command.usage)
 					fmt.Printf("\nOptions:\n")
 					flags.PrintDefaults()

@@ -1,10 +1,10 @@
-## oci-storage-diff 1 "August 2016"
+## containers-storage-diff 1 "August 2016"
 
 ## NAME
-oci-storage diff - Generate a layer diff
+containers-storage diff - Generate a layer diff
 
 ## SYNOPSIS
-**oci-storage** **diff** [*options* [...]] *layerNameOrID*
+**containers-storage** **diff** [*options* [...]] *layerNameOrID*
 
 ## DESCRIPTION
 Generates a layer diff representing the changes made in the specified layer.
@@ -29,9 +29,9 @@ Force the diff to be uncompressed.  If the layer was populated by a layer diff,
 and that layer diff was compressed, it will be decompressed for output.
 
 ## EXAMPLE
-**oci-storage diff my-base-layer**
+**containers-storage diff my-base-layer**
 
 ## SEE ALSO
-oci-storage-applydiff(1)
-oci-storage-changes(1)
-oci-storage-diffsize(1)
+containers-storage-applydiff(1)
+containers-storage-changes(1)
+containers-storage-diffsize(1)

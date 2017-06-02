@@ -1,10 +1,10 @@
-## oci-storage-create-container 1 "August 2016"
+## containers-storage-create-container 1 "August 2016"
 
 ## NAME
-oci-storage create-container - Create a container
+containers-storage create-container - Create a container
 
 ## SYNOPSIS
-**oci-storage** **create-container** [*options*...] *imageNameOrID*
+**containers-storage** **create-container** [*options*...] *imageNameOrID*
 
 ## DESCRIPTION
 Creates a container, using the specified image as the starting point for its
@@ -29,9 +29,9 @@ Sets the metadata for the container to the specified value.
 Sets the metadata for the container to the contents of the specified file.
 
 ## EXAMPLE
-**oci-storage create-container -f manifest.json -n new-container goodimage**
+**containers-storage create-container -f manifest.json -n new-container goodimage**
 
 ## SEE ALSO
-oci-storage-create-image(1)
-oci-storage-create-layer(1)
-oci-storage-delete-container(1)
+containers-storage-create-image(1)
+containers-storage-create-layer(1)
+containers-storage-delete-container(1)
