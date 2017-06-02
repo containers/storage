@@ -15,11 +15,13 @@ case "${ID_LIKE:-${ID:-unknown}}" in
     apt-get -q -y install apt make git btrfs-progs libdevmapper-dev
     apt-get -q -y install zfs-dkms zfsutils-linux
     apt-get -q -y install golang gccgo
+    apt-get -q -y install bats
     ;;
   fedora)
     dnf -y clean all
     dnf -y install make git gcc btrfs-progs-devel device-mapper-devel
     dnf -y install golang gcc-go
+    dnf -y install bats
     alternatives --set go /usr/lib/golang/bin/go
     ;;
   unknown)
@@ -32,5 +34,5 @@ rm -f /go/src/github.com/containers/storage
 ln -s /vagrant /go/src/github.com/containers/storage
 export GOPATH=/go
 export PATH=/go/bin:${PATH}
-go get github.com/golang/lint/...
+make -C /vagrant install.tools
 exit 0

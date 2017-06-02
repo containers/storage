@@ -10,7 +10,6 @@ if test -z "$VAGRANT_PROVIDER" ; then
 	fi
 fi
 export VAGRANT_PROVIDER=${VAGRANT_PROVIDER:-libvirt}
-export VAGRANT_PROVIDER=${VAGRANT_PROVIDER:-virtualbox}
 if ${IN_VAGRANT_MACHINE:-false} ; then
 	unset AUTO_GOPATH
 	export GOPATH=/go

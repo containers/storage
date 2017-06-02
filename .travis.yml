@@ -10,9 +10,5 @@ before_install:
     - sudo apt-get -qq install btrfs-tools libdevmapper-dev
 script:
     - make install.tools
-    - ./hack/make.sh validate-gofmt validate-pkg validate-lint validate-test validate-toml validate-vet
-    - make .gitvalidation
-    - make build-binary
-    - ./hack/make.sh cross
-    - sudo -E env "PATH=${PATH}" ./hack/make.sh test-unit
-    - make docs
+    - make local-binary docs local-cross local-validate
+    - sudo PATH="$PATH" make local-test-unit local-test-integration
