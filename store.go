@@ -884,20 +884,11 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte) error {
-	rlstore, err := s.LayerStore()
-	if err != nil {
-		return err
-	}
 	ristore, err := s.ImageStore()
 	if err != nil {
 		return err
 	}
 
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if modified, err := rlstore.Modified(); modified || err != nil {
-		rlstore.Load()
-	}
 	ristore.Lock()
 	defer ristore.Unlock()
 	if modified, err := ristore.Modified(); modified || err != nil {
