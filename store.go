@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,6 +20,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -1183,7 +1183,7 @@ func (s *store) DeleteLayer(id string) error {
 		}
 		for _, image := range images {
 			if image.TopLayer == id {
-				return ErrLayerUsedByImage
+				return errors.Wrapf(ErrLayerUsedByImage, "Layer %v used by image %v", id, image.ID)
 			}
 		}
 		containers, err := rcstore.Containers()
@@ -1192,7 +1192,7 @@ func (s *store) DeleteLayer(id string) error {
 		}
 		for _, container := range containers {
 			if container.LayerID == id {
-				return ErrLayerUsedByContainer
+				return errors.Wrapf(ErrLayerUsedByContainer, "Layer %v used by container %v", id, container.ID)
 			}
 		}
 		return rlstore.Delete(id)
@@ -1246,8 +1246,8 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 		for _, container := range containers {
 			aContainerByImage[container.ImageID] = container.ID
 		}
-		if _, ok := aContainerByImage[id]; ok {
-			return nil, ErrImageUsedByContainer
+		if container, ok := aContainerByImage[id]; ok {
+			return nil, errors.Wrapf(ErrImageUsedByContainer, "Image used by %v", container)
 		}
 		images, err := ristore.Images()
 		if err != nil {
@@ -1907,7 +1907,7 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		}
 	}
 	if len(mounted) > 0 && err == nil {
-		err = ErrLayerUsedByContainer
+		err = errors.Wrap(ErrLayerUsedByContainer, "A layer is mounted")
 	}
 	if err == nil {
 		err = s.graphDriver.Cleanup()
