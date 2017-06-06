@@ -621,13 +621,11 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	defer rlstore.Touch()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
 	}
 	rcstore.Lock()
 	defer rcstore.Unlock()
-	defer rcstore.Touch()
 	if modified, err := rcstore.Modified(); modified || err != nil {
 		rcstore.Load()
 	}
@@ -674,7 +672,6 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	}
 	ristore.Lock()
 	defer ristore.Unlock()
-	defer ristore.Touch()
 	if modified, err := ristore.Modified(); modified || err != nil {
 		ristore.Load()
 	}
@@ -709,7 +706,6 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	defer rlstore.Touch()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
 	}
@@ -720,7 +716,6 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	}
 	rcstore.Lock()
 	defer rcstore.Unlock()
-	defer rcstore.Touch()
 	if modified, err := rcstore.Modified(); modified || err != nil {
 		rcstore.Load()
 	}
@@ -785,15 +780,12 @@ func (s *store) SetMetadata(id, metadata string) error {
 	}
 
 	if rlstore.Exists(id) {
-		defer rlstore.Touch()
 		return rlstore.SetMetadata(id, metadata)
 	}
 	if ristore.Exists(id) {
-		defer ristore.Touch()
 		return ristore.SetMetadata(id, metadata)
 	}
 	if rcstore.Exists(id) {
-		defer rcstore.Touch()
 		return rcstore.SetMetadata(id, metadata)
 	}
 	return ErrNotAnID
@@ -1034,15 +1026,12 @@ func (s *store) SetNames(id string, names []string) error {
 	}
 
 	if rlstore.Exists(id) {
-		defer rlstore.Touch()
 		return rlstore.SetNames(id, deduped)
 	}
 	if ristore.Exists(id) {
-		defer ristore.Touch()
 		return ristore.SetNames(id, deduped)
 	}
 	if rcstore.Exists(id) {
-		defer rcstore.Touch()
 		return rcstore.SetNames(id, deduped)
 	}
 	return ErrLayerUnknown
@@ -1163,8 +1152,6 @@ func (s *store) DeleteLayer(id string) error {
 	}
 
 	if rlstore.Exists(id) {
-		defer rlstore.Touch()
-		defer rcstore.Touch()
 		if l, err := rlstore.Get(id); err != nil {
 			id = l.ID
 		}
@@ -1236,8 +1223,6 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 			return nil, err
 		}
 		id = image.ID
-		defer rlstore.Touch()
-		defer ristore.Touch()
 		containers, err := rcstore.Containers()
 		if err != nil {
 			return nil, err
@@ -1351,8 +1336,6 @@ func (s *store) DeleteContainer(id string) error {
 	}
 
 	if rcstore.Exists(id) {
-		defer rlstore.Touch()
-		defer rcstore.Touch()
 		if container, err := rcstore.Get(id); err == nil {
 			if rlstore.Exists(container.LayerID) {
 				if err = rlstore.Delete(container.LayerID); err != nil {
@@ -1409,8 +1392,6 @@ func (s *store) Delete(id string) error {
 	}
 
 	if rcstore.Exists(id) {
-		defer rlstore.Touch()
-		defer rcstore.Touch()
 		if container, err := rcstore.Get(id); err == nil {
 			if rlstore.Exists(container.LayerID) {
 				if err = rlstore.Delete(container.LayerID); err != nil {
@@ -1434,11 +1415,9 @@ func (s *store) Delete(id string) error {
 		}
 	}
 	if ristore.Exists(id) {
-		defer ristore.Touch()
 		return ristore.Delete(id)
 	}
 	if rlstore.Exists(id) {
-		defer rlstore.Touch()
 		return rlstore.Delete(id)
 	}
 	return ErrLayerUnknown
@@ -1460,19 +1439,16 @@ func (s *store) Wipe() error {
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	defer rlstore.Touch()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
 	}
 	ristore.Lock()
 	defer ristore.Unlock()
-	defer ristore.Touch()
 	if modified, err := ristore.Modified(); modified || err != nil {
 		ristore.Load()
 	}
 	rcstore.Lock()
 	defer rcstore.Unlock()
-	defer rcstore.Touch()
 	if modified, err := rcstore.Modified(); modified || err != nil {
 		rcstore.Load()
 	}
@@ -1510,7 +1486,6 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	defer rlstore.Touch()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
 	}
@@ -1538,7 +1513,6 @@ func (s *store) Unmount(id string) error {
 
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	defer rlstore.Touch()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
 	}
