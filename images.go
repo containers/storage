@@ -424,6 +424,10 @@ func (r *imageStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
 }
 
+func (r *imageStore) IsReadWrite() bool {
+	return r.lockfile.IsReadWrite()
+}
+
 func (r *imageStore) TouchedSince(when time.Time) bool {
 	return r.lockfile.TouchedSince(when)
 }

@@ -825,6 +825,10 @@ func (r *layerStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
 }
 
+func (r *layerStore) IsReadWrite() bool {
+	return r.lockfile.IsReadWrite()
+}
+
 func (r *layerStore) TouchedSince(when time.Time) bool {
 	return r.lockfile.TouchedSince(when)
 }
