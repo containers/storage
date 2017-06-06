@@ -1475,9 +1475,8 @@ func (s *store) Version() ([][2]string, error) {
 }
 
 func (s *store) Mount(id, mountLabel string) (string, error) {
-	rcstore, err := s.ContainerStore()
-	if err != nil {
-		return "", err
+	if layerID, err := s.ContainerLayerID(id); err == nil {
+		id = layerID
 	}
 	rlstore, err := s.LayerStore()
 	if err != nil {
@@ -1488,23 +1487,13 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 	defer rlstore.Unlock()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
-	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if modified, err := rcstore.Modified(); modified || err != nil {
-		rcstore.Load()
-	}
-
-	if c, err := rcstore.Get(id); c != nil && err == nil {
-		id = c.LayerID
 	}
 	return rlstore.Mount(id, mountLabel)
 }
 
 func (s *store) Unmount(id string) error {
-	rcstore, err := s.ContainerStore()
-	if err != nil {
-		return err
+	if layerID, err := s.ContainerLayerID(id); err == nil {
+		id = layerID
 	}
 	rlstore, err := s.LayerStore()
 	if err != nil {
@@ -1515,15 +1504,6 @@ func (s *store) Unmount(id string) error {
 	defer rlstore.Unlock()
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
-	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if modified, err := rcstore.Modified(); modified || err != nil {
-		rcstore.Load()
-	}
-
-	if c, err := rcstore.Get(id); c != nil && err == nil {
-		id = c.LayerID
 	}
 	return rlstore.Unmount(id)
 }
@@ -1712,6 +1692,23 @@ func (s *store) Container(id string) (*Container, error) {
 	}
 
 	return rcstore.Get(id)
+}
+
+func (s *store) ContainerLayerID(id string) (string, error) {
+	rcstore, err := s.ContainerStore()
+	if err != nil {
+		return "", err
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+	container, err := rcstore.Get(id)
+	if err != nil {
+		return "", err
+	}
+	return container.LayerID, nil
 }
 
 func (s *store) ContainerByLayer(id string) (*Container, error) {
