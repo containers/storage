@@ -251,7 +251,6 @@ func (r *layerStore) Load() error {
 		}
 	}
 	if needSave {
-		r.Touch()
 		return r.Save()
 	}
 	return err
