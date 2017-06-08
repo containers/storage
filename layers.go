@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
+	"github.com/pkg/errors"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
 )
@@ -192,7 +192,7 @@ func (r *layerStore) layerspath() string {
 }
 
 func (r *layerStore) Load() error {
-	needSave := false
+	shouldSave := false
 	rpath := r.layerspath()
 	data, err := ioutil.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
@@ -211,7 +211,7 @@ func (r *layerStore) Load() error {
 			for _, name := range layer.Names {
 				if conflict, ok := names[name]; ok {
 					r.removeName(conflict, name)
-					needSave = true
+					shouldSave = true
 				}
 				names[name] = layers[n]
 			}
@@ -221,6 +221,9 @@ func (r *layerStore) Load() error {
 				parents[layer.Parent] = []*Layer{layers[n]}
 			}
 		}
+	}
+	if shouldSave && !r.IsReadWrite() {
+		return errors.New("layer store assigns the same name to multiple layers")
 	}
 	mpath := r.mountspath()
 	data, err = ioutil.ReadFile(mpath)
@@ -245,27 +248,32 @@ func (r *layerStore) Load() error {
 	r.byname = names
 	r.bymount = mounts
 	err = nil
-	// Last step: try to remove anything that a previous user of this
-	// storage area marked for deletion but didn't manage to actually
-	// delete.
-	for _, layer := range r.layers {
-		if cleanup, ok := layer.Flags[incompleteFlag]; ok {
-			if b, ok := cleanup.(bool); ok && b {
-				err = r.Delete(layer.ID)
-				if err != nil {
-					break
+	// Last step: if we're writable, try to remove anything that a previous
+	// user of this storage area marked for deletion but didn't manage to
+	// actually delete.
+	if r.IsReadWrite() {
+		for _, layer := range r.layers {
+			if cleanup, ok := layer.Flags[incompleteFlag]; ok {
+				if b, ok := cleanup.(bool); ok && b {
+					err = r.Delete(layer.ID)
+					if err != nil {
+						break
+					}
+					shouldSave = true
 				}
-				needSave = true
 			}
 		}
-	}
-	if needSave {
-		return r.Save()
+		if shouldSave {
+			return r.Save()
+		}
 	}
 	return err
 }
 
 func (r *layerStore) Save() error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to modify the layer store at %q", r.layerspath())
+	}
 	rpath := r.layerspath()
 	if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {
 		return err
@@ -327,6 +335,28 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver) (Layer
 	return &rlstore, nil
 }
 
+func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (ROLayerStore, error) {
+	lockfile, err := GetROLockfile(filepath.Join(layerdir, "layers.lock"))
+	if err != nil {
+		return nil, err
+	}
+	lockfile.Lock()
+	defer lockfile.Unlock()
+	rlstore := layerStore{
+		lockfile: lockfile,
+		driver:   driver,
+		rundir:   rundir,
+		layerdir: layerdir,
+		byid:     make(map[string]*Layer),
+		bymount:  make(map[string]*Layer),
+		byname:   make(map[string]*Layer),
+	}
+	if err := rlstore.Load(); err != nil {
+		return nil, err
+	}
+	return &rlstore, nil
+}
+
 func (r *layerStore) lookup(id string) (*Layer, bool) {
 	if layer, ok := r.byid[id]; ok {
 		return layer, ok
@@ -340,6 +370,9 @@ func (r *layerStore) lookup(id string) (*Layer, bool) {
 }
 
 func (r *layerStore) ClearFlag(id string, flag string) error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to clear flags on layers at %q", r.layerspath())
+	}
 	layer, ok := r.lookup(id)
 	if !ok {
 		return ErrLayerUnknown
@@ -349,6 +382,9 @@ func (r *layerStore) ClearFlag(id string, flag string) error {
 }
 
 func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to set flags on layers at %q", r.layerspath())
+	}
 	layer, ok := r.lookup(id)
 	if !ok {
 		return ErrLayerUnknown
@@ -362,6 +398,9 @@ func (r *layerStore) Status() ([][2]string, error) {
 }
 
 func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, size int64, err error) {
+	if !r.IsReadWrite() {
+		return nil, -1, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to create new layers at %q", r.layerspath())
+	}
 	size = -1
 	if err := os.MkdirAll(r.rundir, 0700); err != nil {
 		return nil, -1, err
@@ -453,6 +492,9 @@ func (r *layerStore) Create(id, parent string, names []string, mountLabel string
 }
 
 func (r *layerStore) Mount(id, mountLabel string) (string, error) {
+	if !r.IsReadWrite() {
+		return "", errors.Wrapf(ErrStoreIsReadOnly, "not allowed to update mount locations for layers at %q", r.mountspath())
+	}
 	layer, ok := r.lookup(id)
 	if !ok {
 		return "", ErrLayerUnknown
@@ -478,6 +520,9 @@ func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 }
 
 func (r *layerStore) Unmount(id string) error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to update mount locations for layers at %q", r.mountspath())
+	}
 	layer, ok := r.lookup(id)
 	if !ok {
 		layerByMount, ok := r.bymount[filepath.Clean(id)]
@@ -507,6 +552,9 @@ func (r *layerStore) removeName(layer *Layer, name string) {
 }
 
 func (r *layerStore) SetNames(id string, names []string) error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to change layer name assignments at %q", r.layerspath())
+	}
 	if layer, ok := r.lookup(id); ok {
 		for _, name := range layer.Names {
 			delete(r.byname, name)
@@ -531,6 +579,9 @@ func (r *layerStore) Metadata(id string) (string, error) {
 }
 
 func (r *layerStore) SetMetadata(id, metadata string) error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to modify layer metadata at %q", r.layerspath())
+	}
 	if layer, ok := r.lookup(id); ok {
 		layer.Metadata = metadata
 		return r.Save()
@@ -543,6 +594,9 @@ func (r *layerStore) tspath(id string) string {
 }
 
 func (r *layerStore) Delete(id string) error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to delete layers at %q", r.layerspath())
+	}
 	layer, ok := r.lookup(id)
 	if !ok {
 		return ErrLayerUnknown
@@ -595,6 +649,9 @@ func (r *layerStore) Get(id string) (*Layer, error) {
 }
 
 func (r *layerStore) Wipe() error {
+	if !r.IsReadWrite() {
+		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to delete layers at %q", r.layerspath())
+	}
 	ids := []string{}
 	for id := range r.byid {
 		ids = append(ids, id)

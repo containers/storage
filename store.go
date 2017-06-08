@@ -52,6 +52,8 @@ var (
 	ErrIncompleteOptions = errors.New("missing necessary StoreOptions")
 	// ErrSizeUnknown is returned when the caller asks for the size of a big data item, but the Store couldn't determine the answer.
 	ErrSizeUnknown = errors.New("size is not known")
+	// ErrStoreIsReadOnly is returned when the caller makes a call to a read-only store that would require modifying its contents.
+	ErrStoreIsReadOnly = errors.New("called a write method on a read-only store")
 	// DefaultStoreOptions is a reasonable default set of options.
 	DefaultStoreOptions StoreOptions
 	stores              []*store
