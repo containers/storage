@@ -75,28 +75,12 @@ type layerMountPoint struct {
 	MountCount int    `json:"count"`
 }
 
-// LayerStore wraps a graph driver, adding the ability to refer to layers by
+// ROLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
-type LayerStore interface {
-	FileBasedStore
-	MetadataStore
-	FlaggableStore
-
-	// Create creates a new layer, optionally giving it a specified ID rather than
-	// a randomly-generated one, either inheriting data from another specified
-	// layer or the empty base layer.  The new layer can optionally be given names
-	// and have an SELinux label specified for use when mounting it.  Some
-	// underlying drivers can accept a "size" option.  At this time, most
-	// underlying drivers do not themselves distinguish between writeable
-	// and read-only layers.
-	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
-
-	// CreateWithFlags combines the functions of Create and SetFlag.
-	CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
-
-	// Put combines the functions of CreateWithFlags and ApplyDiff.
-	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (*Layer, int64, error)
+type ROLayerStore interface {
+	ROFileBasedStore
+	ROMetadataStore
 
 	// Exists checks if a layer with the specified name or ID is known.
 	Exists(id string) bool
@@ -104,27 +88,9 @@ type LayerStore interface {
 	// Get retrieves information about a layer given an ID or name.
 	Get(id string) (*Layer, error)
 
-	// SetNames replaces the list of names associated with a layer with the
-	// supplied values.
-	SetNames(id string, names []string) error
-
 	// Status returns an slice of key-value pairs, suitable for human consumption,
 	// relaying whatever status information the underlying driver can share.
 	Status() ([][2]string, error)
-
-	// Delete deletes a layer with the specified name or ID.
-	Delete(id string) error
-
-	// Wipe deletes all layers.
-	Wipe() error
-
-	// Mount mounts a layer for use.  If the specified layer is the parent of other
-	// layers, it should not be written to.  An SELinux label to be applied to the
-	// mount can be specified to override the one configured for the layer.
-	Mount(id, mountLabel string) (string, error)
-
-	// Unmount unmounts a layer when it is no longer in use.
-	Unmount(id string) error
 
 	// Changes returns a slice of Change structures, which contain a pathname
 	// (Path) and a description of what sort of change (Kind) was made by the
@@ -142,16 +108,59 @@ type LayerStore interface {
 	// produced by Diff.
 	DiffSize(from, to string) (int64, error)
 
-	// ApplyDiff reads a tarstream which was created by a previous call to Diff and
-	// applies its changes to a specified layer.
-	ApplyDiff(to string, diff archive.Reader) (int64, error)
-
 	// Lookup attempts to translate a name to an ID.  Most methods do this
 	// implicitly.
 	Lookup(name string) (string, error)
 
 	// Layers returns a slice of the known layers.
 	Layers() ([]Layer, error)
+}
+
+// LayerStore wraps a graph driver, adding the ability to refer to layers by
+// name, and keeping track of parent-child relationships, along with a list of
+// all known layers.
+type LayerStore interface {
+	ROLayerStore
+	RWFileBasedStore
+	RWMetadataStore
+	FlaggableStore
+
+	// Create creates a new layer, optionally giving it a specified ID rather than
+	// a randomly-generated one, either inheriting data from another specified
+	// layer or the empty base layer.  The new layer can optionally be given names
+	// and have an SELinux label specified for use when mounting it.  Some
+	// underlying drivers can accept a "size" option.  At this time, most
+	// underlying drivers do not themselves distinguish between writeable
+	// and read-only layers.
+	Create(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool) (*Layer, error)
+
+	// CreateWithFlags combines the functions of Create and SetFlag.
+	CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
+
+	// Put combines the functions of CreateWithFlags and ApplyDiff.
+	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (*Layer, int64, error)
+
+	// SetNames replaces the list of names associated with a layer with the
+	// supplied values.
+	SetNames(id string, names []string) error
+
+	// Delete deletes a layer with the specified name or ID.
+	Delete(id string) error
+
+	// Wipe deletes all layers.
+	Wipe() error
+
+	// Mount mounts a layer for use.  If the specified layer is the parent of other
+	// layers, it should not be written to.  An SELinux label to be applied to the
+	// mount can be specified to override the one configured for the layer.
+	Mount(id, mountLabel string) (string, error)
+
+	// Unmount unmounts a layer when it is no longer in use.
+	Unmount(id string) error
+
+	// ApplyDiff reads a tarstream which was created by a previous call to Diff and
+	// applies its changes to a specified layer.
+	ApplyDiff(to string, diff archive.Reader) (int64, error)
 }
 
 type layerStore struct {

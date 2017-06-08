@@ -49,11 +49,32 @@ type Image struct {
 	Flags map[string]interface{} `json:"flags,omitempty"`
 }
 
+// ROImageStore provides bookkeeping for information about Images.
+type ROImageStore interface {
+	ROFileBasedStore
+	ROMetadataStore
+	ROBigDataStore
+
+	// Exists checks if there is an image with the given ID or name.
+	Exists(id string) bool
+
+	// Get retrieves information about an image given an ID or name.
+	Get(id string) (*Image, error)
+
+	// Lookup attempts to translate a name to an ID.  Most methods do this
+	// implicitly.
+	Lookup(name string) (string, error)
+
+	// Images returns a slice enumerating the known images.
+	Images() ([]Image, error)
+}
+
 // ImageStore provides bookkeeping for information about Images.
 type ImageStore interface {
-	FileBasedStore
-	MetadataStore
-	BigDataStore
+	ROImageStore
+	RWFileBasedStore
+	RWMetadataStore
+	RWBigDataStore
 	FlaggableStore
 
 	// Create creates an image that has a specified ID (or a random one) and
@@ -65,24 +86,11 @@ type ImageStore interface {
 	// supplied values.
 	SetNames(id string, names []string) error
 
-	// Exists checks if there is an image with the given ID or name.
-	Exists(id string) bool
-
-	// Get retrieves information about an image given an ID or name.
-	Get(id string) (*Image, error)
-
 	// Delete removes the record of the image.
 	Delete(id string) error
 
 	// Wipe removes records of all images.
 	Wipe() error
-
-	// Lookup attempts to translate a name to an ID.  Most methods do this
-	// implicitly.
-	Lookup(name string) (string, error)
-
-	// Images returns a slice enumerating the known images.
-	Images() ([]Image, error)
 }
 
 type imageStore struct {

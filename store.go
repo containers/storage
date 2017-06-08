@@ -58,37 +58,54 @@ var (
 	storesLock          sync.Mutex
 )
 
-// FileBasedStore wraps up the most common methods of the various types of file-based
-// data stores that we implement.
-type FileBasedStore interface {
+// ROFileBasedStore wraps up the methods of the various types of file-based
+// data stores that we implement which are needed for both read-only and
+// read-write files.
+type ROFileBasedStore interface {
 	Locker
 
 	// Load reloads the contents of the store from disk.  It should be called
 	// with the lock held.
 	Load() error
+}
 
+// RWFileBasedStore wraps up the methods of various types of file-based data
+// stores that we implement using read-write files.
+type RWFileBasedStore interface {
 	// Save saves the contents of the store to disk.  It should be called with
 	// the lock held, and Touch() should be called afterward before releasing the
 	// lock.
 	Save() error
 }
 
-// MetadataStore wraps up methods for getting and setting metadata associated with IDs.
-type MetadataStore interface {
+// FileBasedStore wraps up the common methods of various types of file-based
+// data stores that we implement.
+type FileBasedStore interface {
+	ROFileBasedStore
+	RWFileBasedStore
+}
+
+// ROMetadataStore wraps a method for reading metadata associated with an ID.
+type ROMetadataStore interface {
 	// Metadata reads metadata associated with an item with the specified ID.
 	Metadata(id string) (string, error)
+}
 
+// RWMetadataStore wraps a method for setting metadata associated with an ID.
+type RWMetadataStore interface {
 	// SetMetadata updates the metadata associated with the item with the specified ID.
 	SetMetadata(id, metadata string) error
 }
 
-// A BigDataStore wraps up the most common methods of the various types of
-// file-based lookaside stores that we implement.
-type BigDataStore interface {
-	// SetBigData stores a (potentially large) piece of data associated with this
-	// ID.
-	SetBigData(id, key string, data []byte) error
+// MetadataStore wraps up methods for getting and setting metadata associated with IDs.
+type MetadataStore interface {
+	ROMetadataStore
+	RWMetadataStore
+}
 
+// An ROBigDataStore wraps up the read-only big-data related methods of the
+// various types of file-based lookaside stores that we implement.
+type ROBigDataStore interface {
 	// BigData retrieves a (potentially large) piece of data associated with
 	// this ID, if it has previously been set.
 	BigData(id, key string) ([]byte, error)
@@ -100,6 +117,21 @@ type BigDataStore interface {
 	// BigDataNames() returns a list of the names of previously-stored pieces of
 	// data.
 	BigDataNames(id string) ([]string, error)
+}
+
+// A RWBigDataStore wraps up the read-write big-data related methods of the
+// various types of file-based lookaside stores that we implement.
+type RWBigDataStore interface {
+	// SetBigData stores a (potentially large) piece of data associated with this
+	// ID.
+	SetBigData(id, key string, data []byte) error
+}
+
+// A BigDataStore wraps up the most common big-data related methods of the
+// various types of file-based lookaside stores that we implement.
+type BigDataStore interface {
+	ROBigDataStore
+	RWBigDataStore
 }
 
 // A FlaggableStore can have flags set and cleared on items which it manages.
