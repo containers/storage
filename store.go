@@ -946,7 +946,7 @@ func (s *store) ListImageBigData(id string) ([]string, error) {
 			return bigDataNames, err
 		}
 	}
-	return nil, ErrNotAnImage
+	return nil, ErrImageUnknown
 }
 
 func (s *store) ImageBigDataSize(id, key string) (int64, error) {
@@ -995,7 +995,7 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 		}
 	}
 
-	return nil, ErrNotAnImage
+	return nil, ErrImageUnknown
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte) error {
@@ -1652,7 +1652,7 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 			return rlstore.Mount(id, mountLabel)
 		}
 	}
-	return "", ErrNotALayer
+	return "", ErrLayerUnknown
 }
 
 func (s *store) Unmount(id string) error {
@@ -1678,7 +1678,7 @@ func (s *store) Unmount(id string) error {
 			return rlstore.Unmount(id)
 		}
 	}
-	return ErrNotALayer
+	return ErrLayerUnknown
 }
 
 func (s *store) Changes(from, to string) ([]archive.Change, error) {
@@ -1701,7 +1701,7 @@ func (s *store) Changes(from, to string) ([]archive.Change, error) {
 			return rlstore.Changes(from, to)
 		}
 	}
-	return nil, ErrNotALayer
+	return nil, ErrLayerUnknown
 }
 
 func (s *store) DiffSize(from, to string) (int64, error) {
@@ -1724,7 +1724,7 @@ func (s *store) DiffSize(from, to string) (int64, error) {
 			return rlstore.DiffSize(from, to)
 		}
 	}
-	return -1, ErrNotALayer
+	return -1, ErrLayerUnknown
 }
 
 func (s *store) Diff(from, to string) (io.ReadCloser, error) {
@@ -1747,7 +1747,7 @@ func (s *store) Diff(from, to string) (io.ReadCloser, error) {
 			return rlstore.Diff(from, to)
 		}
 	}
-	return nil, ErrNotALayer
+	return nil, ErrLayerUnknown
 }
 
 func (s *store) ApplyDiff(to string, diff archive.Reader) (int64, error) {
@@ -1770,7 +1770,7 @@ func (s *store) ApplyDiff(to string, diff archive.Reader) (int64, error) {
 			return rlstore.ApplyDiff(to, diff)
 		}
 	}
-	return -1, ErrNotALayer
+	return -1, ErrLayerUnknown
 }
 
 func (s *store) Layers() ([]Layer, error) {
@@ -1866,7 +1866,7 @@ func (s *store) Layer(id string) (*Layer, error) {
 			return layer, nil
 		}
 	}
-	return nil, ErrNotALayer
+	return nil, ErrLayerUnknown
 }
 
 func (s *store) Image(id string) (*Image, error) {
@@ -1890,7 +1890,7 @@ func (s *store) Image(id string) (*Image, error) {
 			return image, nil
 		}
 	}
-	return nil, ErrNotAnImage
+	return nil, ErrImageUnknown
 }
 
 func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {
