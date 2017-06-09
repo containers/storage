@@ -158,6 +158,9 @@ func (r *containerStore) Load() error {
 }
 
 func (r *containerStore) Save() error {
+	if !r.lockfile.RWLock() {
+		return ErrLockReadOnly
+	}
 	rpath := r.containerspath()
 	if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {
 		return err
@@ -438,6 +441,10 @@ func (r *containerStore) Touch() error {
 
 func (r *containerStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
+}
+
+func (r *containerStore) RWLock() bool {
+	return r.lockfile.RWLock()
 }
 
 func (r *containerStore) TouchedSince(when time.Time) bool {

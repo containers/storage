@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	drivers "github.com/containers/storage/drivers"
@@ -257,6 +258,9 @@ func (r *layerStore) Load() error {
 }
 
 func (r *layerStore) Save() error {
+	if !r.lockfile.RWLock() {
+		return ErrLockReadOnly
+	}
 	rpath := r.layerspath()
 	if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {
 		return err
@@ -298,6 +302,9 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver) (Layer
 		return nil, err
 	}
 	lockfile, err := GetLockfile(filepath.Join(layerdir, "layers.lock"))
+	if err == syscall.EROFS {
+		lockfile, err = GetROLockfile(filepath.Join(layerdir, "layers.lock"))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -823,6 +830,10 @@ func (r *layerStore) Touch() error {
 
 func (r *layerStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
+}
+
+func (r *layerStore) RWLock() bool {
+	return r.lockfile.RWLock()
 }
 
 func (r *layerStore) TouchedSince(when time.Time) bool {

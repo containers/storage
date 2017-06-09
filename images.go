@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/containers/storage/pkg/ioutils"
@@ -149,6 +150,9 @@ func (r *imageStore) Load() error {
 }
 
 func (r *imageStore) Save() error {
+	if !r.lockfile.RWLock() {
+		return ErrLockReadOnly
+	}
 	rpath := r.imagespath()
 	if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {
 		return err
@@ -166,6 +170,9 @@ func newImageStore(dir string) (ImageStore, error) {
 		return nil, err
 	}
 	lockfile, err := GetLockfile(filepath.Join(dir, "images.lock"))
+	if err == syscall.EROFS {
+		lockfile, err = GetROLockfile(filepath.Join(dir, "images.lock"))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -422,6 +429,10 @@ func (r *imageStore) Touch() error {
 
 func (r *imageStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
+}
+
+func (r *imageStore) RWLock() bool {
+	return r.lockfile.RWLock()
 }
 
 func (r *imageStore) TouchedSince(when time.Time) bool {
