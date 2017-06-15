@@ -216,7 +216,6 @@ func (r *layerStore) Load() error {
 	ids := make(map[string]*Layer)
 	names := make(map[string]*Layer)
 	mounts := make(map[string]*Layer)
-	parents := make(map[string][]*Layer)
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 		for n, layer := range layers {
 			ids[layer.ID] = layers[n]
@@ -227,11 +226,6 @@ func (r *layerStore) Load() error {
 					shouldSave = true
 				}
 				names[name] = layers[n]
-			}
-			if pslice, ok := parents[layer.Parent]; ok {
-				parents[layer.Parent] = append(pslice, layers[n])
-			} else {
-				parents[layer.Parent] = []*Layer{layers[n]}
 			}
 		}
 	}
