@@ -12,11 +12,12 @@ import (
 )
 
 var (
-	applyDiffFile = ""
-	diffFile      = ""
-	diffGzip      = false
-	diffBzip2     = false
-	diffXz        = false
+	applyDiffFile    = ""
+	diffFile         = ""
+	diffUncompressed = false
+	diffGzip         = false
+	diffBzip2        = false
+	diffXz           = false
 )
 
 func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
@@ -71,27 +72,26 @@ func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) i
 		diffStream = f
 		defer f.Close()
 	}
-	reader, err := m.Diff(from, to)
+
+	options := storage.DiffOptions{}
+	if diffUncompressed || diffGzip || diffBzip2 || diffXz {
+		c := archive.Uncompressed
+		if diffGzip {
+			c = archive.Gzip
+		}
+		if diffBzip2 {
+			c = archive.Bzip2
+		}
+		if diffXz {
+			c = archive.Xz
+		}
+		options.Compression = &c
+	}
+
+	reader, err := m.Diff(from, to, &options)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
-	}
-	if diffGzip || diffBzip2 || diffXz {
-		compression := archive.Uncompressed
-		if diffGzip {
-			compression = archive.Gzip
-		} else if diffBzip2 {
-			compression = archive.Bzip2
-		} else if diffXz {
-			compression = archive.Xz
-		}
-		compressor, err := archive.CompressStream(diffStream, compression)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
-		}
-		diffStream = compressor
-		defer compressor.Close()
 	}
 	_, err = io.Copy(diffStream, reader)
 	reader.Close()
@@ -171,9 +171,10 @@ func init() {
 		action:      diff,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&diffFile, []string{"-file", "f"}, "", "Write to file instead of stdout")
+			flags.BoolVar(&diffUncompressed, []string{"-uncompressed", "u"}, diffUncompressed, "Use no compression")
 			flags.BoolVar(&diffGzip, []string{"-gzip", "c"}, diffGzip, "Compress using gzip")
-			flags.BoolVar(&diffBzip2, []string{"-bzip2", "-bz2", "b"}, diffBzip2, "Compress using bzip2")
-			flags.BoolVar(&diffXz, []string{"-xz", "x"}, diffXz, "Compress using xz")
+			flags.BoolVar(&diffBzip2, []string{"-bzip2", "-bz2", "b"}, diffBzip2, "Compress using bzip2 (not currently supported)")
+			flags.BoolVar(&diffXz, []string{"-xz", "x"}, diffXz, "Compress using xz (not currently supported)")
 		},
 	})
 	commands = append(commands, command{

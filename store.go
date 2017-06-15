@@ -298,8 +298,8 @@ type Store interface {
 	DiffSize(from, to string) (int64, error)
 
 	// Diff returns the tarstream which would specify the changes returned by
-	// Changes.
-	Diff(from, to string) (io.ReadCloser, error)
+	// Changes.  If options are passed in, they can override default behaviors.
+	Diff(from, to string, options *DiffOptions) (io.ReadCloser, error)
 
 	// ApplyDiff applies a tarstream to a layer.  Information about the tarstream
 	// is cached with the layer.  Typically, a layer which is populated using a
@@ -1747,7 +1747,7 @@ func (s *store) DiffSize(from, to string) (int64, error) {
 	return -1, ErrLayerUnknown
 }
 
-func (s *store) Diff(from, to string) (io.ReadCloser, error) {
+func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
 	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
@@ -1764,7 +1764,7 @@ func (s *store) Diff(from, to string) (io.ReadCloser, error) {
 			rlstore.Load()
 		}
 		if rlstore.Exists(to) {
-			return rlstore.Diff(from, to)
+			return rlstore.Diff(from, to, options)
 		}
 	}
 	return nil, ErrLayerUnknown

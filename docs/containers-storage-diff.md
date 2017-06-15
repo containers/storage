@@ -19,9 +19,14 @@ Write the diff to the specified file instead of stdout.
 
 **-c | --gzip**
 
-Compress the diff using gzip compression.  If the layer was populated by a
-layer diff, and that layer diff was compressed, this will be done
-automatically.
+Force the diff to be compressed using gzip compression.  If the layer was
+populated by a layer diff, and that layer diff was compressed, this will be
+done automatically.
+
+**-u | --uncompressed**
+
+Force the diff to be uncompressed.  If the layer was populated by a layer diff,
+and that layer diff was compressed, it will be decompressed for output.
 
 ## EXAMPLE
 **oci-storage diff my-base-layer**

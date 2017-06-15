@@ -75,6 +75,12 @@ type layerMountPoint struct {
 	MountCount int    `json:"count"`
 }
 
+// DiffOptions override the default behavior of Diff() methods.
+type DiffOptions struct {
+	// Compression, if set overrides the default compressor when generating a diff.
+	Compression *archive.Compression
+}
+
 // ROLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
@@ -101,8 +107,9 @@ type ROLayerStore interface {
 	// Diff produces a tarstream which can be applied to a layer with the contents
 	// of the first layer to produce a layer with the contents of the second layer.
 	// By default, the parent of the second layer is used as the first
-	// layer, so it need not be specified.
-	Diff(from, to string) (io.ReadCloser, error)
+	// layer, so it need not be specified.  Options can be used to override
+	// default behavior, but are also not required.
+	Diff(from, to string, options *DiffOptions) (io.ReadCloser, error)
 
 	// DiffSize produces an estimate of the length of the tarstream which would be
 	// produced by Diff.
@@ -726,13 +733,15 @@ func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 	}, nil
 }
 
-func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
+func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
 	var metadata storage.Unpacker
 
 	from, to, toLayer, err := r.findParentAndLayer(from, to)
 	if err != nil {
 		return nil, ErrLayerUnknown
 	}
+	// Default to applying the type of encryption that we noted was used
+	// for the layerdiff when it was applied.
 	compression := archive.Uncompressed
 	if cflag, ok := toLayer.Flags[compressionFlag]; ok {
 		if ctype, ok := cflag.(float64); ok {
@@ -740,6 +749,11 @@ func (r *layerStore) Diff(from, to string) (io.ReadCloser, error) {
 		} else if ctype, ok := cflag.(archive.Compression); ok {
 			compression = archive.Compression(ctype)
 		}
+	}
+	// If a particular compression type (or no compression) was selected,
+	// use that instead.
+	if options != nil && options.Compression != nil {
+		compression = *options.Compression
 	}
 	if from != toLayer.Parent {
 		diff, err := r.driver.Diff(to, from)
