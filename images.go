@@ -46,6 +46,12 @@ type Image struct {
 	// that has been stored, if they're known.
 	BigDataSizes map[string]int64 `json:"big-data-sizes,omitempty"`
 
+	// Created is the datestamp for when this image was created.  Older
+	// versions of the library did not track this information, so callers
+	// will likely want to use the IsZero() method to verify that a value
+	// is set before using it.
+	Created time.Time `json:"created,omitempty"`
+
 	Flags map[string]interface{} `json:"flags,omitempty"`
 }
 
@@ -282,6 +288,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 			Metadata:     metadata,
 			BigDataNames: []string{},
 			BigDataSizes: make(map[string]int64),
+			Created:      time.Now().UTC(),
 			Flags:        make(map[string]interface{}),
 		}
 		r.images = append(r.images, image)
