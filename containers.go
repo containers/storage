@@ -309,10 +309,11 @@ func (r *containerStore) Delete(id string) error {
 		return ErrContainerUnknown
 	}
 	id = container.ID
-	newContainers := []*Container{}
-	for _, candidate := range r.containers {
-		if candidate.ID != id {
-			newContainers = append(newContainers, candidate)
+	toDeleteIndex := -1
+	for i, candidate := range r.containers {
+		if candidate.ID == id {
+			toDeleteIndex = i
+			break
 		}
 	}
 	delete(r.byid, id)
@@ -321,7 +322,14 @@ func (r *containerStore) Delete(id string) error {
 	for _, name := range container.Names {
 		delete(r.byname, name)
 	}
-	r.containers = newContainers
+	if toDeleteIndex != -1 {
+		// delete the container at toDeleteIndex
+		if toDeleteIndex == len(r.containers)-1 {
+			r.containers = r.containers[:len(r.containers)-1]
+		} else {
+			r.containers = append(r.containers[:toDeleteIndex], r.containers[toDeleteIndex+1:]...)
+		}
+	}
 	if err := r.Save(); err != nil {
 		return err
 	}

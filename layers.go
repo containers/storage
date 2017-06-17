@@ -615,13 +615,21 @@ func (r *layerStore) Delete(id string) error {
 		if layer.MountPoint != "" {
 			delete(r.bymount, layer.MountPoint)
 		}
-		newLayers := []*Layer{}
-		for _, candidate := range r.layers {
-			if candidate.ID != id {
-				newLayers = append(newLayers, candidate)
+		toDeleteIndex := -1
+		for i, candidate := range r.layers {
+			if candidate.ID == id {
+				toDeleteIndex = i
+				break
 			}
 		}
-		r.layers = newLayers
+		if toDeleteIndex != -1 {
+			// delete the layer at toDeleteIndex
+			if toDeleteIndex == len(r.layers)-1 {
+				r.layers = r.layers[:len(r.layers)-1]
+			} else {
+				r.layers = append(r.layers[:toDeleteIndex], r.layers[toDeleteIndex+1:]...)
+			}
+		}
 		if err = r.Save(); err != nil {
 			return err
 		}
