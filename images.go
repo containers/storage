@@ -353,10 +353,10 @@ func (r *imageStore) Delete(id string) error {
 		return ErrImageUnknown
 	}
 	id = image.ID
-	newImages := []*Image{}
-	for _, candidate := range r.images {
-		if candidate.ID != id {
-			newImages = append(newImages, candidate)
+	toDeleteIndex := -1
+	for i, candidate := range r.images {
+		if candidate.ID == id {
+			toDeleteIndex = i
 		}
 	}
 	delete(r.byid, id)
@@ -364,7 +364,14 @@ func (r *imageStore) Delete(id string) error {
 	for _, name := range image.Names {
 		delete(r.byname, name)
 	}
-	r.images = newImages
+	if toDeleteIndex != -1 {
+		// delete the image at toDeleteIndex
+		if toDeleteIndex == len(r.images)-1 {
+			r.images = r.images[:len(r.images)-1]
+		} else {
+			r.images = append(r.images[:toDeleteIndex], r.images[toDeleteIndex+1:]...)
+		}
+	}
 	if err := r.Save(); err != nil {
 		return err
 	}
