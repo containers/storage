@@ -66,6 +66,12 @@ type Layer struct {
 	// mounted at the mount point.
 	MountCount int `json:"-"`
 
+	// Created is the datestamp for when this layer was created.  Older
+	// versions of the library did not track this information, so callers
+	// will likely want to use the IsZero() method to verify that a value
+	// is set before using it.
+	Created time.Time `json:"created,omitempty"`
+
 	Flags map[string]interface{} `json:"flags,omitempty"`
 }
 
@@ -440,6 +446,7 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 			Parent:     parent,
 			Names:      names,
 			MountLabel: mountLabel,
+			Created:    time.Now().UTC(),
 			Flags:      make(map[string]interface{}),
 		}
 		r.layers = append(r.layers, layer)
