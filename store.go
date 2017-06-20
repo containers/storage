@@ -20,6 +20,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
@@ -306,6 +307,18 @@ type Store interface {
 	// tarstream will be expected to not be modified in any other way, either
 	// before or after the diff is applied.
 	ApplyDiff(to string, diff archive.Reader) (int64, error)
+
+	// LayersByCompressedDigest returns a slice of the layers with the
+	// specified compressed digest value recorded for them.
+	LayersByCompressedDigest(d digest.Digest) ([]Layer, error)
+
+	// LayersByUncompressedDigest returns a slice of the layers with the
+	// specified uncompressed digest value recorded for them.
+	LayersByUncompressedDigest(d digest.Digest) ([]Layer, error)
+
+	// LayerSize returns a cached approximation of the layer's size, or -1
+	// if we don't have a value on hand.
+	LayerSize(id string) (int64, error)
 
 	// Layers returns a list of the currently known layers.
 	Layers() ([]Layer, error)
@@ -1782,6 +1795,65 @@ func (s *store) ApplyDiff(to string, diff archive.Reader) (int64, error) {
 	}
 	if rlstore.Exists(to) {
 		return rlstore.ApplyDiff(to, diff)
+	}
+	return -1, ErrLayerUnknown
+}
+
+func (s *store) layersByMappedDigest(m func(ROLayerStore, digest.Digest) ([]Layer, error), d digest.Digest) ([]Layer, error) {
+	var layers []Layer
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return nil, err
+	}
+
+	stores, err := s.ROLayerStores()
+	if err != nil {
+		return nil, err
+	}
+	stores = append([]ROLayerStore{rlstore}, stores...)
+
+	for _, rlstore := range stores {
+		rlstore.Lock()
+		defer rlstore.Unlock()
+		if modified, err := rlstore.Modified(); modified || err != nil {
+			rlstore.Load()
+		}
+		slayers, err := m(rlstore, d)
+		if err != nil {
+			return nil, err
+		}
+		layers = append(layers, slayers...)
+	}
+	return layers, nil
+}
+
+func (s *store) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) {
+	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByCompressedDigest(d) }, d)
+}
+
+func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
+	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByUncompressedDigest(d) }, d)
+}
+
+func (s *store) LayerSize(id string) (int64, error) {
+	lstore, err := s.LayerStore()
+	if err != nil {
+		return -1, err
+	}
+	lstores, err := s.ROLayerStores()
+	if err != nil {
+		return -1, err
+	}
+	lstores = append([]ROLayerStore{lstore}, lstores...)
+	for _, rlstore := range lstores {
+		rlstore.Lock()
+		defer rlstore.Unlock()
+		if modified, err := rlstore.Modified(); modified || err != nil {
+			rlstore.Load()
+		}
+		if rlstore.Exists(id) {
+			return rlstore.Size(id)
+		}
 	}
 	return -1, ErrLayerUnknown
 }
