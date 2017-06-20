@@ -86,7 +86,7 @@ type ImageStore interface {
 	// Create creates an image that has a specified ID (or a random one) and
 	// optional names, using the specified layer as its topmost (hopefully
 	// read-only) layer.  That layer can be referenced by multiple images.
-	Create(id string, names []string, layer, metadata string) (*Image, error)
+	Create(id string, names []string, layer, metadata string, created time.Time) (*Image, error)
 
 	// SetNames replaces the list of names associated with an image with the
 	// supplied values.
@@ -260,7 +260,7 @@ func (r *imageStore) SetFlag(id string, flag string, value interface{}) error {
 	return r.Save()
 }
 
-func (r *imageStore) Create(id string, names []string, layer, metadata string) (image *Image, err error) {
+func (r *imageStore) Create(id string, names []string, layer, metadata string, created time.Time) (image *Image, err error) {
 	if !r.IsReadWrite() {
 		return nil, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to create new images at %q", r.imagespath())
 	}
@@ -280,6 +280,9 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 			return nil, ErrDuplicateName
 		}
 	}
+	if created.IsZero() {
+		created = time.Now().UTC()
+	}
 	if err == nil {
 		image = &Image{
 			ID:           id,
@@ -288,7 +291,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string) (
 			Metadata:     metadata,
 			BigDataNames: []string{},
 			BigDataSizes: make(map[string]int64),
-			Created:      time.Now().UTC(),
+			Created:      created,
 			Flags:        make(map[string]interface{}),
 		}
 		r.images = append(r.images, image)

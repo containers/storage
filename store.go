@@ -422,6 +422,9 @@ type Store interface {
 
 // ImageOptions is used for passing options to a Store's CreateImage() method.
 type ImageOptions struct {
+	// CreationDate, if not zero, will override the default behavior of marking the image as having been
+	// created when CreateImage() was called, recording CreationDate instead.
+	CreationDate time.Time
 }
 
 // ContainerOptions is used for passing options to a Store's CreateContainer() method.
@@ -793,7 +796,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	if modified, err := ristore.Modified(); modified || err != nil {
 		ristore.Load()
 	}
-	return ristore.Create(id, names, layer, metadata)
+	return ristore.Create(id, names, layer, metadata, options.CreationDate)
 }
 
 func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
