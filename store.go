@@ -809,7 +809,13 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	if modified, err := ristore.Modified(); modified || err != nil {
 		ristore.Load()
 	}
-	return ristore.Create(id, names, layer, metadata, options.CreationDate)
+
+	creationDate := time.Now().UTC()
+	if options != nil {
+		creationDate = options.CreationDate
+	}
+
+	return ristore.Create(id, names, layer, metadata, creationDate)
 }
 
 func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
