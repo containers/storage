@@ -4,7 +4,6 @@ package overlay
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,8 +24,8 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/parsers/kernel"
-
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -102,7 +101,7 @@ func InitWithName(name, home string, options []string, uidMaps, gidMaps []idtool
 	}
 
 	if err := supportsOverlay(); err != nil {
-		return nil, graphdriver.ErrNotSupported
+		return nil, errors.Wrapf(graphdriver.ErrNotSupported, "overlay")
 	}
 
 	// require kernel 4.0.0 to ensure multiple lower dirs are supported
@@ -112,7 +111,7 @@ func InitWithName(name, home string, options []string, uidMaps, gidMaps []idtool
 	}
 	if kernel.CompareKernelVersion(*v, kernel.VersionInfo{Kernel: 4, Major: 0, Minor: 0}) < 0 {
 		if !opts.overrideKernelCheck {
-			return nil, graphdriver.ErrNotSupported
+			return nil, errors.Wrapf(graphdriver.ErrNotSupported, "overlay")
 		}
 		logrus.Warnf("Using pre-4.0.0 kernel for overlay, mount failures may require kernel update")
 	}
@@ -231,7 +230,7 @@ func supportsOverlay() error {
 		}
 	}
 	logrus.Error("'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
-	return graphdriver.ErrNotSupported
+	return errors.Wrapf(graphdriver.ErrNotSupported, "overlay")
 }
 
 func (d *Driver) String() string {

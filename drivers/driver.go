@@ -1,7 +1,6 @@
 package graphdriver
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/pkg/errors"
 )
 
 // FsMagic unsigned id of the filesystem in use.
@@ -144,7 +144,7 @@ func GetDriver(name, home string, options []string, uidMaps, gidMaps []idtools.I
 		return pluginDriver, nil
 	}
 	logrus.Errorf("Failed to GetDriver graph %s %s", name, home)
-	return nil, ErrNotSupported
+	return nil, errors.Wrapf(ErrNotSupported, name)
 }
 
 // getBuiltinDriver initializes and returns the registered driver, but does not try to load from plugins
@@ -153,7 +153,7 @@ func getBuiltinDriver(name, home string, options []string, uidMaps, gidMaps []id
 		return initFunc(filepath.Join(home, name), options, uidMaps, gidMaps)
 	}
 	logrus.Errorf("Failed to built-in GetDriver graph %s %s", name, home)
-	return nil, ErrNotSupported
+	return nil, errors.Wrapf(ErrNotSupported, name)
 }
 
 // New creates the driver and initializes it at the specified root.
