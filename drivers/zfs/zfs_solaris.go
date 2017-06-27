@@ -21,6 +21,8 @@ import (
 	"unsafe"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
+
 	"github.com/containers/storage/drivers"
 )
 
@@ -34,7 +36,7 @@ func checkRootdirFs(rootdir string) error {
 		(buf.f_basetype[3] != 0) {
 		log.Debugf("[zfs] no zfs dataset found for rootdir '%s'", rootdir)
 		C.free(unsafe.Pointer(buf))
-		return graphdriver.ErrPrerequisites
+		return errors.Wrapf(graphdriver.ErrPrerequisites, "%q is not on a zfs filesystem", rootdir)
 	}
 
 	C.free(unsafe.Pointer(buf))

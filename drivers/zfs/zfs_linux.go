@@ -5,6 +5,8 @@ import (
 	"syscall"
 
 	"github.com/Sirupsen/logrus"
+	"github.com/pkg/errors"
+
 	"github.com/containers/storage/drivers"
 )
 
@@ -16,7 +18,7 @@ func checkRootdirFs(rootdir string) error {
 
 	if graphdriver.FsMagic(buf.Type) != graphdriver.FsMagicZfs {
 		logrus.Debugf("[zfs] no zfs dataset found for rootdir '%s'", rootdir)
-		return graphdriver.ErrPrerequisites
+		return errors.Wrapf(graphdriver.ErrPrerequisites, "%q is not on a zfs filesystem", rootdir)
 	}
 
 	return nil

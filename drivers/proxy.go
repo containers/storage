@@ -3,8 +3,9 @@
 package graphdriver
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/containers/storage/pkg/archive"
 )

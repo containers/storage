@@ -16,6 +16,7 @@ import (
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/docker/go-units"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -41,9 +42,10 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 		t.Fatal(err)
 	}
 
-	d, err := graphdriver.GetDriver(name, root, options, nil, nil)
-	if err != nil {
+	d, werr := graphdriver.GetDriver(name, root, options, nil, nil)
+	if werr != nil {
 		t.Logf("graphdriver: %v\n", err)
+		err = errors.Cause(werr)
 		if err == graphdriver.ErrNotSupported || err == graphdriver.ErrPrerequisites || err == graphdriver.ErrIncompatibleFS {
 			t.Skipf("Driver %s not supported", name)
 		}

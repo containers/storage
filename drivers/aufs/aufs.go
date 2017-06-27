@@ -34,9 +34,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/vbatts/tar-split/tar/storage"
-
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
@@ -45,8 +42,11 @@ import (
 	mountpk "github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/stringid"
 
+	"github.com/Sirupsen/logrus"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/pkg/errors"
+	"github.com/vbatts/tar-split/tar/storage"
 )
 
 var (
@@ -81,7 +81,7 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 
 	// Try to load the aufs kernel module
 	if err := supportsAufs(); err != nil {
-		return nil, graphdriver.ErrNotSupported
+		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support aufs")
 	}
 
 	fsMagic, err := graphdriver.GetFSMagic(root)
@@ -95,7 +95,7 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	switch fsMagic {
 	case graphdriver.FsMagicAufs, graphdriver.FsMagicBtrfs, graphdriver.FsMagicEcryptfs:
 		logrus.Errorf("AUFS is not supported over %s", backingFs)
-		return nil, graphdriver.ErrIncompatibleFS
+		return nil, errors.Wrapf(graphdriver.ErrIncompatibleFS, "AUFS is not supported over %q", backingFs)
 	}
 
 	paths := []string{
