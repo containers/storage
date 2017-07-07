@@ -27,8 +27,10 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
+
 	"github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/pkg/errors"
 )
 
 func init() {
@@ -55,7 +57,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	}
 
 	if fsMagic != graphdriver.FsMagicBtrfs {
-		return nil, graphdriver.ErrPrerequisites
+		return nil, errors.Wrapf(graphdriver.ErrPrerequisites, "%q is not on a btrfs filesystem", home)
 	}
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMaps, gidMaps)

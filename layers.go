@@ -815,7 +815,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 	if err != nil {
 		return nil, ErrLayerUnknown
 	}
-	// Default to applying the type of encryption that we noted was used
+	// Default to applying the type of compression that we noted was used
 	// for the layerdiff when it was applied.
 	compression := toLayer.CompressionType
 	// If a particular compression type (or no compression) was selected,
@@ -846,10 +846,27 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 
 	tsfile, err := os.Open(r.tspath(to))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return r.driver.Diff(to, from)
+		if !os.IsNotExist(err) {
+			return nil, err
 		}
-		return nil, err
+		diff, err := r.driver.Diff(to, from)
+		if err == nil && (compression != archive.Uncompressed) {
+			preader, pwriter := io.Pipe()
+			compressor, err := archive.CompressStream(pwriter, compression)
+			if err != nil {
+				diff.Close()
+				pwriter.Close()
+				return nil, err
+			}
+			go func() {
+				io.Copy(compressor, diff)
+				diff.Close()
+				compressor.Close()
+				pwriter.Close()
+			}()
+			diff = preader
+		}
+		return diff, err
 	}
 	defer tsfile.Close()
 

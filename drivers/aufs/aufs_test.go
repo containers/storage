@@ -16,6 +16,8 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/containers/storage/pkg/stringid"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -30,7 +32,7 @@ func init() {
 func testInit(dir string, t testing.TB) graphdriver.Driver {
 	d, err := Init(dir, nil, nil, nil)
 	if err != nil {
-		if err == graphdriver.ErrNotSupported {
+		if errors.Cause(err) == graphdriver.ErrNotSupported {
 			t.Skip(err)
 		} else {
 			t.Fatal(err)

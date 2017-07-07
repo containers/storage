@@ -13,13 +13,15 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Sirupsen/logrus"
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
+
+	"github.com/Sirupsen/logrus"
 	zfs "github.com/mistifyio/go-zfs"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/pkg/errors"
 )
 
 type zfsOptions struct {
@@ -47,13 +49,13 @@ func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdri
 
 	if _, err := exec.LookPath("zfs"); err != nil {
 		logrus.Debugf("[zfs] zfs command is not available: %v", err)
-		return nil, graphdriver.ErrPrerequisites
+		return nil, errors.Wrap(graphdriver.ErrPrerequisites, "the 'zfs' command was not found")
 	}
 
 	file, err := os.OpenFile("/dev/zfs", os.O_RDWR, 600)
 	if err != nil {
 		logrus.Debugf("[zfs] cannot open /dev/zfs: %v", err)
-		return nil, graphdriver.ErrPrerequisites
+		return nil, errors.Wrapf(graphdriver.ErrPrerequisites, "could not open /dev/zfs: %v", err)
 	}
 	defer file.Close()
 

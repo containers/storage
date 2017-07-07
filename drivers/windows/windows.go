@@ -23,6 +23,8 @@ import (
 	"github.com/Microsoft/go-winio/backuptar"
 	"github.com/Microsoft/hcsshim"
 	"github.com/Sirupsen/logrus"
+	"github.com/vbatts/tar-split/tar/storage"
+
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
@@ -30,7 +32,6 @@ import (
 	"github.com/containers/storage/pkg/longpath"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/containers/storage/pkg/system"
-	"github.com/vbatts/tar-split/tar/storage"
 )
 
 // filterDriver is an HCSShim driver type for the Windows Filter driver.
