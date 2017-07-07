@@ -815,7 +815,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 	if err != nil {
 		return nil, ErrLayerUnknown
 	}
-	// Default to applying the type of encryption that we noted was used
+	// Default to applying the type of compression that we noted was used
 	// for the layerdiff when it was applied.
 	compression := toLayer.CompressionType
 	// If a particular compression type (or no compression) was selected,
