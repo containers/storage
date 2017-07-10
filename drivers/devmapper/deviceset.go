@@ -5,7 +5,6 @@ package devmapper
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -29,8 +28,8 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/docker/go-units"
-
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -1474,7 +1473,7 @@ func determineDriverCapabilities(version string) error {
 	versionSplit := strings.Split(version, ".")
 	major, err := strconv.Atoi(versionSplit[0])
 	if err != nil {
-		return graphdriver.ErrNotSupported
+		return errors.Wrapf(graphdriver.ErrNotSupported, "devicemapper")
 	}
 
 	if major > 4 {
@@ -1488,7 +1487,7 @@ func determineDriverCapabilities(version string) error {
 
 	minor, err := strconv.Atoi(versionSplit[1])
 	if err != nil {
-		return graphdriver.ErrNotSupported
+		return errors.Wrapf(graphdriver.ErrNotSupported, "devicemapper")
 	}
 
 	/*
@@ -1655,11 +1654,11 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 	version, err := devicemapper.GetDriverVersion()
 	if err != nil {
 		// Can't even get driver version, assume not supported
-		return graphdriver.ErrNotSupported
+		return errors.Wrapf(graphdriver.ErrNotSupported, "devicemapper")
 	}
 
 	if err := determineDriverCapabilities(version); err != nil {
-		return graphdriver.ErrNotSupported
+		return errors.Wrapf(graphdriver.ErrNotSupported, "devicemapper")
 	}
 
 	if err := devices.enableDeferredRemovalDeletion(); err != nil {
