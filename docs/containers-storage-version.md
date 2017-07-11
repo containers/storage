@@ -1,16 +1,16 @@
-## oci-storage-version 1 "August 2016"
+## containers-storage-version 1 "August 2016"
 
 ## NAME
-oci-storage version - Output version information about the storage library
+containers-storage version - Output version information about the storage library
 
 ## SYNOPSIS
-**oci-storage** **version**
+**containers-storage** **version**
 
 ## DESCRIPTION
-Outputs version information about the storage library and *oci-storage*.
+Outputs version information about the storage library and *containers-storage*.
 
 ## EXAMPLE
-**oci-storage version**
+**containers-storage version**
 
 ## SEE ALSO
-oci-storage-status(1)
+containers-storage-status(1)

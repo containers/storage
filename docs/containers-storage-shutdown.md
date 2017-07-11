@@ -1,10 +1,10 @@
-## oci-storage-shutdown 1 "October 2016"
+## containers-storage-shutdown 1 "October 2016"
 
 ## NAME
-oci-storage shutdown - Shut down layer storage
+containers-storage shutdown - Shut down layer storage
 
 ## SYNOPSIS
-**oci-storage** **shutdown** [*options* [...]]
+**containers-storage** **shutdown** [*options* [...]]
 
 ## DESCRIPTION
 Shuts down the layer storage driver, which may be using kernel resources.
@@ -17,4 +17,4 @@ driver.  If this option is not specified, if any layers are mounted, shutdown
 will not be attempted.
 
 ## EXAMPLE
-**oci-storage shutdown**
+**containers-storage shutdown**

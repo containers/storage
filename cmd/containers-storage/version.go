@@ -28,7 +28,7 @@ func version(flags *mflag.FlagSet, action string, m storage.Store, args []string
 func init() {
 	commands = append(commands, command{
 		names:   []string{"version"},
-		usage:   "Return oci-storage version information",
+		usage:   "Return containers-storage version information",
 		minArgs: 0,
 		action:  version,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {

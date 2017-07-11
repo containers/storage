@@ -1,10 +1,10 @@
-## oci-storage-get-image-data 1 "August 2016"
+## containers-storage-get-image-data 1 "August 2016"
 
 ## NAME
-oci-storage get-image-data - Retrieve lookaside data for an image
+containers-storage get-image-data - Retrieve lookaside data for an image
 
 ## SYNOPSIS
-**oci-storage** **get-image-data** [*options* [...]] *imageNameOrID* *dataName*
+**containers-storage** **get-image-data** [*options* [...]] *imageNameOrID* *dataName*
 
 ## DESCRIPTION
 Retrieves a piece of named data which is associated with an image.
@@ -15,8 +15,8 @@ Retrieves a piece of named data which is associated with an image.
 Write the data to a file instead of stdout.
 
 ## EXAMPLE
-**oci-storage get-image-data -f manifest.json my-image manifest**
+**containers-storage get-image-data -f manifest.json my-image manifest**
 
 ## SEE ALSO
-oci-storage-list-image-data(1)
-oci-storage-set-image-data(1)
+containers-storage-list-image-data(1)
+containers-storage-set-image-data(1)

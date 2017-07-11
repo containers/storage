@@ -1,10 +1,10 @@
-## oci-storage-layers 1 "August 2016"
+## containers-storage-layers 1 "August 2016"
 
 ## NAME
-oci-storage layers - List known layers
+containers-storage layers - List known layers
 
 ## SYNOPSIS
-**oci-storage** [*options* [...]] **layers**
+**containers-storage** [*options* [...]] **layers**
 
 ## DESCRIPTION
 Retrieves information about all known layers and lists their IDs and names, the
@@ -19,5 +19,5 @@ Display results using a tree to show the hierarchy of parent-child
 relationships between layers.
 
 ## EXAMPLE
-**oci-storage layers**
-**oci-storage layers -t**
+**containers-storage layers**
+**containers-storage layers -t**

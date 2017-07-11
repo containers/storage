@@ -1,10 +1,10 @@
-## oci-storage-set-metadata 1 "August 2016"
+## containers-storage-set-metadata 1 "August 2016"
 
 ## NAME
-oci-storage set-metadata - Set metadata for a layer, image, or container
+containers-storage set-metadata - Set metadata for a layer, image, or container
 
 ## SYNOPSIS
-**oci-storage** **set-metadata** [*options* [...]] *layerOrImageOrContainerNameOrID*
+**containers-storage** **set-metadata** [*options* [...]] *layerOrImageOrContainerNameOrID*
 
 ## DESCRIPTION
 Updates the metadata associated with a layer, image, or container.  Metadata is
@@ -20,7 +20,7 @@ Use the contents of the specified file as the metadata.
 Use the specified value as the metadata.
 
 ## EXAMPLE
-**oci-storage set-metadata -m "compression: gzip" my-layer**
+**containers-storage set-metadata -m "compression: gzip" my-layer**
 
 ## SEE ALSO
-oci-storage-metadata(1)
+containers-storage-metadata(1)

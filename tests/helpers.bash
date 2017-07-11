@@ -1,6 +1,6 @@
 #!/bin/bash
 
-STORAGE_BINARY=${STORAGE_BINARY:-$(dirname ${BASH_SOURCE})/../oci-storage}
+STORAGE_BINARY=${STORAGE_BINARY:-$(dirname ${BASH_SOURCE})/../containers-storage}
 TESTSDIR=${TESTSDIR:-$(dirname ${BASH_SOURCE})}
 
 function setup() {
