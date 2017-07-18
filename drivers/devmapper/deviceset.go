@@ -1733,6 +1733,15 @@ func (devices *DeviceSet) initDevmapper(doInit bool) error {
 			metadataFile *os.File
 		)
 
+		fsMagic, err := graphdriver.GetFSMagic(devices.loopbackDir())
+		if err != nil {
+			return err
+		}
+		switch fsMagic {
+		case graphdriver.FsMagicAufs:
+			return errors.Errorf("devmapper: Loopback devices can not be created on AUFS filesystems")
+		}
+
 		if devices.dataDevice == "" {
 			// Make sure the sparse images exist in <root>/devicemapper/data
 
