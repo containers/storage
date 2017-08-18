@@ -127,7 +127,7 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	if err := mountpk.MakePrivate(root); err != nil {
+	if err := mountpk.MakeUnbindable(root); err != nil {
 		return nil, err
 	}
 

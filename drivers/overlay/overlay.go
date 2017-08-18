@@ -141,7 +141,7 @@ func InitWithName(name, home string, options []string, uidMaps, gidMaps []idtool
 		return nil, err
 	}
 
-	if err := mount.MakePrivate(home); err != nil {
+	if err := mount.MakeUnbindable(home); err != nil {
 		return nil, err
 	}
 
