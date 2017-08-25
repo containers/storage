@@ -2231,7 +2231,7 @@ func makeBigDataBaseName(key string) string {
 }
 
 func stringSliceWithoutValue(slice []string, value string) []string {
-	modified := []string{}
+	modified := make([]string, 0, len(slice))
 	for _, v := range slice {
 		if v == value {
 			continue

@@ -133,6 +133,7 @@ func (r *containerStore) Load() error {
 	ids := make(map[string]*Container)
 	names := make(map[string]*Container)
 	if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
+		idlist = make([]string, 0, len(containers))
 		for n, container := range containers {
 			idlist = append(idlist, container.ID)
 			ids[container.ID] = containers[n]
@@ -421,7 +422,7 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 }
 
 func (r *containerStore) Wipe() error {
-	ids := []string{}
+	ids := make([]string, 0, len(r.byid))
 	for id := range r.byid {
 		ids = append(ids, id)
 	}
