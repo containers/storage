@@ -49,7 +49,7 @@ func main() {
 		fmt.Printf("Usage: containers-storage command [options [...]]\n\n")
 		fmt.Printf("Commands:\n\n")
 		for _, command := range commands {
-			fmt.Printf("  %-22s%s\n", command.names[0], command.usage)
+			fmt.Printf("  %-30s%s\n", command.names[0], command.usage)
 		}
 		fmt.Printf("\nOptions:\n")
 		flags.PrintDefaults()
