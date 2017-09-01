@@ -184,31 +184,6 @@ type Store interface {
 	// by the Store.
 	GraphDriver() (drivers.Driver, error)
 
-	// LayerStore obtains and returns a handle to the writeable layer store
-	// object used by the Store.  Accessing this store directly will bypass
-	// locking and synchronization, so use it with care.
-	LayerStore() (LayerStore, error)
-
-	// ROLayerStore obtains additional read/only layer store objects used
-	// by the Store.  Accessing these stores directly will bypass locking
-	// and synchronization, so use them with care.
-	ROLayerStores() ([]ROLayerStore, error)
-
-	// ImageStore obtains and returns a handle to the writable image store
-	// object used by the Store.  Accessing this store directly will bypass
-	// locking and synchronization, so use it with care.
-	ImageStore() (ImageStore, error)
-
-	// ROImageStores obtains additional read/only image store objects used
-	// by the Store.  Accessing these stores directly will bypass locking
-	// and synchronization, so use them with care.
-	ROImageStores() ([]ROImageStore, error)
-
-	// ContainerStore obtains and returns a handle to the container store
-	// object used by the Store.  Accessing this store directly will bypass
-	// locking and synchronization, so use it with care.
-	ContainerStore() (ContainerStore, error)
-
 	// CreateLayer creates a new layer in the underlying storage driver,
 	// optionally having the specified ID (one will be assigned if none is
 	// specified), with the specified layer (or no layer) as its parent,
@@ -670,6 +645,9 @@ func (s *store) GraphDriver() (drivers.Driver, error) {
 	return s.getGraphDriver()
 }
 
+// LayerStore obtains and returns a handle to the writeable layer store object
+// used by the Store.  Accessing this store directly will bypass locking and
+// synchronization, so it is not a part of the exported Store interface.
 func (s *store) LayerStore() (LayerStore, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
@@ -702,6 +680,9 @@ func (s *store) LayerStore() (LayerStore, error) {
 	return s.layerStore, nil
 }
 
+// ROLayerStores obtains additional read/only layer store objects used by the
+// Store.  Accessing these stores directly will bypass locking and
+// synchronization, so it is not part of the exported Store interface.
 func (s *store) ROLayerStores() ([]ROLayerStore, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
@@ -728,6 +709,9 @@ func (s *store) ROLayerStores() ([]ROLayerStore, error) {
 	return s.roLayerStores, nil
 }
 
+// ImageStore obtains and returns a handle to the writable image store object
+// used by the Store.  Accessing this store directly will bypass locking and
+// synchronization, so it is not a part of the exported Store interface.
 func (s *store) ImageStore() (ImageStore, error) {
 	if s.imageStore != nil {
 		return s.imageStore, nil
@@ -735,6 +719,9 @@ func (s *store) ImageStore() (ImageStore, error) {
 	return nil, ErrLoadError
 }
 
+// ROImageStores obtains additional read/only image store objects used by the
+// Store.  Accessing these stores directly will bypass locking and
+// synchronization, so it is not a part of the exported Store interface.
 func (s *store) ROImageStores() ([]ROImageStore, error) {
 	if len(s.roImageStores) != 0 {
 		return s.roImageStores, nil
@@ -755,6 +742,9 @@ func (s *store) ROImageStores() ([]ROImageStore, error) {
 	return s.roImageStores, nil
 }
 
+// ContainerStore obtains and returns a handle to the container store object
+// used by the Store.  Accessing this store directly will bypass locking and
+// synchronization, so it is not a part of the exported Store interface.
 func (s *store) ContainerStore() (ContainerStore, error) {
 	if s.containerStore != nil {
 		return s.containerStore, nil
