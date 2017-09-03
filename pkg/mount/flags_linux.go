@@ -5,6 +5,9 @@ import (
 )
 
 const (
+	// DETACH will lazy unmount the file system.
+	DETACH = syscall.MNT_DETACH
+
 	// RDONLY will mount the file system read-only.
 	RDONLY = syscall.MS_RDONLY
 

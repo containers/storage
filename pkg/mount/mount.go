@@ -60,6 +60,14 @@ func Unmount(target string) error {
 	return ForceUnmount(target)
 }
 
+// LazyUnmount will lazy unmount the target filesystem, so long as it is mounted.
+func LazyUnmount(target string) error {
+	if mounted, err := Mounted(target); err != nil || !mounted {
+		return err
+	}
+	return unmount(target, DETACH)
+}
+
 // ForceUnmount will force an unmount of the target filesystem, regardless if
 // it is mounted or not.
 func ForceUnmount(target string) (err error) {
