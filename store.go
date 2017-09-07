@@ -170,7 +170,7 @@ type Store interface {
 	//   if reexec.Init {
 	//       return
 	//   }
-	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, int64, error)
+	PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff io.Reader) (*Layer, int64, error)
 
 	// CreateImage creates a new image, optionally with the specified ID
 	// (one will be assigned if none is specified), with optional names,
@@ -285,7 +285,7 @@ type Store interface {
 	//   if reexec.Init {
 	//       return
 	//   }
-	ApplyDiff(to string, diff archive.Reader) (int64, error)
+	ApplyDiff(to string, diff io.Reader) (int64, error)
 
 	// LayersByCompressedDigest returns a slice of the layers with the
 	// specified compressed digest value recorded for them.
@@ -716,7 +716,7 @@ func (s *store) ContainerStore() (ContainerStore, error) {
 	return nil, ErrLoadError
 }
 
-func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff archive.Reader) (*Layer, int64, error) {
+func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, diff io.Reader) (*Layer, int64, error) {
 	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, -1, err
@@ -1786,7 +1786,7 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 	return nil, ErrLayerUnknown
 }
 
-func (s *store) ApplyDiff(to string, diff archive.Reader) (int64, error) {
+func (s *store) ApplyDiff(to string, diff io.Reader) (int64, error) {
 	rlstore, err := s.LayerStore()
 	if err != nil {
 		return -1, err
