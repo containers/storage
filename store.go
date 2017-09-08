@@ -476,7 +476,7 @@ func GetStore(options StoreOptions) (Store, error) {
 		return nil, err
 	}
 
-	if err := mount.MakePrivate(options.RunRoot); err != nil {
+	if err := mount.MakeUnbindable(options.RunRoot); err != nil {
 		return nil, err
 	}
 
