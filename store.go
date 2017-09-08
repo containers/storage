@@ -2214,7 +2214,7 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 	}
 	if err == nil {
 		err = s.graphDriver.Cleanup()
-		if err2 := mount.Unmount(s.runRoot); err2 != nil && err == nil {
+		if err2 := mount.LazyUnmount(s.runRoot); err2 != nil && err == nil {
 			err = err2
 		}
 

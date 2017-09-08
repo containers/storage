@@ -28,6 +28,7 @@ const (
 // These flags are unsupported.
 const (
 	BIND        = 0
+	DETACH      = 0
 	DIRSYNC     = 0
 	MANDLOCK    = 0
 	NODEV       = 0
