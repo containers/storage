@@ -19,7 +19,6 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
-	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -475,11 +474,6 @@ func GetStore(options StoreOptions) (Store, error) {
 	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-
-	if err := mount.MakePrivate(options.RunRoot); err != nil {
-		return nil, err
-	}
-
 	for _, subdir := range []string{} {
 		if err := os.MkdirAll(filepath.Join(options.RunRoot, subdir), 0700); err != nil && !os.IsExist(err) {
 			return nil, err
@@ -2214,10 +2208,6 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 	}
 	if err == nil {
 		err = s.graphDriver.Cleanup()
-		if err2 := mount.Unmount(s.runRoot); err2 != nil && err == nil {
-			err = err2
-		}
-
 		s.graphLock.Touch()
 		modified = true
 	}
