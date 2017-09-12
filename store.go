@@ -1249,22 +1249,21 @@ func (s *store) Names(id string) ([]string, error) {
 		}
 	}
 
-	ristore, err := s.ImageStore()
+	istore, err := s.ImageStore()
 	if err != nil {
 		return nil, err
 	}
-	ristores, err := s.ROImageStores()
+	istores, err := s.ROImageStores()
 	if err != nil {
 		return nil, err
 	}
-	ristores = append([]ROImageStore{ristore}, ristores...)
-	for _, ristore := range stores {
-		ristore.Lock()
-		defer ristore.Unlock()
-		if modified, err := ristore.Modified(); modified || err != nil {
-			ristore.Load()
+	for _, store := range append([]ROImageStore{istore}, istores...) {
+		store.Lock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			store.Load()
 		}
-		if i, err := ristore.Get(id); i != nil && err == nil {
+		if i, err := store.Get(id); i != nil && err == nil {
 			return i.Names, nil
 		}
 	}
