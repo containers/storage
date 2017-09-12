@@ -184,7 +184,7 @@ type LayerStore interface {
 	CreateWithFlags(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
 
 	// Put combines the functions of CreateWithFlags and ApplyDiff.
-	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (*Layer, int64, error)
+	Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff io.Reader) (*Layer, int64, error)
 
 	// SetNames replaces the list of names associated with a layer with the
 	// supplied values.
@@ -206,7 +206,7 @@ type LayerStore interface {
 
 	// ApplyDiff reads a tarstream which was created by a previous call to Diff and
 	// applies its changes to a specified layer.
-	ApplyDiff(to string, diff archive.Reader) (int64, error)
+	ApplyDiff(to string, diff io.Reader) (int64, error)
 }
 
 type layerStore struct {
@@ -463,7 +463,7 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff archive.Reader) (layer *Layer, size int64, err error) {
+func (r *layerStore) Put(id, parent string, names []string, mountLabel string, options map[string]string, writeable bool, flags map[string]interface{}, diff io.Reader) (layer *Layer, size int64, err error) {
 	if !r.IsReadWrite() {
 		return nil, -1, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to create new layers at %q", r.layerspath())
 	}
@@ -900,7 +900,7 @@ func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	return r.driver.DiffSize(to, from)
 }
 
-func (r *layerStore) ApplyDiff(to string, diff archive.Reader) (size int64, err error) {
+func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error) {
 	if !r.IsReadWrite() {
 		return -1, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to modify layer contents at %q", r.layerspath())
 	}
