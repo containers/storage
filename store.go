@@ -312,6 +312,7 @@ type Store interface {
 	Names(id string) ([]string, error)
 
 	// SetNames changes the list of names for a layer, image, or container.
+	// Duplicate names are removed from the list automatically.
 	SetNames(id string, names []string) error
 
 	// ListImageBigData retrieves a list of the (possibly large) chunks of
