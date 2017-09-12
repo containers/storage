@@ -1284,44 +1284,57 @@ func (s *store) Names(id string) ([]string, error) {
 }
 
 func (s *store) Lookup(name string) (string, error) {
-	rcstore, err := s.ContainerStore()
+	lstore, err := s.LayerStore()
 	if err != nil {
 		return "", err
 	}
-	ristore, err := s.ImageStore()
+	lstores, err := s.ROLayerStores()
 	if err != nil {
 		return "", err
 	}
-	rlstore, err := s.LayerStore()
-	if err != nil {
-		return "", err
+	for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+		store.Lock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			store.Load()
+		}
+		if l, err := store.Get(name); l != nil && err == nil {
+			return l.ID, nil
+		}
 	}
 
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if modified, err := rlstore.Modified(); modified || err != nil {
-		rlstore.Load()
+	istore, err := s.ImageStore()
+	if err != nil {
+		return "", err
 	}
-	ristore.Lock()
-	defer ristore.Unlock()
-	if modified, err := ristore.Modified(); modified || err != nil {
-		ristore.Load()
+	istores, err := s.ROImageStores()
+	if err != nil {
+		return "", err
 	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if modified, err := rcstore.Modified(); modified || err != nil {
-		rcstore.Load()
+	for _, store := range append([]ROImageStore{istore}, istores...) {
+		store.Lock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			store.Load()
+		}
+		if i, err := store.Get(name); i != nil && err == nil {
+			return i.ID, nil
+		}
 	}
 
-	if l, err := rlstore.Get(name); l != nil && err == nil {
-		return l.ID, nil
+	cstore, err := s.ContainerStore()
+	if err != nil {
+		return "", err
 	}
-	if i, err := ristore.Get(name); i != nil && err == nil {
-		return i.ID, nil
+	cstore.Lock()
+	defer cstore.Unlock()
+	if modified, err := cstore.Modified(); modified || err != nil {
+		cstore.Load()
 	}
-	if c, err := rcstore.Get(name); c != nil && err == nil {
+	if c, err := cstore.Get(name); c != nil && err == nil {
 		return c.ID, nil
 	}
+
 	return "", ErrLayerUnknown
 }
 
