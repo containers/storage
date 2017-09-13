@@ -1226,3 +1226,26 @@ func (archive *TempArchive) Read(data []byte) (int, error) {
 	}
 	return n, err
 }
+
+// IsArchive checks for the magic bytes of a tar or any supported compression
+// algorithm.
+func IsArchive(header []byte) bool {
+	compression := DetectCompression(header)
+	if compression != Uncompressed {
+		return true
+	}
+	r := tar.NewReader(bytes.NewBuffer(header))
+	_, err := r.Next()
+	return err == nil
+}
+
+// UntarPath is a convenience function which looks for an archive
+// at filesystem path `src`, and unpacks it at `dst`.
+func UntarPath(src, dst string) error {
+	return NewDefaultArchiver().UntarPath(src, dst)
+}
+
+const (
+	// HeaderSize is the size in bytes of a tar header
+	HeaderSize = 512
+)
