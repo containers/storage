@@ -490,6 +490,7 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 	if _, idInUse := r.byid[id]; idInUse {
 		return nil, -1, ErrDuplicateID
 	}
+	names = dedupeNames(names)
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {
 			return nil, -1, ErrDuplicateName
@@ -626,6 +627,7 @@ func (r *layerStore) SetNames(id string, names []string) error {
 	if !r.IsReadWrite() {
 		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to change layer name assignments at %q", r.layerspath())
 	}
+	names = dedupeNames(names)
 	if layer, ok := r.lookup(id); ok {
 		for _, name := range layer.Names {
 			delete(r.byname, name)

@@ -1174,15 +1174,20 @@ func (s *store) Exists(id string) bool {
 	return false
 }
 
-func (s *store) SetNames(id string, names []string) error {
-	deduped := []string{}
+func dedupeNames(names []string) []string {
 	seen := make(map[string]bool)
+	deduped := make([]string, 0, len(names))
 	for _, name := range names {
 		if _, wasSeen := seen[name]; !wasSeen {
 			seen[name] = true
 			deduped = append(deduped, name)
 		}
 	}
+	return deduped
+}
+
+func (s *store) SetNames(id string, names []string) error {
+	deduped := dedupeNames(names)
 
 	rlstore, err := s.LayerStore()
 	if err != nil {
