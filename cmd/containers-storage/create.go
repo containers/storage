@@ -90,7 +90,11 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 		paramMetadata = string(b)
 	}
-	image, err := m.CreateImage(paramID, paramNames, args[0], paramMetadata, nil)
+	layer := ""
+	if len(args) > 0 {
+		layer = args[0]
+	}
+	image, err := m.CreateImage(paramID, paramNames, layer, paramMetadata, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -172,7 +176,7 @@ func init() {
 		names:       []string{"create-image", "createimage"},
 		optionsHelp: "[options [...]] topLayerNameOrID",
 		usage:       "Create a new image using layers",
-		minArgs:     1,
+		minArgs:     0,
 		maxArgs:     1,
 		action:      createImage,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
