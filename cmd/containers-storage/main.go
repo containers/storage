@@ -104,10 +104,10 @@ func main() {
 				}
 				if debug {
 					logrus.SetLevel(logrus.DebugLevel)
-					logrus.Debugf("RunRoot: %s", options.RunRoot)
-					logrus.Debugf("GraphRoot: %s", options.GraphRoot)
-					logrus.Debugf("GraphDriverName: %s", options.GraphDriverName)
-					logrus.Debugf("GraphDriverOptions: %s", options.GraphDriverOptions)
+					logrus.Debugf("Root: %s", options.GraphRoot)
+					logrus.Debugf("Run Root: %s", options.RunRoot)
+					logrus.Debugf("Driver Name: %s", options.GraphDriverName)
+					logrus.Debugf("Driver Options: %s", options.GraphDriverOptions)
 				} else {
 					logrus.SetLevel(logrus.ErrorLevel)
 				}
