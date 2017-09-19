@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"syscall"
 
 	"github.com/containers/storage/pkg/reexec"
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -31,12 +31,12 @@ type mountOptions struct {
 	Flag   uint32
 }
 
-func mountFrom(dir, device, target, mType, label string) error {
+func mountFrom(dir, device, target, mType string, flags uintptr, label string) error {
 	options := &mountOptions{
 		Device: device,
 		Target: target,
 		Type:   mType,
-		Flag:   0,
+		Flag:   uint32(flags),
 		Label:  label,
 	}
 
@@ -80,7 +80,7 @@ func mountFromMain() {
 		fatal(err)
 	}
 
-	if err := syscall.Mount(options.Device, options.Target, options.Type, uintptr(options.Flag), options.Label); err != nil {
+	if err := unix.Mount(options.Device, options.Target, options.Type, uintptr(options.Flag), options.Label); err != nil {
 		fatal(err)
 	}
 
