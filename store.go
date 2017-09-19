@@ -590,7 +590,13 @@ func (s *store) getGraphDriver() (drivers.Driver, error) {
 	if s.graphDriver != nil {
 		return s.graphDriver, nil
 	}
-	driver, err := drivers.New(s.graphRoot, s.graphDriverName, s.graphOptions, s.uidMap, s.gidMap)
+	config := drivers.Options{
+		Root:          s.graphRoot,
+		DriverOptions: s.graphOptions,
+		UIDMaps:       s.uidMap,
+		GIDMaps:       s.gidMap,
+	}
+	driver, err := drivers.New(s.graphDriverName, config)
 	if err != nil {
 		return nil, err
 	}

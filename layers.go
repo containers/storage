@@ -495,10 +495,14 @@ func (r *layerStore) Put(id, parent string, names []string, mountLabel string, o
 			return nil, -1, ErrDuplicateName
 		}
 	}
+	opts := drivers.CreateOpts{
+		MountLabel: mountLabel,
+		StorageOpt: options,
+	}
 	if writeable {
-		err = r.driver.CreateReadWrite(id, parent, mountLabel, options)
+		err = r.driver.CreateReadWrite(id, parent, &opts)
 	} else {
-		err = r.driver.Create(id, parent, mountLabel, options)
+		err = r.driver.Create(id, parent, &opts)
 	}
 	if err == nil {
 		layer = &Layer{
