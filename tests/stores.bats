@@ -3,25 +3,33 @@
 load helpers
 
 @test "additional-stores" {
-	storage --graph ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot layers
-	storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layers
+	case "$STORAGE_DRIVER" in
+	overlay*|vfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+	# Initialize a store somewhere that we'll later use as a read-only store.
+	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot layers
+	# Skip this test if we can't initialize the driver with the option.
 	if ! storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layers ; then
 		skip
 	fi
-	# Create a layer.
+	# Create a layer in what will become the read-only store.
 	run storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot --debug=false create-layer
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	lowerlayer="$output"
-	# Mount the layer.
+	# Mount the layer in what will become the read-only store.
 	run storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot --debug=false mount $lowerlayer
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	lowermount="$output"
-	# Put a file in the layer.
+	# Put a file in the layer in what will become the read-only store.
 	createrandom "$lowermount"/layer1file1
 
-	# Create a second layer based on the first one.
+	# Create a second layer based on the first one in what will become the read-only store.
 	run storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot --debug=false create-layer "$lowerlayer"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
@@ -51,7 +59,6 @@ load helpers
         image=${output%%  *}
 
 	# Create a third layer based on the second one.
-	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root create-layer "$midlayer"
 	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-layer "$midlayer"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
@@ -86,5 +93,4 @@ load helpers
 	test -s "$containermount"/layer2file1
 	# Unmount the container.
 	storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root delete-container $container
-
 }
