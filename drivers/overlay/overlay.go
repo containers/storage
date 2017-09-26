@@ -187,6 +187,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	}
 
 	d := &Driver{
+		name:          "overlay",
 		home:          home,
 		uidMaps:       uidMaps,
 		gidMaps:       gidMaps,
@@ -543,7 +544,7 @@ func (d *Driver) Remove(id string) error {
 }
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
-func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
+func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
 	dir := d.dir(id)
@@ -591,9 +592,11 @@ func (d *Driver) Get(id string, mountLabel string) (s string, err error) {
 		return mergedDir, nil
 	}
 	defer func() {
-		if err != nil {
+		if retErr != nil {
 			if c := d.ctr.Decrement(mergedDir); c <= 0 {
-				unix.Unmount(mergedDir, 0)
+				if mntErr := unix.Unmount(mergedDir, 0); mntErr != nil {
+					logrus.Errorf("error unmounting %v: %v", mergedDir, mntErr)
+				}
 			}
 		}
 	}()
@@ -651,12 +654,9 @@ func (d *Driver) Put(id string) error {
 	}
 	err := unix.Unmount(mountpoint, unix.MNT_DETACH)
 	if err != nil {
-		if _, err := ioutil.ReadFile(path.Join(d.dir(id), lowerFile)); err != nil {
-			// We didn't have a "lower" directory, so we weren't mounting a "merged" directory anyway
-			return nil
-		}
+		logrus.Debugf("Failed to unmount %s overlay: %s - %v", id, mountpoint, err)
 	}
-	return err
+	return nil
 }
 
 // Exists checks to see if the id is already mounted.

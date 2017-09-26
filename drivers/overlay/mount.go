@@ -51,16 +51,18 @@ func mountFrom(dir, device, target, mType string, flags uintptr, label string) e
 	cmd.Stderr = output
 
 	if err := cmd.Start(); err != nil {
+		w.Close()
 		return fmt.Errorf("mountfrom error on re-exec cmd: %v", err)
 	}
 	//write the options to the pipe for the untar exec to read
 	if err := json.NewEncoder(w).Encode(options); err != nil {
+		w.Close()
 		return fmt.Errorf("mountfrom json encode to pipe failed: %v", err)
 	}
 	w.Close()
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("mountfrom re-exec error: %v: output: %s", err, output)
+		return fmt.Errorf("mountfrom re-exec error: %v: output: %v", err, output)
 	}
 	return nil
 }
