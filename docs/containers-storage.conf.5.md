@@ -44,6 +44,10 @@ The `storage` table supports the following options:
 **additionalimagestores**=[]
   Paths to additional congtainer image stores. Usually these are read/only and stored on remote network shares.
 
+**size**=""
+  Maximum size of a container image.  Default is 10GB.  This flag can be used to set quota
+  on the size of container images.
+
 # HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
 Format copied from crio.conf man page created by Aleksa Sarai <asarai@suse.de>
