@@ -35,11 +35,10 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(layer)
 	} else {
-		fmt.Printf("%s", layer.ID)
+		fmt.Printf("%s\n", layer.ID)
 		for _, name := range layer.Names {
 			fmt.Printf("\t%s\n", name)
 		}
-		fmt.Printf("\n")
 	}
 	return 0
 }
@@ -67,11 +66,10 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(layer)
 	} else {
-		fmt.Printf("%s", layer.ID)
+		fmt.Printf("%s\n", layer.ID)
 		for _, name := range layer.Names {
 			fmt.Printf("\t%s\n", name)
 		}
-		fmt.Printf("\n")
 	}
 	return 0
 }
@@ -98,11 +96,10 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(image)
 	} else {
-		fmt.Printf("%s", image.ID)
+		fmt.Printf("%s\n", image.ID)
 		for _, name := range image.Names {
 			fmt.Printf("\t%s\n", name)
 		}
-		fmt.Printf("\n")
 	}
 	return 0
 }
@@ -129,11 +126,10 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(container)
 	} else {
-		fmt.Printf("%s", container.ID)
+		fmt.Printf("%s\n", container.ID)
 		for _, name := range container.Names {
 			fmt.Printf("\t%s", name)
 		}
-		fmt.Printf("\n")
 	}
 	return 0
 }
