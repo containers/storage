@@ -28,7 +28,6 @@ No bare options are used. The format of TOML can be simplified to:
 
 The `storage` table supports the following options:
 
-
 **graphroot**=""
   container storage graph dir (default: "/var/lib/containers/storage")
   Default directory to store all writable content created by container storage programs
@@ -41,12 +40,21 @@ The `storage` table supports the following options:
   container storage driver (default is "overlay")
   Default Copy On Write (COW) container storage driver
 
+### STORAGE OPTIONS TABLE 
+
+The `storage.options` table supports the following options:
+
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
 
 **size**=""
   Maximum size of a container image.  Default is 10GB.  This flag can be used to set quota
   on the size of container images.
+
+**override_kernel_check**=""
+  Tell storage drivers to ignore kernel version checks.  Some storage drivers assume that if a kernel is too
+  old, the driver is not supported.  But for kernels that have had the drivers backported, this flag
+  allows users to override the checks
 
 # HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
