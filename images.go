@@ -24,8 +24,9 @@ type Image struct {
 	// unique among images.
 	Names []string `json:"names,omitempty"`
 
-	// TopLayer is the ID of the topmost layer of the image itself.
-	// Multiple images can refer to the same top layer.
+	// TopLayer is the ID of the topmost layer of the image itself, if the
+	// image contains one or more layers.  Multiple images can refer to the
+	// same top layer.
 	TopLayer string `json:"layer"`
 
 	// Metadata is data we keep for the convenience of the caller.  It is not

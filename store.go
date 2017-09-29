@@ -775,30 +775,32 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 		id = stringid.GenerateRandomID()
 	}
 
-	lstore, err := s.LayerStore()
-	if err != nil {
-		return nil, err
-	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-	var ilayer *Layer
-	for _, store := range append([]ROLayerStore{lstore}, lstores...) {
-		store.Lock()
-		defer store.Unlock()
-		if modified, err := store.Modified(); modified || err != nil {
-			store.Load()
+	if layer != "" {
+		lstore, err := s.LayerStore()
+		if err != nil {
+			return nil, err
 		}
-		ilayer, err = store.Get(layer)
-		if err == nil {
-			break
+		lstores, err := s.ROLayerStores()
+		if err != nil {
+			return nil, err
 		}
+		var ilayer *Layer
+		for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+			store.Lock()
+			defer store.Unlock()
+			if modified, err := store.Modified(); modified || err != nil {
+				store.Load()
+			}
+			ilayer, err = store.Get(layer)
+			if err == nil {
+				break
+			}
+		}
+		if ilayer == nil {
+			return nil, ErrLayerUnknown
+		}
+		layer = ilayer.ID
 	}
-	if ilayer == nil {
-		return nil, ErrLayerUnknown
-	}
-	layer = ilayer.ID
 
 	ristore, err := s.ImageStore()
 	if err != nil {
