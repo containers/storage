@@ -42,7 +42,7 @@ The `storage` table supports the following options:
   Default Copy On Write (COW) container storage driver
 
 **additionalimagestores**=[]
-  Paths to additional congtainer image stores. Usually these are read/only and stored on remote network shares.
+  Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
 
 **size**=""
   Maximum size of a container image.  Default is 10GB.  This flag can be used to set quota
