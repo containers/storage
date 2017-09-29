@@ -183,7 +183,9 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 	if !supportsDType {
-		return nil, overlayutils.ErrDTypeNotSupported("overlay", backingFs)
+		logrus.Warn(overlayutils.ErrDTypeNotSupported("overlay", backingFs))
+		// TODO: Will make fatal when CRI-O Has AMI built on RHEL7.4
+		// return nil, overlayutils.ErrDTypeNotSupported("overlay", backingFs)
 	}
 
 	d := &Driver{
