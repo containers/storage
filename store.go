@@ -2249,6 +2249,12 @@ type OptionsConfig struct {
 	// Image stores.  Usually used to access Networked File System
 	// for shared image content
 	AdditionalImageStores []string `toml:"additionalimagestores"`
+
+	// Size
+	Size string `toml:"size"`
+
+	// OverrideKernelCheck
+	OverrideKernelCheck string `toml:"override_kernel_check"`
 }
 
 // TOML-friendly explicit tables used for conversions.
@@ -2292,7 +2298,12 @@ func init() {
 	for _, s := range config.Storage.Options.AdditionalImageStores {
 		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, s))
 	}
-
+	if config.Storage.Options.Size != "" {
+		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.size=%s", config.Storage.Driver, config.Storage.Options.Size))
+	}
+	if config.Storage.Options.OverrideKernelCheck != "" {
+		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
+	}
 	if os.Getenv("STORAGE_DRIVER") != "" {
 		DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
 	}
