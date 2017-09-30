@@ -252,6 +252,9 @@ func (r *imageStore) SetFlag(id string, flag string, value interface{}) error {
 	if !ok {
 		return ErrImageUnknown
 	}
+	if image.Flags == nil {
+		image.Flags = make(map[string]interface{})
+	}
 	image.Flags[flag] = value
 	return r.Save()
 }
@@ -402,6 +405,9 @@ func (r *imageStore) Exists(id string) bool {
 }
 
 func (r *imageStore) BigData(id, key string) ([]byte, error) {
+	if key == "" {
+		return nil, errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+	}
 	image, ok := r.lookup(id)
 	if !ok {
 		return nil, ErrImageUnknown
@@ -410,9 +416,15 @@ func (r *imageStore) BigData(id, key string) ([]byte, error) {
 }
 
 func (r *imageStore) BigDataSize(id, key string) (int64, error) {
+	if key == "" {
+		return -1, errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+	}
 	image, ok := r.lookup(id)
 	if !ok {
 		return -1, ErrImageUnknown
+	}
+	if image.BigDataSizes == nil {
+		image.BigDataSizes = make(map[string]int64)
 	}
 	if size, ok := image.BigDataSizes[key]; ok {
 		return size, nil
@@ -443,9 +455,12 @@ func (r *imageStore) SetBigData(id, key string, data []byte) error {
 	if err == nil {
 		add := true
 		save := false
-		oldSize, ok := image.BigDataSizes[key]
+		if image.BigDataSizes == nil {
+			image.BigDataSizes = make(map[string]int64)
+		}
+		oldSize, sizeOk := image.BigDataSizes[key]
 		image.BigDataSizes[key] = int64(len(data))
-		if !ok || oldSize != image.BigDataSizes[key] {
+		if !sizeOk || oldSize != image.BigDataSizes[key] {
 			save = true
 		}
 		for _, name := range image.BigDataNames {

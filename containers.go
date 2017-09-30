@@ -10,6 +10,8 @@ import (
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
+
+	"github.com/pkg/errors"
 )
 
 // A Container is a reference to a read-write layer with metadata.
@@ -223,6 +225,9 @@ func (r *containerStore) SetFlag(id string, flag string, value interface{}) erro
 	if !ok {
 		return ErrContainerUnknown
 	}
+	if container.Flags == nil {
+		container.Flags = make(map[string]interface{})
+	}
 	container.Flags[flag] = value
 	return r.Save()
 }
@@ -362,6 +367,9 @@ func (r *containerStore) Exists(id string) bool {
 }
 
 func (r *containerStore) BigData(id, key string) ([]byte, error) {
+	if key == "" {
+		return nil, errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+	}
 	c, ok := r.lookup(id)
 	if !ok {
 		return nil, ErrContainerUnknown
@@ -370,9 +378,15 @@ func (r *containerStore) BigData(id, key string) ([]byte, error) {
 }
 
 func (r *containerStore) BigDataSize(id, key string) (int64, error) {
+	if key == "" {
+		return -1, errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+	}
 	c, ok := r.lookup(id)
 	if !ok {
 		return -1, ErrContainerUnknown
+	}
+	if c.BigDataSizes == nil {
+		c.BigDataSizes = make(map[string]int64)
 	}
 	if size, ok := c.BigDataSizes[key]; ok {
 		return size, nil
@@ -389,6 +403,9 @@ func (r *containerStore) BigDataNames(id string) ([]string, error) {
 }
 
 func (r *containerStore) SetBigData(id, key string, data []byte) error {
+	if key == "" {
+		return errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+	}
 	c, ok := r.lookup(id)
 	if !ok {
 		return ErrContainerUnknown
@@ -399,9 +416,12 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 	err := ioutils.AtomicWriteFile(r.datapath(c.ID, key), data, 0600)
 	if err == nil {
 		save := false
-		oldSize, ok := c.BigDataSizes[key]
+		if c.BigDataSizes == nil {
+			c.BigDataSizes = make(map[string]int64)
+		}
+		oldSize, sizeOk := c.BigDataSizes[key]
 		c.BigDataSizes[key] = int64(len(data))
-		if !ok || oldSize != c.BigDataSizes[key] {
+		if !sizeOk || oldSize != c.BigDataSizes[key] {
 			save = true
 		}
 		add := true

@@ -305,6 +305,9 @@ func (r *layerStore) Load() error {
 	// actually delete.
 	if r.IsReadWrite() {
 		for _, layer := range r.layers {
+			if layer.Flags == nil {
+				layer.Flags = make(map[string]interface{})
+			}
 			if cleanup, ok := layer.Flags[incompleteFlag]; ok {
 				if b, ok := cleanup.(bool); ok && b {
 					err = r.Delete(layer.ID)
@@ -454,6 +457,9 @@ func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
 	layer, ok := r.lookup(id)
 	if !ok {
 		return ErrLayerUnknown
+	}
+	if layer.Flags == nil {
+		layer.Flags = make(map[string]interface{})
 	}
 	layer.Flags[flag] = value
 	return r.Save()

@@ -49,4 +49,6 @@ var (
 	ErrDuplicateImageNames = errors.New("read-only image store assigns the same name to multiple images")
 	// ErrDuplicateLayerNames indicates that the read-only store uses the same name for multiple layers.
 	ErrDuplicateLayerNames = errors.New("read-only layer store assigns the same name to multiple layers")
+	// ErrInvalidBigDataName indicates that the name for a big data item is not acceptable; it may be empty.
+	ErrInvalidBigDataName = errors.New("not a valid name for a big data item")
 )

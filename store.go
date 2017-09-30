@@ -1841,10 +1841,16 @@ func (s *store) layersByMappedDigest(m func(ROLayerStore, digest.Digest) ([]Laye
 }
 
 func (s *store) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) {
+	if err := d.Validate(); err != nil {
+		return nil, errors.Wrapf(err, "error looking for compressed layers matching digest %q", d)
+	}
 	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByCompressedDigest(d) }, d)
 }
 
 func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
+	if err := d.Validate(); err != nil {
+		return nil, errors.Wrapf(err, "error looking for layers matching digest %q", d)
+	}
 	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByUncompressedDigest(d) }, d)
 }
 
