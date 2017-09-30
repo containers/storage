@@ -254,6 +254,7 @@ func (r *layerStore) Load() error {
 	compressedsums := make(map[digest.Digest][]string)
 	uncompressedsums := make(map[digest.Digest][]string)
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
+		idlist = make([]string, 0, len(layers))
 		for n, layer := range layers {
 			ids[layer.ID] = layers[n]
 			idlist = append(idlist, layer.ID)
@@ -341,7 +342,7 @@ func (r *layerStore) Save() error {
 	if err := os.MkdirAll(filepath.Dir(mpath), 0700); err != nil {
 		return err
 	}
-	mounts := []layerMountPoint{}
+	mounts := make([]layerMountPoint, 0, len(r.layers))
 	for _, layer := range r.layers {
 		if layer.MountPoint != "" && layer.MountCount > 0 {
 			mounts = append(mounts, layerMountPoint{
@@ -739,7 +740,7 @@ func (r *layerStore) Wipe() error {
 	if !r.IsReadWrite() {
 		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to delete layers at %q", r.layerspath())
 	}
-	ids := []string{}
+	ids := make([]string, 0, len(r.byid))
 	for id := range r.byid {
 		ids = append(ids, id)
 	}

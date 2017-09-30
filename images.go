@@ -136,6 +136,7 @@ func (r *imageStore) Load() error {
 	ids := make(map[string]*Image)
 	names := make(map[string]*Image)
 	if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
+		idlist = make([]string, 0, len(images))
 		for n, image := range images {
 			ids[image.ID] = images[n]
 			idlist = append(idlist, image.ID)
@@ -484,7 +485,7 @@ func (r *imageStore) Wipe() error {
 	if !r.IsReadWrite() {
 		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to delete images at %q", r.imagespath())
 	}
-	ids := []string{}
+	ids := make([]string, 0, len(r.byid))
 	for id := range r.byid {
 		ids = append(ids, id)
 	}
