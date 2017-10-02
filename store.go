@@ -740,11 +740,14 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 	if err != nil {
 		return nil, -1, err
 	}
+	rlstores, err := s.ROLayerStores()
+	if err != nil {
+		return nil, -1, err
+	}
 	rcstore, err := s.ContainerStore()
 	if err != nil {
 		return nil, -1, err
 	}
-
 	rlstore.Lock()
 	defer rlstore.Unlock()
 	if modified, err := rlstore.Modified(); modified || err != nil {
@@ -759,9 +762,15 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 		id = stringid.GenerateRandomID()
 	}
 	if parent != "" {
-		if l, err := rlstore.Get(parent); err == nil && l != nil {
-			parent = l.ID
-		} else {
+		var ilayer *Layer
+		for _, lstore := range append([]ROLayerStore{rlstore}, rlstores...) {
+			if l, err := lstore.Get(parent); err == nil && l != nil {
+				ilayer = l
+				parent = ilayer.ID
+				break
+			}
+		}
+		if ilayer == nil {
 			return nil, -1, ErrLayerUnknown
 		}
 		containers, err := rcstore.Containers()
