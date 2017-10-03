@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 
-	options := storage.DefaultStoreOptions
+	options := storage.StoreOptions{}
 	debug := false
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
@@ -65,6 +65,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	if options.GraphRoot == "" && options.RunRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
+		options = storage.DefaultStoreOptions
+	}
 	args := flags.Args()
 	if len(args) < 1 {
 		flags.Usage()
