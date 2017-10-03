@@ -10,7 +10,7 @@ import (
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
-
+	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
 
@@ -45,6 +45,10 @@ type Container struct {
 	// BigDataSizes maps the names in BigDataNames to the sizes of the data
 	// that has been stored, if they're known.
 	BigDataSizes map[string]int64 `json:"big-data-sizes,omitempty"`
+
+	// BigDataDigests maps the names in BigDataNames to the digests of the
+	// data that has been stored, if they're known.
+	BigDataDigests map[string]digest.Digest `json:"big-data-digests,omitempty"`
 
 	// Created is the datestamp for when this container was created.  Older
 	// versions of the library did not track this information, so callers
@@ -253,15 +257,16 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	}
 	if err == nil {
 		container = &Container{
-			ID:           id,
-			Names:        names,
-			ImageID:      image,
-			LayerID:      layer,
-			Metadata:     metadata,
-			BigDataNames: []string{},
-			BigDataSizes: make(map[string]int64),
-			Created:      time.Now().UTC(),
-			Flags:        make(map[string]interface{}),
+			ID:             id,
+			Names:          names,
+			ImageID:        image,
+			LayerID:        layer,
+			Metadata:       metadata,
+			BigDataNames:   []string{},
+			BigDataSizes:   make(map[string]int64),
+			BigDataDigests: make(map[string]digest.Digest),
+			Created:        time.Now().UTC(),
+			Flags:          make(map[string]interface{}),
 		}
 		r.containers = append(r.containers, container)
 		r.byid[id] = container
@@ -369,7 +374,7 @@ func (r *containerStore) Exists(id string) bool {
 
 func (r *containerStore) BigData(id, key string) ([]byte, error) {
 	if key == "" {
-		return nil, errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+		return nil, errors.Wrapf(ErrInvalidBigDataName, "can't retrieve container big data value for empty name")
 	}
 	c, ok := r.lookup(id)
 	if !ok {
@@ -380,7 +385,7 @@ func (r *containerStore) BigData(id, key string) ([]byte, error) {
 
 func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	if key == "" {
-		return -1, errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+		return -1, errors.Wrapf(ErrInvalidBigDataName, "can't retrieve size of container big data with empty name")
 	}
 	c, ok := r.lookup(id)
 	if !ok {
@@ -392,7 +397,46 @@ func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	if size, ok := c.BigDataSizes[key]; ok {
 		return size, nil
 	}
+	if data, err := r.BigData(id, key); err == nil && data != nil {
+		if r.SetBigData(id, key, data) == nil {
+			c, ok := r.lookup(id)
+			if !ok {
+				return -1, ErrContainerUnknown
+			}
+			if size, ok := c.BigDataSizes[key]; ok {
+				return size, nil
+			}
+		}
+	}
 	return -1, ErrSizeUnknown
+}
+
+func (r *containerStore) BigDataDigest(id, key string) (digest.Digest, error) {
+	if key == "" {
+		return "", errors.Wrapf(ErrInvalidBigDataName, "can't retrieve digest of container big data value with empty name")
+	}
+	c, ok := r.lookup(id)
+	if !ok {
+		return "", ErrContainerUnknown
+	}
+	if c.BigDataDigests == nil {
+		c.BigDataDigests = make(map[string]digest.Digest)
+	}
+	if d, ok := c.BigDataDigests[key]; ok {
+		return d, nil
+	}
+	if data, err := r.BigData(id, key); err == nil && data != nil {
+		if r.SetBigData(id, key, data) == nil {
+			c, ok := r.lookup(id)
+			if !ok {
+				return "", ErrContainerUnknown
+			}
+			if d, ok := c.BigDataDigests[key]; ok {
+				return d, nil
+			}
+		}
+	}
+	return "", ErrDigestUnknown
 }
 
 func (r *containerStore) BigDataNames(id string) ([]string, error) {
@@ -405,7 +449,7 @@ func (r *containerStore) BigDataNames(id string) ([]string, error) {
 
 func (r *containerStore) SetBigData(id, key string, data []byte) error {
 	if key == "" {
-		return errors.Wrapf(ErrInvalidBigDataName, "data name %q can not be used as a filename", key)
+		return errors.Wrapf(ErrInvalidBigDataName, "can't set empty name for container big data item")
 	}
 	c, ok := r.lookup(id)
 	if !ok {
@@ -422,17 +466,23 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 		}
 		oldSize, sizeOk := c.BigDataSizes[key]
 		c.BigDataSizes[key] = int64(len(data))
-		if !sizeOk || oldSize != c.BigDataSizes[key] {
+		if c.BigDataDigests == nil {
+			c.BigDataDigests = make(map[string]digest.Digest)
+		}
+		oldDigest, digestOk := c.BigDataDigests[key]
+		newDigest := digest.Canonical.FromBytes(data)
+		c.BigDataDigests[key] = newDigest
+		if !sizeOk || oldSize != c.BigDataSizes[key] || !digestOk || oldDigest != newDigest {
 			save = true
 		}
-		add := true
+		addName := true
 		for _, name := range c.BigDataNames {
 			if name == key {
-				add = false
+				addName = false
 				break
 			}
 		}
-		if add {
+		if addName {
 			c.BigDataNames = append(c.BigDataNames, key)
 			save = true
 		}

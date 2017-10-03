@@ -51,4 +51,6 @@ var (
 	ErrDuplicateLayerNames = errors.New("read-only layer store assigns the same name to multiple layers")
 	// ErrInvalidBigDataName indicates that the name for a big data item is not acceptable; it may be empty.
 	ErrInvalidBigDataName = errors.New("not a valid name for a big data item")
+	// ErrDigestUnknown indicates that we were unable to compute the digest of a specified item.
+	ErrDigestUnknown = errors.New("could not compute digest of item")
 )
