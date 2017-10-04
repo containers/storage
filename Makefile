@@ -49,7 +49,7 @@ test-unit: local-binary ## run the unit tests using VMs
 	$(RUNINVM) make local-$@
 
 local-test-integration: local-binary ## run the integration tests on the host (requires\nsuperuser privileges)
-	@cd tests; ./test_runner.sh
+	@cd tests; ./test_runner.bash
 
 test-integration: local-binary ## run the integration tests using VMs
 	$(RUNINVM) make local-$@
