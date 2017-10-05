@@ -287,8 +287,8 @@ func supportsOverlay() error {
 
 func useNaiveDiff(home string) bool {
 	useNaiveDiffLock.Do(func() {
-		if err := hasOpaqueCopyUpBug(home); err != nil {
-			logrus.Warnf("Not using native diff for overlay: %v", err)
+		if err := doesSupportNativeDiff(home); err != nil {
+			logrus.Warnf("Not using native diff for overlay, this may cause degraded performance for building images: %v", err)
 			useNaiveDiffOnly = true
 		}
 	})
@@ -654,8 +654,7 @@ func (d *Driver) Put(id string) error {
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	err := unix.Unmount(mountpoint, unix.MNT_DETACH)
-	if err != nil {
+	if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil {
 		logrus.Debugf("Failed to unmount %s overlay: %s - %v", id, mountpoint, err)
 	}
 	return nil
