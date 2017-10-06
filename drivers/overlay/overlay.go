@@ -228,7 +228,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 		key = strings.ToLower(key)
 		switch key {
 		case "overlay.override_kernel_check", "overlay2.override_kernel_check":
-			logrus.Debugf("overlay: overide_kernelcheck=%s", val)
+			logrus.Debugf("overlay: override_kernelcheck=%s", val)
 			o.overrideKernelCheck, err = strconv.ParseBool(val)
 			if err != nil {
 				return nil, err
