@@ -410,7 +410,8 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}
 
-	if err := idtools.MkdirAs(path.Join(dir, "diff"), 0755, rootUID, rootGID); err != nil {
+	diffDir := path.Join(dir, "diff")
+	if err := idtools.MkdirAs(diffDir, 0755, rootUID, rootGID); err != nil {
 		return err
 	}
 
@@ -441,6 +442,15 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 	if lower != "" {
+		lowers := strings.Split(lower, ":")
+		newpath := path.Join(d.home, lowers[0])
+		st, err := os.Stat(newpath)
+		if err != nil {
+			return errors.Wrapf(err, "overlay: can't stat lower %q dir", newpath)
+		}
+		if err := os.Chmod(diffDir, st.Mode()); err != nil {
+			return errors.Wrapf(err, "overlay: can't chmod diff %q dir", diffDir)
+		}
 		if err := ioutil.WriteFile(path.Join(dir, lowerFile), []byte(lower), 0666); err != nil {
 			return err
 		}
