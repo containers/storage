@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
@@ -264,11 +265,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 	return o, nil
 }
 
-func supportsOverlay() error {
-	// We can try to modprobe overlay first before looking at
-	// proc/filesystems for when overlay is supported
-	exec.Command("modprobe", "overlay").Run()
-
+func readOverlayFilesystem() error {
 	f, err := os.Open("/proc/filesystems")
 	if err != nil {
 		return err
@@ -281,8 +278,24 @@ func supportsOverlay() error {
 			return nil
 		}
 	}
-	logrus.Error("'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
 	return errors.Wrap(graphdriver.ErrNotSupported, "'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
+}
+
+func supportsOverlay() error {
+	var err error
+	// We can try to modprobe overlay first before looking at
+	// proc/filesystems for when overlay is supported
+	exec.Command("modprobe", "overlay").Run()
+	for i := 0; i < 3; i++ {
+		if err = readOverlayFilesystem(); err == nil {
+			return nil
+		}
+		if i < 2 {
+			time.Sleep(1 * time.Second)
+		}
+	}
+	logrus.Error(err)
+	return err
 }
 
 func useNaiveDiff(home string) bool {
