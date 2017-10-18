@@ -58,13 +58,16 @@ load helpers
         [ "$output" != "" ]
         image=${output%%  *}
 
+	# We no longer need to use the read-only root as a writeable location, so shut it down.
+	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
+
 	# Create a third layer based on the second one.
 	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-layer "$midlayer"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	upperlayer="$output"
 	# Mount this layer.
-	run storage --debug=false mount $upperlayer
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false mount $upperlayer
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	uppermount="$output"
@@ -82,7 +85,7 @@ load helpers
 	[ "$output" != "" ]
 	container="$output"
 	# Mount this container.
-	run storage --debug=false mount $container
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false mount $container
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	containermount="$output"
