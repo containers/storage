@@ -124,10 +124,6 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	if err := supportsOverlay(); err != nil {
-		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support overlay fs")
-	}
-
 	// require kernel 4.0.0 to ensure multiple lower dirs are supported
 	v, err := kernel.GetKernelVersion()
 	if err != nil {
@@ -264,7 +260,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 	return o, nil
 }
 
-func supportsOverlay() error {
+func SupportsOverlay() error {
 	// We can try to modprobe overlay first before looking at
 	// proc/filesystems for when overlay is supported
 	exec.Command("modprobe", "overlay").Run()
