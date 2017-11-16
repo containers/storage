@@ -54,9 +54,11 @@ func (j *Image) MarshalJSONBuf(buf fflib.EncodingBuffer) error {
 		}
 		buf.WriteByte(',')
 	}
-	buf.WriteString(`"layer":`)
-	fflib.WriteJsonString(buf, string(j.TopLayer))
-	buf.WriteByte(',')
+	if len(j.TopLayer) != 0 {
+		buf.WriteString(`"layer":`)
+		fflib.WriteJsonString(buf, string(j.TopLayer))
+		buf.WriteByte(',')
+	}
 	if len(j.Metadata) != 0 {
 		buf.WriteString(`"metadata":`)
 		fflib.WriteJsonString(buf, string(j.Metadata))
