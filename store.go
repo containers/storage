@@ -434,6 +434,8 @@ type ImageOptions struct {
 	// CreationDate, if not zero, will override the default behavior of marking the image as having been
 	// created when CreateImage() was called, recording CreationDate instead.
 	CreationDate time.Time
+	// Digest is a hard-coded digest value that we can use to look up the image.  It is optional.
+	Digest digest.Digest
 }
 
 // ContainerOptions is used for passing options to a Store's CreateContainer() method.
@@ -833,11 +835,11 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	}
 
 	creationDate := time.Now().UTC()
-	if options != nil {
+	if options != nil && !options.CreationDate.IsZero() {
 		creationDate = options.CreationDate
 	}
 
-	return ristore.Create(id, names, layer, metadata, creationDate)
+	return ristore.Create(id, names, layer, metadata, creationDate, options.Digest)
 }
 
 func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
