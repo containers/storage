@@ -3,7 +3,6 @@
 package overlay
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -26,7 +25,6 @@ import (
 	"github.com/containers/storage/pkg/locker"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
-	"github.com/containers/storage/pkg/parsers/kernel"
 	"github.com/containers/storage/pkg/system"
 	units "github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -124,22 +122,6 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	if err := supportsOverlay(); err != nil {
-		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support overlay fs")
-	}
-
-	// require kernel 4.0.0 to ensure multiple lower dirs are supported
-	v, err := kernel.GetKernelVersion()
-	if err != nil {
-		return nil, err
-	}
-	if kernel.CompareKernelVersion(*v, kernel.VersionInfo{Kernel: 4, Major: 0, Minor: 0}) < 0 {
-		if !opts.overrideKernelCheck {
-			return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel too old to provide multiple lowers feature for overlay")
-		}
-		logrus.Warn("Using pre-4.0.0 kernel for overlay, mount failures may require kernel update")
-	}
-
 	fsMagic, err := graphdriver.GetFSMagic(home)
 	if err != nil {
 		return nil, err
@@ -153,22 +135,18 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	case graphdriver.FsMagicAufs, graphdriver.FsMagicZfs, graphdriver.FsMagicOverlay, graphdriver.FsMagicEcryptfs:
 		logrus.Errorf("'overlay' is not supported over %s", backingFs)
 		return nil, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s", backingFs)
-	case graphdriver.FsMagicBtrfs:
-		// Support for OverlayFS on BTRFS was added in kernel 4.7
-		// See https://btrfs.wiki.kernel.org/index.php/Changelog
-		if kernel.CompareKernelVersion(*v, kernel.VersionInfo{Kernel: 4, Major: 7, Minor: 0}) < 0 {
-			if !opts.overrideKernelCheck {
-				logrus.Errorf("'overlay' requires kernel 4.7 to use on %s", backingFs)
-				return nil, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' requires kernel 4.7 to use on %s", backingFs)
-			}
-			logrus.Warn("Using pre-4.7.0 kernel for overlay on btrfs, may require kernel update")
-		}
 	}
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMaps, gidMaps)
 	if err != nil {
 		return nil, err
 	}
+
+	supportsDType, err := supportsOverlay(home, fsMagic, rootUID, rootGID)
+	if err != nil {
+		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support overlay fs")
+	}
+
 	// Create the driver home dir
 	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
 		return nil, err
@@ -176,16 +154,6 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 
 	if err := mount.MakePrivate(home); err != nil {
 		return nil, err
-	}
-
-	supportsDType, err := fsutils.SupportsDType(home)
-	if err != nil {
-		return nil, err
-	}
-	if !supportsDType {
-		logrus.Warn(overlayutils.ErrDTypeNotSupported("overlay", backingFs))
-		// TODO: Will make fatal when CRI-O Has AMI built on RHEL7.4
-		// return nil, overlayutils.ErrDTypeNotSupported("overlay", backingFs)
 	}
 
 	d := &Driver{
@@ -210,10 +178,10 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		}
 	} else if opts.quota.Size > 0 {
 		// if xfs is not the backing fs then error out if the storage-opt overlay.size is used.
-		return nil, fmt.Errorf("Storage Option overlay.size only supported for backingFS XFS. Found %v", backingFs)
+		return nil, fmt.Errorf("Storage option overlay.size only supported for backingFS XFS. Found %v", backingFs)
 	}
 
-	logrus.Debugf("backingFs=%s,  projectQuotaSupported=%v", backingFs, projectQuotaSupported)
+	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v", backingFs, projectQuotaSupported)
 
 	return d, nil
 }
@@ -264,25 +232,59 @@ func parseOptions(options []string) (*overlayOptions, error) {
 	return o, nil
 }
 
-func supportsOverlay() error {
-	// We can try to modprobe overlay first before looking at
-	// proc/filesystems for when overlay is supported
+func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
+	// We can try to modprobe overlay first
 	exec.Command("modprobe", "overlay").Run()
 
-	f, err := os.Open("/proc/filesystems")
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		if s.Text() == "nodev\toverlay" {
-			return nil
+	layerDir, err := ioutil.TempDir(home, "compat")
+	if err == nil {
+		// Check if reading the directory's contents populates the d_type field, which is required
+		// for proper operation of the overlay filesystem.
+		supportsDType, err = fsutils.SupportsDType(layerDir)
+		if err != nil {
+			return false, err
 		}
+		if !supportsDType {
+			logrus.Warn(overlayutils.ErrDTypeNotSupported("overlay", backingFs))
+			// TODO: Will make fatal when CRI-O Has AMI built on RHEL7.4
+			// return nil, overlayutils.ErrDTypeNotSupported("overlay", backingFs)
+		}
+
+		// Try a test mount in the specific location we're looking at using.
+		mergedDir := filepath.Join(layerDir, "merged")
+		lower1Dir := filepath.Join(layerDir, "lower1")
+		lower2Dir := filepath.Join(layerDir, "lower2")
+		defer func() {
+			// Permitted to fail, since the various subdirectories
+			// can be empty or not even there, and the home might
+			// legitimately be not empty
+			_ = unix.Unmount(mergedDir, unix.MNT_DETACH)
+			_ = os.RemoveAll(layerDir)
+			_ = os.Remove(home)
+		}()
+		_ = idtools.MkdirAs(mergedDir, 0700, rootUID, rootGID)
+		_ = idtools.MkdirAs(lower1Dir, 0700, rootUID, rootGID)
+		_ = idtools.MkdirAs(lower2Dir, 0700, rootUID, rootGID)
+		flags := fmt.Sprintf("lowerdir=%s:%s", lower1Dir, lower2Dir)
+		if len(flags) < unix.Getpagesize() {
+			if mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags) == nil {
+				logrus.Debugf("overlay test mount with multiple lowers succeeded")
+				return supportsDType, nil
+			}
+		}
+		flags = fmt.Sprintf("lowerdir=%s", lower1Dir)
+		if len(flags) < unix.Getpagesize() {
+			if mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags) == nil {
+				logrus.Errorf("overlay test mount with multiple lowers failed, but succeeded with a single lower")
+				return supportsDType, errors.Wrap(graphdriver.ErrNotSupported, "kernel too old to provide multiple lowers feature for overlay")
+			}
+		}
+		logrus.Errorf("'overlay' is not supported over %s at %q", backingFs, home)
+		return supportsDType, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s at %q", backingFs, home)
 	}
+
 	logrus.Error("'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
-	return errors.Wrap(graphdriver.ErrNotSupported, "'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
+	return supportsDType, errors.Wrap(graphdriver.ErrNotSupported, "'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
 }
 
 func useNaiveDiff(home string) bool {
