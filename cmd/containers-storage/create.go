@@ -10,12 +10,14 @@ import (
 	"github.com/containers/storage"
 	"github.com/containers/storage/opts"
 	"github.com/containers/storage/pkg/mflag"
+	digest "github.com/opencontainers/go-digest"
 )
 
 var (
 	paramMountLabel   = ""
 	paramNames        = []string{}
 	paramID           = ""
+	paramDigest       = ""
 	paramLayer        = ""
 	paramMetadata     = ""
 	paramMetadataFile = ""
@@ -92,7 +94,10 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	if len(args) > 0 {
 		layer = args[0]
 	}
-	image, err := m.CreateImage(paramID, paramNames, layer, paramMetadata, nil)
+	imageOptions := &storage.ImageOptions{
+		Digest: digest.Digest(paramDigest),
+	}
+	image, err := m.CreateImage(paramID, paramNames, layer, paramMetadata, imageOptions)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -178,6 +183,7 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "Image name")
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Image ID")
+			flags.StringVar(&paramDigest, []string{"-digest", "d"}, "", "Image Digest")
 			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
 			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")

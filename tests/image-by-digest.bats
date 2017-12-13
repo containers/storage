@@ -11,8 +11,10 @@ load helpers
 	# Create a couple of random files.
 	createrandom ${TESTDIR}/random1
 	createrandom ${TESTDIR}/random2
+	createrandom ${TESTDIR}/random3
 	digest1=$(sha256sum ${TESTDIR}/random1)
 	digest2=$(sha256sum ${TESTDIR}/random2)
+	digest3=$(sha256sum ${TESTDIR}/random3)
 
 	# Create a layer.
 	run storage --debug=false create-layer
@@ -44,6 +46,20 @@ load helpers
 	# Set the second file as the manifest of this image.
 	run storage --debug=false set-image-data -f ${TESTDIR}/random2 ${thirdimage} manifest
 
+	# Create still another image using that layer.
+	run storage --debug=false create-image --digest sha256:${digest3// *} $layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	fourthimage=${output%%	*}
+
+	# Create another image using that layer.
+	run storage --debug=false create-image --digest sha256:${digest3// *} $layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	fifthimage=${output%%	*}
+	# Set the third file as the manifest of this image.
+	run storage --debug=false set-image-data -f ${TESTDIR}/random3 ${fifthimage} manifest
+
 	# Check that "images-by-digest" lists the right images.
 	run storage --debug=false images-by-digest --quiet sha256:${digest1// *}
 	echo :"$output":
@@ -58,6 +74,13 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "${#lines[*]}" -eq 1 ]
 	[ "${lines[0]}" = "$thirdimage" ]
+
+	run storage --debug=false images-by-digest --quiet sha256:${digest3// *}
+	echo :"$output":
+	[ "$status" -eq 0 ]
+	[ "${#lines[*]}" -eq 2 ]
+	[ "${lines[0]}" = "$fourthimage" ] || [ "${lines[0]}" = "$fifthimage" ]
+	[ "${lines[1]}" = "$fourthimage" ] || [ "${lines[1]}" = "$fifthimage" ]
 
 	run storage --debug=false delete-image ${secondimage}
 	echo :"$output":
