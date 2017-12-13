@@ -22,6 +22,7 @@ import (
 	"github.com/containers/storage/pkg/stringid"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -2301,6 +2302,7 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		}
 	}
 	if len(mounted) > 0 && err == nil {
+		logrus.Warn("a container/storage layer is still in use, storage shutdown will not complete")
 		err = errors.Wrap(ErrLayerUsedByContainer, "A layer is mounted")
 	}
 	if err == nil {
