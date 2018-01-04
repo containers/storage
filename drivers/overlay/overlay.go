@@ -245,9 +245,7 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			return false, err
 		}
 		if !supportsDType {
-			logrus.Warn(overlayutils.ErrDTypeNotSupported("overlay", backingFs))
-			// TODO: Will make fatal when CRI-O Has AMI built on RHEL7.4
-			// return nil, overlayutils.ErrDTypeNotSupported("overlay", backingFs)
+			return false, overlayutils.ErrDTypeNotSupported("overlay", backingFs)
 		}
 
 		// Try a test mount in the specific location we're looking at using.
