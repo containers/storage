@@ -167,7 +167,7 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		}
 	}
 
-	a.naiveDiff = graphdriver.NewNaiveDiffDriver(a, uidMaps, gidMaps)
+	a.naiveDiff = graphdriver.NewNaiveDiffDriver(a, a, uidMaps, gidMaps)
 	return a, nil
 }
 
@@ -688,4 +688,10 @@ func useDirperm() bool {
 		}
 	})
 	return enableDirperm
+}
+
+// UpdateLayerIDMap updates ID mappings in a layer from matching the ones
+// specified by toContainer to those specified by toHost.
+func (a *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error {
+	return fmt.Errorf("aufs doesn't support changing ID mappings")
 }

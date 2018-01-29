@@ -169,7 +169,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		options:       *opts,
 	}
 
-	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, uidMaps, gidMaps)
+	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d, uidMaps, gidMaps)
 
 	if backingFs == "xfs" {
 		// Try to enable project quota support over xfs.
@@ -776,4 +776,10 @@ func (d *Driver) Changes(id, parent, mountLabel string) ([]archive.Change, error
 // AdditionalImageStores returns additional image stores supported by the driver
 func (d *Driver) AdditionalImageStores() []string {
 	return d.options.imageStores
+}
+
+// UpdateLayerIDMap updates ID mappings in a from matching the ones specified
+// by toContainer to those specified by toHost.
+func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error {
+	return fmt.Errorf("overlay doesn't support changing ID mappings")
 }

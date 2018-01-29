@@ -107,10 +107,24 @@ type DiffDriver interface {
 	DiffSize(id, parent, mountLabel string) (size int64, err error)
 }
 
+// LayerIDMapUpdater is the interface that implements ID map changes for layers.
+type LayerIDMapUpdater interface {
+	// UpdateLayerIDMap walks the layer's filesystem tree, changing the ownership
+	// information using the toContainer and toHost mappings, using them to replace
+	// on-disk owner UIDs and GIDs which are "host" values in the first map with
+	// UIDs and GIDs for "host" values from the second map which correspond to the
+	// same "container" IDs.  This method should only be called after a layer is
+	// first created and populated, and before it is mounted, as other changes made
+	// relative to a parent layer, but before this method is called, may be discarded
+	// by Diff().
+	UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error
+}
+
 // Driver is the interface for layered/snapshot file system drivers.
 type Driver interface {
 	ProtoDriver
 	DiffDriver
+	LayerIDMapUpdater
 }
 
 // Capabilities defines a list of capabilities a driver may implement.

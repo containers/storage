@@ -43,7 +43,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 			continue
 		}
 	}
-	return graphdriver.NewNaiveDiffDriver(d, uidMaps, gidMaps), nil
+	return graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d), uidMaps, gidMaps), nil
 }
 
 // Driver holds information about the driver, home directory of the driver.

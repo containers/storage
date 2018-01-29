@@ -26,6 +26,7 @@ type NaiveDiffDriver struct {
 	ProtoDriver
 	uidMaps []idtools.IDMap
 	gidMaps []idtools.IDMap
+	LayerIDMapUpdater
 }
 
 // NewNaiveDiffDriver returns a fully functional driver that wraps the
@@ -35,8 +36,8 @@ type NaiveDiffDriver struct {
 //     Changes(id, parent, mountLabel string) ([]archive.Change, error)
 //     ApplyDiff(id, parent, mountLabel string, diff io.Reader) (size int64, err error)
 //     DiffSize(id, parent, mountLabel string) (size int64, err error)
-func NewNaiveDiffDriver(driver ProtoDriver, uidMaps, gidMaps []idtools.IDMap) Driver {
-	return &NaiveDiffDriver{ProtoDriver: driver,
+func NewNaiveDiffDriver(driver ProtoDriver, updater LayerIDMapUpdater, uidMaps, gidMaps []idtools.IDMap) Driver {
+	return &NaiveDiffDriver{ProtoDriver: driver, LayerIDMapUpdater: updater,
 		uidMaps: uidMaps,
 		gidMaps: gidMaps}
 }
