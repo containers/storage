@@ -36,7 +36,7 @@ local-gccgo: ## build using gccgo on the host
 	GCCGO=$(PWD)/hack/gccgo-wrapper.sh $(GO) build -compiler gccgo $(BUILDFLAGS) -o containers-storage.gccgo ./cmd/containers-storage
 
 local-cross: ## cross build the binaries for arm, darwin, and\nfreebsd
-	@for target in linux/amd64 linux/386 linux/arm darwin/amd64 ; do \
+	@for target in linux/amd64 linux/386 linux/arm darwin/amd64 windows/amd64 ; do \
 		os=`echo $${target} | cut -f1 -d/` ; \
 		arch=`echo $${target} | cut -f2 -d/` ; \
 		suffix=$${os}.$${arch} ; \
