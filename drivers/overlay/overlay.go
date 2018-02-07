@@ -169,7 +169,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		options:       *opts,
 	}
 
-	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d, uidMaps, gidMaps)
+	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d)
 
 	if backingFs == "xfs" {
 		// Try to enable project quota support over xfs.
@@ -386,6 +386,14 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	}
 	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
 		return err
+	}
+	if parent != "" {
+		st, err := system.Stat(d.dir(parent))
+		if err != nil {
+			return err
+		}
+		rootUID = int(st.UID())
+		rootGID = int(st.GID())
 	}
 	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
 		return err
@@ -697,9 +705,13 @@ func (d *Driver) isParent(id, parent string) bool {
 }
 
 // ApplyDiff applies the new layer into a root
-func (d *Driver) ApplyDiff(id, parent, mountLabel string, diff io.Reader) (size int64, err error) {
+func (d *Driver) ApplyDiff(id string, idMappings *idtools.IDMappings, parent string, mountLabel string, diff io.Reader) (size int64, err error) {
 	if !d.isParent(id, parent) {
-		return d.naiveDiff.ApplyDiff(id, parent, mountLabel, diff)
+		return d.naiveDiff.ApplyDiff(id, idMappings, parent, mountLabel, diff)
+	}
+
+	if idMappings == nil {
+		idMappings = &idtools.IDMappings{}
 	}
 
 	applyDir := d.getDiffPath(id)
@@ -707,8 +719,8 @@ func (d *Driver) ApplyDiff(id, parent, mountLabel string, diff io.Reader) (size 
 	logrus.Debugf("Applying tar in %s", applyDir)
 	// Overlay doesn't need the parent id to apply the diff
 	if err := untar(diff, applyDir, &archive.TarOptions{
-		UIDMaps:        d.uidMaps,
-		GIDMaps:        d.gidMaps,
+		UIDMaps:        idMappings.UIDs(),
+		GIDMaps:        idMappings.GIDs(),
 		WhiteoutFormat: archive.OverlayWhiteoutFormat,
 	}); err != nil {
 		return 0, err
@@ -726,18 +738,22 @@ func (d *Driver) getDiffPath(id string) string {
 // DiffSize calculates the changes between the specified id
 // and its parent and returns the size in bytes of the changes
 // relative to its base filesystem directory.
-func (d *Driver) DiffSize(id, parent, mountLabel string) (size int64, err error) {
+func (d *Driver) DiffSize(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (size int64, err error) {
 	if useNaiveDiff(d.home) || !d.isParent(id, parent) {
-		return d.naiveDiff.DiffSize(id, parent, mountLabel)
+		return d.naiveDiff.DiffSize(id, idMappings, parent, parentMappings, mountLabel)
 	}
 	return directory.Size(d.getDiffPath(id))
 }
 
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
-func (d *Driver) Diff(id, parent, mountLabel string) (io.ReadCloser, error) {
+func (d *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (io.ReadCloser, error) {
 	if useNaiveDiff(d.home) || !d.isParent(id, parent) {
-		return d.naiveDiff.Diff(id, parent, mountLabel)
+		return d.naiveDiff.Diff(id, idMappings, parent, parentMappings, mountLabel)
+	}
+
+	if idMappings == nil {
+		idMappings = &idtools.IDMappings{}
 	}
 
 	lowerDirs, err := d.getLowerDirs(id)
@@ -749,8 +765,8 @@ func (d *Driver) Diff(id, parent, mountLabel string) (io.ReadCloser, error) {
 	logrus.Debugf("Tar with options on %s", diffPath)
 	return archive.TarWithOptions(diffPath, &archive.TarOptions{
 		Compression:    archive.Uncompressed,
-		UIDMaps:        d.uidMaps,
-		GIDMaps:        d.gidMaps,
+		UIDMaps:        idMappings.UIDs(),
+		GIDMaps:        idMappings.GIDs(),
 		WhiteoutFormat: archive.OverlayWhiteoutFormat,
 		WhiteoutData:   lowerDirs,
 	})
@@ -758,9 +774,9 @@ func (d *Driver) Diff(id, parent, mountLabel string) (io.ReadCloser, error) {
 
 // Changes produces a list of changes between the specified layer
 // and its parent layer. If parent is "", then all changes will be ADD changes.
-func (d *Driver) Changes(id, parent, mountLabel string) ([]archive.Change, error) {
+func (d *Driver) Changes(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) ([]archive.Change, error) {
 	if useNaiveDiff(d.home) || !d.isParent(id, parent) {
-		return d.naiveDiff.Changes(id, parent, mountLabel)
+		return d.naiveDiff.Changes(id, idMappings, parent, parentMappings, mountLabel)
 	}
 	// Overlay doesn't have snapshots, so we need to get changes from all parent
 	// layers.

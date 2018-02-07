@@ -336,7 +336,7 @@ func TestGetDiff(t *testing.T) {
 	}
 	f.Close()
 
-	a, err := d.Diff("1", "", "")
+	a, err := d.Diff("1", nil, "", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +381,7 @@ func TestChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	changes, err := d.Changes("2", "", "")
+	changes, err := d.Changes("2", nil, "", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +420,7 @@ func TestChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	changes, err = d.Changes("3", "2", "")
+	changes, err = d.Changes("3", nil, "2", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,7 +472,7 @@ func TestDiffSize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffSize, err := d.DiffSize("1", "", "")
+	diffSize, err := d.DiffSize("1", nil, "", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +514,7 @@ func TestChildDiffSize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffSize, err := d.DiffSize("1", "", "")
+	diffSize, err := d.DiffSize("1", nil, "", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +526,7 @@ func TestChildDiffSize(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffSize, err = d.DiffSize("2", "1", "")
+	diffSize, err = d.DiffSize("2", nil, "1", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -608,7 +608,7 @@ func TestApplyDiff(t *testing.T) {
 	}
 	f.Close()
 
-	diff, err := d.Diff("1", "", "")
+	diff, err := d.Diff("1", nil, "", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -620,7 +620,7 @@ func TestApplyDiff(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := d.applyDiff("3", diff); err != nil {
+	if err := d.applyDiff("3", nil, diff); err != nil {
 		t.Fatal(err)
 	}
 

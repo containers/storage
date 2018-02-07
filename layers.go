@@ -799,12 +799,11 @@ func (r *layerStore) Wipe() error {
 	return nil
 }
 
-func (r *layerStore) findParentAndLayer(from, to string) (fromID string, toID string, toLayer *Layer, err error) {
+func (r *layerStore) findParentAndLayer(from, to string) (fromID string, toID string, fromLayer, toLayer *Layer, err error) {
 	var ok bool
-	var fromLayer *Layer
 	toLayer, ok = r.lookup(to)
 	if !ok {
-		return "", "", nil, ErrLayerUnknown
+		return "", "", nil, nil, ErrLayerUnknown
 	}
 	to = toLayer.ID
 	if from == "" {
@@ -821,15 +820,22 @@ func (r *layerStore) findParentAndLayer(from, to string) (fromID string, toID st
 			}
 		}
 	}
-	return from, to, toLayer, nil
+	return from, to, fromLayer, toLayer, nil
+}
+
+func (r *layerStore) layerMappings(layer *Layer) *idtools.IDMappings {
+	if layer == nil {
+		return &idtools.IDMappings{}
+	}
+	return idtools.NewIDMappingsFromMaps(layer.UIDMap, layer.GIDMap)
 }
 
 func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
-	from, to, toLayer, err := r.findParentAndLayer(from, to)
+	from, to, fromLayer, toLayer, err := r.findParentAndLayer(from, to)
 	if err != nil {
 		return nil, ErrLayerUnknown
 	}
-	return r.driver.Changes(to, from, toLayer.MountLabel)
+	return r.driver.Changes(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
 }
 
 type simpleGetCloser struct {
@@ -864,7 +870,7 @@ func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
 	var metadata storage.Unpacker
 
-	from, to, toLayer, err := r.findParentAndLayer(from, to)
+	from, to, fromLayer, toLayer, err := r.findParentAndLayer(from, to)
 	if err != nil {
 		return nil, ErrLayerUnknown
 	}
@@ -902,7 +908,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 	}
 
 	if from != toLayer.Parent {
-		diff, err := r.driver.Diff(to, from, toLayer.MountLabel)
+		diff, err := r.driver.Diff(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
 		if err != nil {
 			return nil, err
 		}
@@ -914,7 +920,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		diff, err := r.driver.Diff(to, from, toLayer.MountLabel)
+		diff, err := r.driver.Diff(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
 		if err != nil {
 			return nil, err
 		}
@@ -953,12 +959,12 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 }
 
 func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
-	var toLayer *Layer
-	from, to, toLayer, err = r.findParentAndLayer(from, to)
+	var fromLayer, toLayer *Layer
+	from, to, fromLayer, toLayer, err = r.findParentAndLayer(from, to)
 	if err != nil {
 		return -1, ErrLayerUnknown
 	}
-	return r.driver.DiffSize(to, from, toLayer.MountLabel)
+	return r.driver.DiffSize(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
 }
 
 func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error) {
@@ -998,7 +1004,7 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	if err != nil {
 		return -1, err
 	}
-	size, err = r.driver.ApplyDiff(layer.ID, layer.Parent, layer.MountLabel, payload)
+	size, err = r.driver.ApplyDiff(layer.ID, r.layerMappings(layer), layer.Parent, layer.MountLabel, payload)
 	if err != nil {
 		return -1, err
 	}

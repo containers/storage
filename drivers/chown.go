@@ -21,26 +21,26 @@ func init() {
 }
 
 func chownByMapsMain() {
-	if len(os.Args) < 1 {
-		fmt.Printf("requires mapping configuration on stdin and directory path")
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "requires mapping configuration on stdin and directory path")
 		os.Exit(1)
 	}
 	// Read and decode our configuration.
 	discreteMaps := [4][]idtools.IDMap{}
 	config := bytes.Buffer{}
 	if _, err := config.ReadFrom(os.Stdin); err != nil {
-		fmt.Printf("error reading configuration: %v", err)
+		fmt.Fprintf(os.Stderr, "error reading configuration: %v", err)
 		os.Exit(1)
 	}
 	if err := json.Unmarshal(config.Bytes(), &discreteMaps); err != nil {
-		fmt.Printf("error decoding configuration: %v", err)
+		fmt.Fprintf(os.Stderr, "error decoding configuration: %v", err)
 		os.Exit(1)
 	}
 	// Try to chroot.  This may not be possible, and on some systems that
 	// means we just Chdir() to the directory, so from here on we should be
 	// using relative paths.
-	if err := chrootOrChdir(os.Args[0]); err != nil {
-		fmt.Printf("error chrooting to %q: %v", os.Args[0], err)
+	if err := chrootOrChdir(os.Args[1]); err != nil {
+		fmt.Fprintf(os.Stderr, "error chrooting to %q: %v", os.Args[1], err)
 		os.Exit(1)
 	}
 	// Build the mapping objects.
@@ -64,15 +64,19 @@ func chownByMapsMain() {
 			// compensate for cases where a parent layer should
 			// have had a mapped value, but didn't.
 			uid, gid := int(st.Uid), int(st.Gid)
-			if toContainer != nil && ((uid != 0) || (gid != 0)) {
+			if toContainer != nil {
 				pair := idtools.IDPair{
 					UID: uid,
 					GID: gid,
 				}
-				uid, gid, err = toContainer.ToContainer(pair)
+				mappedUid, mappedGid, err := toContainer.ToContainer(pair)
 				if err != nil {
-					return fmt.Errorf("error mapping host ID pair %#v for %q to container: %v", pair, path, err)
+					if (uid != 0) || (gid != 0) {
+						return fmt.Errorf("error mapping host ID pair %#v for %q to container: %v", pair, path, err)
+					}
+					mappedUid, mappedGid = uid, gid
 				}
+				uid, gid = mappedUid, mappedGid
 			}
 			if toHost != nil {
 				pair := idtools.IDPair{
@@ -95,7 +99,7 @@ func chownByMapsMain() {
 		return nil
 	}
 	if err := filepath.Walk(".", chown); err != nil {
-		fmt.Printf("error during chown: %v", err)
+		fmt.Fprintf(os.Stderr, "error during chown: %v", err)
 		os.Exit(1)
 	}
 	os.Exit(0)

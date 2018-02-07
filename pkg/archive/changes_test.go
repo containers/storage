@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/system"
 	"github.com/stretchr/testify/require"
 )
@@ -255,7 +256,7 @@ func TestChangesDirsEmpty(t *testing.T) {
 	err = copyDir(src, dst)
 	require.NoError(t, err)
 	defer os.RemoveAll(dst)
-	changes, err := ChangesDirs(dst, src)
+	changes, err := ChangesDirs(dst, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	if len(changes) != 0 {
@@ -346,7 +347,7 @@ func TestChangesDirsMutated(t *testing.T) {
 
 	mutateSampleDir(t, dst)
 
-	changes, err := ChangesDirs(dst, src)
+	changes, err := ChangesDirs(dst, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	sort.Sort(changesByPath(changes))
@@ -402,7 +403,7 @@ func TestApplyLayer(t *testing.T) {
 	mutateSampleDir(t, dst)
 	defer os.RemoveAll(dst)
 
-	changes, err := ChangesDirs(dst, src)
+	changes, err := ChangesDirs(dst, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	layer, err := ExportChanges(dst, changes, nil, nil)
@@ -414,7 +415,7 @@ func TestApplyLayer(t *testing.T) {
 	_, err = ApplyLayer(src, layerCopy)
 	require.NoError(t, err)
 
-	changes2, err := ChangesDirs(src, dst)
+	changes2, err := ChangesDirs(src, &idtools.IDMappings{}, dst, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	if len(changes2) != 0 {
@@ -439,7 +440,7 @@ func TestChangesSizeWithHardlinks(t *testing.T) {
 	creationSize, err := prepareUntarSourceDirectory(100, destDir, true)
 	require.NoError(t, err)
 
-	changes, err := ChangesDirs(destDir, srcDir)
+	changes, err := ChangesDirs(destDir, &idtools.IDMappings{}, srcDir, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	got := ChangesSize(destDir, changes)

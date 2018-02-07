@@ -642,7 +642,7 @@ func checkNoChanges(fileNum int, hardlinks bool) error {
 		return err
 	}
 
-	changes, err := ChangesDirs(destDir, srcDir)
+	changes, err := ChangesDirs(destDir, &idtools.IDMappings{}, srcDir, &idtools.IDMappings{})
 	if err != nil {
 		return err
 	}
@@ -683,7 +683,7 @@ func tarUntar(t *testing.T, origin string, options *TarOptions) ([]Change, error
 		return nil, err
 	}
 
-	return ChangesDirs(origin, tmp)
+	return ChangesDirs(origin, &idtools.IDMappings{}, tmp, &idtools.IDMappings{})
 }
 
 func TestTarUntar(t *testing.T) {

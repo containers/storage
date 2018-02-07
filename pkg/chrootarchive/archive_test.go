@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/containers/storage/pkg/system"
 )
@@ -144,7 +145,7 @@ func getHash(filename string) (uint32, error) {
 }
 
 func compareDirectories(src string, dest string) error {
-	changes, err := archive.ChangesDirs(dest, src)
+	changes, err := archive.ChangesDirs(dest, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	if err != nil {
 		return err
 	}
