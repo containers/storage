@@ -181,7 +181,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, fmt.Errorf("Storage option overlay.size only supported for backingFS XFS. Found %v", backingFs)
 	}
 
-	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v", backingFs, projectQuotaSupported)
+	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v", backingFs, projectQuotaSupported, !useNaiveDiff(home))
 
 	return d, nil
 }
@@ -424,16 +424,16 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 
-	// if no parent directory, done
-	if parent == "" {
-		return nil
-	}
-
 	if err := idtools.MkdirAs(path.Join(dir, "work"), 0700, rootUID, rootGID); err != nil {
 		return err
 	}
 	if err := idtools.MkdirAs(path.Join(dir, "merged"), 0700, rootUID, rootGID); err != nil {
 		return err
+	}
+
+	// if no parent directory, create a dummy lower directory and skip writing a "lowers" file
+	if parent == "" {
+		return idtools.MkdirAs(path.Join(dir, "empty"), 0700, rootUID, rootGID)
 	}
 
 	lower, err := d.getLower(parent)
@@ -556,11 +556,7 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 
 	diffDir := path.Join(dir, "diff")
 	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
-	if err != nil {
-		// If no lower, just return diff directory
-		if os.IsNotExist(err) {
-			return diffDir, nil
-		}
+	if err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
 
@@ -587,6 +583,10 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 		} else {
 			newlowers = newlowers + ":" + lower
 		}
+	}
+	if len(lowers) == 0 {
+		newlowers = path.Join(dir, "empty")
+		lowers = []byte(newlowers)
 	}
 
 	mergedDir := path.Join(dir, "merged")
@@ -658,11 +658,7 @@ func (d *Driver) Put(id string) error {
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	if _, err := ioutil.ReadFile(path.Join(dir, lowerFile)); err != nil {
-		// If no lower, we used the diff directory, so no work to do
-		if os.IsNotExist(err) {
-			return nil
-		}
+	if _, err := ioutil.ReadFile(path.Join(dir, lowerFile)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil {
