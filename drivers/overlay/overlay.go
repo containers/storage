@@ -142,14 +142,16 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	supportsDType, err := supportsOverlay(home, fsMagic, rootUID, rootGID)
-	if err != nil {
-		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support overlay fs")
-	}
-
 	// Create the driver home dir
 	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
 		return nil, err
+	}
+
+	supportsDType, err := supportsOverlay(home, fsMagic, rootUID, rootGID)
+	if err != nil {
+		os.Remove(filepath.Join(home, linkDir))
+		os.Remove(home)
+		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support overlay fs")
 	}
 
 	if err := mount.MakePrivate(home); err != nil {
