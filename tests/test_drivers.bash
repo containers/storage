@@ -1,5 +1,7 @@
 #!/bin/bash
 
+TMPDIR=${TMPDIR:-/var/tmp}
+
 aufs() {
 	modprobe aufs 2> /dev/null
 	grep -E -q '	aufs$' /proc/filesystems
