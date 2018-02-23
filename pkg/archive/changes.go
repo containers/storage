@@ -187,10 +187,15 @@ func changes(layers []string, rw string, dc deleteChange, sc skipChange) ([]Chan
 		}
 		if change.Kind == ChangeAdd || change.Kind == ChangeDelete {
 			parent := filepath.Dir(path)
-			if _, ok := changedDirs[parent]; !ok && parent != "/" {
-				changes = append(changes, Change{Path: parent, Kind: ChangeModify})
-				changedDirs[parent] = struct{}{}
+			tail := []Change{}
+			for parent != "/" {
+				if _, ok := changedDirs[parent]; !ok && parent != "/" {
+					tail = append([]Change{{Path: parent, Kind: ChangeModify}}, tail...)
+					changedDirs[parent] = struct{}{}
+				}
+				parent = filepath.Dir(parent)
 			}
+			changes = append(changes, tail...)
 		}
 
 		// Record change
