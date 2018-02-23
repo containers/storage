@@ -285,10 +285,40 @@ func clen(n []byte) int {
 	return len(n)
 }
 
+func isENOTDIR(err error) bool {
+	if err == nil {
+		return false
+	}
+	if perror, ok := err.(*os.PathError); ok {
+		if errno, ok := perror.Err.(syscall.Errno); ok {
+			return errno == syscall.ENOTDIR
+		}
+	}
+	return false
+}
+
 // OverlayChanges walks the path rw and determines changes for the files in the path,
 // with respect to the parent layers
 func OverlayChanges(layers []string, rw string) ([]Change, error) {
-	return changes(layers, rw, overlayDeletedFile, nil)
+	return changes(layers, rw, overlayDeletedFile, nil, overlayLowerContainsWhiteout)
+}
+
+func overlayLowerContainsWhiteout(root, path string) (bool, error) {
+	// Whiteout for a file or directory has the same name, but is for a character
+	// device with major/minor of 0/0.
+	stat, err := os.Stat(filepath.Join(root, path))
+	if err != nil && !os.IsNotExist(err) && !isENOTDIR(err) {
+		// Not sure what happened here.
+		return false, err
+	}
+	if err == nil && stat.Mode()&os.ModeCharDevice != 0 {
+		// Check if there's whiteout for the specified item in the specified layer.
+		s := stat.Sys().(*syscall.Stat_t)
+		if major(s.Rdev) == 0 && minor(s.Rdev) == 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func overlayDeletedFile(root, path string, fi os.FileInfo) (string, error) {

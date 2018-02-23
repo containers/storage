@@ -212,6 +212,8 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedChanges := []Change{
+		{"/dir1", ChangeModify},
+		{"/dir1/dir2", ChangeModify},
 		{"/dir1/dir2/dir3", ChangeModify},
 		{"/dir1/dir2/dir3/file1.txt", ChangeAdd},
 	}
