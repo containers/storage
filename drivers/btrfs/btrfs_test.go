@@ -58,6 +58,10 @@ func TestBtrfsSubvolDelete(t *testing.T) {
 	}
 }
 
+func TestBtrfsEcho(t *testing.T) {
+	graphtest.DriverTestEcho(t, "btrfs")
+}
+
 func TestBtrfsTeardown(t *testing.T) {
 	graphtest.PutDriver(t)
 }

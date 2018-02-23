@@ -86,6 +86,10 @@ func TestDevmapperTeardown(t *testing.T) {
 	graphtest.PutDriver(t)
 }
 
+func TestDevmapperEcho(t *testing.T) {
+	graphtest.DriverTestEcho(t, "devicemapper")
+}
+
 func TestDevmapperReduceLoopBackSize(t *testing.T) {
 	tenMB := int64(10 * 1024 * 1024)
 	testChangeLoopBackSize(t, -tenMB, defaultDataLoopbackSize, defaultMetaDataLoopbackSize)

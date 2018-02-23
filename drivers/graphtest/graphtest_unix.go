@@ -4,15 +4,18 @@ package graphtest
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"unsafe"
 
 	"github.com/containers/storage/drivers"
+	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/docker/go-units"
 	"github.com/pkg/errors"
@@ -335,4 +338,112 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 		t.Fatalf("expect write() to fail with %v, got %v", unix.EDQUOT, err)
 	}
 
+}
+
+// DriverTestEcho tests that we can diff a layer correctly, focusing on trouble spots that NaiveDiff doesn't have
+func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
+	driver := GetDriver(t, drivername, driverOptions...)
+	defer PutDriver(t)
+	var err error
+	var root string
+	components := 10
+
+	for depth := 0; depth < components; depth++ {
+		base := stringid.GenerateRandomID()
+		second := stringid.GenerateRandomID()
+		third := stringid.GenerateRandomID()
+
+		if err := driver.Create(base, "", nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if root, err = driver.Get(base, ""); err != nil {
+			t.Fatal(err)
+		}
+
+		paths := []string{}
+		path := "/"
+		expectedChanges := []archive.Change{}
+		for i := 0; i < components-1; i++ {
+			path = filepath.Join(path, fmt.Sprintf("subdir%d", i+1))
+			paths = append(paths, path)
+			if err = os.Mkdir(filepath.Join(root, path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: path})
+		}
+		path = filepath.Join(path, "file")
+		paths = append(paths, path)
+		if err = ioutil.WriteFile(filepath.Join(root, path), randomContent(128, int64(depth)), 0600); err != nil {
+			t.Fatal(err)
+		}
+		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: path})
+
+		changes, err := driver.Changes(base, "", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err = checkChanges(expectedChanges, changes); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := driver.Create(second, base, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if root, err = driver.Get(second, ""); err != nil {
+			t.Fatal(err)
+		}
+
+		if err = os.RemoveAll(filepath.Join(root, paths[depth])); err != nil {
+			t.Fatal(err)
+		}
+		expectedChanges = []archive.Change{}
+		for i := 0; i < depth; i++ {
+			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeModify, Path: paths[i]})
+		}
+		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeDelete, Path: paths[depth]})
+
+		changes, err = driver.Changes(second, base, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err = checkChanges(expectedChanges, changes); err != nil {
+			t.Fatal(err)
+		}
+
+		if err = driver.Create(third, second, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if root, err = driver.Get(third, ""); err != nil {
+			t.Fatal(err)
+		}
+
+		expectedChanges = []archive.Change{}
+		for i := 0; i < depth; i++ {
+			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeModify, Path: paths[i]})
+		}
+		for i := depth; i < components-1; i++ {
+			if err = os.Mkdir(filepath.Join(root, paths[i]), 0700); err != nil {
+				t.Fatal(err)
+			}
+			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[i]})
+		}
+		if err = ioutil.WriteFile(filepath.Join(root, paths[len(paths)-1]), randomContent(128, int64(depth)), 0600); err != nil {
+			t.Fatal(err)
+		}
+		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[len(paths)-1]})
+
+		changes, err = driver.Changes(third, second, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err = checkChanges(expectedChanges, changes); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

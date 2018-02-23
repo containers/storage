@@ -84,6 +84,10 @@ func TestOverlayTeardown(t *testing.T) {
 	graphtest.PutDriver(t)
 }
 
+func TestOverlayEcho(t *testing.T) {
+	graphtest.DriverTestEcho(t, driverName)
+}
+
 // Benchmarks should always setup new driver
 
 func BenchmarkExists(b *testing.B) {
