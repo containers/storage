@@ -157,6 +157,9 @@ populate() {
 	mkdir "$uppermount"/layerdir4
 	mkdir "$uppermount"/layerdir4/layer1subdir
 	mkdir "$uppermount"/layerdir7
+	# Add some new contents, too.
+	mkdir "$uppermount"/layerdir3/layer3subdir
+	mkdir "$uppermount"/layerdir3/layer3subdir/layer3subsubdir
 	createrandom "$uppermount"/layerdir7/layer1file4
 	# Unmount the layer.
 	storage unmount $upperlayer
@@ -169,7 +172,8 @@ checkchanges() {
 	storage changes $lowerlayer
 	run storagewithsorting2 --debug=false changes $lowerlayer
 	[ "$status" -eq 0 ]
-	echo :"$output":
+	echo Changes for layer 1:
+	echo "$output"
 	[ "${#lines[*]}" -eq 18 ]
 	[ "${lines[0]}" = 'Add "/layer1file1"' ]
 	[ "${lines[1]}" = 'Add "/layer1file2"' ]
@@ -193,7 +197,8 @@ checkchanges() {
 	storage changes $midlayer
 	run storagewithsorting2 --debug=false changes $midlayer
 	[ "$status" -eq 0 ]
-	echo :"$output":
+	echo Changes for layer 2:
+	echo "$output"
 	[ "${#lines[*]}" -eq 14 ]
 	[ "${lines[0]}" = 'Delete "/layer1file1"' ]
 	[ "${lines[1]}" = 'Delete "/layer1file2"' ]
@@ -213,14 +218,18 @@ checkchanges() {
 	storage changes $upperlayer
 	run storagewithsorting2 --debug=false changes $upperlayer
 	[ "$status" -eq 0 ]
-	echo :"$output":
-	[ "${#lines[*]}" -eq 6 ]
+	echo Changes for layer 3:
+	echo "$output"
+	[ "${#lines[*]}" -eq 9 ]
 	[ "${lines[0]}" = 'Add "/layerdir1"' ]
-	[ "${lines[1]}" = 'Add "/layerdir4"' ]
-	[ "${lines[2]}" = 'Add "/layerdir4/layer1subdir"' ]
-	[ "${lines[3]}" = 'Add "/layerdir7"' ]
-	[ "${lines[4]}" = 'Add "/layerdir7/layer1file4"' ]
-	[ "${lines[5]}" = 'Add "/layerfile1"' ]
+	[ "${lines[1]}" = 'Modify "/layerdir3"' ]
+	[ "${lines[2]}" = 'Add "/layerdir3/layer3subdir"' ]
+	[ "${lines[3]}" = 'Add "/layerdir3/layer3subdir/layer3subsubdir"' ]
+	[ "${lines[4]}" = 'Add "/layerdir4"' ]
+	[ "${lines[5]}" = 'Add "/layerdir4/layer1subdir"' ]
+	[ "${lines[6]}" = 'Add "/layerdir7"' ]
+	[ "${lines[7]}" = 'Add "/layerdir7/layer1file4"' ]
+	[ "${lines[8]}" = 'Add "/layerfile1"' ]
 }
 
 # Check that the diff contents for layers created by populate() correspond to
@@ -231,7 +240,8 @@ checkdiffs() {
 	tar tf $TESTDIR/lower.tar > $TESTDIR/lower.txt
 	run env LC_ALL=C sort $TESTDIR/lower.txt
 	[ "$status" -eq 0 ]
-	echo :"$output":
+	echo Diff contents for layer 1:
+	echo "$output"
 	[ "${#lines[*]}" -eq 18 ]
 	[ "${lines[0]}" = 'layer1file1' ]
 	[ "${lines[1]}" = 'layer1file2' ]
@@ -256,7 +266,8 @@ checkdiffs() {
 	tar tzf $TESTDIR/middle.tar > $TESTDIR/middle.txt
 	run env LC_ALL=C sort $TESTDIR/middle.txt
 	[ "$status" -eq 0 ]
-	echo :"$output":
+	echo Diff contents for layer 2:
+	echo "$output"
 	[ "${#lines[*]}" -eq 14 ]
 	[ "${lines[0]}" = '.wh.layer1file1' ]
 	[ "${lines[1]}" = '.wh.layer1file2' ]
@@ -277,12 +288,16 @@ checkdiffs() {
 	tar tf $TESTDIR/upper.tar > $TESTDIR/upper.txt
 	run env LC_ALL=C sort $TESTDIR/upper.txt
 	[ "$status" -eq 0 ]
-	echo :"$output":
-	[ "${#lines[*]}" -eq 6 ]
+	echo Diff contents for layer 3:
+	echo "$output"
+	[ "${#lines[*]}" -eq 9 ]
 	[ "${lines[0]}" = 'layerdir1/' ]
-	[ "${lines[1]}" = 'layerdir4/' ]
-	[ "${lines[2]}" = 'layerdir4/layer1subdir/' ]
-	[ "${lines[3]}" = 'layerdir7/' ]
-	[ "${lines[4]}" = 'layerdir7/layer1file4' ]
-	[ "${lines[5]}" = 'layerfile1' ]
+	[ "${lines[1]}" = 'layerdir3/' ]
+	[ "${lines[2]}" = 'layerdir3/layer3subdir/' ]
+	[ "${lines[3]}" = 'layerdir3/layer3subdir/layer3subsubdir/' ]
+	[ "${lines[4]}" = 'layerdir4/' ]
+	[ "${lines[5]}" = 'layerdir4/layer1subdir/' ]
+	[ "${lines[6]}" = 'layerdir7/' ]
+	[ "${lines[7]}" = 'layerdir7/layer1file4' ]
+	[ "${lines[8]}" = 'layerfile1' ]
 }
