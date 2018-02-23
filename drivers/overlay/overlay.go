@@ -740,6 +740,11 @@ func (d *Driver) Diff(id, parent, mountLabel string) (io.ReadCloser, error) {
 		return d.naiveDiff.Diff(id, parent, mountLabel)
 	}
 
+	lowerDirs, err := d.getLowerDirs(id)
+	if err != nil {
+		return nil, err
+	}
+
 	diffPath := d.getDiffPath(id)
 	logrus.Debugf("Tar with options on %s", diffPath)
 	return archive.TarWithOptions(diffPath, &archive.TarOptions{
@@ -747,6 +752,7 @@ func (d *Driver) Diff(id, parent, mountLabel string) (io.ReadCloser, error) {
 		UIDMaps:        d.uidMaps,
 		GIDMaps:        d.gidMaps,
 		WhiteoutFormat: archive.OverlayWhiteoutFormat,
+		WhiteoutData:   lowerDirs,
 	})
 }
 

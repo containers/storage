@@ -50,6 +50,15 @@ func setupOverlayTestDir(t *testing.T, src string) {
 	require.NoError(t, err)
 }
 
+func setupOverlayLowerDir(t *testing.T, lower string) {
+	// Create a subdirectory to use as the "lower layer"'s copy of a deleted directory
+	err := os.Mkdir(filepath.Join(lower, "d1"), 0700)
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(filepath.Join(lower, "d1", "f1"), []byte{}, 0600)
+	require.NoError(t, err)
+}
+
 func checkOpaqueness(t *testing.T, path string, opaque string) {
 	xattrOpaque, err := system.Lgetxattr(path, "trusted.overlay.opaque")
 	require.NoError(t, err)
@@ -93,6 +102,12 @@ func TestOverlayTarUntar(t *testing.T) {
 
 	setupOverlayTestDir(t, src)
 
+	lower, err := ioutil.TempDir("", "storage-test-overlay-tar-lower")
+	require.NoError(t, err)
+	defer os.RemoveAll(lower)
+
+	setupOverlayLowerDir(t, lower)
+
 	dst, err := ioutil.TempDir("", "storage-test-overlay-tar-dst")
 	require.NoError(t, err)
 	defer os.RemoveAll(dst)
@@ -100,6 +115,7 @@ func TestOverlayTarUntar(t *testing.T) {
 	options := &TarOptions{
 		Compression:    Uncompressed,
 		WhiteoutFormat: OverlayWhiteoutFormat,
+		WhiteoutData:   []string{lower},
 	}
 	archive, err := TarWithOptions(src, options)
 	require.NoError(t, err)
@@ -116,7 +132,7 @@ func TestOverlayTarUntar(t *testing.T) {
 	checkFileMode(t, filepath.Join(dst, "d3", "f1"), os.ModeCharDevice|os.ModeDevice)
 
 	checkOpaqueness(t, filepath.Join(dst, "d1"), "y")
-	checkOpaqueness(t, filepath.Join(dst, "d2"), "y")
+	checkOpaqueness(t, filepath.Join(dst, "d2"), "")
 	checkOpaqueness(t, filepath.Join(dst, "d3"), "")
 	checkOverlayWhiteout(t, filepath.Join(dst, "d3", "f1"))
 }
@@ -132,6 +148,12 @@ func TestOverlayTarAUFSUntar(t *testing.T) {
 
 	setupOverlayTestDir(t, src)
 
+	lower, err := ioutil.TempDir("", "storage-test-overlay-tar-lower")
+	require.NoError(t, err)
+	defer os.RemoveAll(lower)
+
+	setupOverlayLowerDir(t, lower)
+
 	dst, err := ioutil.TempDir("", "storage-test-overlay-tar-dst")
 	require.NoError(t, err)
 	defer os.RemoveAll(dst)
@@ -139,6 +161,7 @@ func TestOverlayTarAUFSUntar(t *testing.T) {
 	archive, err := TarWithOptions(src, &TarOptions{
 		Compression:    Uncompressed,
 		WhiteoutFormat: OverlayWhiteoutFormat,
+		WhiteoutData:   []string{lower},
 	})
 	require.NoError(t, err)
 	defer archive.Close()
@@ -152,7 +175,6 @@ func TestOverlayTarAUFSUntar(t *testing.T) {
 	checkFileMode(t, filepath.Join(dst, "d1"), 0700|os.ModeDir)
 	checkFileMode(t, filepath.Join(dst, "d1", WhiteoutOpaqueDir), 0700)
 	checkFileMode(t, filepath.Join(dst, "d2"), 0750|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d2", WhiteoutOpaqueDir), 0750)
 	checkFileMode(t, filepath.Join(dst, "d3"), 0700|os.ModeDir)
 	checkFileMode(t, filepath.Join(dst, "d1", "f1"), 0600)
 	checkFileMode(t, filepath.Join(dst, "d2", "f1"), 0660)
