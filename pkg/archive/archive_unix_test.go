@@ -236,7 +236,8 @@ func TestTarUntarWithXattr(t *testing.T) {
 	require.NoError(t, err)
 	err = ioutil.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0700)
 	require.NoError(t, err)
-	err = system.Lsetxattr(filepath.Join(origin, "2"), "security.capability", []byte{0x00}, 0)
+	encoded := [20]byte{0, 0, 0, 2}
+	err = system.Lsetxattr(filepath.Join(origin, "2"), "security.capability", encoded[:], 0)
 	require.NoError(t, err)
 
 	for _, c := range []Compression{
