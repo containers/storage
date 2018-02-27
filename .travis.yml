@@ -1,14 +1,40 @@
+---
+
+sudo: required
+
+# N/B: host go env. not actually used, see .run_ci_tests.sh
 language: go
 go:
-    - 1.9
-    - 1.8
-    - 1.7
-dist: trusty
-sudo: required
+    - master
+
+services:
+  - docker
+
+env:
+    global:
+        # In Travis $PWD == $TRAVIS_BUILD_DIR == subdir of $HOME, this makes that happen
+        - REPO_VOL=$HOME
+        - TRAVIS_ENV="-e TRAVIS=$TRAVIS
+                      -e CI=$CI
+                      -e TRAVIS_COMMIT=$TRAVIS_COMMIT
+                      -e TRAVIS_REPO_SLUG=$TRAVIS_REPO_SLUG
+                      -e TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST
+                      -e TRAVIS_PULL_REQUEST_SHA=$TRAVIS_PULL_REQUEST_SHA
+                      -e TRAVIS_PULL_REQUEST_SLUG=$TRAVIS_PULL_REQUEST_SLUG
+                      -e TRAVIS_BRANCH=$TRAVIS_BRANCH
+                      -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID
+                      -e TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR"
+    matrix:
+        - GO_VERSION="stable"
+        - GO_VERSION="1.9"
+        - GO_VERSION="1.8"
+        - GO_VERSION="1.7"
+
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get -qq install btrfs-tools libdevmapper-dev
+
 script:
-    - make install.tools
-    - make local-binary docs local-cross local-validate
-    - sudo PATH="$PATH" make local-test-unit local-test-integration
+    - echo "Travis/host environment:"
+    - env
+    - echo "Running tests in SPC"
+    - ./.run_ci_tests.sh
