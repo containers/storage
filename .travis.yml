@@ -12,11 +12,10 @@ services:
 
 env:
     global:
-        # In Travis $PWD == $TRAVIS_BUILD_DIR == subdir of $HOME, this makes that happen
-        - REPO_VOL=$HOME
         - TRAVIS_ENV="-e TRAVIS=$TRAVIS
                       -e CI=$CI
                       -e TRAVIS_COMMIT=$TRAVIS_COMMIT
+                      -e TRAVIS_COMMIT_RANGE=$TRAVIS_COMMIT_RANGE
                       -e TRAVIS_REPO_SLUG=$TRAVIS_REPO_SLUG
                       -e TRAVIS_PULL_REQUEST=$TRAVIS_PULL_REQUEST
                       -e TRAVIS_PULL_REQUEST_SHA=$TRAVIS_PULL_REQUEST_SHA
@@ -28,7 +27,6 @@ env:
         - GO_VERSION="stable"
         - GO_VERSION="1.9"
         - GO_VERSION="1.8"
-        - GO_VERSION="1.7"
 
 before_install:
     - sudo apt-get -qq update
@@ -36,5 +34,6 @@ before_install:
 script:
     - echo "Travis/host environment:"
     - env
-    - echo "Running tests in SPC"
+    - echo
+    - echo "Running tests in SPC using ./.run_ci_tests.sh"
     - ./.run_ci_tests.sh
