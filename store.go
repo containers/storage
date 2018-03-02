@@ -2989,6 +2989,9 @@ type OptionsConfig struct {
 	Thinpool struct{ ThinpoolOptionsConfig } `toml:"thinpool"`
 	// OSTree repository
 	OstreeRepo string `toml:"ostree_repo"`
+
+	// Do not create a bind mount on the storage home
+	SkipMountHome string `toml:"skip_mount_home"`
 }
 
 // TOML-friendly explicit tables used for conversions.
@@ -3081,6 +3084,9 @@ func init() {
 	}
 	if config.Storage.Options.OstreeRepo != "" {
 		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.ostree_repo=%s", config.Storage.Driver, config.Storage.Options.OstreeRepo))
+	}
+	if config.Storage.Options.SkipMountHome != "" {
+		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.skip_mount_home=%s", config.Storage.Driver, config.Storage.Options.SkipMountHome))
 	}
 	if config.Storage.Options.OverrideKernelCheck != "" {
 		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))

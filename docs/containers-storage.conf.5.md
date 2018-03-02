@@ -132,6 +132,9 @@ Specifies the maximum number of retries XFS should attempt to complete IO when E
 **ostree_repo=""**
   Tell storage drivers to use the specified OSTree repository.  Some storage drivers, such as overlay, might use
 
+**skip_mount_home=""**
+  Tell storage drivers to not create a PRIVATE bind mount on their home directory.
+
 # HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
 Format copied from crio.conf man page created by Aleksa Sarai <asarai@suse.de>

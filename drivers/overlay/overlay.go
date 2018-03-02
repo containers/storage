@@ -87,6 +87,7 @@ type overlayOptions struct {
 	quota               quota.Quota
 	fuseProgram         string
 	ostreeRepo          string
+	skipMountHome       bool
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -163,8 +164,10 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		}
 	}
 
-	if err := mount.MakePrivate(home); err != nil {
-		return nil, err
+	if !opts.skipMountHome {
+		if err := mount.MakePrivate(home); err != nil {
+			return nil, err
+		}
 	}
 
 	if opts.ostreeRepo != "" {
@@ -256,6 +259,12 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				return nil, fmt.Errorf("overlay: ostree_repo specified but support for ostree is missing")
 			}
 			o.ostreeRepo = val
+		case "overlay2.skip_mount_home", "overlay.skip_mount_home", ".skip_mount_home":
+			logrus.Debugf("overlay: skip_mount_home=%s", val)
+			o.skipMountHome, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("overlay: Unknown option %s", key)
 		}
