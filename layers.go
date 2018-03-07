@@ -226,7 +226,22 @@ type layerStore struct {
 func (r *layerStore) Layers() ([]Layer, error) {
 	layers := make([]Layer, len(r.layers))
 	for i := range r.layers {
-		layers[i] = *(r.layers[i])
+		layers[i] = Layer{
+			ID:                 r.layers[i].ID,
+			Names:              copyStringSlice(r.layers[i].Names),
+			Parent:             r.layers[i].Parent,
+			Metadata:           r.layers[i].Metadata,
+			MountLabel:         r.layers[i].MountLabel,
+			MountPoint:         r.layers[i].MountPoint,
+			MountCount:         r.layers[i].MountCount,
+			Created:            r.layers[i].Created,
+			CompressedDigest:   r.layers[i].CompressedDigest,
+			CompressedSize:     r.layers[i].CompressedSize,
+			UncompressedDigest: r.layers[i].UncompressedDigest,
+			UncompressedSize:   r.layers[i].UncompressedSize,
+			CompressionType:    r.layers[i].CompressionType,
+			Flags:              copyStringInterfaceMap(r.layers[i].Flags),
+		}
 	}
 	return layers, nil
 }

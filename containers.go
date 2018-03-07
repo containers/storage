@@ -109,7 +109,18 @@ type containerStore struct {
 func (r *containerStore) Containers() ([]Container, error) {
 	containers := make([]Container, len(r.containers))
 	for i := range r.containers {
-		containers[i] = *(r.containers[i])
+		containers[i] = Container{
+			ID:             r.containers[i].ID,
+			Names:          copyStringSlice(r.containers[i].Names),
+			ImageID:        r.containers[i].ImageID,
+			LayerID:        r.containers[i].LayerID,
+			Metadata:       r.containers[i].Metadata,
+			BigDataNames:   copyStringSlice(r.containers[i].BigDataNames),
+			BigDataSizes:   copyStringInt64Map(r.containers[i].BigDataSizes),
+			BigDataDigests: copyStringDigestMap(r.containers[i].BigDataDigests),
+			Created:        r.containers[i].Created,
+			Flags:          copyStringInterfaceMap(r.containers[i].Flags),
+		}
 	}
 	return containers, nil
 }
