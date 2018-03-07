@@ -127,7 +127,18 @@ type imageStore struct {
 func (r *imageStore) Images() ([]Image, error) {
 	images := make([]Image, len(r.images))
 	for i := range r.images {
-		images[i] = *(r.images[i])
+		images[i] = Image{
+			ID:             r.images[i].ID,
+			Digest:         r.images[i].Digest,
+			Names:          copyStringSlice(r.images[i].Names),
+			TopLayer:       r.images[i].TopLayer,
+			Metadata:       r.images[i].Metadata,
+			BigDataNames:   copyStringSlice(r.images[i].BigDataNames),
+			BigDataSizes:   copyStringInt64Map(r.images[i].BigDataSizes),
+			BigDataDigests: copyStringDigestMap(r.images[i].BigDataDigests),
+			Created:        r.images[i].Created,
+			Flags:          copyStringInterfaceMap(r.images[i].Flags),
+		}
 	}
 	return images, nil
 }
