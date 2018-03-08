@@ -25,15 +25,19 @@ env:
                       -e TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR"
     matrix:
         - GO_VERSION="stable"
+          DISTRO="ubuntu"
         - GO_VERSION="1.9"
+          DISTRO="ubuntu"
         - GO_VERSION="1.8"
+          DISTRO="ubuntu"
 
 before_install:
     - sudo apt-get -qq update
+    - sudo apt-get -qq install realpath
 
 script:
     - echo "Travis/host environment:"
     - env
     - echo
-    - echo "Running tests in SPC using ./.run_ci_tests.sh"
-    - ./.run_ci_tests.sh
+    - echo "Running tests in SPC using ./hack/run_ci_tests.sh"
+    - ./hack/run_ci_tests.sh
