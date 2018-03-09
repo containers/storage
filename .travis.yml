@@ -24,10 +24,13 @@ env:
                       -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID
                       -e TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR"
     matrix:
-        - GO_VERSION="stable"
-          DISTRO="ubuntu"
+        # TODO: broken?
+        #- GO_VERSION="stable"
+        #  DISTRO="ubuntu"
+
         - GO_VERSION="1.9"
           DISTRO="ubuntu"
+
         - GO_VERSION="1.8"
           DISTRO="ubuntu"
 
