@@ -16,19 +16,26 @@ default all: local-binary docs local-validate local-cross local-gccgo test-unit 
 clean: ## remove all built files
 	$(RM) -f containers-storage containers-storage.* docs/*.1
 
-sources := $(wildcard *.go cmd/containers-storage/*.go drivers/*.go drivers/*/*.go pkg/*/*.go pkg/*/*/*.go) layers_ffjson.go images_ffjson.go containers_ffjson.go
+sources := $(wildcard *.go cmd/containers-storage/*.go drivers/*.go drivers/*/*.go pkg/*/*.go pkg/*/*/*.go) layers_ffjson.go images_ffjson.go containers_ffjson.go pkg/archive/archive_ffjson.go
 
 containers-storage: $(sources) ## build using gc on the host
 	$(GO) build -compiler gc $(BUILDFLAGS) ./cmd/containers-storage
 
 layers_ffjson.go: layers.go
+	$(RM) $@
 	ffjson layers.go
 
 images_ffjson.go: images.go
+	$(RM) $@
 	ffjson images.go
 
 containers_ffjson.go: containers.go
+	$(RM) $@
 	ffjson containers.go
+
+pkg/archive/archive_ffjson.go: pkg/archive/archive.go
+	$(RM) $@
+	ffjson pkg/archive/archive.go
 
 binary local-binary: containers-storage
 
