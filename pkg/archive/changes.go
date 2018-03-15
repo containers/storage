@@ -116,6 +116,18 @@ func aufsWhiteoutPresent(root, path string) (bool, error) {
 	return false, err
 }
 
+func isENOTDIR(err error) bool {
+	if err == nil {
+		return false
+	}
+	if perror, ok := err.(*os.PathError); ok {
+		if errno, ok := perror.Err.(syscall.Errno); ok {
+			return errno == syscall.ENOTDIR
+		}
+	}
+	return false
+}
+
 type skipChange func(string) (bool, error)
 type deleteChange func(string, string, os.FileInfo) (string, error)
 type whiteoutChange func(string, string) (bool, error)
