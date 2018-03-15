@@ -285,18 +285,6 @@ func clen(n []byte) int {
 	return len(n)
 }
 
-func isENOTDIR(err error) bool {
-	if err == nil {
-		return false
-	}
-	if perror, ok := err.(*os.PathError); ok {
-		if errno, ok := perror.Err.(syscall.Errno); ok {
-			return errno == syscall.ENOTDIR
-		}
-	}
-	return false
-}
-
 // OverlayChanges walks the path rw and determines changes for the files in the path,
 // with respect to the parent layers
 func OverlayChanges(layers []string, rw string) ([]Change, error) {
