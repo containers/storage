@@ -124,7 +124,7 @@ func ChownPathByMaps(path string, toContainer, toHost *idtools.IDMappings) error
 	}
 	cmd := reexec.Command(chownByMapsCmd, path)
 	cmd.Stdin = bytes.NewReader(config)
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if len(output) > 0 && err != nil {
 		return fmt.Errorf("%v: %s", err, string(output))
 	}
