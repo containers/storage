@@ -873,7 +873,7 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 			GIDMap:         copyIDMap(gidMap),
 		},
 	}
-	return rlstore.Put(id, parentLayer, names, mountLabel, nil, writeable, layerOptions, nil, diff)
+	return rlstore.Put(id, parentLayer, names, mountLabel, nil, layerOptions, writeable, nil, diff)
 }
 
 func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool, options *LayerOptions) (*Layer, error) {
@@ -1028,7 +1028,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			GIDMap:         copyIDMap(gidMap),
 		},
 	}
-	clayer, err := rlstore.Create(layer, imageTopLayer, nil, "", nil, true, layerOptions)
+	clayer, err := rlstore.Create(layer, imageTopLayer, nil, "", nil, layerOptions, true)
 	if err != nil {
 		return nil, err
 	}

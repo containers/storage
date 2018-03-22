@@ -185,13 +185,13 @@ type LayerStore interface {
 	// underlying drivers can accept a "size" option.  At this time, most
 	// underlying drivers do not themselves distinguish between writeable
 	// and read-only layers.
-	Create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, writeable bool, moreOptions *LayerOptions) (*Layer, error)
+	Create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool) (*Layer, error)
 
 	// CreateWithFlags combines the functions of Create and SetFlag.
-	CreateWithFlags(id string, parent *Layer, names []string, mountLabel string, options map[string]string, writeable bool, moreOptions *LayerOptions, flags map[string]interface{}) (layer *Layer, err error)
+	CreateWithFlags(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}) (layer *Layer, err error)
 
 	// Put combines the functions of CreateWithFlags and ApplyDiff.
-	Put(id string, parent *Layer, names []string, mountLabel string, options map[string]string, writeable bool, moreOptions *LayerOptions, flags map[string]interface{}, diff io.Reader) (*Layer, int64, error)
+	Put(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}, diff io.Reader) (*Layer, int64, error)
 
 	// SetNames replaces the list of names associated with a layer with the
 	// supplied values.
@@ -502,7 +502,7 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
-func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, writeable bool, moreOptions *LayerOptions, flags map[string]interface{}, diff io.Reader) (layer *Layer, size int64, err error) {
+func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}, diff io.Reader) (layer *Layer, size int64, err error) {
 	if !r.IsReadWrite() {
 		return nil, -1, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to create new layers at %q", r.layerspath())
 	}
@@ -608,13 +608,13 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	return copyLayer(layer), size, err
 }
 
-func (r *layerStore) CreateWithFlags(id string, parent *Layer, names []string, mountLabel string, options map[string]string, writeable bool, moreOptions *LayerOptions, flags map[string]interface{}) (layer *Layer, err error) {
-	layer, _, err = r.Put(id, parent, names, mountLabel, options, writeable, moreOptions, flags, nil)
+func (r *layerStore) CreateWithFlags(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}) (layer *Layer, err error) {
+	layer, _, err = r.Put(id, parent, names, mountLabel, options, moreOptions, writeable, flags, nil)
 	return layer, err
 }
 
-func (r *layerStore) Create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, writeable bool, moreOptions *LayerOptions) (layer *Layer, err error) {
-	return r.CreateWithFlags(id, parent, names, mountLabel, options, writeable, moreOptions, nil)
+func (r *layerStore) Create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool) (layer *Layer, err error) {
+	return r.CreateWithFlags(id, parent, names, mountLabel, options, moreOptions, writeable, nil)
 }
 
 func (r *layerStore) Mount(id, mountLabel string) (string, error) {
