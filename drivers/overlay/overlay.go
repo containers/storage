@@ -114,8 +114,8 @@ func init() {
 }
 
 // Init returns the a native diff driver for overlay filesystem.
-// If overlay filesystem is not supported on the host, graphdriver.ErrNotSupported is returned as error.
-// If an overlay filesystem is not supported over an existing filesystem then error graphdriver.ErrIncompatibleFS is returned.
+// If overlay filesystem is not supported on the host, a wrapped graphdriver.ErrNotSupported is returned as error.
+// If an overlay filesystem is not supported over an existing filesystem then a wrapped graphdriver.ErrIncompatibleFS is returned.
 func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
 	opts, err := parseOptions(options)
 	if err != nil {
@@ -151,7 +151,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		os.Remove(filepath.Join(home, linkDir))
 		os.Remove(home)
-		return nil, errors.Wrap(graphdriver.ErrNotSupported, "kernel does not support overlay fs")
+		return nil, errors.Wrap(err, "kernel does not support overlay fs")
 	}
 
 	if err := mount.MakePrivate(home); err != nil {
