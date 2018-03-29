@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"time"
 
 	drivers "github.com/containers/storage/drivers"
@@ -16,6 +17,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -210,6 +212,10 @@ type LayerStore interface {
 
 	// Unmount unmounts a layer when it is no longer in use.
 	Unmount(id string) error
+
+	// ParentOwners returns the UIDs and GIDs of parents of the layer's mountpoint
+	// for which the layer's UID and GID maps don't contain corresponding entries.
+	ParentOwners(id string) (uids, gids []int, err error)
 
 	// ApplyDiff reads a tarstream which was created by a previous call to Diff and
 	// applies its changes to a specified layer.
@@ -671,6 +677,67 @@ func (r *layerStore) Unmount(id string) error {
 		err = r.Save()
 	}
 	return err
+}
+
+func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
+	layer, ok := r.lookup(id)
+	if !ok {
+		return nil, nil, ErrLayerUnknown
+	}
+	if len(layer.UIDMap) == 0 && len(layer.GIDMap) == 0 {
+		// We're not using any mappings, so there aren't any unmapped IDs on parent directories.
+		return nil, nil, nil
+	}
+	if layer.MountPoint == "" {
+		// We don't know which directories to examine.
+		return nil, nil, ErrLayerNotMounted
+	}
+	rootuid, rootgid, err := idtools.GetRootUIDGID(layer.UIDMap, layer.GIDMap)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "error reading root ID values for layer %q", layer.ID)
+	}
+	m := idtools.NewIDMappingsFromMaps(layer.UIDMap, layer.GIDMap)
+	fsuids := make(map[int]struct{})
+	fsgids := make(map[int]struct{})
+	for dir := filepath.Dir(layer.MountPoint); dir != "" && dir != string(os.PathSeparator); dir = filepath.Dir(dir) {
+		st, err := system.Stat(dir)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "error reading ownership of directory %q", dir)
+		}
+		lst, err := system.Lstat(dir)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "error reading ownership of directory-in-case-it's-a-symlink %q", dir)
+		}
+		fsuid := int(st.UID())
+		fsgid := int(st.GID())
+		if _, _, err := m.ToContainer(idtools.IDPair{UID: fsuid, GID: rootgid}); err != nil {
+			fsuids[fsuid] = struct{}{}
+		}
+		if _, _, err := m.ToContainer(idtools.IDPair{UID: rootuid, GID: fsgid}); err != nil {
+			fsgids[fsgid] = struct{}{}
+		}
+		fsuid = int(lst.UID())
+		fsgid = int(lst.GID())
+		if _, _, err := m.ToContainer(idtools.IDPair{UID: fsuid, GID: rootgid}); err != nil {
+			fsuids[fsuid] = struct{}{}
+		}
+		if _, _, err := m.ToContainer(idtools.IDPair{UID: rootuid, GID: fsgid}); err != nil {
+			fsgids[fsgid] = struct{}{}
+		}
+	}
+	for uid := range fsuids {
+		uids = append(uids, uid)
+	}
+	for gid := range fsgids {
+		gids = append(gids, gid)
+	}
+	if len(uids) > 1 {
+		sort.Ints(uids)
+	}
+	if len(gids) > 1 {
+		sort.Ints(gids)
+	}
+	return uids, gids, nil
 }
 
 func (r *layerStore) removeName(layer *Layer, name string) {

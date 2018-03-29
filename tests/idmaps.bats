@@ -279,3 +279,57 @@ load helpers
 		[ "$output" = ${uidrange[$n]}:${gidrange[$n]} ]
 	done
 }
+
+@test "idmaps-parent-owners" {
+	n=5
+	# Create some temporary files.
+	for i in $(seq $n) ; do
+		createrandom "$TESTDIR"/file$i
+	done
+	# Select some ID ranges.
+	uidrange=$((($RANDOM+32767)*65536))
+	gidrange=$((($RANDOM+32767)*65536))
+	# Create a layer using some random mappings.
+	run storage --debug=false create-layer --uidmap 0:${uidrange}:$(($n+1)) --gidmap 0:${gidrange}:$(($n+1))
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	layer="$output"
+	# Mount the layer.
+	run storage mount $layer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	# Check who owns the parent directories.
+	run storage --debug=false layer-parent-owners $layer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	# Assume that except for root and maybe us, there are no other owners of parent directories of our layer.
+	if ! fgrep -q 'UIDs: [0]' <<< "$output" ; then
+		fgrep -q 'UIDs: [0, '$(id -u)']' <<< "$output"
+	fi
+	if ! fgrep -q 'GIDs: [0]' <<< "$output" ; then
+		fgrep -q 'GIDs: [0, '$(id -g)']' <<< "$output"
+	fi
+	# Create a new container based on the layer.
+	imagename=idmappedimage
+	storage create-image --name=$imagename $layer
+	run storage --debug=false create-container $imagename
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	container="$output"
+	# Mount the container.
+	run storage mount $container
+	echo "$output"
+	[ "$status" -eq 0 ]
+	# Check who owns the parent directories.
+	run storage --debug=false container-parent-owners $container
+	echo "$output"
+	[ "$status" -eq 0 ]
+	# Assume that except for root and maybe us, there are no other owners of parent directories of our container's layer.
+	if ! fgrep -q 'UIDs: [0]' <<< "$output" ; then
+		fgrep -q 'UIDs: [0, '$(id -u)']' <<< "$output"
+	fi
+	if ! fgrep -q 'GIDs: [0]' <<< "$output" ; then
+		fgrep -q 'GIDs: [0, '$(id -g)']' <<< "$output"
+	fi
+}

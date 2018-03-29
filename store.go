@@ -305,6 +305,11 @@ type Store interface {
 	// if we don't have a value on hand.
 	LayerSize(id string) (int64, error)
 
+	// LayerParentOwners returns the UIDs and GIDs of owners of parents of
+	// the layer's mountpoint for which the layer's UID and GID maps (if
+	// any are defined) don't contain corresponding IDs.
+	LayerParentOwners(id string) ([]int, []int, error)
+
 	// Layers returns a list of the currently known layers.
 	Layers() ([]Layer, error)
 
@@ -414,6 +419,11 @@ type Store interface {
 	// the contents of the specified file relative to the container's run
 	// directory.
 	FromContainerRunDirectory(id, file string) ([]byte, error)
+
+	// ContainerParentOwners returns the UIDs and GIDs of owners of parents
+	// of the container's layer's mountpoint for which the layer's UID and
+	// GID maps (if any are defined) don't contain corresponding IDs.
+	ContainerParentOwners(id string) ([]int, []int, error)
 
 	// Lookup returns the ID of a layer, image, or container with the specified
 	// name or ID.
@@ -2087,6 +2097,51 @@ func (s *store) LayerSize(id string) (int64, error) {
 		}
 	}
 	return -1, ErrLayerUnknown
+}
+
+func (s *store) LayerParentOwners(id string) ([]int, []int, error) {
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return nil, nil, err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	if rlstore.Exists(id) {
+		return rlstore.ParentOwners(id)
+	}
+	return nil, nil, ErrLayerUnknown
+}
+
+func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return nil, nil, err
+	}
+	rcstore, err := s.ContainerStore()
+	if err != nil {
+		return nil, nil, err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+	container, err := rcstore.Get(id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if rlstore.Exists(container.LayerID) {
+		return rlstore.ParentOwners(container.LayerID)
+	}
+	return nil, nil, ErrLayerUnknown
 }
 
 func (s *store) Layers() ([]Layer, error) {
