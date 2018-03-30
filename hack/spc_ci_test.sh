@@ -15,6 +15,14 @@ case "$DISTRO" in
     *ubuntu*)
         export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev"
         ;;
+    *fedora*)
+        export INSTALL_CMD="dnf -y install bats btrfs-progs btrfs-progs-devel
+                            e2fsprogs xfsprogs device-mapper-devel"
+        ;;
+    *centos*)
+        export INSTALL_CMD="yum install -y bats btrfs-progs btrfs-progs-devel
+                            e2fsprogs xfsprogs device-mapper-devel"
+        ;;
     *)
         echo "Unknown/unsupported \$DISTRO=$DISTRO"
         exit 2

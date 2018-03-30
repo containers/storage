@@ -9,6 +9,8 @@ set -e
 SPCCMD="${SPCCMD:-./hack/spc_ci_test.sh}"
 DISTRO="${DISTRO:-ubuntu}"
 FQIN="docker.io/cevich/travis_${DISTRO}:latest"
+
+# This can take a while, start it going as early as possible
 sudo docker pull $FQIN &
 
 REPO_DIR=$(realpath "$(dirname $0)/../")  # assume parent directory of 'hack'
@@ -46,7 +48,7 @@ ENV_ARGS="-e GO_VERSION=${GO_VERSION:-stable} -e HOME=/root -e SHELL=/bin/bash
           -e SPC=true -e DISTRO=$DISTRO -e REPO=$REPO_HOST/$REPO_OWNER/$REPO_NAME"
 
 echo
-echo "Preparing to run \$SPCMD=$SPCCMD in a $DISTRO SPC."
+echo "Preparing to run \$SPCMD=$SPCCMD in a \$DISTRO=$DISTRO SPC."
 echo "Override either for a different experience."
 wait  # for backgrounded processes to finish
 echo
