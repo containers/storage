@@ -3,15 +3,18 @@
 set -e
 
 # This script can be run manually - assuming password-less sudo access
-# and a docker-daemon running.  To play in the SPC, just
-# `export SPCCMD=bash` beforehand.
+# to docker or podman.  Export `CONTAINER=docker` for the former, since
+# podman is the default.  To play in the SPC, export `SPCCMD=bash`
+# and it'll drop you in, right before `./hack/spc_ci_test.sh` normally
+# would be called.
 
+CONTAINER="${CONTAINER:-podman}"
 SPCCMD="${SPCCMD:-./hack/spc_ci_test.sh}"
 DISTRO="${DISTRO:-ubuntu}"
 FQIN="docker.io/cevich/travis_${DISTRO}:latest"
 
 # This can take a while, start it going as early as possible
-sudo docker pull $FQIN &
+sudo $CONTAINER pull $FQIN &
 
 REPO_DIR=$(realpath "$(dirname $0)/../")  # assume parent directory of 'hack'
 REPO_HOST=${REPO_HOST:-github.com}  # required for go building/testing
@@ -22,6 +25,11 @@ REPO_NAME=$(basename $(git rev-parse --show-toplevel))
 # In Travis $PWD == $TRAVIS_BUILD_DIR == $HOME/$REPO_OWNER/$REPO_NAME
 TRAVIS_BUILD_DIR="/root/$REPO_OWNER/$REPO_NAME"
 WORKDIR="/root/go/src/$REPO_HOST/$REPO_OWNER/$REPO_NAME"
+
+if [[ "$CONTAINER" == "podman" ]] && [[ "$TRAVIS" == "true" ]]
+then
+    source $REPO_DIR/hack/travis_podman_setup.sh
+fi
 
 # Volume-mounting the repo into the SPC makes a giant mess of permissions
 # on the host.  This really sucks for developers, so make a copy for use
@@ -53,4 +61,4 @@ echo "Override either for a different experience."
 wait  # for backgrounded processes to finish
 echo
 set -x
-sudo docker run -t $SPC_ARGS $VOL_ARGS $ENV_ARGS $TRAVIS_ENV $FQIN $SPCCMD
+sudo $CONTAINER run -t $SPC_ARGS $VOL_ARGS $ENV_ARGS $TRAVIS_ENV $FQIN $SPCCMD
