@@ -63,7 +63,7 @@ func (o overlayWhiteoutConverter) ConvertWrite(hdr *tar.Header, path string, fi 
 						// It's a whiteout for this directory, so it can't have been
 						// both deleted and recreated in the layer we're diffing.
 						s := stat.Sys().(*syscall.Stat_t)
-						if major(s.Rdev) == 0 && minor(s.Rdev) == 0 {
+						if unix.Major(uint64(s.Rdev)) == 0 && unix.Minor(uint64(s.Rdev)) == 0 { // nolint: unconvert
 							return nil, nil
 						}
 					}
@@ -98,7 +98,7 @@ func (o overlayWhiteoutConverter) ConvertWrite(hdr *tar.Header, path string, fi 
 							// original directory wasn't inherited into this layer,
 							// so we don't need to emit whiteout for it.
 							s := stat.Sys().(*syscall.Stat_t)
-							if major(s.Rdev) == 0 && minor(s.Rdev) == 0 {
+							if unix.Major(uint64(s.Rdev)) == 0 && unix.Minor(uint64(s.Rdev)) == 0 { // nolint: unconvert
 								return nil, nil
 							}
 						}

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -20,10 +22,20 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/pools"
-	"github.com/containers/storage/pkg/promise"
 	"github.com/containers/storage/pkg/system"
 	"github.com/sirupsen/logrus"
 )
+
+var unpigzPath string
+
+func init() {
+	if path, err := exec.LookPath("unpigz"); err != nil {
+		logrus.Debug("unpigz binary not found in PATH, falling back to go gzip library")
+	} else {
+		logrus.Debugf("Using unpigz binary found at path %s", path)
+		unpigzPath = path
+	}
+}
 
 type (
 	// Compression is the state represents if compressed or not.
@@ -59,18 +71,17 @@ type (
 	}
 )
 
-// Archiver allows the reuse of most utility functions of this package
-// with a pluggable Untar function. Also, to facilitate the passing of
-// specific id mappings for untar, an archiver can be created with maps
-// which will then be passed to Untar operations
+// Archiver implements the Archiver interface and allows the reuse of most utility functions of
+// this package with a pluggable Untar function. Also, to facilitate the passing of specific id
+// mappings for untar, an Archiver can be created with maps which will then be passed to Untar operations.
 type Archiver struct {
-	Untar      func(io.Reader, string, *TarOptions) error
-	IDMappings *idtools.IDMappings
+	Untar         func(io.Reader, string, *TarOptions) error
+	IDMappingsVar *idtools.IDMappings
 }
 
 // NewDefaultArchiver returns a new Archiver without any IDMappings
 func NewDefaultArchiver() *Archiver {
-	return &Archiver{Untar: Untar, IDMappings: &idtools.IDMappings{}}
+	return &Archiver{Untar: Untar, IDMappingsVar: &idtools.IDMappings{}}
 }
 
 // breakoutError is used to differentiate errors related to breaking out
@@ -142,10 +153,34 @@ func DetectCompression(source []byte) Compression {
 	return Uncompressed
 }
 
-func xzDecompress(archive io.Reader) (io.ReadCloser, <-chan struct{}, error) {
+func xzDecompress(ctx context.Context, archive io.Reader) (io.ReadCloser, error) {
 	args := []string{"xz", "-d", "-c", "-q"}
 
-	return cmdStream(exec.Command(args[0], args[1:]...), archive)
+	return cmdStream(exec.CommandContext(ctx, args[0], args[1:]...), archive)
+}
+
+func gzDecompress(ctx context.Context, buf io.Reader) (io.ReadCloser, error) {
+	if unpigzPath == "" {
+		return gzip.NewReader(buf)
+	}
+
+	disablePigzEnv := os.Getenv("MOBY_DISABLE_PIGZ")
+	if disablePigzEnv != "" {
+		if disablePigz, err := strconv.ParseBool(disablePigzEnv); err != nil {
+			return nil, err
+		} else if disablePigz {
+			return gzip.NewReader(buf)
+		}
+	}
+
+	return cmdStream(exec.CommandContext(ctx, unpigzPath, "-d", "-c"), buf)
+}
+
+func wrapReadCloser(readBuf io.ReadCloser, cancel context.CancelFunc) io.ReadCloser {
+	return ioutils.NewReadCloserWrapper(readBuf, func() error {
+		cancel()
+		return readBuf.Close()
+	})
 }
 
 // DecompressStream decompresses the archive and returns a ReaderCloser with the decompressed archive.
@@ -169,26 +204,29 @@ func DecompressStream(archive io.Reader) (io.ReadCloser, error) {
 		readBufWrapper := p.NewReadCloserWrapper(buf, buf)
 		return readBufWrapper, nil
 	case Gzip:
-		gzReader, err := gzip.NewReader(buf)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		gzReader, err := gzDecompress(ctx, buf)
 		if err != nil {
+			cancel()
 			return nil, err
 		}
 		readBufWrapper := p.NewReadCloserWrapper(buf, gzReader)
-		return readBufWrapper, nil
+		return wrapReadCloser(readBufWrapper, cancel), nil
 	case Bzip2:
 		bz2Reader := bzip2.NewReader(buf)
 		readBufWrapper := p.NewReadCloserWrapper(buf, bz2Reader)
 		return readBufWrapper, nil
 	case Xz:
-		xzReader, chdone, err := xzDecompress(buf)
+		ctx, cancel := context.WithCancel(context.Background())
+
+		xzReader, err := xzDecompress(ctx, buf)
 		if err != nil {
+			cancel()
 			return nil, err
 		}
 		readBufWrapper := p.NewReadCloserWrapper(buf, xzReader)
-		return ioutils.NewReadCloserWrapper(readBufWrapper, func() error {
-			<-chdone
-			return readBufWrapper.Close()
-		}), nil
+		return wrapReadCloser(readBufWrapper, cancel), nil
 	default:
 		return nil, fmt.Errorf("Unsupported compression format %s", (&compression).Extension())
 	}
@@ -462,10 +500,16 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 		}
 	}
 
+	//check whether the file is overlayfs whiteout
+	//if yes, skip re-mapping container ID mappings.
+	isOverlayWhiteout := fi.Mode()&os.ModeCharDevice != 0 && hdr.Devmajor == 0 && hdr.Devminor == 0
+
 	//handle re-mapping container ID mappings back to host ID mappings before
 	//writing tar headers/files. We skip whiteout files because they were written
 	//by the kernel and already have proper ownership relative to the host
-	if !strings.HasPrefix(filepath.Base(hdr.Name), WhiteoutPrefix) && !ta.IDMappings.Empty() {
+	if !isOverlayWhiteout &&
+		!strings.HasPrefix(filepath.Base(hdr.Name), WhiteoutPrefix) &&
+		!ta.IDMappings.Empty() {
 		fileIDPair, err := getFileUIDGID(fi.Sys())
 		if err != nil {
 			return err
@@ -1029,8 +1073,8 @@ func (archiver *Archiver) TarUntar(src, dst string) error {
 	}
 	defer archive.Close()
 	options := &TarOptions{
-		UIDMaps: archiver.IDMappings.UIDs(),
-		GIDMaps: archiver.IDMappings.GIDs(),
+		UIDMaps: archiver.IDMappingsVar.UIDs(),
+		GIDMaps: archiver.IDMappingsVar.GIDs(),
 	}
 	return archiver.Untar(archive, dst, options)
 }
@@ -1043,8 +1087,8 @@ func (archiver *Archiver) UntarPath(src, dst string) error {
 	}
 	defer archive.Close()
 	options := &TarOptions{
-		UIDMaps: archiver.IDMappings.UIDs(),
-		GIDMaps: archiver.IDMappings.GIDs(),
+		UIDMaps: archiver.IDMappingsVar.UIDs(),
+		GIDMaps: archiver.IDMappingsVar.GIDs(),
 	}
 	return archiver.Untar(archive, dst, options)
 }
@@ -1062,10 +1106,10 @@ func (archiver *Archiver) CopyWithTar(src, dst string) error {
 		return archiver.CopyFileWithTar(src, dst)
 	}
 
-	// if this archiver is set up with ID mapping we need to create
+	// if this Archiver is set up with ID mapping we need to create
 	// the new destination directory with the remapped root UID/GID pair
 	// as owner
-	rootIDs := archiver.IDMappings.RootPair()
+	rootIDs := archiver.IDMappingsVar.RootPair()
 	// Create dst, copy src's content into it
 	logrus.Debugf("Creating dest directory: %s", dst)
 	if err := idtools.MkdirAllAndChownNew(dst, 0755, rootIDs); err != nil {
@@ -1100,36 +1144,42 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 	}
 
 	r, w := io.Pipe()
-	errC := promise.Go(func() error {
-		defer w.Close()
+	errC := make(chan error, 1)
 
-		srcF, err := os.Open(src)
-		if err != nil {
-			return err
-		}
-		defer srcF.Close()
+	go func() {
+		defer close(errC)
 
-		hdr, err := tar.FileInfoHeader(srcSt, "")
-		if err != nil {
-			return err
-		}
-		hdr.Name = filepath.Base(dst)
-		hdr.Mode = int64(chmodTarEntry(os.FileMode(hdr.Mode)))
+		errC <- func() error {
+			defer w.Close()
 
-		if err := remapIDs(archiver.IDMappings, hdr); err != nil {
-			return err
-		}
+			srcF, err := os.Open(src)
+			if err != nil {
+				return err
+			}
+			defer srcF.Close()
 
-		tw := tar.NewWriter(w)
-		defer tw.Close()
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if _, err := io.Copy(tw, srcF); err != nil {
-			return err
-		}
-		return nil
-	})
+			hdr, err := tar.FileInfoHeader(srcSt, "")
+			if err != nil {
+				return err
+			}
+			hdr.Name = filepath.Base(dst)
+			hdr.Mode = int64(chmodTarEntry(os.FileMode(hdr.Mode)))
+
+			if err := remapIDs(archiver.IDMappingsVar, hdr); err != nil {
+				return err
+			}
+
+			tw := tar.NewWriter(w)
+			defer tw.Close()
+			if err := tw.WriteHeader(hdr); err != nil {
+				return err
+			}
+			if _, err := io.Copy(tw, srcF); err != nil {
+				return err
+			}
+			return nil
+		}()
+	}()
 	defer func() {
 		if er := <-errC; err == nil && er != nil {
 			err = er
@@ -1143,6 +1193,11 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 	return err
 }
 
+// IDMappings returns the IDMappings of the archiver.
+func (archiver *Archiver) IDMappings() *idtools.IDMappings {
+	return archiver.IDMappingsVar
+}
+
 func remapIDs(idMappings *idtools.IDMappings, hdr *tar.Header) error {
 	ids, err := idMappings.ToHost(idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid})
 	hdr.Uid, hdr.Gid = ids.UID, ids.GID
@@ -1152,8 +1207,7 @@ func remapIDs(idMappings *idtools.IDMappings, hdr *tar.Header) error {
 // cmdStream executes a command, and returns its stdout as a stream.
 // If the command fails to run or doesn't complete successfully, an error
 // will be returned, including anything written on stderr.
-func cmdStream(cmd *exec.Cmd, input io.Reader) (io.ReadCloser, <-chan struct{}, error) {
-	chdone := make(chan struct{})
+func cmdStream(cmd *exec.Cmd, input io.Reader) (io.ReadCloser, error) {
 	cmd.Stdin = input
 	pipeR, pipeW := io.Pipe()
 	cmd.Stdout = pipeW
@@ -1162,7 +1216,7 @@ func cmdStream(cmd *exec.Cmd, input io.Reader) (io.ReadCloser, <-chan struct{}, 
 
 	// Run the command and return the pipe
 	if err := cmd.Start(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Copy stdout to the returned pipe
@@ -1172,10 +1226,9 @@ func cmdStream(cmd *exec.Cmd, input io.Reader) (io.ReadCloser, <-chan struct{}, 
 		} else {
 			pipeW.Close()
 		}
-		close(chdone)
 	}()
 
-	return pipeR, chdone, nil
+	return pipeR, nil
 }
 
 // NewTempArchive reads the content of src into a temporary file, and returns the contents
@@ -1229,18 +1282,6 @@ func (archive *TempArchive) Read(data []byte) (int, error) {
 		os.Remove(archive.File.Name())
 	}
 	return n, err
-}
-
-// IsArchive checks for the magic bytes of a tar or any supported compression
-// algorithm.
-func IsArchive(header []byte) bool {
-	compression := DetectCompression(header)
-	if compression != Uncompressed {
-		return true
-	}
-	r := tar.NewReader(bytes.NewBuffer(header))
-	_, err := r.Next()
-	return err == nil
 }
 
 // UntarPath is a convenience function which looks for an archive
