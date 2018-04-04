@@ -267,16 +267,22 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		_ = idtools.MkdirAs(lower2Dir, 0700, rootUID, rootGID)
 		flags := fmt.Sprintf("lowerdir=%s:%s", lower1Dir, lower2Dir)
 		if len(flags) < unix.Getpagesize() {
-			if mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags) == nil {
+			err := mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags)
+			if err == nil {
 				logrus.Debugf("overlay test mount with multiple lowers succeeded")
 				return supportsDType, nil
+			} else {
+				logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 			}
 		}
 		flags = fmt.Sprintf("lowerdir=%s", lower1Dir)
 		if len(flags) < unix.Getpagesize() {
-			if mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags) == nil {
+			err := mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags)
+			if err == nil {
 				logrus.Errorf("overlay test mount with multiple lowers failed, but succeeded with a single lower")
 				return supportsDType, errors.Wrap(graphdriver.ErrNotSupported, "kernel too old to provide multiple lowers feature for overlay")
+			} else {
+				logrus.Debugf("overlay test mount with a single lower failed %v", err)
 			}
 		}
 		logrus.Errorf("'overlay' is not supported over %s at %q", backingFs, home)
