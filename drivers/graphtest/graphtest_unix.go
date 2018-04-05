@@ -211,7 +211,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 		t.Fatal(err)
 	}
 
-	diffSize, err := driver.DiffSize(upper, "", "")
+	diffSize, err := driver.DiffSize(upper, nil, "", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 		t.Fatal(err)
 	}
 
-	arch, err := driver.Diff(upper, base, "")
+	arch, err := driver.Diff(upper, nil, base, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 		t.Fatal(err)
 	}
 
-	applyDiffSize, err := driver.ApplyDiff(diff, base, "", bytes.NewReader(buf.Bytes()))
+	applyDiffSize, err := driver.ApplyDiff(diff, nil, base, "", bytes.NewReader(buf.Bytes()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func DriverTestChanges(t testing.TB, drivername string, driverOptions ...string)
 		t.Fatal(err)
 	}
 
-	changes, err := driver.Changes(upper, base, "")
+	changes, err := driver.Changes(upper, nil, base, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +379,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: path})
 
-		changes, err := driver.Changes(base, "", "")
+		changes, err := driver.Changes(base, nil, "", nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -405,7 +405,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeDelete, Path: paths[depth]})
 
-		changes, err = driver.Changes(second, base, "")
+		changes, err = driver.Changes(second, nil, base, nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -437,7 +437,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[len(paths)-1]})
 
-		changes, err = driver.Changes(third, second, "")
+		changes, err = driver.Changes(third, nil, second, nil, "")
 		if err != nil {
 			t.Fatal(err)
 		}

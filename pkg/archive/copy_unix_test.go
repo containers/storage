@@ -16,6 +16,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,7 +90,7 @@ func dirContentsEqual(t *testing.T, newDir, oldDir string) (err error) {
 
 	var changes []Change
 
-	if changes, err = ChangesDirs(newDir, oldDir); err != nil {
+	if changes, err = ChangesDirs(newDir, &idtools.IDMappings{}, oldDir, &idtools.IDMappings{}); err != nil {
 		return
 	}
 

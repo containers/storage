@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"sort"
 	"testing"
+
+	"github.com/containers/storage/pkg/idtools"
 )
 
 func TestHardLinkOrder(t *testing.T) {
@@ -57,7 +59,7 @@ func TestHardLinkOrder(t *testing.T) {
 	}
 
 	// get changes
-	changes, err := ChangesDirs(dest, src)
+	changes, err := ChangesDirs(dest, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -213,7 +214,7 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 	err = Untar(bRdr, dest, &TarOptions{Compression: Uncompressed})
 	require.NoError(t, err)
 
-	changes, err := ChangesDirs(origin, dest)
+	changes, err := ChangesDirs(origin, &idtools.IDMappings{}, dest, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	if len(changes) > 0 {

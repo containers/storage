@@ -179,6 +179,37 @@ func getContainerRunDir(flags *mflag.FlagSet, action string, m storage.Store, ar
 	return 0
 }
 
+func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	matched := []*storage.Container{}
+	for _, arg := range args {
+		if container, err := m.Container(arg); err == nil {
+			matched = append(matched, container)
+		}
+	}
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(matched)
+	} else {
+		for _, container := range matched {
+			uids, gids, err := m.ContainerParentOwners(container.ID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ContainerParentOwner: %v\n", err)
+				return 1
+			}
+			fmt.Printf("ID: %s\n", container.ID)
+			if len(uids) > 0 {
+				fmt.Printf("UIDs: %v\n", uids)
+			}
+			if len(gids) > 0 {
+				fmt.Printf("GIDs: %v\n", gids)
+			}
+		}
+	}
+	if len(matched) != len(args) {
+		return 1
+	}
+	return 0
+}
+
 func init() {
 	commands = append(commands,
 		command{
@@ -249,5 +280,15 @@ func init() {
 			usage:       "Find the container's associated runtime directory",
 			action:      getContainerRunDir,
 			minArgs:     1,
+		},
+		command{
+			names:       []string{"container-parent-owners"},
+			optionsHelp: "[options [...]] containerNameOrID [...]",
+			usage:       "Compute the set of unmapped parent UIDs and GIDs of the container",
+			action:      containerParentOwners,
+			minArgs:     1,
+			addFlags: func(flags *mflag.FlagSet, cmd *command) {
+				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			},
 		})
 }
