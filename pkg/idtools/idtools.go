@@ -13,8 +13,8 @@ import (
 // of IDMap entries represents the structure that will be provided to the Linux
 // kernel for creating a user namespace.
 type IDMap struct {
-	ContainerID int `json:"container_id"`
 	HostID      int `json:"host_id"`
+	ContainerID int `json:"container_id"`
 	Size        int `json:"size"`
 }
 
