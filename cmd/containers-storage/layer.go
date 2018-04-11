@@ -42,15 +42,24 @@ func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, arg
 			matched = append(matched, layer)
 		}
 	}
-	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matched)
-	} else {
-		for _, layer := range matched {
-			uids, gids, err := m.LayerParentOwners(layer.ID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "LayerParentOwner: %v\n", err)
-				return 1
+	for _, layer := range matched {
+		uids, gids, err := m.LayerParentOwners(layer.ID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "LayerParentOwner: %v\n", err)
+			return 1
+		}
+		if jsonOutput {
+			mappings := struct {
+				ID   string
+				UIDs []int
+				GIDs []int
+			}{
+				ID:   layer.ID,
+				UIDs: uids,
+				GIDs: gids,
 			}
+			json.NewEncoder(os.Stdout).Encode(mappings)
+		} else {
 			fmt.Printf("ID: %s\n", layer.ID)
 			if len(uids) > 0 {
 				fmt.Printf("UIDs: %v\n", uids)

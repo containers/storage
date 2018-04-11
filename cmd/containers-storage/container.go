@@ -186,15 +186,24 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 			matched = append(matched, container)
 		}
 	}
-	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matched)
-	} else {
-		for _, container := range matched {
-			uids, gids, err := m.ContainerParentOwners(container.ID)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "ContainerParentOwner: %v\n", err)
-				return 1
+	for _, container := range matched {
+		uids, gids, err := m.ContainerParentOwners(container.ID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ContainerParentOwner: %v\n", err)
+			return 1
+		}
+		if jsonOutput {
+			mappings := struct {
+				ID   string
+				UIDs []int
+				GIDs []int
+			}{
+				ID:   container.ID,
+				UIDs: uids,
+				GIDs: gids,
 			}
+			json.NewEncoder(os.Stdout).Encode(mappings)
+		} else {
 			fmt.Printf("ID: %s\n", container.ID)
 			if len(uids) > 0 {
 				fmt.Printf("UIDs: %v\n", uids)
