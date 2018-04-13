@@ -882,6 +882,30 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	if err := idtools.MkdirAs(diffDir, 0755, rootUID, rootGID); err != nil {
 		return err
 	}
+
+	if rootUID != 0 {
+		if err = os.Chown(dir, rootUID, rootGID); err != nil {
+			return errors.Wrapf(err, "cannot chown '%s'", dir)
+		}
+		if err = os.Chmod(dir, 0700); err != nil {
+			return errors.Wrapf(err, "cannot chmod '%s'", dir)
+		}
+		parent := filepath.Dir(dir)
+		for parent != "/" {
+			fi, err := os.Stat(parent)
+			if err != nil {
+				return errors.Wrapf(err, "cannot stat '%s'", parent)
+			}
+
+			const desiredMask = 0711
+			if fi.Mode()&desiredMask != desiredMask {
+				if err = os.Chmod(parent, fi.Mode()|desiredMask); err != nil {
+					return errors.Wrapf(err, "cannot chmod '%s'", parent)
+				}
+			}
+			parent = filepath.Dir(parent)
+		}
+	}
 	return nil
 }
 
