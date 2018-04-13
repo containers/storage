@@ -551,7 +551,7 @@ func GetStore(options StoreOptions) (Store, error) {
 	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
-	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(filepath.Join(options.GraphRoot, options.GraphDriverName), 0711); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 	for _, subdir := range []string{"mounts", "tmp", options.GraphDriverName} {

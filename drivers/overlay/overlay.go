@@ -882,6 +882,20 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	if err := idtools.MkdirAs(diffDir, 0755, rootUID, rootGID); err != nil {
 		return err
 	}
+
+	// Make sure that host root is the only user that can search through
+	// the container storage directory.
+	if err = os.Chmod(dir, 0700); err != nil {
+		return errors.Wrapf(err, "cannot chmod '%s'", dir)
+	}
+
+	if rootUID != 0 {
+		// If using userns make sure the container dir is owned by
+		// root of the container.
+		if err = os.Chown(dir, rootUID, rootGID); err != nil {
+			return errors.Wrapf(err, "cannot chown '%s'", dir)
+		}
+	}
 	return nil
 }
 
