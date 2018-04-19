@@ -78,8 +78,12 @@ load helpers
 				test ${uid}:${gid} = $((${uidrange[$i]}+$j)):$((${gidrange[$i]}+$j))
 			done
 		done
+		run storage --debug=false unmount $lowerlayer
 		lowerlayer=$upperlayer
 	done
+
+	run storage --debug=false unmount $lowerlayer
+	run storage --debug=false unmount $upperlayer
 }
 
 @test "idmaps-create-diff-layer" {
@@ -106,6 +110,7 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	lowermount="$output"
+	prevlowermount="$output"
 	# Copy the files in, and set ownerships on them.
 	for i in $(seq $n) ; do
 		cp "$TESTDIR"/file$i ${lowermount}
@@ -157,8 +162,14 @@ load helpers
 		[ "$status" -eq 0 ]
 		[ "$output" = 0:0 ]
 		popd > /dev/null
+		run storage --debug=false unmount $lowermount
 		lowerlayer=$upperlayer
+
+		run storage --debug=false unmount $upperlayer
 	done
+
+	run storage --debug=false unmount $lowermount
+	run storage --debug=false unmount $uppermount
 }
 
 @test "idmaps-create-container" {
@@ -217,8 +228,11 @@ load helpers
 		[ "$output" != "" ]
 		[ "${#lines[*]}" -eq 1 ]
 		[ "$output" = "Modify \"/file$i\"" ]
+		run storage --debug=false unmount $lowerlayer
 		lowerlayer=$upperlayer
 	done
+	run storage --debug=false unmount $lowerlayer
+
 	# Create new containers based on the layer.
 	imagename=idmappedimage
 	storage create-image --name=$imagename $lowerlayer
@@ -227,7 +241,7 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	hostcontainer="$output"
-	run storage --debug=false mount $hostcontainer
+ 	run storage --debug=false mount $hostcontainer
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	hostmount="$output"
@@ -236,6 +250,7 @@ load helpers
 		[ "$status" -eq 0 ]
 		[ "$output" = 0:0 ]
 	done
+	run storage --debug=false unmount $hostcontainer
 
 	run storage --debug=false create-container --hostuidmap --hostgidmap $imagename
 	[ "$status" -eq 0 ]
@@ -250,6 +265,7 @@ load helpers
 		[ "$status" -eq 0 ]
 		[ "$output" = 0:0 ]
 	done
+	run storage --debug=false unmount $hostcontainer
 
 	run storage --debug=false create-container --uidmap 0:${uidrange[$(($n+1))]}:$(($n+1)) --gidmap 0:${gidrange[$(($n+1))]}:$(($n+1)) $imagename
 	[ "$status" -eq 0 ]
@@ -264,6 +280,7 @@ load helpers
 		[ "$status" -eq 0 ]
 		[ "$output" = ${uidrange[$(($n+1))]}:${gidrange[$(($n+1))]} ]
 	done
+	run storage --debug=false unmount $newmapcontainer
 
 	run storage --debug=false create-container $imagename
 	[ "$status" -eq 0 ]
@@ -278,6 +295,7 @@ load helpers
 		[ "$status" -eq 0 ]
 		[ "$output" = ${uidrange[$n]}:${gidrange[$n]} ]
 	done
+	run storage --debug=false unmount $defmapcontainer
 }
 
 @test "idmaps-parent-owners" {
@@ -332,4 +350,7 @@ load helpers
 	if ! fgrep -q 'GIDs: [0]' <<< "$output" ; then
 		fgrep -q 'GIDs: [0, '$(id -g)']' <<< "$output"
 	fi
+
+	run storage unmount $layer
+	run storage unmount $container
 }

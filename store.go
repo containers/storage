@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	// register all of the built-in drivers
@@ -23,6 +24,7 @@ import (
 	"github.com/containers/storage/pkg/stringid"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	"golang.org/x/sys/unix"
 )
 
 var (
@@ -548,7 +550,7 @@ func GetStore(options StoreOptions) (Store, error) {
 		return nil, ErrIncompleteOptions
 	}
 
-	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(options.RunRoot, 0711); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil && !os.IsExist(err) {
@@ -1783,6 +1785,31 @@ func (s *store) DeleteContainer(id string) error {
 	if rcstore.Exists(id) {
 		if container, err := rcstore.Get(id); err == nil {
 			if rlstore.Exists(container.LayerID) {
+				root := filepath.Join(s.RunRoot(), container.LayerID, "root")
+				if _, err := os.Stat(root); err == nil {
+					if err = unix.Unmount(root, 0); err != nil && err != syscall.EINVAL {
+						return errors.Wrapf(err, "cannot unmount %s", root)
+					}
+				}
+				userdataMount := filepath.Join(s.RunRoot(), container.ID, "userdata")
+				if _, err := os.Stat(userdataMount); err == nil {
+					if err = unix.Unmount(userdataMount, 0); err != nil && err != syscall.EINVAL {
+						return errors.Wrapf(err, "cannot unmount %s", userdataMount)
+					}
+				}
+
+				if err = os.RemoveAll(filepath.Join(s.RunRoot(), container.ID)); err != nil {
+					if !os.IsNotExist(err) {
+						return err
+					}
+				}
+				rlpath := filepath.Join(s.RunRoot(), container.LayerID)
+				if err = os.RemoveAll(rlpath); err != nil {
+					if !os.IsNotExist(err) {
+						return err
+					}
+				}
+
 				if err = rlstore.Delete(container.LayerID); err != nil {
 					return err
 				}
@@ -1839,6 +1866,18 @@ func (s *store) Delete(id string) error {
 	if rcstore.Exists(id) {
 		if container, err := rcstore.Get(id); err == nil {
 			if rlstore.Exists(container.LayerID) {
+				root := filepath.Join(s.RunRoot(), container.LayerID, "root")
+				if _, err := os.Stat(root); err == nil {
+					if err = unix.Unmount(root, 0); err != nil && err != syscall.EINVAL {
+						return errors.Wrapf(err, "cannot unmount %s", root)
+					}
+				}
+				userdataMount := filepath.Join(s.RunRoot(), container.ID, "userdata")
+				if _, err := os.Stat(userdataMount); err == nil {
+					if err = unix.Unmount(userdataMount, 0); err != nil && err != syscall.EINVAL {
+						return errors.Wrapf(err, "cannot unmount %s", userdataMount)
+					}
+				}
 				if err = rlstore.Delete(container.LayerID); err != nil {
 					return err
 				}
@@ -1932,13 +1971,74 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 	if modified, err := rlstore.Modified(); modified || err != nil {
 		rlstore.Load()
 	}
-	if rlstore.Exists(id) {
-		return rlstore.Mount(id, mountLabel)
+	if !rlstore.Exists(id) {
+		return "", ErrLayerUnknown
 	}
-	return "", ErrLayerUnknown
+
+	cstore, err := s.ContainerStore()
+	if err != nil {
+		return "", err
+	}
+	cstore.Lock()
+	defer cstore.Unlock()
+	if modified, err := cstore.Modified(); modified || err != nil {
+		cstore.Load()
+	}
+
+	uidMap, gidMap := s.uidMap, s.gidMap
+	if cstore.Exists(id) {
+		container, err := cstore.Get(id)
+		if err != nil {
+			return "", err
+		}
+		uidMap, gidMap = container.UIDMap, container.GIDMap
+	}
+
+	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMap, gidMap)
+	if err != nil {
+		return "", err
+	}
+
+	root := ""
+	if rootUID != 0 {
+		root = filepath.Join(s.RunRoot(), id, "root")
+		if _, err := os.Stat(root); err == nil {
+			if err = unix.Unmount(root, 0); err != nil && err != syscall.EINVAL {
+				return "", errors.Wrapf(err, "cannot unmount %s", root)
+			}
+		}
+
+		if err = idtools.MkdirAllAs(root, 0700, rootUID, rootGID); err != nil {
+			return "", err
+		}
+		// runc doesn't like symlinks in the rootfs, let's make it happy
+		root, err = filepath.EvalSymlinks(root)
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot resolve symlink %s", root)
+		}
+	}
+
+	mount, err := rlstore.Mount(id, mountLabel)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err != nil {
+			rlstore.Unmount(mount)
+		}
+	}()
+	if rootUID == 0 {
+		return mount, nil
+	}
+
+	if err = unix.Mount(mount, root, "", unix.MS_REC|unix.MS_BIND, mountLabel); err != nil {
+		return "", err
+	}
+	return root, nil
 }
 
 func (s *store) Unmount(id string) error {
+	containerID := id
 	if layerID, err := s.ContainerLayerID(id); err == nil {
 		id = layerID
 	}
@@ -1952,6 +2052,28 @@ func (s *store) Unmount(id string) error {
 		rlstore.Load()
 	}
 	if rlstore.Exists(id) {
+		if err != nil {
+			return err
+		}
+		root := filepath.Join(s.RunRoot(), id, "root")
+		if _, err := os.Stat(root); err == nil {
+			root, err = filepath.EvalSymlinks(root)
+			if err != nil {
+				return errors.Wrapf(err, "cannot resolve symlink %s", root)
+			}
+			if err = unix.Unmount(root, 0); err != nil && err != syscall.EINVAL {
+				return errors.Wrapf(err, "cannot unmount %s", root)
+			}
+		}
+		userdata := filepath.Join(s.RunRoot(), containerID, "userdata")
+		if _, err := os.Stat(userdata); err == nil {
+			if err = unix.Unmount(userdata, 0); err != nil && err != syscall.EINVAL {
+				return errors.Wrapf(err, "cannot unmount %s", userdata)
+			}
+			if err = os.RemoveAll(userdata); err != nil {
+				return err
+			}
+		}
 		return rlstore.Unmount(id)
 	}
 	return ErrLayerUnknown
@@ -2402,11 +2524,36 @@ func (s *store) ContainerDirectory(id string) (string, error) {
 		return "", err
 	}
 
-	middleDir := s.graphDriverName + "-containers"
-	gcpath := filepath.Join(s.GraphRoot(), middleDir, id, "userdata")
-	if err := os.MkdirAll(gcpath, 0700); err != nil {
+	rootUID, rootGID, err := idtools.GetRootUIDGID(s.uidMap, s.gidMap)
+	if err != nil {
 		return "", err
 	}
+
+	middleDir := s.graphDriverName + "-containers"
+	gcpath := filepath.Join(s.GraphRoot(), middleDir, id, "userdata")
+	if err := idtools.MkdirAllAs(gcpath, 0700, rootUID, rootGID); err != nil {
+		return "", err
+	}
+
+	if rootUID != 0 {
+		userdata := filepath.Join(s.RunRoot(), id, "userdata")
+
+		_, err := os.Stat(userdata)
+		if err == nil {
+			return userdata, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		if err := idtools.MkdirAllAs(userdata, 0700, rootUID, rootGID); err != nil {
+			return "", err
+		}
+		if err := unix.Mount(gcpath, userdata, "", unix.MS_REC|unix.MS_BIND, ""); err != nil {
+			return "", err
+		}
+		return userdata, nil
+	}
+
 	return gcpath, nil
 }
 
@@ -2425,6 +2572,18 @@ func (s *store) ContainerRunDirectory(id string) (string, error) {
 	id, err = rcstore.Lookup(id)
 	if err != nil {
 		return "", err
+	}
+
+	rootUID, rootGID, err := idtools.GetRootUIDGID(s.uidMap, s.gidMap)
+	if err != nil {
+		return "", err
+	}
+	if rootUID != 0 {
+		rcpath := filepath.Join(s.RunRoot(), id, "run", "userdata")
+		if err := idtools.MkdirAllAs(rcpath, 0700, rootUID, rootGID); err != nil {
+			return "", err
+		}
+		return rcpath, nil
 	}
 
 	middleDir := s.graphDriverName + "-containers"
