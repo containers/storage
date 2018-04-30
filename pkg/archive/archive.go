@@ -945,7 +945,8 @@ loop:
 		}
 		trBuf.Reset(tr)
 
-		if err := remapIDs(nil, idMappings, options.ChownOpts, hdr); err != nil {
+		chownOpts := options.ChownOpts
+		if err := remapIDs(nil, idMappings, chownOpts, hdr); err != nil {
 			return err
 		}
 
@@ -959,7 +960,11 @@ loop:
 			}
 		}
 
-		if err := createTarFile(path, dest, hdr, trBuf, !options.NoLchown, options.ChownOpts, options.InUserNS); err != nil {
+		if chownOpts != nil {
+			chownOpts = &idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid}
+		}
+
+		if err := createTarFile(path, dest, hdr, trBuf, !options.NoLchown, chownOpts, options.InUserNS); err != nil {
 			return err
 		}
 
