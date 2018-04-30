@@ -333,3 +333,157 @@ load helpers
 		fgrep -q 'GIDs: [0, '$(id -g)']' <<< "$output"
 	fi
 }
+
+@test "idmaps-copy" {
+	n=5
+	host=2
+	# Create some temporary files.
+	mkdir -p "$TESTDIR"/subdir/subdir2
+	for i in 0 $(seq $n) ; do
+		createrandom "$TESTDIR"/file$i
+		chown "$i":"$i" "$TESTDIR"/file$i
+		createrandom "$TESTDIR"/subdir/subdir2/file$i
+		chown "$i":"$i" "$TESTDIR"/subdir/subdir2/file$i
+	done
+	chown "$(($n+1))":"$(($n+1))" "$TESTDIR"/subdir/subdir2
+	# Select some ID ranges for ID mappings.
+	for i in 0 $(seq $(($n+1))) ; do
+		uidrange[$i]=$((($RANDOM+32767)*65536))
+		gidrange[$i]=$((($RANDOM+32767)*65536))
+		# Create a layer using some those mappings.
+		run storage --debug=false create-layer --uidmap 0:${uidrange[$i]}:101 --gidmap 0:${gidrange[$i]}:101
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		layer[$i]="$output"
+	done
+	# Copy the file in, and check that its ownerships get mapped correctly.
+	for i in 0 $(seq $n) ; do
+		run storage copy "$TESTDIR"/file$i ${layer[$i]}:/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		run storage --debug=false mount ${layer[$i]}
+		echo "$output"
+		[ "$status" -eq 0 ]
+		mnt[$i]="$output"
+		run stat -c "%u:%g" ${mnt[$i]}/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+$i))
+		gid=$((${gidrange[$i]}+$i))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+		# Try copying with --chown.
+		run storage copy --chown 100:100 "$TESTDIR"/file$i ${layer[$i]}:/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		run storage --debug=false mount ${layer[$i]}
+		echo "$output"
+		[ "$status" -eq 0 ]
+		mnt[$i]="$output"
+		run stat -c "%u:%g" ${mnt[$i]}/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+100))
+		gid=$((${gidrange[$i]}+100))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+	done
+	# Copy the subdirectory, and check that its ownerships and that of its contents get mapped correctly.
+	for i in 0 $(seq $n) ; do
+		run storage copy "$TESTDIR"/file$i ${layer[$i]}:/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		run stat -c "%u:%g" ${mnt[$i]}/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+$i))
+		gid=$((${gidrange[$i]}+$i))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+
+		# Try copying with --chown.
+		run storage copy --chown 100:100 "$TESTDIR"/file$i ${layer[$i]}:/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		run stat -c "%u:%g" ${mnt[$i]}/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+100))
+		gid=$((${gidrange[$i]}+100))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+
+		# Try copying a directory tree.
+		run storage copy "$TESTDIR"/subdir ${layer[$i]}:/subdir
+		echo "$output"
+		[ "$status" -eq 0 ]
+		run stat -c "%u:%g" ${mnt[$i]}/subdir/subdir2/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+$i))
+		gid=$((${gidrange[$i]}+$i))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+		run stat -c "%u:%g" ${mnt[$i]}/subdir/subdir2
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+$n+1))
+		gid=$((${gidrange[$i]}+$n+1))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+
+		# Try copying a directory tree with --chown.
+		run storage copy --chown 100:100 "$TESTDIR"/subdir ${layer[$i]}:/subdir2
+		echo "$output"
+		[ "$status" -eq 0 ]
+		run stat -c "%u:%g" ${mnt[$i]}/subdir2/subdir2/file$i
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+100))
+		gid=$((${gidrange[$i]}+100))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+		run stat -c "%u:%g" ${mnt[$i]}/subdir2/subdir2
+		echo "$output"
+		[ "$status" -eq 0 ]
+		uid=$((${uidrange[$i]}+100))
+		gid=$((${gidrange[$i]}+100))
+		echo comparing "$output" and "$uid:$gid"
+		[ "$output" == "$uid:$gid" ]
+	done
+
+	# Copy a file out of a layer, into another one.
+	run storage copy "$TESTDIR"/file$n ${layer[0]}:/file$n
+	echo "$output"
+	[ "$status" -eq 0 ]
+	run storage copy ${layer[0]}:/file$n ${layer[$n]}:/file$n
+	echo "$output"
+	[ "$status" -eq 0 ]
+	run stat -c "%u:%g" ${mnt[$n]}/file$n
+	echo "$output"
+	[ "$status" -eq 0 ]
+	uid=$((${uidrange[$n]}+$n))
+	gid=$((${gidrange[$n]}+$n))
+	echo comparing "$output" and "$uid:$gid"
+	[ "$output" == "$uid:$gid" ]
+
+	# Try copying a directory tree.
+	run storage copy ${layer[0]}:/subdir ${layer[$n]}:/subdir
+	echo "$output"
+	[ "$status" -eq 0 ]
+	run stat -c "%u:%g" ${mnt[$n]}/subdir/subdir2/file$n
+	echo "$output"
+	[ "$status" -eq 0 ]
+	uid=$((${uidrange[$n]}+$n))
+	gid=$((${gidrange[$n]}+$n))
+	echo comparing "$output" and "$uid:$gid"
+	[ "$output" == "$uid:$gid" ]
+	run stat -c "%u:%g" ${mnt[$n]}/subdir/subdir2
+	echo "$output"
+	[ "$status" -eq 0 ]
+	uid=$((${uidrange[$n]}+$n+1))
+	gid=$((${gidrange[$n]}+$n+1))
+	echo comparing "$output" and "$uid:$gid"
+	[ "$output" == "$uid:$gid" ]
+}
