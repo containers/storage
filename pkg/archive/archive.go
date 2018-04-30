@@ -1146,7 +1146,7 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 		hdr.Name = filepath.Base(dst)
 		hdr.Mode = int64(chmodTarEntry(os.FileMode(hdr.Mode)))
 
-		if err := remapIDs(archiver.TarIDMappings, archiver.UntarIDMappings, archiver.ChownOpts, hdr); err != nil {
+		if err := remapIDs(archiver.TarIDMappings, nil, archiver.ChownOpts, hdr); err != nil {
 			return err
 		}
 
@@ -1166,7 +1166,12 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 		}
 	}()
 
-	err = archiver.Untar(r, filepath.Dir(dst), nil)
+	options := &TarOptions{
+		UIDMaps:   archiver.UntarIDMappings.UIDs(),
+		GIDMaps:   archiver.UntarIDMappings.GIDs(),
+		ChownOpts: archiver.ChownOpts,
+	}
+	err = archiver.Untar(r, filepath.Dir(dst), options)
 	if err != nil {
 		r.CloseWithError(err)
 	}
