@@ -703,6 +703,10 @@ func (devices *DeviceSet) startDeviceDeletionWorker() {
 		return
 	}
 
+	// Cleanup right away if there are any leaked devices.  Note this
+	// could cause some slowdown for process startup, if there were
+	// Leaked devices
+	devices.cleanupDeletedDevices()
 	logrus.Debug("devmapper: Worker to cleanup deleted devices started")
 	for range devices.deletionWorkerTicker.C {
 		devices.cleanupDeletedDevices()
