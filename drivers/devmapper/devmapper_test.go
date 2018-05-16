@@ -67,19 +67,19 @@ func getBaseLoopStats() (*syscall.Stat_t, error) {
 // This avoids creating a new driver for each test if all tests are run
 // Make sure to put new tests between TestDevmapperSetup and TestDevmapperTeardown
 func TestDevmapperSetup(t *testing.T) {
-	graphtest.GetDriver(t, "devicemapper")
+	graphtest.GetDriver(t, "devicemapper", "test=1")
 }
 
 func TestDevmapperCreateEmpty(t *testing.T) {
-	graphtest.DriverTestCreateEmpty(t, "devicemapper")
+	graphtest.DriverTestCreateEmpty(t, "devicemapper", "test=1")
 }
 
 func TestDevmapperCreateBase(t *testing.T) {
-	graphtest.DriverTestCreateBase(t, "devicemapper")
+	graphtest.DriverTestCreateBase(t, "devicemapper", "test=1")
 }
 
 func TestDevmapperCreateSnap(t *testing.T) {
-	graphtest.DriverTestCreateSnap(t, "devicemapper")
+	graphtest.DriverTestCreateSnap(t, "devicemapper", "test=1")
 }
 
 func TestDevmapperTeardown(t *testing.T) {
@@ -87,7 +87,7 @@ func TestDevmapperTeardown(t *testing.T) {
 }
 
 func TestDevmapperEcho(t *testing.T) {
-	graphtest.DriverTestEcho(t, "devicemapper")
+	graphtest.DriverTestEcho(t, "devicemapper", "test=1")
 }
 
 func TestDevmapperReduceLoopBackSize(t *testing.T) {
@@ -101,7 +101,7 @@ func TestDevmapperIncreaseLoopBackSize(t *testing.T) {
 }
 
 func testChangeLoopBackSize(t *testing.T, delta, expectDataSize, expectMetaDataSize int64) {
-	driver := graphtest.GetDriver(t, "devicemapper").(*graphtest.Driver).Driver.(*graphdriver.NaiveDiffDriver).ProtoDriver.(*Driver)
+	driver := graphtest.GetDriver(t, "devicemapper", "test=1").(*graphtest.Driver).Driver.(*graphdriver.NaiveDiffDriver).ProtoDriver.(*Driver)
 	defer graphtest.PutDriver(t)
 	// make sure data or metadata loopback size are the default size
 	if s := driver.DeviceSet.Status(); s.Data.Total != uint64(defaultDataLoopbackSize) || s.Metadata.Total != uint64(defaultMetaDataLoopbackSize) {
@@ -114,6 +114,7 @@ func testChangeLoopBackSize(t *testing.T, delta, expectDataSize, expectMetaDataS
 	d, err := Init(driver.home, []string{
 		fmt.Sprintf("dm.loopdatasize=%d", defaultDataLoopbackSize+delta),
 		fmt.Sprintf("dm.loopmetadatasize=%d", defaultMetaDataLoopbackSize+delta),
+		"test=1",
 	}, nil, nil)
 	if err != nil {
 		t.Fatalf("error creating devicemapper driver: %v", err)
@@ -129,7 +130,7 @@ func testChangeLoopBackSize(t *testing.T, delta, expectDataSize, expectMetaDataS
 
 // Make sure devices.Lock() has been release upon return from cleanupDeletedDevices() function
 func TestDevmapperLockReleasedDeviceDeletion(t *testing.T) {
-	driver := graphtest.GetDriver(t, "devicemapper").(*graphtest.Driver).Driver.(*graphdriver.NaiveDiffDriver).ProtoDriver.(*Driver)
+	driver := graphtest.GetDriver(t, "devicemapper", "test=1").(*graphtest.Driver).Driver.(*graphdriver.NaiveDiffDriver).ProtoDriver.(*Driver)
 	defer graphtest.PutDriver(t)
 
 	// Call cleanupDeletedDevices() and after the call take and release
