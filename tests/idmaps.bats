@@ -487,3 +487,269 @@ load helpers
 	echo comparing "$output" and "$uid:$gid"
 	[ "$output" == "$uid:$gid" ]
 }
+
+@test "idmaps-create-mapped-image" {
+	n=5
+	host=2
+	# Create some temporary files.
+	for i in $(seq $n) ; do
+		createrandom "$TESTDIR"/file$i
+		chown ${i}:${i} "$TESTDIR"/file$i
+	done
+	# Select some ID ranges.
+	for i in $(seq $n) ; do
+		uidrange[$i]=$((($RANDOM+32767)*65536))
+		gidrange[$i]=$((($RANDOM+32767)*65536))
+	done
+	# Create a layer using the host's mappings.
+	run storage --debug=false create-layer --hostuidmap --hostgidmap
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowerlayer="$output"
+	# Mount the layer.
+	run storage --debug=false mount $lowerlayer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowermount="$output"
+	# Copy the files in (host mapping, so it's fine), and set ownerships on them.
+	cp -p "$TESTDIR"/file1 ${lowermount}
+	cp -p "$TESTDIR"/file2 ${lowermount}
+	cp -p "$TESTDIR"/file3 ${lowermount}
+	cp -p "$TESTDIR"/file4 ${lowermount}
+	cp -p "$TESTDIR"/file5 ${lowermount}
+	# Create an image record for this layer.
+	run storage --debug=false create-image $lowerlayer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	image="$output"
+	echo image:$image
+	# Check that we can compute the size of the image.
+	run storage --debug=false image $image
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	size=$(grep ^Size: <<< "$output" | sed 's,^Size: ,,g')
+	[ "$size" -ne 0 ]
+	echo size:$size
+	# Create containers using this image.
+	containers=
+	for i in $(seq $n) ; do
+		if test $host -ne $i ; then
+			run storage --debug=false create-container --uidmap 0:${uidrange[$i]}:$(($n+1)) --gidmap 0:${gidrange[$i]}:$(($n+1)) $image
+		else
+			uidrange[$host]=0
+			gidrange[$host]=0
+			run storage --debug=false create-container --hostuidmap --hostgidmap $image
+		fi
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		container=${lines[0]}
+		containers[$i-1]="$container"
+
+		# Check that the ownerships came out right.
+		run storage --debug=false mount "$container"
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		mount="$output"
+
+		for j in $(seq $n) ; do
+			ownerids=$(stat -c %u:%g ${mount}/file$j)
+			echo on-disk IDs: "$ownerids"
+			echo expected IDs: $((${uidrange[$i]}+$j)):$((${gidrange[$i]}+$j))
+			[ "$ownerids" = $((${uidrange[$i]}+$j)):$((${gidrange[$i]}+$j)) ]
+		done
+		run storage --debug=false unmount "$container"
+		[ "$status" -eq 0 ]
+	done
+	# Each of the containers' layers should have a different parent layer,
+	# all of which should be a top layer for the image.  The containers
+	# themselves have no contents at this point.
+	declare -a parents
+	echo containers list is \"${containers[*]}\"
+	for container in "${containers[@]}" ; do
+		run storage --debug=false container $container
+		echo container "$container":"$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		baseimage=$(grep ^Image: <<< "$output" | sed 's,^Image: ,,g')
+		echo baseimage:"$baseimage"
+		[ "$baseimage" = "$image" ]
+		layer=$(grep ^Layer: <<< "$output" | sed 's,^Layer: ,,g')
+		echo layer:"$layer"
+		size=$(grep ^Size: <<< "$output" | sed 's,^Size: ,,g')
+		[ "$size" -eq 0 ]
+		echo size:$size
+
+		run storage --debug=false layer $layer
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		parent=$(grep ^Parent: <<< "$output" | sed 's,^Parent: ,,g')
+		echo parent:"$parent"
+
+		parents[${#parents[*]}]="$parent"
+
+		run storage --debug=false image $baseimage
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		grep "^Top Layer: $parent" <<< "$output"
+	done
+	nparents=$(for p in ${parents[@]} ; do echo $p ; done | sort -u | wc -l)
+	echo nparents:$nparents
+	[ $nparents -eq $n ]
+
+	# The image should have five top layers at this point.
+	run storage --debug=false image $image
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	tops=$(grep '^Top Layer:' <<< "$output" | sed 's,^Top Layer: ,,g')
+	ntops=$(for p in $tops; do echo $p ; done | sort -u | wc -l)
+	echo ntops:$ntops
+	[ $ntops -eq $n ]
+}
+
+@test "idmaps-create-mapped-container" {
+	case "$STORAGE_DRIVER" in
+	overlay*|vfs)
+		;;
+		*)
+	skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+	n=5
+	host=2
+	# Create some temporary files.
+	for i in $(seq $n) ; do
+		createrandom "$TESTDIR"/file$i
+		chown ${i}:${i} "$TESTDIR"/file$i
+	done
+	# Select some ID ranges.
+	for i in $(seq $n) ; do
+		uidrange[$i]=$((($RANDOM+32767)*65536))
+		gidrange[$i]=$((($RANDOM+32767)*65536))
+	done
+	# Create a layer using the host's mappings.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-layer --hostuidmap --hostgidmap
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowerlayer="$output"
+	# Mount the layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot mount $lowerlayer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowermount="$output"
+	# Copy the files in (host mapping, so it's fine), and set ownerships on them.
+	cp -p "$TESTDIR"/file1 ${lowermount}
+	cp -p "$TESTDIR"/file2 ${lowermount}
+	cp -p "$TESTDIR"/file3 ${lowermount}
+	cp -p "$TESTDIR"/file4 ${lowermount}
+	cp -p "$TESTDIR"/file5 ${lowermount}
+	# Unmount the layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot unmount $lowerlayer
+	[ "$status" -eq 0 ]
+	# Create an image record for this layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-image $lowerlayer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	image="$output"
+	echo image:$image
+	# Check that we can compute the size of the image.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot image $image
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	size=$(grep ^Size: <<< "$output" | sed 's,^Size: ,,g')
+	[ "$size" -ne 0 ]
+	echo size:$size
+	# Done using this location directly.
+	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
+	# Create containers using this image.
+	containers=
+	for i in $(seq $n) ; do
+		if test $host -ne $i ; then
+			run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root create-container --uidmap 0:${uidrange[$i]}:$(($n+1)) --gidmap 0:${gidrange[$i]}:$(($n+1)) $image
+		else
+			uidrange[$host]=0
+			gidrange[$host]=0
+			run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root create-container --hostuidmap --hostgidmap $image
+		fi
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		container=${lines[0]}
+		containers[$i-1]="$container"
+
+		# Check that the ownerships came out right.
+		run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root mount "$container"
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		mount="$output"
+
+		for j in $(seq $n) ; do
+			ownerids=$(stat -c %u:%g ${mount}/file$j)
+			echo on-disk IDs: "$ownerids"
+			echo expected IDs: $((${uidrange[$i]}+$j)):$((${gidrange[$i]}+$j))
+			[ "$ownerids" = $((${uidrange[$i]}+$j)):$((${gidrange[$i]}+$j)) ]
+		done
+		run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root unmount "$container"
+		[ "$status" -eq 0 ]
+	done
+	# Each of the containers' layers should have the same parent layer,
+	# which should be the lone top layer for the image.  The containers
+	# themselves have no contents at this point.
+	declare -a parents
+	echo containers list is \"${containers[*]}\"
+	for container in "${containers[@]}" ; do
+		run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root container $container
+		echo container "$container":"$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		baseimage=$(grep ^Image: <<< "$output" | sed 's,^Image: ,,g')
+		echo baseimage:"$baseimage"
+		[ "$baseimage" = "$image" ]
+		layer=$(grep ^Layer: <<< "$output" | sed 's,^Layer: ,,g')
+		echo layer:"$layer"
+		size=$(grep ^Size: <<< "$output" | sed 's,^Size: ,,g')
+		[ "$size" -eq 0 ]
+		echo size:$size
+
+		run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layer $layer
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		parent=$(grep ^Parent: <<< "$output" | sed 's,^Parent: ,,g')
+		echo parent:"$parent"
+
+		parents[${#parents[*]}]="$parent"
+
+		run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root image $baseimage
+		echo "$output"
+		[ "$status" -eq 0 ]
+		[ "$output" != "" ]
+		grep "^Top Layer: $parent" <<< "$output"
+	done
+	nparents=$(for p in ${parents[@]} ; do echo $p ; done | sort -u | wc -l)
+	echo nparents:$nparents
+	[ $nparents -eq 1 ]
+
+	# The image should still have only one top layer at this point.
+	run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root image $image
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	tops=$(grep '^Top Layer:' <<< "$output" | sed 's,^Top Layer: ,,g')
+	ntops=$(for p in $tops; do echo $p ; done | sort -u | wc -l)
+	echo ntops:$ntops
+	[ $ntops -eq 1 ]
+}
