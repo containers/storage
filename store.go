@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/containers/storage/pkg/stringutils"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 )
@@ -949,6 +951,106 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	return ristore.Create(id, names, layer, metadata, creationDate, options.Digest)
 }
 
+func (s *store) imageTopLayerForMapping(image *Image, ristore ROImageStore, readWrite bool, rlstore LayerStore, lstores []ROLayerStore, options IDMappingOptions) (*Layer, error) {
+	layerMatchesMappingOptions := func(layer *Layer, options IDMappingOptions) bool {
+		// If we want host mapping, and the layer uses mappings, it's not the best match.
+		if options.HostUIDMapping && len(layer.UIDMap) != 0 {
+			return false
+		}
+		if options.HostGIDMapping && len(layer.GIDMap) != 0 {
+			return false
+		}
+		// If we don't care about the mapping, it's fine.
+		if len(options.UIDMap) == 0 && len(options.GIDMap) == 0 {
+			return true
+		}
+		// Compare the maps.
+		return reflect.DeepEqual(layer.UIDMap, options.UIDMap) && reflect.DeepEqual(layer.GIDMap, options.GIDMap)
+	}
+	var layer, parentLayer *Layer
+	var layerHomeStore ROLayerStore
+	// Locate the image's top layer and its parent, if it has one.
+	for _, store := range append([]ROLayerStore{rlstore}, lstores...) {
+		if store != rlstore {
+			store.Lock()
+			defer store.Unlock()
+			if modified, err := store.Modified(); modified || err != nil {
+				store.Load()
+			}
+		}
+		// Walk the top layer list.
+		for _, candidate := range append([]string{image.TopLayer}, image.MappedTopLayers...) {
+			if cLayer, err := store.Get(candidate); err == nil {
+				// We want the layer's parent, too, if it has one.
+				var cParentLayer *Layer
+				if cLayer.Parent != "" {
+					// Its parent should be around here, somewhere.
+					if cParentLayer, err = store.Get(cLayer.Parent); err != nil {
+						// Nope, couldn't find it.  We're not going to be able
+						// to diff this one properly.
+						continue
+					}
+				}
+				// If the layer matches the desired mappings, it's a perfect match,
+				// so we're actually done here.
+				if layerMatchesMappingOptions(cLayer, options) {
+					return cLayer, nil
+				}
+				// Record the first one that we found, even if it's not ideal, so that
+				// we have a starting point.
+				if layer == nil {
+					layer = cLayer
+					parentLayer = cParentLayer
+					layerHomeStore = store
+				}
+			}
+		}
+	}
+	if layer == nil {
+		return nil, ErrLayerUnknown
+	}
+	// The top layer's mappings don't match the ones we want, but it's in a read-only
+	// image store, so we can't create and add a mapped copy of the layer to the image.
+	if !readWrite {
+		return layer, nil
+	}
+	// The top layer's mappings don't match the ones we want, and it's in an image store
+	// that lets us edit image metadata...
+	if istore, ok := ristore.(*imageStore); ok {
+		// ... so extract the layer's contents, create a new copy of it with the
+		// desired mappings, and register it as an alternate top layer in the image.
+		noCompression := archive.Uncompressed
+		diffOptions := DiffOptions{
+			Compression: &noCompression,
+		}
+		rc, err := layerHomeStore.Diff("", layer.ID, &diffOptions)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error reading layer %q to create an ID-mapped version of it")
+		}
+		defer rc.Close()
+		layerOptions := LayerOptions{
+			IDMappingOptions: IDMappingOptions{
+				HostUIDMapping: options.HostUIDMapping,
+				HostGIDMapping: options.HostGIDMapping,
+				UIDMap:         copyIDMap(options.UIDMap),
+				GIDMap:         copyIDMap(options.GIDMap),
+			},
+		}
+		mappedLayer, _, err := rlstore.Put("", parentLayer, nil, layer.MountLabel, nil, &layerOptions, false, nil, rc)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error creating ID-mapped copy of layer %q")
+		}
+		if err = istore.addMappedTopLayer(image.ID, mappedLayer.ID); err != nil {
+			if err2 := rlstore.Delete(mappedLayer.ID); err2 != nil {
+				err = errors.WithMessage(err, fmt.Sprintf("error deleting layer %q: %v", mappedLayer.ID, err2))
+			}
+			return nil, errors.Wrapf(err, "error registering ID-mapped layer with image %q", image.ID)
+		}
+		layer = mappedLayer
+	}
+	return layer, nil
+}
+
 func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
 	if options == nil {
 		options = &ContainerOptions{}
@@ -977,6 +1079,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	uidMap := options.UIDMap
 	gidMap := options.GIDMap
 	if image != "" {
+		var imageHomeStore ROImageStore
 		istore, err := s.ImageStore()
 		if err != nil {
 			return nil, err
@@ -994,6 +1097,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			}
 			cimage, err = store.Get(image)
 			if err == nil {
+				imageHomeStore = store
 				break
 			}
 		}
@@ -1006,22 +1110,9 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		if err != nil {
 			return nil, err
 		}
-		var ilayer *Layer
-		for _, store := range append([]ROLayerStore{rlstore}, lstores...) {
-			if store != rlstore {
-				store.Lock()
-				defer store.Unlock()
-				if modified, err := store.Modified(); modified || err != nil {
-					store.Load()
-				}
-			}
-			ilayer, err = store.Get(cimage.TopLayer)
-			if err == nil {
-				break
-			}
-		}
-		if ilayer == nil {
-			return nil, ErrLayerUnknown
+		ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, imageHomeStore == istore, rlstore, lstores, options.IDMappingOptions)
+		if err != nil {
+			return nil, err
 		}
 		imageTopLayer = ilayer
 		if !options.HostUIDMapping && len(options.UIDMap) == 0 {
@@ -1614,7 +1705,7 @@ func (s *store) DeleteLayer(id string) error {
 			return err
 		}
 		for _, image := range images {
-			if image.TopLayer == id {
+			if image.TopLayer == id || stringutils.InSlice(image.MappedTopLayers, id) {
 				return errors.Wrapf(ErrLayerUsedByImage, "Layer %v used by image %v", id, image.ID)
 			}
 		}
@@ -1697,10 +1788,13 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 				childrenByParent[parent] = &([]string{layer.ID})
 			}
 		}
-		anyImageByTopLayer := make(map[string]string)
+		otherImagesByTopLayer := make(map[string]string)
 		for _, img := range images {
 			if img.ID != id {
-				anyImageByTopLayer[img.TopLayer] = img.ID
+				otherImagesByTopLayer[img.TopLayer] = img.ID
+				for _, layerID := range img.MappedTopLayers {
+					otherImagesByTopLayer[layerID] = img.ID
+				}
 			}
 		}
 		if commit {
@@ -1714,27 +1808,38 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 			if rcstore.Exists(layer) {
 				break
 			}
-			if _, ok := anyImageByTopLayer[layer]; ok {
+			if _, ok := otherImagesByTopLayer[layer]; ok {
 				break
 			}
 			parent := ""
 			if l, err := rlstore.Get(layer); err == nil {
 				parent = l.Parent
 			}
-			otherRefs := 0
-			if childList, ok := childrenByParent[layer]; ok && childList != nil {
-				children := *childList
-				for _, child := range children {
-					if child != lastRemoved {
-						otherRefs++
+			hasOtherRefs := func() bool {
+				layersToCheck := []string{layer}
+				if layer == image.TopLayer {
+					layersToCheck = append(layersToCheck, image.MappedTopLayers...)
+				}
+				for _, layer := range layersToCheck {
+					if childList, ok := childrenByParent[layer]; ok && childList != nil {
+						children := *childList
+						for _, child := range children {
+							if child != lastRemoved {
+								return true
+							}
+						}
 					}
 				}
+				return false
 			}
-			if otherRefs != 0 {
+			if hasOtherRefs() {
 				break
 			}
 			lastRemoved = layer
 			layersToRemove = append(layersToRemove, lastRemoved)
+			if layer == image.TopLayer {
+				layersToRemove = append(layersToRemove, image.MappedTopLayers...)
+			}
 			layer = parent
 		}
 	} else {
@@ -2293,7 +2398,7 @@ func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {
 			return nil, err
 		}
 		for _, image := range imageList {
-			if image.TopLayer == layer.ID {
+			if image.TopLayer == layer.ID || stringutils.InSlice(image.MappedTopLayers, layer.ID) {
 				images = append(images, &image)
 			}
 		}
