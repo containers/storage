@@ -348,6 +348,9 @@ type Store interface {
 	// with an image.
 	SetImageBigData(id, key string, data []byte) error
 
+	// ImageSize computes the size of the image's layers and ancillary data.
+	ImageSize(id string) (int64, error)
+
 	// ListContainerBigData retrieves a list of the (possibly large) chunks of
 	// named data associated with a container.
 	ListContainerBigData(id string) ([]string, error)
@@ -1368,6 +1371,112 @@ func (s *store) SetImageBigData(id, key string, data []byte) error {
 	}
 
 	return ristore.SetBigData(id, key, data)
+}
+
+func (s *store) ImageSize(id string) (int64, error) {
+	var image *Image
+
+	lstore, err := s.LayerStore()
+	if err != nil {
+		return -1, errors.Wrapf(err, "error loading primary layer store data")
+	}
+	lstores, err := s.ROLayerStores()
+	if err != nil {
+		return -1, errors.Wrapf(err, "error loading additional layer stores")
+	}
+	for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+		store.Lock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			store.Load()
+		}
+	}
+
+	var imageStore ROBigDataStore
+	istore, err := s.ImageStore()
+	if err != nil {
+		return -1, errors.Wrapf(err, "error loading primary image store data")
+	}
+	istores, err := s.ROImageStores()
+	if err != nil {
+		return -1, errors.Wrapf(err, "error loading additional image stores")
+	}
+
+	// Look for the image's record.
+	for _, store := range append([]ROImageStore{istore}, istores...) {
+		store.Lock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			store.Load()
+		}
+		if image, err = store.Get(id); err == nil {
+			imageStore = store
+			break
+		}
+	}
+	if image == nil {
+		return -1, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
+	}
+
+	// Start with a list of the image's top layers.
+	queue := make(map[string]struct{})
+	for _, layerID := range append([]string{image.TopLayer}, image.MappedTopLayers...) {
+		queue[layerID] = struct{}{}
+	}
+	visited := make(map[string]struct{})
+	// Walk all of the layers.
+	var size int64
+	for len(visited) < len(queue) {
+		for layerID := range queue {
+			// Visit each layer only once.
+			if _, ok := visited[layerID]; ok {
+				continue
+			}
+			visited[layerID] = struct{}{}
+			// Look for the layer and the store that knows about it.
+			var layerStore ROLayerStore
+			var layer *Layer
+			for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+				if layer, err = store.Get(layerID); err == nil {
+					layerStore = store
+					break
+				}
+			}
+			if layer == nil {
+				return -1, errors.Wrapf(ErrLayerUnknown, "error locating layer with ID %q", layerID)
+			}
+			// The UncompressedSize is only valid if there's a digest to go with it.
+			n := layer.UncompressedSize
+			if layer.UncompressedDigest == "" {
+				// Compute the size.
+				n, err = layerStore.DiffSize("", layer.ID)
+				if err != nil {
+					return -1, errors.Wrapf(err, "size/digest of layer with ID %q could not be calculated", layerID)
+				}
+			}
+			// Count this layer.
+			size += n
+			// Make a note to visit the layer's parent if we haven't already.
+			if layer.Parent != "" {
+				queue[layer.Parent] = struct{}{}
+			}
+		}
+	}
+
+	// Count big data items.
+	names, err := imageStore.BigDataNames(id)
+	if err != nil {
+		return -1, errors.Wrapf(err, "error reading list of big data items for image %q", id)
+	}
+	for _, name := range names {
+		n, err := imageStore.BigDataSize(id, name)
+		if err != nil {
+			return -1, errors.Wrapf(err, "error reading size of big data item %q for image %q", name, id)
+		}
+		size += n
+	}
+
+	return size, nil
 }
 
 func (s *store) ListContainerBigData(id string) ([]string, error) {

@@ -36,6 +36,12 @@ func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 			for _, name := range image.BigDataNames {
 				fmt.Printf("Data: %s\n", name)
 			}
+			size, err := m.ImageSize(image.ID)
+			if err != nil {
+				fmt.Printf("Size unknown: %v\n", err)
+			} else {
+				fmt.Printf("Size: %d\n", size)
+			}
 		}
 	}
 	if len(matched) != len(args) {
