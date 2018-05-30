@@ -19,6 +19,7 @@ import (
 	"github.com/BurntSushi/toml"
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
@@ -370,6 +371,10 @@ type Store interface {
 	// SetContainerBigData stores a (possibly large) chunk of named data
 	// associated with a container.
 	SetContainerBigData(id, key string, data []byte) error
+
+	// ContainerSize computes the size of the container's layer and ancillary
+	// data.  Warning:  this is a potentially expensive operation.
+	ContainerSize(id string) (int64, error)
 
 	// Layer returns a specific layer.
 	Layer(id string) (*Layer, error)
@@ -1475,6 +1480,94 @@ func (s *store) ImageSize(id string) (int64, error) {
 		}
 		size += n
 	}
+
+	return size, nil
+}
+
+func (s *store) ContainerSize(id string) (int64, error) {
+	lstore, err := s.LayerStore()
+	if err != nil {
+		return -1, err
+	}
+	lstores, err := s.ROLayerStores()
+	if err != nil {
+		return -1, err
+	}
+	for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+		store.Lock()
+		defer store.Unlock()
+		if modified, err := store.Modified(); modified || err != nil {
+			store.Load()
+		}
+	}
+
+	// Get the location of the container directory and container run directory.
+	// Do it before we lock the container store because they do, too.
+	cdir, err := s.ContainerDirectory(id)
+	if err != nil {
+		return -1, err
+	}
+	rdir, err := s.ContainerRunDirectory(id)
+	if err != nil {
+		return -1, err
+	}
+
+	rcstore, err := s.ContainerStore()
+	if err != nil {
+		return -1, err
+	}
+	rcstore.Lock()
+	defer rcstore.Unlock()
+	if modified, err := rcstore.Modified(); modified || err != nil {
+		rcstore.Load()
+	}
+
+	// Read the container record.
+	container, err := rcstore.Get(id)
+	if err != nil {
+		return -1, err
+	}
+
+	// Read the container's layer's size.
+	var layer *Layer
+	var size int64
+	for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+		if layer, err = store.Get(container.LayerID); err == nil {
+			size, err = store.DiffSize("", layer.ID)
+			if err != nil {
+				return -1, errors.Wrapf(err, "error determining size of layer with ID %q", layer.ID)
+			}
+			break
+		}
+	}
+	if layer == nil {
+		return -1, errors.Wrapf(ErrLayerUnknown, "error locating layer with ID %q", container.LayerID)
+	}
+
+	// Count big data items.
+	names, err := rcstore.BigDataNames(id)
+	if err != nil {
+		return -1, errors.Wrapf(err, "error reading list of big data items for container %q", container.ID)
+	}
+	for _, name := range names {
+		n, err := rcstore.BigDataSize(id, name)
+		if err != nil {
+			return -1, errors.Wrapf(err, "error reading size of big data item %q for container %q", name, id)
+		}
+		size += n
+	}
+
+	// Count the size of our container directory and container run directory.
+	n, err := directory.Size(cdir)
+	if err != nil {
+		return -1, err
+	}
+	size += n
+	n, err = directory.Size(rdir)
+	if err != nil {
+		return -1, err
+	}
+	size += n
 
 	return size, nil
 }
