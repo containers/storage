@@ -43,6 +43,12 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 					break
 				}
 			}
+			size, err := m.ContainerSize(container.ID)
+			if err != nil {
+				fmt.Printf("Size unknown: %v\n", err)
+			} else {
+				fmt.Printf("Size: %d\n", size)
+			}
 			fmt.Printf("Layer: %s\n", container.LayerID)
 			for _, name := range container.BigDataNames {
 				fmt.Printf("Data: %s\n", name)

@@ -21,6 +21,12 @@ func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 	} else {
 		for _, layer := range matched {
 			fmt.Printf("ID: %s\n", layer.ID)
+			for _, u := range layer.UIDMap {
+				fmt.Printf("UID mapping: (container=%d, host=%d, size=%d)\n", u.ContainerID, u.HostID, u.Size)
+			}
+			for _, g := range layer.GIDMap {
+				fmt.Printf("GID mapping: (container=%d, host=%d, size=%d)\n", g.ContainerID, g.HostID, g.Size)
+			}
 			if layer.Parent != "" {
 				fmt.Printf("Parent: %s\n", layer.Parent)
 			}
