@@ -494,6 +494,9 @@ type ContainerOptions struct {
 	// container's layer will inherit settings from the image's top layer
 	// or, if it is not being created based on an image, the Store object.
 	IDMappingOptions
+	// LayerOptions are a map of key/value pairs which are of significance
+	// to individual storage drivers.
+	LayerOptions map[string]string
 }
 
 type store struct {
@@ -1145,7 +1148,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			GIDMap:         copyIDMap(gidMap),
 		},
 	}
-	clayer, err := rlstore.Create(layer, imageTopLayer, nil, "", nil, layerOptions, true)
+	clayer, err := rlstore.Create(layer, imageTopLayer, nil, "", options.LayerOptions, layerOptions, true)
 	if err != nil {
 		return nil, err
 	}
