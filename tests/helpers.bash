@@ -24,6 +24,8 @@ function teardown() {
 # Create a file "$1" with random contents of length $2, or 256.
 function createrandom() {
 	dd if=/dev/urandom bs=1 count=${2:-256} of=${1:-${BATS_TMPDIR}/randomfile} status=none
+	# Set the mtime to the epoch so it won't be different once it is deduplicated with OSTree
+	touch -t 7001010000.00 ${1:-${BATS_TMPDIR}/randomfile}
 }
 
 # Run the CLI with the specified options.
