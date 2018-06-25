@@ -84,6 +84,7 @@ type overlayOptions struct {
 	overrideKernelCheck bool
 	imageStores         []string
 	quota               quota.Quota
+	fuseProgram         string
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -147,11 +148,16 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	supportsDType, err := supportsOverlay(home, fsMagic, rootUID, rootGID)
-	if err != nil {
-		os.Remove(filepath.Join(home, linkDir))
-		os.Remove(home)
-		return nil, errors.Wrap(err, "kernel does not support overlay fs")
+	var supportsDType bool
+	if opts.fuseProgram != "" {
+		supportsDType = true
+	} else {
+		supportsDType, err = supportsOverlay(home, fsMagic, rootUID, rootGID)
+		if err != nil {
+			os.Remove(filepath.Join(home, linkDir))
+			os.Remove(home)
+			return nil, errors.Wrap(err, "kernel does not support overlay fs")
+		}
 	}
 
 	if err := mount.MakePrivate(home); err != nil {
@@ -227,6 +233,13 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				}
 				o.imageStores = append(o.imageStores, store)
 			}
+		case ".fuse_program", "overlay.fuse_program", "overlay2.fuse_program":
+			logrus.Debugf("overlay: fuse_program=%s", val)
+			_, err := os.Stat(val)
+			if err != nil {
+				return nil, fmt.Errorf("overlay: can't stat FUSE program %s: %v", val, err)
+			}
+			o.fuseProgram = val
 		default:
 			return nil, fmt.Errorf("overlay: Unknown option %s", key)
 		}
@@ -236,6 +249,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 
 func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
 	// We can try to modprobe overlay first
+
 	exec.Command("modprobe", "overlay").Run()
 
 	layerDir, err := ioutil.TempDir(home, "compat")
@@ -663,7 +677,7 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 	// the page size. The mount syscall fails if the mount data cannot
 	// fit within a page and relative links make the mount data much
 	// smaller at the expense of requiring a fork exec to chroot.
-	if len(mountData) > pageSize {
+	if len(mountData) > pageSize || d.options.fuseProgram != "" {
 		//FIXME: We need to figure out to get this to work with additional stores
 		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(relLowers, ":"), path.Join(id, "diff"), path.Join(id, "work"))
 		mountData = label.FormatMountLabel(opts, mountLabel)
@@ -671,8 +685,16 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 			return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
 		}
 
-		mount = func(source string, target string, mType string, flags uintptr, label string) error {
-			return mountFrom(d.home, source, target, mType, flags, label)
+		if d.options.fuseProgram != "" {
+			mount = func(source string, target string, mType string, flags uintptr, label string) error {
+				cmdRootless := exec.Command(d.options.fuseProgram, "-o", label, target)
+				cmdRootless.Dir = d.home
+				return cmdRootless.Run()
+			}
+		} else {
+			mount = func(source string, target string, mType string, flags uintptr, label string) error {
+				return mountFrom(d.home, source, target, mType, flags, label)
+			}
 		}
 		mountTarget = path.Join(id, "merged")
 	}

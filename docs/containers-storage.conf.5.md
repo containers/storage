@@ -89,6 +89,10 @@ Tells driver to wipe device (directlvm_device) even if device already has a file
 
 Specifies the filesystem type to use for the base device. (default: xfs)
 
+**fuse_program**=""
+
+Specifies the path to a custom FUSE program to use instead for mounting the file system.
+
 **log_level**=""
 
 Sets the log level of devicemapper.
