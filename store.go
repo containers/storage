@@ -311,7 +311,7 @@ type Store interface {
 	// LayerParentOwners returns the UIDs and GIDs of owners of parents of
 	// the layer's mountpoint for which the layer's UID and GID maps (if
 	// any are defined) don't contain corresponding IDs.
-	LayerParentOwners(id string) ([]int, []int, error)
+	LayerParentOwners(id string) ([]uint32, []uint32, error)
 
 	// Layers returns a list of the currently known layers.
 	Layers() ([]Layer, error)
@@ -433,7 +433,7 @@ type Store interface {
 	// ContainerParentOwners returns the UIDs and GIDs of owners of parents
 	// of the container's layer's mountpoint for which the layer's UID and
 	// GID maps (if any are defined) don't contain corresponding IDs.
-	ContainerParentOwners(id string) ([]int, []int, error)
+	ContainerParentOwners(id string) ([]uint32, []uint32, error)
 
 	// Lookup returns the ID of a layer, image, or container with the specified
 	// name or ID.
@@ -2414,7 +2414,7 @@ func (s *store) LayerSize(id string) (int64, error) {
 	return -1, ErrLayerUnknown
 }
 
-func (s *store) LayerParentOwners(id string) ([]int, []int, error) {
+func (s *store) LayerParentOwners(id string) ([]uint32, []uint32, error) {
 	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, nil, err
@@ -2430,7 +2430,7 @@ func (s *store) LayerParentOwners(id string) ([]int, []int, error) {
 	return nil, nil, ErrLayerUnknown
 }
 
-func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
+func (s *store) ContainerParentOwners(id string) ([]uint32, []uint32, error) {
 	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, nil, err
@@ -3134,9 +3134,9 @@ func init() {
 					return nil
 				}
 				mapping := idtools.IDMap{
-					ContainerID: int(cid),
-					HostID:      int(hid),
-					Size:        int(size),
+					ContainerID: cid,
+					HostID:      hid,
+					Size:        size,
 				}
 				idmap = append(idmap, mapping)
 			}

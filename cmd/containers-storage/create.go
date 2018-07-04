@@ -87,9 +87,9 @@ func paramIDMapping() (*storage.IDMappingOptions, error) {
 					return nil, fmt.Errorf("%s map is malformed", mapType)
 				}
 				mapping := idtools.IDMap{
-					ContainerID: int(cid),
-					HostID:      int(hid),
-					Size:        int(size),
+					ContainerID: cid,
+					HostID:      hid,
+					Size:        size,
 				}
 				idmap = append(idmap, mapping)
 			}

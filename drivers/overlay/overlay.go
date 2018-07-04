@@ -247,7 +247,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 	return o, nil
 }
 
-func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
+func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID uint32) (supportsDType bool, err error) {
 	// We can try to modprobe overlay first
 
 	exec.Command("modprobe", "overlay").Run()
@@ -412,8 +412,8 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		if err != nil {
 			return err
 		}
-		rootUID = int(st.UID())
-		rootGID = int(st.GID())
+		rootUID = st.UID()
+		rootGID = st.GID()
 	}
 	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
 		return err
@@ -709,7 +709,7 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 		return "", err
 	}
 
-	if err := os.Chown(path.Join(workDir, "work"), rootUID, rootGID); err != nil {
+	if err := os.Chown(path.Join(workDir, "work"), int(rootUID), int(rootGID)); err != nil {
 		return "", err
 	}
 
@@ -861,7 +861,7 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	dir := d.dir(id)
 	diffDir := filepath.Join(dir, "diff")
 
-	rootUID, rootGID := 0, 0
+	var rootUID, rootGID uint32
 	if toHost != nil {
 		rootUID, rootGID, err = idtools.GetRootUIDGID(toHost.UIDs(), toHost.GIDs())
 		if err != nil {

@@ -215,7 +215,7 @@ type LayerStore interface {
 
 	// ParentOwners returns the UIDs and GIDs of parents of the layer's mountpoint
 	// for which the layer's UID and GID maps don't contain corresponding entries.
-	ParentOwners(id string) (uids, gids []int, err error)
+	ParentOwners(id string) (uids, gids []uint32, err error)
 
 	// ApplyDiff reads a tarstream which was created by a previous call to Diff and
 	// applies its changes to a specified layer.
@@ -680,7 +680,7 @@ func (r *layerStore) Unmount(id string) error {
 	return err
 }
 
-func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
+func (r *layerStore) ParentOwners(id string) (uids, gids []uint32, err error) {
 	layer, ok := r.lookup(id)
 	if !ok {
 		return nil, nil, ErrLayerUnknown
@@ -698,8 +698,8 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 		return nil, nil, errors.Wrapf(err, "error reading root ID values for layer %q", layer.ID)
 	}
 	m := idtools.NewIDMappingsFromMaps(layer.UIDMap, layer.GIDMap)
-	fsuids := make(map[int]struct{})
-	fsgids := make(map[int]struct{})
+	fsuids := make(map[uint32]struct{})
+	fsgids := make(map[uint32]struct{})
 	for dir := filepath.Dir(layer.MountPoint); dir != "" && dir != string(os.PathSeparator); dir = filepath.Dir(dir) {
 		st, err := system.Stat(dir)
 		if err != nil {
@@ -709,16 +709,16 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "error reading ownership of directory-in-case-it's-a-symlink %q", dir)
 		}
-		fsuid := int(st.UID())
-		fsgid := int(st.GID())
+		fsuid := st.UID()
+		fsgid := st.GID()
 		if _, _, err := m.ToContainer(idtools.IDPair{UID: fsuid, GID: rootgid}); err != nil {
 			fsuids[fsuid] = struct{}{}
 		}
 		if _, _, err := m.ToContainer(idtools.IDPair{UID: rootuid, GID: fsgid}); err != nil {
 			fsgids[fsgid] = struct{}{}
 		}
-		fsuid = int(lst.UID())
-		fsgid = int(lst.GID())
+		fsuid = lst.UID()
+		fsgid = lst.GID()
 		if _, _, err := m.ToContainer(idtools.IDPair{UID: fsuid, GID: rootgid}); err != nil {
 			fsuids[fsuid] = struct{}{}
 		}
@@ -733,10 +733,10 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 		gids = append(gids, gid)
 	}
 	if len(uids) > 1 {
-		sort.Ints(uids)
+		sort.Slice(uids, func(i, j int) bool { return uids[i] < uids[j] })
 	}
 	if len(gids) > 1 {
-		sort.Ints(gids)
+		sort.Slice(gids, func(i, j int) bool { return gids[i] < gids[j] })
 	}
 	return uids, gids, nil
 }

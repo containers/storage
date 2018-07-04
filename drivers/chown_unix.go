@@ -18,7 +18,7 @@ func platformLChown(path string, info os.FileInfo, toHost, toContainer *idtools.
 		// second map.  Skip that first step if they're 0, to
 		// compensate for cases where a parent layer should
 		// have had a mapped value, but didn't.
-		uid, gid := int(st.Uid), int(st.Gid)
+		uid, gid := st.Uid, st.Gid
 		if toContainer != nil {
 			pair := idtools.IDPair{
 				UID: uid,
@@ -44,9 +44,9 @@ func platformLChown(path string, info os.FileInfo, toHost, toContainer *idtools.
 			}
 			uid, gid = mappedPair.UID, mappedPair.GID
 		}
-		if uid != int(st.Uid) || gid != int(st.Gid) {
+		if uid != st.Uid || gid != st.Gid {
 			// Make the change.
-			if err := syscall.Lchown(path, uid, gid); err != nil {
+			if err := syscall.Lchown(path, int(uid), int(gid)); err != nil {
 				return fmt.Errorf("%s: chown(%q): %v", os.Args[0], path, err)
 			}
 		}
