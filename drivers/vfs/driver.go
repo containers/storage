@@ -123,8 +123,8 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, ro bool
 		if err != nil {
 			return err
 		}
-		rootIDs.UID = int(st.UID())
-		rootIDs.GID = int(st.GID())
+		rootIDs.UID = st.UID()
+		rootIDs.GID = st.GID()
 	}
 	if err := idtools.MkdirAndChown(dir, 0755, rootIDs); err != nil {
 		return err

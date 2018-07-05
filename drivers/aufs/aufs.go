@@ -297,8 +297,8 @@ func (a *Driver) createDirsFor(id, parent string) error {
 			if err != nil {
 				return err
 			}
-			rootPair.UID = int(st.UID())
-			rootPair.GID = int(st.GID())
+			rootPair.UID = st.UID()
+			rootPair.GID = st.GID()
 		}
 		if err := idtools.MkdirAllAndChownNew(path.Join(a.rootPath(), p, id), os.FileMode(0755), rootPair); err != nil {
 			return err

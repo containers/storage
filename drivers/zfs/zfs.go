@@ -385,7 +385,7 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 
 	// this could be our first mount after creation of the filesystem, and the root dir may still have root
 	// permissions instead of the remapped root uid:gid (if user namespaces are enabled):
-	if err := os.Chown(mountpoint, rootUID, rootGID); err != nil {
+	if err := os.Chown(mountpoint, int(rootUID), int(rootGID)); err != nil {
 		mount.Unmount(mountpoint)
 		d.ctr.Decrement(mountpoint)
 		return "", fmt.Errorf("error modifying zfs mountpoint (%s) directory ownership: %v", mountpoint, err)

@@ -38,7 +38,7 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			fmt.Fprintf(os.Stderr, "error %q as a numeric GID: %v", chownParts[1], err)
 			return 1
 		}
-		chownOpts = &idtools.IDPair{UID: int(uid), GID: int(gid)}
+		chownOpts = &idtools.IDPair{UID: uint32(uid), GID: uint32(gid)}
 	}
 	target := args[len(args)-1]
 	if strings.Contains(target, ":") {

@@ -548,7 +548,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	// if we have a remapped root (user namespaces enabled), change the created snapshot
 	// dir ownership to match
 	if rootUID != 0 || rootGID != 0 {
-		if err := os.Chown(path.Join(subvolumes, id), rootUID, rootGID); err != nil {
+		if err := os.Chown(path.Join(subvolumes, id), int(rootUID), int(rootGID)); err != nil {
 			return err
 		}
 	}

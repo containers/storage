@@ -57,8 +57,8 @@ func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, arg
 		if jsonOutput {
 			mappings := struct {
 				ID   string
-				UIDs []int
-				GIDs []int
+				UIDs []uint32
+				GIDs []uint32
 			}{
 				ID:   layer.ID,
 				UIDs: uids,

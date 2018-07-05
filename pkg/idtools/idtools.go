@@ -3,6 +3,7 @@ package idtools
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -13,9 +14,9 @@ import (
 // of IDMap entries represents the structure that will be provided to the Linux
 // kernel for creating a user namespace.
 type IDMap struct {
-	ContainerID int `json:"container_id"`
-	HostID      int `json:"host_id"`
-	Size        int `json:"size"`
+	ContainerID uint32 `json:"container_id"`
+	HostID      uint32 `json:"host_id"`
+	Size        uint32 `json:"size"`
 }
 
 type subIDRange struct {
@@ -38,14 +39,14 @@ const (
 // ownership to the requested uid/gid.  If the directory already exists, this
 // function will still change ownership to the requested uid/gid pair.
 // Deprecated: Use MkdirAllAndChown
-func MkdirAllAs(path string, mode os.FileMode, ownerUID, ownerGID int) error {
+func MkdirAllAs(path string, mode os.FileMode, ownerUID, ownerGID uint32) error {
 	return mkdirAs(path, mode, ownerUID, ownerGID, true, true)
 }
 
 // MkdirAs creates a directory and then modifies ownership to the requested uid/gid.
 // If the directory already exists, this function still changes ownership
 // Deprecated: Use MkdirAndChown with a IDPair
-func MkdirAs(path string, mode os.FileMode, ownerUID, ownerGID int) error {
+func MkdirAs(path string, mode os.FileMode, ownerUID, ownerGID uint32) error {
 	return mkdirAs(path, mode, ownerUID, ownerGID, false, true)
 }
 
@@ -71,14 +72,14 @@ func MkdirAllAndChownNew(path string, mode os.FileMode, ids IDPair) error {
 
 // GetRootUIDGID retrieves the remapped root uid/gid pair from the set of maps.
 // If the maps are empty, then the root uid/gid will default to "real" 0/0
-func GetRootUIDGID(uidMap, gidMap []IDMap) (int, int, error) {
+func GetRootUIDGID(uidMap, gidMap []IDMap) (uint32, uint32, error) {
 	uid, err := toHost(0, uidMap)
 	if err != nil {
-		return -1, -1, err
+		return math.MaxUint32, math.MaxUint32, err
 	}
 	gid, err := toHost(0, gidMap)
 	if err != nil {
-		return -1, -1, err
+		return math.MaxUint32, math.MaxUint32, err
 	}
 	return uid, gid, nil
 }
@@ -86,7 +87,7 @@ func GetRootUIDGID(uidMap, gidMap []IDMap) (int, int, error) {
 // toContainer takes an id mapping, and uses it to translate a
 // host ID to the remapped ID. If no map is provided, then the translation
 // assumes a 1-to-1 mapping and returns the passed in id
-func toContainer(hostID int, idMap []IDMap) (int, error) {
+func toContainer(hostID uint32, idMap []IDMap) (uint32, error) {
 	if idMap == nil {
 		return hostID, nil
 	}
@@ -96,13 +97,13 @@ func toContainer(hostID int, idMap []IDMap) (int, error) {
 			return contID, nil
 		}
 	}
-	return -1, fmt.Errorf("Host ID %d cannot be mapped to a container ID", hostID)
+	return math.MaxUint32, fmt.Errorf("Host ID %d cannot be mapped to a container ID", hostID)
 }
 
 // toHost takes an id mapping and a remapped ID, and translates the
 // ID to the mapped host ID. If no map is provided, then the translation
 // assumes a 1-to-1 mapping and returns the passed in id #
-func toHost(contID int, idMap []IDMap) (int, error) {
+func toHost(contID uint32, idMap []IDMap) (uint32, error) {
 	if idMap == nil {
 		return contID, nil
 	}
@@ -112,13 +113,13 @@ func toHost(contID int, idMap []IDMap) (int, error) {
 			return hostID, nil
 		}
 	}
-	return -1, fmt.Errorf("Container ID %d cannot be mapped to a host ID", contID)
+	return math.MaxUint32, fmt.Errorf("Container ID %d cannot be mapped to a host ID", contID)
 }
 
 // IDPair is a UID and GID pair
 type IDPair struct {
-	UID int
-	GID int
+	UID uint32
+	GID uint32
 }
 
 // IDMappings contains a mappings of UIDs and GIDs
@@ -173,23 +174,23 @@ func (i *IDMappings) ToHost(pair IDPair) (IDPair, error) {
 	target := i.RootPair()
 
 	if pair.UID != target.UID {
-		target.UID, err = toHost(pair.UID, i.uids)
+		target.UID, err = toHost(uint32(pair.UID), i.uids)
 		if err != nil {
 			return target, err
 		}
 	}
 
 	if pair.GID != target.GID {
-		target.GID, err = toHost(pair.GID, i.gids)
+		target.GID, err = toHost(uint32(pair.GID), i.gids)
 	}
 	return target, err
 }
 
 // ToContainer returns the container UID and GID for the host uid and gid
-func (i *IDMappings) ToContainer(pair IDPair) (int, int, error) {
+func (i *IDMappings) ToContainer(pair IDPair) (uint32, uint32, error) {
 	uid, err := toContainer(pair.UID, i.uids)
 	if err != nil {
-		return -1, -1, err
+		return math.MaxUint32, math.MaxUint32, err
 	}
 	gid, err := toContainer(pair.GID, i.gids)
 	return uid, gid, err
@@ -220,9 +221,9 @@ func createIDMap(subidRanges ranges) []IDMap {
 	containerID := 0
 	for _, idrange := range subidRanges {
 		idMap = append(idMap, IDMap{
-			ContainerID: containerID,
-			HostID:      idrange.Start,
-			Size:        idrange.Length,
+			ContainerID: uint32(containerID),
+			HostID:      uint32(idrange.Start),
+			Size:        uint32(idrange.Length),
 		})
 		containerID = containerID + idrange.Length
 	}

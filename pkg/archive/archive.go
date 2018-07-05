@@ -486,16 +486,17 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 		if err != nil {
 			return err
 		}
-		hdr.Uid, hdr.Gid, err = ta.IDMappings.ToContainer(fileIDPair)
+		uid, gid, err := ta.IDMappings.ToContainer(fileIDPair)
 		if err != nil {
 			return err
 		}
+		hdr.Uid, hdr.Gid = int(uid), int(gid)
 	}
 
 	// explicitly override with ChownOpts
 	if ta.ChownOpts != nil {
-		hdr.Uid = ta.ChownOpts.UID
-		hdr.Gid = ta.ChownOpts.GID
+		hdr.Uid = int(ta.ChownOpts.UID)
+		hdr.Gid = int(ta.ChownOpts.GID)
 	}
 
 	if ta.WhiteoutConverter != nil {
@@ -629,9 +630,9 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 	// Lchown is not supported on Windows.
 	if Lchown && runtime.GOOS != "windows" {
 		if chownOpts == nil {
-			chownOpts = &idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid}
+			chownOpts = &idtools.IDPair{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 		}
-		if err := os.Lchown(path, chownOpts.UID, chownOpts.GID); err != nil {
+		if err := os.Lchown(path, int(chownOpts.UID), int(chownOpts.GID)); err != nil {
 			return err
 		}
 	}
@@ -975,7 +976,7 @@ loop:
 		}
 
 		if chownOpts != nil {
-			chownOpts = &idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid}
+			chownOpts = &idtools.IDPair{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 		}
 
 		if err := createTarFile(path, dest, hdr, trBuf, !options.NoLchown, chownOpts, options.InUserNS); err != nil {
@@ -1195,27 +1196,27 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 }
 
 func remapIDs(readIDMappings, writeIDMappings *idtools.IDMappings, chownOpts *idtools.IDPair, hdr *tar.Header) (err error) {
-	var uid, gid int
+	var uid, gid uint32
 	if chownOpts != nil {
 		uid, gid = chownOpts.UID, chownOpts.GID
 	} else {
 		if readIDMappings != nil && !readIDMappings.Empty() {
-			uid, gid, err = readIDMappings.ToContainer(idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid})
+			uid, gid, err = readIDMappings.ToContainer(idtools.IDPair{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)})
 			if err != nil {
 				return err
 			}
 		} else {
-			uid, gid = hdr.Uid, hdr.Gid
+			uid, gid = uint32(hdr.Uid), uint32(hdr.Gid)
 		}
 	}
-	ids := idtools.IDPair{UID: uid, GID: gid}
+	ids := idtools.IDPair{UID: uint32(uid), GID: uint32(gid)}
 	if writeIDMappings != nil && !writeIDMappings.Empty() {
 		ids, err = writeIDMappings.ToHost(ids)
 		if err != nil {
 			return err
 		}
 	}
-	hdr.Uid, hdr.Gid = ids.UID, ids.GID
+	hdr.Uid, hdr.Gid = int(ids.UID), int(ids.GID)
 	return nil
 }
 
