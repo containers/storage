@@ -13,15 +13,15 @@ fi
 # Additional packages needed ontop of the base (generic) image
 case "$DISTRO" in
     *ubuntu*)
-        export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev"
+        export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev ostree libostree-dev"
         ;;
     *fedora*)
         export INSTALL_CMD="dnf -y install bats btrfs-progs btrfs-progs-devel
-                            e2fsprogs xfsprogs device-mapper-devel"
+                            e2fsprogs xfsprogs device-mapper-devel ostree ostree-devel"
         ;;
     *centos*)
         export INSTALL_CMD="yum install -y bats btrfs-progs btrfs-progs-devel
-                            e2fsprogs xfsprogs device-mapper-devel"
+                            e2fsprogs xfsprogs device-mapper-devel ostree ostree-devel"
         ;;
     *)
         echo "Unknown/unsupported \$DISTRO=$DISTRO"
