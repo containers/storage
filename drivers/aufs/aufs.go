@@ -728,3 +728,8 @@ func useDirperm() bool {
 func (a *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error {
 	return fmt.Errorf("aufs doesn't support changing ID mappings")
 }
+
+// SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
+func (a *Driver) SupportsShifting() bool {
+	return false
+}

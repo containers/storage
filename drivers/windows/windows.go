@@ -954,6 +954,11 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	return fmt.Errorf("windows doesn't support changing ID mappings")
 }
 
+// SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
+func (d *Driver) SupportsShifting() bool {
+	return false
+}
+
 type storageOptions struct {
 	size uint64
 }

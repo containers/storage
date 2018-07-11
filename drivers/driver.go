@@ -118,6 +118,10 @@ type LayerIDMapUpdater interface {
 	// relative to a parent layer, but before this method is called, may be discarded
 	// by Diff().
 	UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error
+
+	// SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in a
+	// image and it is not required to Chown the files when running in an user namespace.
+	SupportsShifting() bool
 }
 
 // Driver is the interface for layered/snapshot file system drivers.
