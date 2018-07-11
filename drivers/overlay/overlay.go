@@ -719,24 +719,21 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 	// the page size. The mount syscall fails if the mount data cannot
 	// fit within a page and relative links make the mount data much
 	// smaller at the expense of requiring a fork exec to chroot.
-	if len(mountData) > pageSize || d.options.mountProgram != "" {
+	if d.options.mountProgram != "" {
+		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
+			mountProgram := exec.Command(d.options.mountProgram, "-o", label, target)
+			mountProgram.Dir = d.home
+			return mountProgram.Run()
+		}
+	} else if len(mountData) > pageSize {
 		//FIXME: We need to figure out to get this to work with additional stores
 		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(relLowers, ":"), path.Join(id, "diff"), path.Join(id, "work"))
 		mountData = label.FormatMountLabel(opts, mountLabel)
 		if len(mountData) > pageSize {
 			return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
 		}
-
-		if d.options.mountProgram != "" {
-			mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
-				mountProgram := exec.Command(d.options.mountProgram, "-o", label, target)
-				mountProgram.Dir = d.home
-				return mountProgram.Run()
-			}
-		} else {
-			mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
-				return mountFrom(d.home, source, target, mType, flags, label)
-			}
+		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
+			return mountFrom(d.home, source, target, mType, flags, label)
 		}
 		mountTarget = path.Join(id, "merged")
 	}
