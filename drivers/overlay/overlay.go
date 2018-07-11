@@ -3,6 +3,7 @@
 package overlay
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -590,6 +591,26 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 	return lowersArray, nil
 }
 
+func (d *Driver) optsAppendMappings(opts string) string {
+	if d.uidMaps != nil {
+		var uids, gids bytes.Buffer
+		for _, i := range d.uidMaps {
+			if uids.Len() > 0 {
+				uids.WriteString(":")
+			}
+			uids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
+		}
+		for _, i := range d.gidMaps {
+			if gids.Len() > 0 {
+				gids.WriteString(":")
+			}
+			gids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
+		}
+		return fmt.Sprintf("%s,uidmapping=%s,gidmapping=%s", opts, uids.String(), gids.String())
+	}
+	return opts
+}
+
 // Remove cleans the directories that are created for this id.
 func (d *Driver) Remove(id string) error {
 	d.locker.Lock(id)
@@ -616,6 +637,10 @@ func (d *Driver) Remove(id string) error {
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
 func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
+	return d.get(id, mountLabel, false)
+}
+
+func (d *Driver) get(id, mountLabel string, disableShifting bool) (_ string, retErr error) {
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
 	dir := d.dir(id)
@@ -721,6 +746,10 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 	// smaller at the expense of requiring a fork exec to chroot.
 	if d.options.mountProgram != "" {
 		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
+			if !disableShifting {
+				label = d.optsAppendMappings(label)
+			}
+
 			mountProgram := exec.Command(d.options.mountProgram, "-o", label, target)
 			mountProgram.Dir = d.home
 			return mountProgram.Run()
@@ -917,7 +946,7 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	}
 
 	// Mount the new layer and handle ownership changes and possible copy_ups in it.
-	layerFs, err := d.Get(id, mountLabel)
+	layerFs, err := d.get(id, mountLabel, true)
 	if err != nil {
 		return err
 	}
@@ -952,6 +981,11 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 		return err
 	}
 	return nil
+}
+
+// SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
+func (d *Driver) SupportsShifting() bool {
+	return d.options.mountProgram != ""
 }
 
 // dumbJoin is more or less a dumber version of filepath.Join, but one which
