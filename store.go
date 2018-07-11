@@ -1036,7 +1036,7 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore ROImageStore, read
 		}
 		rc, err := layerHomeStore.Diff("", layer.ID, &diffOptions)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error reading layer %q to create an ID-mapped version of it")
+			return nil, errors.Wrapf(err, "error reading layer %q to create an ID-mapped version of it", layer.ID)
 		}
 		defer rc.Close()
 		layerOptions := LayerOptions{
