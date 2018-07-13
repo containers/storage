@@ -59,7 +59,7 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			return 1
 		}
 		target = filepath.Join(targetMount, targetParts[1])
-		defer m.Unmount(targetLayer.ID)
+		defer m.Unmount(targetLayer.ID, false)
 	}
 	args = args[:len(args)-1]
 	for _, srcSpec := range args {
@@ -83,7 +83,7 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 				return 1
 			}
 			source = filepath.Join(sourceMount, sourceParts[1])
-			defer m.Unmount(sourceLayer.ID)
+			defer m.Unmount(sourceLayer.ID, false)
 		}
 		archiver := chrootarchive.NewArchiverWithChown(tarIDMappings, chownOpts, untarIDMappings)
 		if err := archiver.CopyWithTar(source, target); err != nil {

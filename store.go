@@ -262,8 +262,11 @@ type Store interface {
 	Mount(id, mountLabel string) (string, error)
 
 	// Unmount attempts to unmount a layer, image, or container, given an ID, a
-	// name, or a mount path.
-	Unmount(id string) error
+	// name, or a mount path. Returns whether or not the layer is still mounted.
+	Unmount(id string, force bool) (bool, error)
+
+	// Unmount attempts to discover whether the specified id is mounted.
+	Mounted(id string) (bool, error)
 
 	// Changes returns a summary of the changes which would need to be made
 	// to one layer to make its contents the same as a second layer.  If
@@ -2245,13 +2248,30 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 	return "", ErrLayerUnknown
 }
 
-func (s *store) Unmount(id string) error {
+func (s *store) Mounted(id string) (bool, error) {
 	if layerID, err := s.ContainerLayerID(id); err == nil {
 		id = layerID
 	}
 	rlstore, err := s.LayerStore()
 	if err != nil {
-		return err
+		return false, err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		rlstore.Load()
+	}
+
+	return rlstore.Mounted(id)
+}
+
+func (s *store) Unmount(id string, force bool) (bool, error) {
+	if layerID, err := s.ContainerLayerID(id); err == nil {
+		id = layerID
+	}
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return false, err
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()
@@ -2259,9 +2279,9 @@ func (s *store) Unmount(id string) error {
 		rlstore.Load()
 	}
 	if rlstore.Exists(id) {
-		return rlstore.Unmount(id)
+		return rlstore.Unmount(id, force)
 	}
-	return ErrLayerUnknown
+	return false, ErrLayerUnknown
 }
 
 func (s *store) Changes(from, to string) ([]archive.Change, error) {
@@ -2811,7 +2831,7 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		mounted = append(mounted, layer.ID)
 		if force {
 			for layer.MountCount > 0 {
-				err2 := rlstore.Unmount(layer.ID)
+				_, err2 := rlstore.Unmount(layer.ID, force)
 				if err2 != nil {
 					if err == nil {
 						err = err2
