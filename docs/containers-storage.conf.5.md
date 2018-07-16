@@ -55,8 +55,8 @@ The `storage.options` table supports the following options:
   old, the driver is not supported.  But for kernels that have had the drivers backported, this flag
   allows users to override the checks
 
-**fuse_program**=""
-  Specifies the path to a custom FUSE program to use instead for mounting the file system.
+**mount_program**=""
+  Specifies the path to a custom program to use instead for mounting the file system.
 
 [storage.options.thinpool]
 
