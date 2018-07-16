@@ -55,6 +55,9 @@ The `storage.options` table supports the following options:
   old, the driver is not supported.  But for kernels that have had the drivers backported, this flag
   allows users to override the checks
 
+**mount_program**=""
+  Specifies the path to a custom program to use instead for mounting the file system.
+
 [storage.options.thinpool]
 
 Storage Options for thinpool
@@ -88,10 +91,6 @@ Tells driver to wipe device (directlvm_device) even if device already has a file
 **fs**="xfs"
 
 Specifies the filesystem type to use for the base device. (default: xfs)
-
-**fuse_program**=""
-
-Specifies the path to a custom FUSE program to use instead for mounting the file system.
 
 **log_level**=""
 
