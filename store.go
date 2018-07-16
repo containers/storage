@@ -2900,7 +2900,7 @@ func copyStringInterfaceMap(m map[string]interface{}) map[string]interface{} {
 	return ret
 }
 
-const configFile = "/etc/containers/storage.conf"
+const defaultConfigFile = "/etc/containers/storage.conf"
 
 // ThinpoolOptionsConfig represents the "storage.options.thinpool"
 // TOML config table.
@@ -3004,11 +3004,9 @@ type tomlConfig struct {
 	} `toml:"storage"`
 }
 
-func init() {
-	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
-	DefaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
-	DefaultStoreOptions.GraphDriverName = ""
-
+// ReloadConfigurationFile parses the specified configuration file and overrides
+// the configuration in storeOptions.
+func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -3024,72 +3022,75 @@ func init() {
 		return
 	}
 	if config.Storage.Driver != "" {
-		DefaultStoreOptions.GraphDriverName = config.Storage.Driver
+		storeOptions.GraphDriverName = config.Storage.Driver
 	}
 	if config.Storage.RunRoot != "" {
-		DefaultStoreOptions.RunRoot = config.Storage.RunRoot
+		storeOptions.RunRoot = config.Storage.RunRoot
 	}
 	if config.Storage.GraphRoot != "" {
-		DefaultStoreOptions.GraphRoot = config.Storage.GraphRoot
+		storeOptions.GraphRoot = config.Storage.GraphRoot
 	}
 	if config.Storage.Options.Thinpool.AutoExtendPercent != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.thinp_autoextend_percent=%s", config.Storage.Options.Thinpool.AutoExtendPercent))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.thinp_autoextend_percent=%s", config.Storage.Options.Thinpool.AutoExtendPercent))
 	}
 
 	if config.Storage.Options.Thinpool.AutoExtendThreshold != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.thinp_autoextend_threshold=%s", config.Storage.Options.Thinpool.AutoExtendThreshold))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.thinp_autoextend_threshold=%s", config.Storage.Options.Thinpool.AutoExtendThreshold))
 	}
 
 	if config.Storage.Options.Thinpool.BaseSize != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.basesize=%s", config.Storage.Options.Thinpool.BaseSize))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.basesize=%s", config.Storage.Options.Thinpool.BaseSize))
 	}
 	if config.Storage.Options.Thinpool.BlockSize != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.blocksize=%s", config.Storage.Options.Thinpool.BlockSize))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.blocksize=%s", config.Storage.Options.Thinpool.BlockSize))
 	}
 	if config.Storage.Options.Thinpool.DirectLvmDevice != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.directlvm_device=%s", config.Storage.Options.Thinpool.DirectLvmDevice))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.directlvm_device=%s", config.Storage.Options.Thinpool.DirectLvmDevice))
 	}
 	if config.Storage.Options.Thinpool.DirectLvmDeviceForce != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.directlvm_device_force=%s", config.Storage.Options.Thinpool.DirectLvmDeviceForce))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.directlvm_device_force=%s", config.Storage.Options.Thinpool.DirectLvmDeviceForce))
 	}
 	if config.Storage.Options.Thinpool.Fs != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.fs=%s", config.Storage.Options.Thinpool.Fs))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.fs=%s", config.Storage.Options.Thinpool.Fs))
 	}
 	if config.Storage.Options.Thinpool.LogLevel != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.libdm_log_level=%s", config.Storage.Options.Thinpool.LogLevel))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.libdm_log_level=%s", config.Storage.Options.Thinpool.LogLevel))
 	}
 	if config.Storage.Options.Thinpool.MinFreeSpace != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.min_free_space=%s", config.Storage.Options.Thinpool.MinFreeSpace))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.min_free_space=%s", config.Storage.Options.Thinpool.MinFreeSpace))
 	}
 	if config.Storage.Options.Thinpool.MkfsArg != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.mkfsarg=%s", config.Storage.Options.Thinpool.MkfsArg))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.mkfsarg=%s", config.Storage.Options.Thinpool.MkfsArg))
 	}
 	if config.Storage.Options.Thinpool.MountOpt != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.mountopt=%s", config.Storage.Options.Thinpool.MountOpt))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.mountopt=%s", config.Storage.Options.Thinpool.MountOpt))
 	}
 	if config.Storage.Options.Thinpool.UseDeferredDeletion != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.use_deferred_deletion=%s", config.Storage.Options.Thinpool.UseDeferredDeletion))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.use_deferred_deletion=%s", config.Storage.Options.Thinpool.UseDeferredDeletion))
 	}
 	if config.Storage.Options.Thinpool.UseDeferredRemoval != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.use_deferred_removal=%s", config.Storage.Options.Thinpool.UseDeferredRemoval))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.use_deferred_removal=%s", config.Storage.Options.Thinpool.UseDeferredRemoval))
 	}
 	if config.Storage.Options.Thinpool.XfsNoSpaceMaxRetries != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("dm.xfs_nospace_max_retries=%s", config.Storage.Options.Thinpool.XfsNoSpaceMaxRetries))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.xfs_nospace_max_retries=%s", config.Storage.Options.Thinpool.XfsNoSpaceMaxRetries))
 	}
 	for _, s := range config.Storage.Options.AdditionalImageStores {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, s))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, s))
 	}
 	if config.Storage.Options.Size != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.size=%s", config.Storage.Driver, config.Storage.Options.Size))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.size=%s", config.Storage.Driver, config.Storage.Options.Size))
 	}
 	if config.Storage.Options.OstreeRepo != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.ostree_repo=%s", config.Storage.Driver, config.Storage.Options.OstreeRepo))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.ostree_repo=%s", config.Storage.Driver, config.Storage.Options.OstreeRepo))
 	}
 	if config.Storage.Options.SkipMountHome != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.skip_mount_home=%s", config.Storage.Driver, config.Storage.Options.SkipMountHome))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.skip_mount_home=%s", config.Storage.Driver, config.Storage.Options.SkipMountHome))
 	}
 	if config.Storage.Options.OverrideKernelCheck != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
+	}
+	if config.Storage.Options.OverrideKernelCheck != "" {
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
 	}
 	if config.Storage.Options.RemapUser != "" && config.Storage.Options.RemapGroup == "" {
 		config.Storage.Options.RemapGroup = config.Storage.Options.RemapUser
@@ -3103,8 +3104,8 @@ func init() {
 			fmt.Printf("Error initializing ID mappings for %s:%s %v\n", config.Storage.Options.RemapUser, config.Storage.Options.RemapGroup, err)
 			return
 		}
-		DefaultStoreOptions.UIDMap = mappings.UIDs()
-		DefaultStoreOptions.GIDMap = mappings.GIDs()
+		storeOptions.UIDMap = mappings.UIDs()
+		storeOptions.GIDMap = mappings.GIDs()
 	}
 	nonDigitsToWhitespace := func(r rune) rune {
 		if strings.IndexRune("0123456789", r) == -1 {
@@ -3154,15 +3155,23 @@ func init() {
 		}
 		return idmap
 	}
-	DefaultStoreOptions.UIDMap = append(DefaultStoreOptions.UIDMap, parseIDMap(config.Storage.Options.RemapUIDs, "remap-uids")...)
-	DefaultStoreOptions.GIDMap = append(DefaultStoreOptions.GIDMap, parseIDMap(config.Storage.Options.RemapGIDs, "remap-gids")...)
+	storeOptions.UIDMap = append(storeOptions.UIDMap, parseIDMap(config.Storage.Options.RemapUIDs, "remap-uids")...)
+	storeOptions.GIDMap = append(storeOptions.GIDMap, parseIDMap(config.Storage.Options.RemapGIDs, "remap-gids")...)
 	if os.Getenv("STORAGE_DRIVER") != "" {
-		DefaultStoreOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
+		storeOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
 	}
 	if os.Getenv("STORAGE_OPTS") != "" {
-		DefaultStoreOptions.GraphDriverOptions = append(DefaultStoreOptions.GraphDriverOptions, strings.Split(os.Getenv("STORAGE_OPTS"), ",")...)
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, strings.Split(os.Getenv("STORAGE_OPTS"), ",")...)
 	}
-	if len(DefaultStoreOptions.GraphDriverOptions) == 1 && DefaultStoreOptions.GraphDriverOptions[0] == "" {
-		DefaultStoreOptions.GraphDriverOptions = nil
+	if len(storeOptions.GraphDriverOptions) == 1 && storeOptions.GraphDriverOptions[0] == "" {
+		storeOptions.GraphDriverOptions = nil
 	}
+}
+
+func init() {
+	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
+	DefaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
+	DefaultStoreOptions.GraphDriverName = ""
+
+	ReloadConfigurationFile(defaultConfigFile, &DefaultStoreOptions)
 }
