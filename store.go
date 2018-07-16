@@ -2992,6 +2992,9 @@ type OptionsConfig struct {
 
 	// Do not create a bind mount on the storage home
 	SkipMountHome string `toml:"skip_mount_home"`
+
+	// Alternative program to use for the mount of the file system
+	FuseProgram string `toml:"fuse_program"`
 }
 
 // TOML-friendly explicit tables used for conversions.
@@ -3086,8 +3089,8 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	if config.Storage.Options.SkipMountHome != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.skip_mount_home=%s", config.Storage.Driver, config.Storage.Options.SkipMountHome))
 	}
-	if config.Storage.Options.OverrideKernelCheck != "" {
-		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
+	if config.Storage.Options.FuseProgram != "" {
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.fuse_program=%s", config.Storage.Driver, config.Storage.Options.FuseProgram))
 	}
 	if config.Storage.Options.OverrideKernelCheck != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
