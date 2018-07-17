@@ -24,6 +24,7 @@ type command struct {
 var (
 	commands   = []command{}
 	jsonOutput = false
+	force      = false
 )
 
 func main() {
