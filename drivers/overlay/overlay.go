@@ -88,6 +88,7 @@ type overlayOptions struct {
 	mountProgram        string
 	ostreeRepo          string
 	skipMountHome       bool
+	mountOptions        string
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -222,6 +223,8 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			if err != nil {
 				return nil, err
 			}
+		case ".mountopt", "overlay.mountopt", "overlay2.mountopt":
+			o.mountOptions = val
 		case ".size", "overlay.size", "overlay2.size":
 			logrus.Debugf("overlay: size=%s", val)
 			size, err := units.RAMInBytes(val)
@@ -716,6 +719,9 @@ func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
 	if len(mountData) > pageSize || d.options.mountProgram != "" {
 		//FIXME: We need to figure out to get this to work with additional stores
 		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(relLowers, ":"), path.Join(id, "diff"), path.Join(id, "work"))
+		if d.options.mountOptions != "" {
+			opts = fmt.Sprintf("%s,%s", d.options.mountOptions, opts)
+		}
 		mountData = label.FormatMountLabel(opts, mountLabel)
 		if len(mountData) > pageSize {
 			return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
