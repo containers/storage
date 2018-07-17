@@ -265,8 +265,8 @@ type Store interface {
 	// name, or a mount path. Returns whether or not the layer is still mounted.
 	Unmount(id string, force bool) (bool, error)
 
-	// Unmount attempts to discover whether the specified id is mounted.
-	Mounted(id string) (bool, error)
+	// Mounted returns number of times the layer has been mounted.
+	Mounted(id string) (int, error)
 
 	// Changes returns a summary of the changes which would need to be made
 	// to one layer to make its contents the same as a second layer.  If
@@ -2248,13 +2248,13 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 	return "", ErrLayerUnknown
 }
 
-func (s *store) Mounted(id string) (bool, error) {
+func (s *store) Mounted(id string) (int, error) {
 	if layerID, err := s.ContainerLayerID(id); err == nil {
 		id = layerID
 	}
 	rlstore, err := s.LayerStore()
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()

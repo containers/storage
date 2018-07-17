@@ -88,7 +88,7 @@ func mounted(flags *mflag.FlagSet, action string, m storage.Store, args []string
 			errText = fmt.Sprintf("%v", err)
 			errors = true
 		} else {
-			if mounted {
+			if mounted > 0 {
 				fmt.Printf("%s mounted\n", arg)
 			}
 		}
