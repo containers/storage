@@ -44,7 +44,7 @@ func testInit(dir string, t testing.TB) graphdriver.Driver {
 }
 
 func driverGet(d *Driver, id string, mntLabel string) (string, error) {
-	return d.Get(id, mntLabel)
+	return d.Get(id, mntLabel, nil, nil)
 }
 
 func newDriver(t testing.TB) *Driver {
@@ -171,7 +171,7 @@ func TestGetWithoutParent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffPath, err := d.Get("1", "")
+	diffPath, err := d.Get("1", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestMountedTrueResponse(t *testing.T) {
 	err = d.Create("2", "1", nil)
 	require.NoError(t, err)
 
-	_, err = d.Get("2", "")
+	_, err = d.Get("2", "", nil, nil)
 	require.NoError(t, err)
 
 	response, err := d.mounted(d.pathCache["2"])
@@ -249,7 +249,7 @@ func TestMountWithParent(t *testing.T) {
 		}
 	}()
 
-	mntPath, err := d.Get("2", "")
+	mntPath, err := d.Get("2", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestRemoveMountedDir(t *testing.T) {
 		}
 	}()
 
-	mntPath, err := d.Get("2", "")
+	mntPath, err := d.Get("2", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -760,7 +760,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				innerGroup.Add(1)
 				go func() {
-					d.Get(id, "")
+					d.Get(id, "", nil, nil)
 					d.Put(id)
 					innerGroup.Done()
 				}()

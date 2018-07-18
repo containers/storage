@@ -208,7 +208,8 @@ type LayerStore interface {
 	// Mount mounts a layer for use.  If the specified layer is the parent of other
 	// layers, it should not be written to.  An SELinux label to be applied to the
 	// mount can be specified to override the one configured for the layer.
-	Mount(id, mountLabel string) (string, error)
+	// The mappings used by the container can be specified.
+	Mount(id, mountLabel string, uidMaps, gidMaps []idtools.IDMap) (string, error)
 
 	// Unmount unmounts a layer when it is no longer in use.
 	Unmount(id string, force bool) (bool, error)
@@ -635,7 +636,7 @@ func (r *layerStore) Mounted(id string) (int, error) {
 	return layer.MountCount, nil
 }
 
-func (r *layerStore) Mount(id, mountLabel string) (string, error) {
+func (r *layerStore) Mount(id, mountLabel string, uidMaps, gidMaps []idtools.IDMap) (string, error) {
 	if !r.IsReadWrite() {
 		return "", errors.Wrapf(ErrStoreIsReadOnly, "not allowed to update mount locations for layers at %q", r.mountspath())
 	}
@@ -650,7 +651,7 @@ func (r *layerStore) Mount(id, mountLabel string) (string, error) {
 	if mountLabel == "" {
 		mountLabel = layer.MountLabel
 	}
-	mountpoint, err := r.driver.Get(id, mountLabel)
+	mountpoint, err := r.driver.Get(id, mountLabel, uidMaps, gidMaps)
 	if mountpoint != "" && err == nil {
 		if layer.MountPoint != "" {
 			delete(r.bymount, layer.MountPoint)
@@ -937,7 +938,7 @@ func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 	if getter, ok := r.driver.(drivers.DiffGetterDriver); ok {
 		return getter.DiffGetter(id)
 	}
-	path, err := r.Mount(id, "")
+	path, err := r.Mount(id, "", nil, nil)
 	if err != nil {
 		return nil, err
 	}

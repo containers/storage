@@ -35,7 +35,7 @@ func TestBtrfsSubvolDelete(t *testing.T) {
 	}
 	defer graphtest.PutDriver(t)
 
-	dir, err := d.Get("test", "")
+	dir, err := d.Get("test", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

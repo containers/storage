@@ -591,16 +591,22 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 	return lowersArray, nil
 }
 
-func (d *Driver) optsAppendMappings(opts string) string {
-	if d.uidMaps != nil {
+func (d *Driver) optsAppendMappings(opts string, uidMaps, gidMaps []idtools.IDMap) string {
+	if uidMaps == nil {
+		uidMaps = d.uidMaps
+	}
+	if gidMaps == nil {
+		gidMaps = d.gidMaps
+	}
+	if uidMaps != nil {
 		var uids, gids bytes.Buffer
-		for _, i := range d.uidMaps {
+		for _, i := range uidMaps {
 			if uids.Len() > 0 {
 				uids.WriteString(":")
 			}
 			uids.WriteString(fmt.Sprintf("%d:%d:%d", i.ContainerID, i.HostID, i.Size))
 		}
-		for _, i := range d.gidMaps {
+		for _, i := range gidMaps {
 			if gids.Len() > 0 {
 				gids.WriteString(":")
 			}
@@ -636,11 +642,11 @@ func (d *Driver) Remove(id string) error {
 }
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
-func (d *Driver) Get(id, mountLabel string) (_ string, retErr error) {
-	return d.get(id, mountLabel, false)
+func (d *Driver) Get(id, mountLabel string, uidMaps, gidMaps []idtools.IDMap) (_ string, retErr error) {
+	return d.get(id, mountLabel, false, uidMaps, gidMaps)
 }
 
-func (d *Driver) get(id, mountLabel string, disableShifting bool) (_ string, retErr error) {
+func (d *Driver) get(id, mountLabel string, disableShifting bool, uidMaps, gidMaps []idtools.IDMap) (_ string, retErr error) {
 	d.locker.Lock(id)
 	defer d.locker.Unlock(id)
 	dir := d.dir(id)
@@ -747,7 +753,7 @@ func (d *Driver) get(id, mountLabel string, disableShifting bool) (_ string, ret
 	if d.options.mountProgram != "" {
 		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
 			if !disableShifting {
-				label = d.optsAppendMappings(label)
+				label = d.optsAppendMappings(label, uidMaps, gidMaps)
 			}
 
 			mountProgram := exec.Command(d.options.mountProgram, "-o", label, target)
@@ -946,7 +952,7 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	}
 
 	// Mount the new layer and handle ownership changes and possible copy_ups in it.
-	layerFs, err := d.get(id, mountLabel, true)
+	layerFs, err := d.get(id, mountLabel, true, nil, nil)
 	if err != nil {
 		return err
 	}

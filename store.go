@@ -2268,7 +2268,7 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 		rlstore.Load()
 	}
 	if rlstore.Exists(id) {
-		return rlstore.Mount(id, mountLabel)
+		return rlstore.Mount(id, mountLabel, uidMap, gidMap)
 	}
 	return "", ErrLayerUnknown
 }
