@@ -213,8 +213,8 @@ type LayerStore interface {
 	// Unmount unmounts a layer when it is no longer in use.
 	Unmount(id string, force bool) (bool, error)
 
-	// Mounted returns whether or not the layer is mounted.
-	Mounted(id string) (bool, error)
+	// Mounted returns number of times the layer has been mounted.
+	Mounted(id string) (int, error)
 
 	// ParentOwners returns the UIDs and GIDs of parents of the layer's mountpoint
 	// for which the layer's UID and GID maps don't contain corresponding entries.
@@ -627,12 +627,12 @@ func (r *layerStore) Create(id string, parent *Layer, names []string, mountLabel
 	return r.CreateWithFlags(id, parent, names, mountLabel, options, moreOptions, writeable, nil)
 }
 
-func (r *layerStore) Mounted(id string) (bool, error) {
+func (r *layerStore) Mounted(id string) (int, error) {
 	layer, ok := r.lookup(id)
 	if !ok {
-		return false, ErrLayerUnknown
+		return 0, ErrLayerUnknown
 	}
-	return layer.MountCount > 0, nil
+	return layer.MountCount, nil
 }
 
 func (r *layerStore) Mount(id, mountLabel string) (string, error) {
