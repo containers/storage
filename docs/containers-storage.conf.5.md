@@ -58,6 +58,10 @@ The `storage.options` table supports the following options:
 **mount_program**=""
   Specifies the path to a custom program to use instead for mounting the file system.
 
+**mountopt**=""
+
+  Comma separated list of default options to be used to mount container images.  Suggested value "nodev".
+
 [storage.options.thinpool]
 
 Storage Options for thinpool
@@ -111,10 +115,6 @@ Specifies the min free space percent in a thin pool required for new device crea
 **mkfsarg**=""
 
 Specifies extra mkfs arguments to be used when creating the base device.
-
-**mountopt**=""
-
-Specifies extra mount options used when mounting the thin devices.
 
 **use_deferred_removal**=""
 

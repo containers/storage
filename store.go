@@ -3015,6 +3015,9 @@ type OptionsConfig struct {
 
 	// Alternative program to use for the mount of the file system
 	MountProgram string `toml:"mount_program"`
+
+	// MountOpt specifies extra mount options used when mounting
+	MountOpt string `toml:"mountopt"`
 }
 
 // TOML-friendly explicit tables used for conversions.
@@ -3086,7 +3089,7 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.mkfsarg=%s", config.Storage.Options.Thinpool.MkfsArg))
 	}
 	if config.Storage.Options.Thinpool.MountOpt != "" {
-		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.mountopt=%s", config.Storage.Options.Thinpool.MountOpt))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.mountopt=%s", config.Storage.Driver, config.Storage.Options.Thinpool.MountOpt))
 	}
 	if config.Storage.Options.Thinpool.UseDeferredDeletion != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("dm.use_deferred_deletion=%s", config.Storage.Options.Thinpool.UseDeferredDeletion))
@@ -3111,6 +3114,9 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	}
 	if config.Storage.Options.MountProgram != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.mount_program=%s", config.Storage.Driver, config.Storage.Options.MountProgram))
+	}
+	if config.Storage.Options.MountOpt != "" {
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.mountopt=%s", config.Storage.Driver, config.Storage.Options.MountOpt))
 	}
 	if config.Storage.Options.OverrideKernelCheck != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
