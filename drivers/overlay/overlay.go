@@ -991,6 +991,9 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
 func (d *Driver) SupportsShifting() bool {
+	if os.Getenv("_TEST_FORCE_SUPPORT_SHIFTING") == "yes-please" {
+		return true
+	}
 	return d.options.mountProgram != ""
 }
 
