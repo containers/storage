@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -650,6 +651,12 @@ func (r *layerStore) Mount(id, mountLabel string, uidMaps, gidMaps []idtools.IDM
 	}
 	if mountLabel == "" {
 		mountLabel = layer.MountLabel
+	}
+
+	if (uidMaps != nil || gidMaps != nil) && !r.driver.SupportsShifting() {
+		if !reflect.DeepEqual(uidMaps, layer.UIDMap) || !reflect.DeepEqual(gidMaps, layer.GIDMap) {
+			return "", fmt.Errorf("cannot mount layer %v: shifting not enabled", layer.ID)
+		}
 	}
 	mountpoint, err := r.driver.Get(id, mountLabel, uidMaps, gidMaps)
 	if mountpoint != "" && err == nil {
