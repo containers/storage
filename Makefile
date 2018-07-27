@@ -86,6 +86,7 @@ install.tools:
 	go get -u $(BUILDFLAGS) github.com/cpuguy83/go-md2man
 	go get -u $(BUILDFLAGS) github.com/vbatts/git-validation
 	go get -u $(BUILDFLAGS) gopkg.in/alecthomas/gometalinter.v1
+	go get -u $(BUILDFLAGS) github.com/pquerna/ffjson
 	gometalinter.v1 -i
 
 help: ## this help

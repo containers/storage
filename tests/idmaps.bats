@@ -753,3 +753,45 @@ load helpers
 	echo ntops:$ntops
 	[ $ntops -eq 1 ]
 }
+
+@test "idmaps-create-mapped-container-shifting" {
+	case "$STORAGE_DRIVER" in
+	overlay*)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+
+	run storage --debug=false create-layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	layer="$output"
+	# Mount the layer.
+	run storage --debug=false mount $layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowermount="$output"
+	# Put a file in the layer.
+	createrandom "$lowermount"/file
+	storage unmount $layer
+
+	imagename=idmappedimage-shifting
+	storage create-image --name=$imagename $layer
+
+	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false create-container --uidmap 0:1000:1000 --gidmap 0:1000:1000 $imagename
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+
+	container="$output"
+
+	# Mount the container.
+	run storage --debug=false mount $container
+	echo "$output"
+	[ "$status" -eq 0 ]
+	dir="$output"
+	test "$(stat -c%u:%g $dir/file)" == "0:0"
+	run storage --debug=false unmount "$container"
+	[ "$status" -eq 0 ]
+}

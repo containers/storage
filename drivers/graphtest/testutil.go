@@ -30,7 +30,7 @@ func randomContent(size int, seed int64) []byte {
 }
 
 func addFiles(drv graphdriver.Driver, layer string, seed int64) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func addFiles(drv graphdriver.Driver, layer string, seed int64) error {
 }
 
 func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) e
 }
 
 func addFile(drv graphdriver.Driver, layer, filename string, content []byte) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func addFile(drv graphdriver.Driver, layer, filename string, content []byte) err
 }
 
 func addDirectory(drv graphdriver.Driver, layer, dir string) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func addDirectory(drv graphdriver.Driver, layer, dir string) error {
 }
 
 func removeAll(drv graphdriver.Driver, layer string, names ...string) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func removeAll(drv graphdriver.Driver, layer string, names ...string) error {
 }
 
 func checkFileRemoved(drv graphdriver.Driver, layer, filename string) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func checkFileRemoved(drv graphdriver.Driver, layer, filename string) error {
 }
 
 func addManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func addManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) e
 }
 
 func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) ([]archive.Change, error) {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64
 }
 
 func checkManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func checkChanges(expected, actual []archive.Change) error {
 }
 
 func addLayerFiles(drv graphdriver.Driver, layer, parent string, i int) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func addManyLayers(drv graphdriver.Driver, baseLayer string, count int) (string,
 }
 
 func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
-	root, err := drv.Get(layer, "")
+	root, err := drv.Get(layer, "", nil, nil)
 	if err != nil {
 		return err
 	}
