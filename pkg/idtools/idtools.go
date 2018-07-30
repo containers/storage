@@ -140,10 +140,10 @@ func NewIDMappings(username, groupname string) (*IDMappings, error) {
 		return nil, err
 	}
 	if len(subuidRanges) == 0 {
-		return nil, fmt.Errorf("No subuid ranges found for user %q", username)
+		return nil, fmt.Errorf("No ranges found for user %q in /etc/subuid", username)
 	}
 	if len(subgidRanges) == 0 {
-		return nil, fmt.Errorf("No subgid ranges found for group %q", groupname)
+		return nil, fmt.Errorf("No ranges found for group %q in /etc/subgid", groupname)
 	}
 
 	return &IDMappings{
