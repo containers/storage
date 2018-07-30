@@ -3,6 +3,7 @@
 package reexec
 
 import (
+	"os"
 	"os/exec"
 )
 
@@ -19,5 +20,6 @@ func Command(args ...string) *exec.Cmd {
 	return &exec.Cmd{
 		Path: Self(),
 		Args: args,
+		Env:  append(os.Environ(), "__rootless__=1"),
 	}
 }
