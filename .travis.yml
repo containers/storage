@@ -22,7 +22,8 @@ env:
                       -e TRAVIS_PULL_REQUEST_SLUG=$TRAVIS_PULL_REQUEST_SLUG
                       -e TRAVIS_BRANCH=$TRAVIS_BRANCH
                       -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID
-                      -e TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR"
+                      -e TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR
+                      -e CONTAINER=podman"
     matrix:
         # Ubuntu
         - GO_VERSION="stable"
