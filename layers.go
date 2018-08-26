@@ -210,7 +210,7 @@ type LayerStore interface {
 	// layers, it should not be written to.  An SELinux label to be applied to the
 	// mount can be specified to override the one configured for the layer.
 	// The mappings used by the container can be specified.
-	Mount(id, mountLabel string, uidMaps, gidMaps []idtools.IDMap) (string, error)
+	Mount(id string, options drivers.MountOpts) (string, error)
 
 	// Unmount unmounts a layer when it is no longer in use.
 	Unmount(id string, force bool) (bool, error)
@@ -649,7 +649,7 @@ func (r *layerStore) Mounted(id string) (int, error) {
 	return layer.MountCount, nil
 }
 
-func (r *layerStore) Mount(id, mountLabel string, uidMaps, gidMaps []idtools.IDMap) (string, error) {
+func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error) {
 	if !r.IsReadWrite() {
 		return "", errors.Wrapf(ErrStoreIsReadOnly, "not allowed to update mount locations for layers at %q", r.mountspath())
 	}
@@ -661,16 +661,16 @@ func (r *layerStore) Mount(id, mountLabel string, uidMaps, gidMaps []idtools.IDM
 		layer.MountCount++
 		return layer.MountPoint, r.Save()
 	}
-	if mountLabel == "" {
-		mountLabel = layer.MountLabel
+	if options.MountLabel == "" {
+		options.MountLabel = layer.MountLabel
 	}
 
-	if (uidMaps != nil || gidMaps != nil) && !r.driver.SupportsShifting() {
-		if !reflect.DeepEqual(uidMaps, layer.UIDMap) || !reflect.DeepEqual(gidMaps, layer.GIDMap) {
+	if (options.UidMaps != nil || options.GidMaps != nil) && !r.driver.SupportsShifting() {
+		if !reflect.DeepEqual(options.UidMaps, layer.UIDMap) || !reflect.DeepEqual(options.GidMaps, layer.GIDMap) {
 			return "", fmt.Errorf("cannot mount layer %v: shifting not enabled", layer.ID)
 		}
 	}
-	mountpoint, err := r.driver.Get(id, mountLabel, uidMaps, gidMaps)
+	mountpoint, err := r.driver.Get(id, options)
 	if mountpoint != "" && err == nil {
 		if layer.MountPoint != "" {
 			delete(r.bymount, layer.MountPoint)
@@ -957,7 +957,7 @@ func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 	if getter, ok := r.driver.(drivers.DiffGetterDriver); ok {
 		return getter.DiffGetter(id)
 	}
-	path, err := r.Mount(id, "", nil, nil)
+	path, err := r.Mount(id, drivers.MountOpts{})
 	if err != nil {
 		return nil, err
 	}

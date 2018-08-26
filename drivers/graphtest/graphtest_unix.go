@@ -99,7 +99,7 @@ func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...str
 		t.Fatal("Newly created image doesn't exist")
 	}
 
-	dir, err := driver.Get("empty", "", nil, nil)
+	dir, err := driver.Get("empty", graphdriver.MountOpts{})
 	require.NoError(t, err)
 
 	verifyFile(t, dir, 0755|os.ModeDir, 0, 0)
@@ -327,7 +327,7 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 		t.Fatal(err)
 	}
 
-	mountPath, err := driver.Get("zfsTest", "", nil, nil)
+	mountPath, err := driver.Get("zfsTest", graphdriver.MountOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			t.Fatal(err)
 		}
 
-		if root, err = driver.Get(base, "", nil, nil); err != nil {
+		if root, err = driver.Get(base, graphdriver.MountOpts{}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -392,7 +392,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			t.Fatal(err)
 		}
 
-		if root, err = driver.Get(second, "", nil, nil); err != nil {
+		if root, err = driver.Get(second, graphdriver.MountOpts{}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -418,7 +418,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			t.Fatal(err)
 		}
 
-		if root, err = driver.Get(third, "", nil, nil); err != nil {
+		if root, err = driver.Get(third, graphdriver.MountOpts{}); err != nil {
 			t.Fatal(err)
 		}
 

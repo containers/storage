@@ -2273,7 +2273,12 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 		rlstore.Load()
 	}
 	if rlstore.Exists(id) {
-		return rlstore.Mount(id, mountLabel, uidMap, gidMap)
+		options := drivers.MountOpts{
+			MountLabel: mountLabel,
+			UidMaps:    uidMap,
+			GidMaps:    gidMap,
+		}
+		return rlstore.Mount(id, options)
 	}
 	return "", ErrLayerUnknown
 }

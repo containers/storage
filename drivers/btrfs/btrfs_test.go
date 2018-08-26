@@ -7,6 +7,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 )
 
@@ -35,7 +36,7 @@ func TestBtrfsSubvolDelete(t *testing.T) {
 	}
 	defer graphtest.PutDriver(t)
 
-	dir, err := d.Get("test", "", nil, nil)
+	dir, err := d.Get("test", graphdriver.MountOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -40,7 +40,7 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 	err := driver.CreateReadWrite(name, "", nil)
 	require.NoError(t, err)
 
-	dir, err := driver.Get(name, "", nil, nil)
+	dir, err := driver.Get(name, graphdriver.MountOpts{})
 	require.NoError(t, err)
 	defer driver.Put(name)
 
@@ -54,7 +54,7 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 }
 
 func verifyBase(t testing.TB, driver graphdriver.Driver, name string) {
-	dir, err := driver.Get(name, "", nil, nil)
+	dir, err := driver.Get(name, graphdriver.MountOpts{})
 	require.NoError(t, err)
 	defer driver.Put(name)
 

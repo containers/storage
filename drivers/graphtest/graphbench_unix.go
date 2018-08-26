@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/stringid"
 )
 
@@ -44,7 +45,7 @@ func DriverBenchGetEmpty(b *testing.B, drivername string, driveroptions ...strin
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := driver.Get(base, "", nil, nil)
+		_, err := driver.Get(base, graphdriver.MountOpts{})
 		b.StopTimer()
 		if err != nil {
 			b.Fatalf("Error getting mount: %s", err)
@@ -235,7 +236,7 @@ func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, d
 		b.Fatal(err)
 	}
 
-	root, err := driver.Get(topLayer, "", nil, nil)
+	root, err := driver.Get(topLayer, graphdriver.MountOpts{})
 	if err != nil {
 		b.Fatal(err)
 	}
