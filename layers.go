@@ -21,6 +21,7 @@ import (
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -294,6 +295,9 @@ func (r *layerStore) Load() error {
 	mounts := make(map[string]*Layer)
 	compressedsums := make(map[digest.Digest][]string)
 	uncompressedsums := make(map[digest.Digest][]string)
+	if r.lockfile.IsReadWrite() {
+		label.ClearLabels()
+	}
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 		idlist = make([]string, 0, len(layers))
 		for n, layer := range layers {
@@ -311,6 +315,9 @@ func (r *layerStore) Load() error {
 			}
 			if layer.UncompressedDigest != "" {
 				uncompressedsums[layer.UncompressedDigest] = append(uncompressedsums[layer.UncompressedDigest], layer.ID)
+			}
+			if layer.MountLabel != "" {
+				label.ReserveLabel(layer.MountLabel)
 			}
 		}
 	}
@@ -551,6 +558,9 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		parentMappings = idtools.NewIDMappingsFromMaps(parentLayer.UIDMap, parentLayer.GIDMap)
 	} else {
 		parentMappings = &idtools.IDMappings{}
+	}
+	if mountLabel != "" {
+		label.ReserveLabel(mountLabel)
 	}
 	idMappings := idtools.NewIDMappingsFromMaps(moreOptions.UIDMap, moreOptions.GIDMap)
 	opts := drivers.CreateOpts{
@@ -839,6 +849,7 @@ func (r *layerStore) Delete(id string) error {
 		os.Remove(r.tspath(id))
 		delete(r.byid, id)
 		r.idindex.Delete(id)
+		mountLabel := layer.MountLabel
 		if layer.MountPoint != "" {
 			delete(r.bymount, layer.MountPoint)
 		}
@@ -855,6 +866,18 @@ func (r *layerStore) Delete(id string) error {
 				r.layers = r.layers[:len(r.layers)-1]
 			} else {
 				r.layers = append(r.layers[:toDeleteIndex], r.layers[toDeleteIndex+1:]...)
+			}
+		}
+		if mountLabel != "" {
+			var found bool
+			for _, candidate := range r.layers {
+				if candidate.MountLabel == mountLabel {
+					found = true
+					break
+				}
+			}
+			if !found {
+				label.ReleaseLabel(mountLabel)
 			}
 		}
 		if err = r.Save(); err != nil {

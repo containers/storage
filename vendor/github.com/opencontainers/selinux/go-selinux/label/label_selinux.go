@@ -24,17 +24,22 @@ var ErrIncompatibleLabel = fmt.Errorf("Bad SELinux option z and Z can not be use
 // the container.  A list of options can be passed into this function to alter
 // the labels.  The labels returned will include a random MCS String, that is
 // guaranteed to be unique.
-func InitLabels(options []string) (string, string, error) {
+func InitLabels(options []string) (plabel string, mlabel string, Err error) {
 	if !selinux.GetEnabled() {
 		return "", "", nil
 	}
 	processLabel, mountLabel := selinux.ContainerLabels()
 	if processLabel != "" {
+		defer func() {
+			if Err != nil {
+				ReleaseLabel(mountLabel)
+			}
+		}()
 		pcon := selinux.NewContext(processLabel)
 		mcon := selinux.NewContext(mountLabel)
 		for _, opt := range options {
 			if opt == "disable" {
-				return "", "", nil
+				return "", mountLabel, nil
 			}
 			if i := strings.Index(opt, ":"); i == -1 {
 				return "", "", fmt.Errorf("Bad label option %q, valid options 'disable' or \n'user, role, level, type' followed by ':' and a value", opt)
@@ -49,8 +54,10 @@ func InitLabels(options []string) (string, string, error) {
 				mcon[con[0]] = con[1]
 			}
 		}
+		_ = ReleaseLabel(processLabel)
 		processLabel = pcon.Get()
 		mountLabel = mcon.Get()
+		_ = ReserveLabel(processLabel)
 	}
 	return processLabel, mountLabel, nil
 }
@@ -85,9 +92,6 @@ func FormatMountLabel(src, mountLabel string) string {
 // SetProcessLabel takes a process label and tells the kernel to assign the
 // label to the next program executed by the current process.
 func SetProcessLabel(processLabel string) error {
-	if processLabel == "" {
-		return nil
-	}
 	return selinux.SetExecLabel(processLabel)
 }
 
@@ -131,7 +135,7 @@ func Relabel(path string, fileLabel string, shared bool) error {
 		return nil
 	}
 
-	exclude_paths := map[string]bool{"/": true, "/usr": true, "/etc": true}
+	exclude_paths := map[string]bool{"/": true, "/usr": true, "/etc": true, "/tmp": true, "/home": true, "/run": true, "/var": true, "/root": true}
 	if exclude_paths[path] {
 		return fmt.Errorf("SELinux relabeling of %s is not allowed", path)
 	}
@@ -155,6 +159,11 @@ func PidLabel(pid int) (string, error) {
 // Init initialises the labeling system
 func Init() {
 	selinux.GetEnabled()
+}
+
+// ClearLabels will clear all reserved labels
+func ClearLabels() {
+	selinux.ClearLabels()
 }
 
 // ReserveLabel will record the fact that the MCS label has already been used.
