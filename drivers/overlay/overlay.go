@@ -340,7 +340,7 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 
 func (d *Driver) useNaiveDiff() bool {
 	useNaiveDiffLock.Do(func() {
-		if err := doesSupportNativeDiff(d.home); err != nil {
+		if err := doesSupportNativeDiff(d.home, d.options.mountOptions); err != nil {
 			logrus.Warnf("Not using native diff for overlay, this may cause degraded performance for building images: %v", err)
 			useNaiveDiffOnly = true
 		}
