@@ -43,7 +43,7 @@ func skipIfNaive(t *testing.T) {
 	}
 	defer os.RemoveAll(td)
 
-	if useNaiveDiff(td) {
+	if err := doesSupportNativeDiff(td, ""); err != nil {
 		t.Skipf("Cannot run test with naive diff")
 	}
 }
