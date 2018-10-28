@@ -48,6 +48,7 @@ function storagewithsorting2() {
 populate() {
 	# Create a base layer.
 	run storage --debug=false create-layer
+	echo $output
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	lowerlayer="$output"

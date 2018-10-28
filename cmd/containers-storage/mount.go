@@ -117,6 +117,7 @@ func init() {
 		minArgs:     1,
 		action:      mount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.StringVar(&paramMountOptions, []string{"-opt", "o"}, "", "Mount Options")
 			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
