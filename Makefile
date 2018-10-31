@@ -1,4 +1,4 @@
-.PHONY: all binary build build-binary build-gccgo cross default docs gccgo test test-integration-cli test-unit validate help win tgz
+.PHONY: all binary clean cross default docs gccgo help install.tools local-binary local-cross local-gccgo local-test-integration local-test-unit local-validate test test-integration test-unit validate
 
 PACKAGE := github.com/containers/storage
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -81,7 +81,6 @@ local-validate: ## validate DCO and gofmt on the host
 validate: ## validate DCO, gofmt, ./pkg/ isolation, golint,\ngo vet and vendor using VMs
 	$(RUNINVM) make local-$@
 
-.PHONY: install.tools
 install.tools:
 	go get -u $(BUILDFLAGS) github.com/cpuguy83/go-md2man
 	go get -u $(BUILDFLAGS) github.com/vbatts/git-validation
