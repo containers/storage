@@ -9,6 +9,8 @@ AUTOTAGS := $(shell ./hack/btrfs_tag.sh) $(shell ./hack/libdm_tag.sh) $(shell ./
 BUILDFLAGS := -tags "$(AUTOTAGS) $(TAGS)" $(FLAGS)
 GO := go
 
+GO110 := 1.10
+GOVERSION := $(findstring $(GO110),$(shell go version))
 RUNINVM := vagrant/runinvm.sh
 
 default all: local-binary docs local-validate local-cross local-gccgo test-unit test-integration ## validate all checks, build and cross-build\nbinaries and docs, run tests in a VM
@@ -76,7 +78,10 @@ test-integration: local-binary ## run the integration tests using VMs
 
 local-validate: ## validate DCO and gofmt on the host
 	@./hack/git-validation.sh
+# Run gofmt on version 1.11 and higher
+ifneq ($(GO110),$(GOVERSION))
 	@./hack/gofmt.sh
+endif
 
 validate: ## validate DCO, gofmt, ./pkg/ isolation, golint,\ngo vet and vendor using VMs
 	$(RUNINVM) make local-$@
