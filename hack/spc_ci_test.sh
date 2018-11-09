@@ -10,9 +10,12 @@ then
     exit 1
 fi
 
+export UPDATE_CMD="true"
+
 # Additional packages needed ontop of the base (generic) image
 case "$DISTRO" in
     *ubuntu*)
+        export UPDATE_CMD="apt-get update"
         export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev ostree libostree-dev"
         ;;
     *fedora*)
@@ -33,6 +36,7 @@ echo
 echo "Executing: $INSTALL_CMD"
 # Don't spam...unless it breaks
 TMPFILE=$(mktemp)
+$UPDATE_CMD &> $TMPFILE || ( cat $TMPFILE && exit 3 )
 $INSTALL_CMD &> $TMPFILE || ( cat $TMPFILE && exit 3 )
 rm -f "$TMPFILE"
 echo "done"
