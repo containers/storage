@@ -6,8 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/opts"
@@ -50,52 +48,6 @@ func paramIDMapping() (*storage.IDMappingOptions, error) {
 	if paramSubUIDMap == "" && paramSubGIDMap != "" {
 		paramSubUIDMap = paramSubGIDMap
 	}
-	nonDigitsToWhitespace := func(r rune) rune {
-		if strings.IndexRune("0123456789", r) == -1 {
-			return ' '
-		} else {
-			return r
-		}
-	}
-	parseTriple := func(spec []string) (container, host, size uint32, err error) {
-		cid, err := strconv.ParseUint(spec[0], 10, 32)
-		if err != nil {
-			return 0, 0, 0, fmt.Errorf("error parsing id map value %q: %v", spec[0], err)
-		}
-		hid, err := strconv.ParseUint(spec[1], 10, 32)
-		if err != nil {
-			return 0, 0, 0, fmt.Errorf("error parsing id map value %q: %v", spec[1], err)
-		}
-		sz, err := strconv.ParseUint(spec[2], 10, 32)
-		if err != nil {
-			return 0, 0, 0, fmt.Errorf("error parsing id map value %q: %v", spec[2], err)
-		}
-		return uint32(cid), uint32(hid), uint32(sz), nil
-	}
-	parseIDMap := func(idMapSpec, mapType string) (idmap []idtools.IDMap, err error) {
-		if len(idMapSpec) > 0 {
-			idSpec := strings.Fields(strings.Map(nonDigitsToWhitespace, idMapSpec))
-			if len(idSpec)%3 != 0 {
-				return nil, fmt.Errorf("%s map is malformed", mapType)
-			}
-			for i := range idSpec {
-				if i%3 != 0 {
-					continue
-				}
-				cid, hid, size, err := parseTriple(idSpec[i : i+3])
-				if err != nil {
-					return nil, fmt.Errorf("%s map is malformed", mapType)
-				}
-				mapping := idtools.IDMap{
-					ContainerID: int(cid),
-					HostID:      int(hid),
-					Size:        int(size),
-				}
-				idmap = append(idmap, mapping)
-			}
-		}
-		return idmap, nil
-	}
 	if paramSubUIDMap != "" && paramSubGIDMap != "" {
 		mappings, err := idtools.NewIDMappings(paramSubUIDMap, paramSubGIDMap)
 		if err != nil {
@@ -104,11 +56,11 @@ func paramIDMapping() (*storage.IDMappingOptions, error) {
 		options.UIDMap = mappings.UIDs()
 		options.GIDMap = mappings.GIDs()
 	}
-	parsedUIDMap, err := parseIDMap(paramUIDMap, "uid")
+	parsedUIDMap, err := idtools.ParseIDMap(paramUIDMap, "uid")
 	if err != nil {
 		return nil, err
 	}
-	parsedGIDMap, err := parseIDMap(paramGIDMap, "gid")
+	parsedGIDMap, err := idtools.ParseIDMap(paramGIDMap, "gid")
 	if err != nil {
 		return nil, err
 	}
