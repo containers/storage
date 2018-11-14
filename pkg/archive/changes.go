@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -63,19 +64,44 @@ func (c changesByPath) Less(i, j int) bool { return c[i].Path < c[j].Path }
 func (c changesByPath) Len() int           { return len(c) }
 func (c changesByPath) Swap(i, j int)      { c[j], c[i] = c[i], c[j] }
 
+// FIXME FIXME Tests and documentation
+// Different tar writers, when they can't express the nanosecond part, round seconds either UP or DOWN; so a straight comparison is
+// FIXME FIXME Is making the timestamp comparisons loose like this safe at all? Should we be making a complete content check, or something like that?
+// Or only using this loose comparison code for tests ONLY, when checking that tar+untar has the expected effects?
+// FIXME FIXME MERGE THIS AT YOUR OWN RESPONSIBILITY, never ask mitr about this if you do.
+func sameFSTimePair(aSec, bSec, aNsec, bNsec int64) bool {
+	if aSec == bSec && aNsec == bNsec { // The trivial case
+		return true
+	}
+	if aNsec != 0 && bNsec != 0 { // No rounding has occurred - only trivially equal times are acceptable
+		return false
+	}
+	// Some rounding has occurred, we care only about the seconds now.
+	if aSec == bSec { // One or both were rounded down, nothing was rounded up - or both were rounded up
+		return true
+	}
+	if bNsec == 0 && bSec != math.MinInt64 && aSec == bSec-1 { // B was rounded up
+		return true
+	}
+	if aNsec == 0 && aSec != math.MinInt64 && aSec-1 == bSec { // A was rounded up
+		return true
+	}
+	return false
+}
+
 // Gnu tar and the go tar writer don't have sub-second mtime
 // precision, which is problematic when we apply changes via tar
 // files, we handle this by comparing for exact times, *or* same
 // second count and either a or b having exactly 0 nanoseconds
 func sameFsTime(a, b time.Time) bool {
-	return a == b ||
-		(a.Unix() == b.Unix() &&
-			(a.Nanosecond() == 0 || b.Nanosecond() == 0))
+	if a == b {
+		return true
+	}
+	return a == b || sameFSTimePair(a.Unix(), b.Unix(), int64(a.Nanosecond()), int64(b.Nanosecond()))
 }
 
 func sameFsTimeSpec(a, b syscall.Timespec) bool {
-	return a.Sec == b.Sec &&
-		(a.Nsec == b.Nsec || a.Nsec == 0 || b.Nsec == 0)
+	return sameFSTimePair(a.Sec, b.Sec, a.Nsec, b.Nsec)
 }
 
 // Changes walks the path rw and determines changes for the files in the path,
