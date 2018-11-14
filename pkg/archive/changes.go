@@ -332,7 +332,7 @@ func (info *FileInfo) addChanges(oldInfo *FileInfo, changes *[]Change) {
 			// back mtime
 			if statDifferent(oldStat, oldInfo, newStat, info) ||
 				!bytes.Equal(oldChild.capability, newChild.capability) {
-				logrus.Debugf("ChangeModify: %s vs. %s: %#v vs. %#v [%#v vs. %#v], %#v vs. %#v", oldChild.path(), newChild.path(), oldStat, newStat, oldInfo.idMappings, info.idMappings, oldChild.capability, newChild.capability)
+				logrus.Errorf("ChangeModify: %s vs. %s: %#v vs. %#v [%#v vs. %#v], %#v vs. %#v", oldChild.path(), newChild.path(), oldStat, newStat, oldInfo.idMappings, info.idMappings, oldChild.capability, newChild.capability)
 				change := Change{
 					Path: newChild.path(),
 					Kind: ChangeModify,
@@ -360,7 +360,7 @@ func (info *FileInfo) addChanges(oldInfo *FileInfo, changes *[]Change) {
 	// itself wasn't changed. This is needed to properly save and restore filesystem permissions.
 	// As this runs on the daemon side, file paths are OS specific.
 	if len(*changes) > sizeAtEntry && info.isDir() && !info.added && info.path() != string(os.PathSeparator) {
-		logrus.Debugf("ChangeModify: dir marked as changed for children: %s", info.path())
+		logrus.Errorf("ChangeModify: dir marked as changed for children: %s", info.path())
 		change := Change{
 			Path: info.path(),
 			Kind: ChangeModify,
