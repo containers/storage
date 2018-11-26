@@ -56,11 +56,11 @@ func paramIDMapping() (*storage.IDMappingOptions, error) {
 		options.UIDMap = mappings.UIDs()
 		options.GIDMap = mappings.GIDs()
 	}
-	parsedUIDMap, err := idtools.ParseIDMap(paramUIDMap, "uid")
+	parsedUIDMap, err := idtools.ParseIDMap([]string{paramUIDMap}, "uid")
 	if err != nil {
 		return nil, err
 	}
-	parsedGIDMap, err := idtools.ParseIDMap(paramGIDMap, "gid")
+	parsedGIDMap, err := idtools.ParseIDMap([]string{paramGIDMap}, "gid")
 	if err != nil {
 		return nil, err
 	}
