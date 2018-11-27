@@ -2144,21 +2144,20 @@ func (s *store) DeleteContainer(id string) error {
 				if err = rlstore.Delete(container.LayerID); err != nil {
 					return err
 				}
-				if err = rcstore.Delete(id); err != nil {
-					return err
-				}
-				middleDir := s.graphDriverName + "-containers"
-				gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
-				if err = os.RemoveAll(gcpath); err != nil {
-					return err
-				}
-				rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
-				if err = os.RemoveAll(rcpath); err != nil {
-					return err
-				}
-				return nil
 			}
-			return ErrNotALayer
+			if err = rcstore.Delete(id); err != nil {
+				return err
+			}
+			middleDir := s.graphDriverName + "-containers"
+			gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
+			if err = os.RemoveAll(gcpath); err != nil {
+				return err
+			}
+			rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
+			if err = os.RemoveAll(rcpath); err != nil {
+				return err
+			}
+			return nil
 		}
 	}
 	return ErrNotAContainer
