@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	paramMountOptions = ""
 	paramMountLabel   = ""
 	paramNames        = []string{}
 	paramID           = ""

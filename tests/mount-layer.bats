@@ -75,6 +75,10 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" == "" ]
 
+	# Mount the layer with nosuid
+	run storage --debug=false mount --option nosuid $layer
+	[ "$status" -ne 0 ]
+
 	# Delete the first layer
 	run storage delete-layer $layer
 	[ "$status" -eq 0 ]
