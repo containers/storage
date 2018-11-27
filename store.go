@@ -3203,13 +3203,13 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		storeOptions.GIDMap = mappings.GIDs()
 	}
 
-	uidmap, err := idtools.ParseIDMap(config.Storage.Options.RemapUIDs, "remap-uids")
+	uidmap, err := idtools.ParseIDMap([]string{config.Storage.Options.RemapUIDs}, "remap-uids")
 	if err != nil {
 		fmt.Print(err)
 	} else {
 		storeOptions.UIDMap = append(storeOptions.UIDMap, uidmap...)
 	}
-	gidmap, err := idtools.ParseIDMap(config.Storage.Options.RemapGIDs, "remap-gids")
+	gidmap, err := idtools.ParseIDMap([]string{config.Storage.Options.RemapGIDs}, "remap-gids")
 	if err != nil {
 		fmt.Print(err)
 	} else {
