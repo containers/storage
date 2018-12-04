@@ -39,8 +39,10 @@ The `storage` table supports the following options:
 **driver**=""
   container storage driver (default: "overlay")
   Default Copy On Write (COW) container storage driver
+  Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs"
+  Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem
 
-### STORAGE OPTIONS TABLE 
+### STORAGE OPTIONS TABLE
 
 The `storage.options` table supports the following options:
 
