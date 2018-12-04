@@ -166,10 +166,19 @@ func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64
 			switch j % 3 {
 			// Update file
 			case 0:
+				var originalFileInfo, updatedFileInfo os.FileInfo
 				change.Path = path.Join(archiveRoot, fmt.Sprintf("file-%d", i+j))
 				change.Kind = archive.ChangeModify
-				if err := ioutil.WriteFile(path.Join(root, change.Path), randomContent(64, seed+int64(i+j)), 0755); err != nil {
+				if originalFileInfo, err = os.Stat(path.Join(root, change.Path)); err != nil {
 					return nil, err
+				}
+				for updatedFileInfo == nil || updatedFileInfo.ModTime().Equal(originalFileInfo.ModTime()) {
+					if err := ioutil.WriteFile(path.Join(root, change.Path), randomContent(64, seed+int64(i+j)), 0755); err != nil {
+						return nil, err
+					}
+					if updatedFileInfo, err = os.Stat(path.Join(root, change.Path)); err != nil {
+						return nil, err
+					}
 				}
 			// Add file
 			case 1:
