@@ -11,6 +11,7 @@ DISTRO="${DISTRO:-ubuntu}"
 FQIN="docker.io/cevich/travis_${DISTRO}:latest"
 
 # This can take a while, start it going as early as possible
+sudo docker info
 sudo docker pull $FQIN &
 
 REPO_DIR=$(realpath "$(dirname $0)/../")  # assume parent directory of 'hack'
