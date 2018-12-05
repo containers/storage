@@ -499,6 +499,8 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 		hdr.Gid = ta.ChownOpts.GID
 	}
 
+	maybeTruncateHeaderModTime(hdr)
+
 	if ta.WhiteoutConverter != nil {
 		wo, err := ta.WhiteoutConverter.ConvertWrite(hdr, path, fi)
 		if err != nil {
