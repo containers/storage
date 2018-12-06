@@ -829,11 +829,11 @@ load helpers
 	container="$output"
 
 	# Mount the container.
-	run storage --debug=false mount $container
+	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false mount $container
 	echo "$output"
 	[ "$status" -eq 0 ]
 	dir="$output"
 	test "$(stat -c%u:%g $dir/file)" == "0:0"
-	run storage --debug=false unmount "$container"
+	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false unmount "$container"
 	[ "$status" -eq 0 ]
 }
