@@ -3,6 +3,13 @@
 load helpers
 
 @test "idmaps-create-apply-layer" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
 	n=5
 	host=2
 	# Create some temporary files.
@@ -83,6 +90,13 @@ load helpers
 }
 
 @test "idmaps-create-diff-layer" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
 	n=5
 	host=2
 	# Create some temporary files.
@@ -162,6 +176,13 @@ load helpers
 }
 
 @test "idmaps-create-container" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
 	n=5
 	host=2
 	# Create some temporary files.
@@ -281,6 +302,13 @@ load helpers
 }
 
 @test "idmaps-parent-owners" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
 	n=5
 	# Create some temporary files.
 	for i in $(seq $n) ; do
@@ -335,6 +363,13 @@ load helpers
 }
 
 @test "idmaps-copy" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
 	n=5
 	host=2
 	# Create some temporary files.
@@ -489,6 +524,13 @@ load helpers
 }
 
 @test "idmaps-create-mapped-image" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
 	n=5
 	host=2
 	# Create some temporary files.
@@ -617,10 +659,10 @@ load helpers
 
 @test "idmaps-create-mapped-container" {
 	case "$STORAGE_DRIVER" in
-	overlay*|vfs)
+	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
-		*)
-	skip "not supported by driver $STORAGE_DRIVER"
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
 		;;
 	esac
 	n=5
