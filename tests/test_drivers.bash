@@ -12,6 +12,11 @@ btrfs() {
 }
 
 devicemapper() {
+	for binary in pvcreate vgcreate lvcreate lvconvert lvchange thin_check ; do
+		if ! which $binary > /dev/null 2> /dev/null ; then
+			return 1
+		fi
+	done
 	pkg-config devmapper 2> /dev/null
 }
 
