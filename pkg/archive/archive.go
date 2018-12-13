@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"bytes"
 	"compress/bzip2"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,6 +21,7 @@ import (
 	"github.com/containers/storage/pkg/pools"
 	"github.com/containers/storage/pkg/promise"
 	"github.com/containers/storage/pkg/system"
+	gzip "github.com/klauspost/pgzip"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/sirupsen/logrus"
 )
