@@ -105,6 +105,7 @@ type Driver struct {
 	options       overlayOptions
 	naiveDiff     graphdriver.DiffDriver
 	supportsDType bool
+	usingMetacopy bool
 	locker        *locker.Locker
 	convert       map[string]bool
 }
@@ -174,6 +175,18 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		}
 	}
 
+	usingMetacopy, err := doesMetacopy(home, opts.mountOptions)
+	if err == nil {
+		if usingMetacopy {
+			logrus.Debugf("overlay test mount indicated that metacopy is being used")
+		} else {
+			logrus.Debugf("overlay test mount indicated that metacopy is not being used")
+		}
+	} else {
+		logrus.Warnf("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
+		return nil, err
+	}
+
 	if !opts.skipMountHome {
 		if err := mount.MakePrivate(home); err != nil {
 			return nil, err
@@ -193,6 +206,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		gidMaps:       gidMaps,
 		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
 		supportsDType: supportsDType,
+		usingMetacopy: usingMetacopy,
 		locker:        locker.New(),
 		options:       *opts,
 		convert:       make(map[string]bool),
@@ -212,7 +226,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, fmt.Errorf("Storage option overlay.size only supported for backingFS XFS. Found %v", backingFs)
 	}
 
-	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff())
+	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v, usingMetacopy=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff(), d.usingMetacopy)
 
 	return d, nil
 }
@@ -375,6 +389,7 @@ func (d *Driver) Status() [][2]string {
 		{"Backing Filesystem", backingFs},
 		{"Supports d_type", strconv.FormatBool(d.supportsDType)},
 		{"Native Overlay Diff", strconv.FormatBool(!d.useNaiveDiff())},
+		{"Using metacopy", strconv.FormatBool(d.usingMetacopy)},
 	}
 }
 
