@@ -85,13 +85,12 @@ const (
 )
 
 type overlayOptions struct {
-	overrideKernelCheck bool
-	imageStores         []string
-	quota               quota.Quota
-	mountProgram        string
-	ostreeRepo          string
-	skipMountHome       bool
-	mountOptions        string
+	imageStores   []string
+	quota         quota.Quota
+	mountProgram  string
+	ostreeRepo    string
+	skipMountHome bool
+	mountOptions  string
 }
 
 // Driver contains information about the home directory and the list of active mounts that are created using this driver.
@@ -226,12 +225,6 @@ func parseOptions(options []string) (*overlayOptions, error) {
 		}
 		key = strings.ToLower(key)
 		switch key {
-		case ".override_kernel_check", "overlay.override_kernel_check", "overlay2.override_kernel_check":
-			logrus.Debugf("overlay: override_kernelcheck=%s", val)
-			o.overrideKernelCheck, err = strconv.ParseBool(val)
-			if err != nil {
-				return nil, err
-			}
 		case ".mountopt", "overlay.mountopt", "overlay2.mountopt":
 			o.mountOptions = val
 		case ".size", "overlay.size", "overlay2.size":
