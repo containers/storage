@@ -2101,10 +2101,10 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 				break
 			}
 			lastRemoved = layer
-			layersToRemove = append(layersToRemove, lastRemoved)
 			if layer == image.TopLayer {
 				layersToRemove = append(layersToRemove, image.MappedTopLayers...)
 			}
+			layersToRemove = append(layersToRemove, lastRemoved)
 			layer = parent
 		}
 	} else {
