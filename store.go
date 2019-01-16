@@ -3064,9 +3064,6 @@ type OptionsConfig struct {
 	// Size
 	Size string `toml:"size"`
 
-	// OverrideKernelCheck
-	OverrideKernelCheck string `toml:"override_kernel_check"`
-
 	// RemapUIDs is a list of default UID mappings to use for layers.
 	RemapUIDs string `toml:"remap-uids"`
 	// RemapGIDs is a list of default GID mappings to use for layers.
@@ -3190,9 +3187,6 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	}
 	if config.Storage.Options.MountOpt != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.mountopt=%s", config.Storage.Driver, config.Storage.Options.MountOpt))
-	}
-	if config.Storage.Options.OverrideKernelCheck != "" {
-		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.override_kernel_check=%s", config.Storage.Driver, config.Storage.Options.OverrideKernelCheck))
 	}
 	if config.Storage.Options.RemapUser != "" && config.Storage.Options.RemapGroup == "" {
 		config.Storage.Options.RemapGroup = config.Storage.Options.RemapUser
