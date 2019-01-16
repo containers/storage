@@ -111,10 +111,6 @@ func Init(base string, opt []string, uidMaps, gidMaps []idtools.IDMap) (graphdri
 		return nil, fmt.Errorf("Failed to create '%s': %v", base, err)
 	}
 
-	if err := mount.MakePrivate(base); err != nil {
-		return nil, err
-	}
-
 	d := &Driver{
 		dataset:          rootDataset,
 		options:          options,
