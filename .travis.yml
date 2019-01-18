@@ -76,6 +76,5 @@ script:
                          -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID
                          -e TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR"
     - env
-    - echo
     - echo "Running tests in SPC using ./hack/run_ci_tests.sh"
     - ./hack/run_ci_tests.sh
