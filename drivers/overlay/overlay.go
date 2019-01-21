@@ -158,7 +158,10 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	var supportsDType bool
+	var (
+		supportsDType bool
+		usingMetacopy bool
+	)
 	if opts.mountProgram != "" {
 		supportsDType = true
 	} else {
@@ -172,18 +175,18 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 			}
 			return nil, errors.Wrap(err, "kernel does not support overlay fs")
 		}
-	}
 
-	usingMetacopy, err := doesMetacopy(home, opts.mountOptions)
-	if err == nil {
-		if usingMetacopy {
-			logrus.Debugf("overlay test mount indicated that metacopy is being used")
+		usingMetacopy, err = doesMetacopy(home, opts.mountOptions)
+		if err == nil {
+			if usingMetacopy {
+				logrus.Debugf("overlay test mount indicated that metacopy is being used")
+			} else {
+				logrus.Debugf("overlay test mount indicated that metacopy is not being used")
+			}
 		} else {
-			logrus.Debugf("overlay test mount indicated that metacopy is not being used")
+			logrus.Warnf("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
+			return nil, err
 		}
-	} else {
-		logrus.Warnf("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
-		return nil, err
 	}
 
 	if !opts.skipMountHome {
