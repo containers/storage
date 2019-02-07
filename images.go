@@ -228,6 +228,9 @@ func (image *Image) recomputeDigests() error {
 			validDigests = append(validDigests, digest)
 		}
 	}
+	if image.Digest == "" && len(validDigests) > 0 {
+		image.Digest = validDigests[0]
+	}
 	image.Digests = validDigests
 	return nil
 }
