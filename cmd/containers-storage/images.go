@@ -31,6 +31,9 @@ func images(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 			for _, name := range image.Names {
 				fmt.Printf("\tname: %s\n", name)
 			}
+			for _, digest := range image.Digests {
+				fmt.Printf("\tdigest: %s\n", digest.String())
+			}
 			for _, name := range image.BigDataNames {
 				fmt.Printf("\tdata: %s\n", name)
 			}
@@ -66,6 +69,9 @@ func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args [
 			}
 			for _, name := range image.Names {
 				fmt.Printf("\tname: %s\n", name)
+			}
+			for _, digest := range image.Digests {
+				fmt.Printf("\tdigest: %s\n", digest.String())
 			}
 			for _, name := range image.BigDataNames {
 				fmt.Printf("\tdata: %s\n", name)

@@ -3157,6 +3157,15 @@ func copyStringDigestMap(m map[string]digest.Digest) map[string]digest.Digest {
 	return ret
 }
 
+func copyDigestSlice(slice []digest.Digest) []digest.Digest {
+	if len(slice) == 0 {
+		return nil
+	}
+	ret := make([]digest.Digest, len(slice))
+	copy(ret, slice)
+	return ret
+}
+
 // copyStringInterfaceMap still forces us to assume that the interface{} is
 // a non-pointer scalar value
 func copyStringInterfaceMap(m map[string]interface{}) map[string]interface{} {
