@@ -113,7 +113,7 @@ func (l *lockfile) Unlock() {
 	}
 	l.stateMutex.Lock()
 	if l.locked == false {
-		// Panic when unlocking and unlocked lock.  That's a vioalation
+		// Panic when unlocking an unlocked lock.  That's a violation
 		// of the lock semantics and will reveal such.
 		panic("calling Unlock on unlocked lock")
 	}

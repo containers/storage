@@ -70,7 +70,8 @@ func getLockfile(path string, ro bool) (Locker, error) {
 	if locker, ok := lockfiles[cleanPath]; ok {
 		if ro && locker.IsReadWrite() {
 			return nil, errors.Errorf("lock %q is not a read-only lock", cleanPath)
-		} else if !ro && !locker.IsReadWrite() {
+		}
+		if !ro && !locker.IsReadWrite() {
 			return nil, errors.Errorf("lock %q is not a read-write lock", cleanPath)
 		}
 		return locker, nil
