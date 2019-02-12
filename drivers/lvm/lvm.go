@@ -16,6 +16,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/stringid"
 	units "github.com/docker/go-units"
+	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
@@ -627,7 +628,7 @@ func (l *lvmDriver) Get(id string, options graphdriver.MountOpts) (dir string, e
 		return "", errors.Wrapf(err, "error finding device path for logical volume %q", volume)
 	}
 	logrus.Debugf("mounting volume device %q on %q", lvDevice, mpath)
-	err = mount.Mount(lvDevice, mpath, l.fs, FSMountOptions(l.fs, lvDevice))
+	err = mount.Mount(lvDevice, mpath, l.fs, label.FormatMountLabel(FSMountOptions(l.fs, lvDevice), options.MountLabel))
 	if err != nil {
 		return "", errors.Wrapf(err, "error mounting logical volume device %q for ID %q at %q", lvDevice, id, mpath)
 	}
