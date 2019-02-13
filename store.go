@@ -566,10 +566,10 @@ func GetStore(options StoreOptions) (Store, error) {
 	}
 
 	if options.GraphRoot == "" {
-		return nil, ErrIncompleteOptions
+		return nil, errors.Wrap(ErrIncompleteOptions, "no storage root specified")
 	}
 	if options.RunRoot == "" {
-		return nil, ErrIncompleteOptions
+		return nil, errors.Wrap(ErrIncompleteOptions, "no storage runroot specified")
 	}
 
 	if err := os.MkdirAll(options.RunRoot, 0700); err != nil && !os.IsExist(err) {
