@@ -357,6 +357,12 @@ func parseLoopbackLine(line string) (ReportLoopback, error) {
 	var err error
 	loopback := ReportLoopback{}
 	fields := strings.Fields(line)
+	if len(fields) == 7 {
+		// the last word of the reporeted loopback may be "(deleted)" in which case we shouldn't error out.
+		if fields[6] == "(deleted)" {
+			fields = fields[:6]
+		}
+	}
 	if len(fields) != 6 {
 		return loopback, errors.Errorf("error parsing \"losetup --list\" value %q: expected 6 fields, got %d", line, len(fields))
 	}

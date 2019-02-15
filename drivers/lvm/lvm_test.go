@@ -22,6 +22,10 @@ func TestMain(m *testing.M) {
 	if reexec.Init() {
 		return
 	}
+	// LVM tests not currently supported on Debian
+	if _, err := os.Open("/etc/debian_version"); err == nil {
+		return
+	}
 	testdir, err := ioutil.TempDir("", "lvmtest")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error creating temporary directory: %v\n", err)

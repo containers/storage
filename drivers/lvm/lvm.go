@@ -269,28 +269,13 @@ func createAndActivateThinPoolInVolumeGroup(vgname, poolname string) error {
 		return errors.Errorf("not enough free space in volume group %q", vgname)
 	}
 	poolSize := int64(0)
-	metaSize := int64(0)
 	if free < 12*1024*1024*1024 {
-		poolSize = free * 8 / 10
-		metaSize = poolSize / 10
+		poolSize = free * 9 / 10
 	} else {
 		poolSize = 10 * 1024 * 1024 * 1024
-		metaSize = poolSize / 10
 	}
-	logrus.Debugf("creating data logical volume with size %d bytes, metadata logical volume with size %d bytes", poolSize, metaSize)
-	initialMetadataName := poolname + "-tmeta"
-	logrus.Debugf("creating data logical volume with size %d bytes", poolSize)
-	err = runWithoutOutput(LVMPath, "lvcreate", "--size", fmt.Sprintf("%dK", poolSize/1024), "--name", poolname, vgname)
-	if err != nil {
-		return errors.Wrapf(err, "error creating logical volume %q", vgname+"/"+poolname)
-	}
-	logrus.Debugf("creating metadata logical volume with size %d bytes", metaSize)
-	err = runWithoutOutput(LVMPath, "lvcreate", "--size", fmt.Sprintf("%dK", metaSize/1024), "--name", initialMetadataName, vgname)
-	if err != nil {
-		return errors.Wrapf(err, "error creating logical volume %q", vgname+"/"+initialMetadataName)
-	}
-	logrus.Debugf("creating thin pool logical volume using data logical volume %q and metadata logical volume %q", poolname, initialMetadataName)
-	err = runWithoutOutput(LVMPath, "lvconvert", "--yes", "--type", "thin-pool", "--poolmetadata", vgname+"/"+initialMetadataName, vgname+"/"+poolname)
+	logrus.Debugf("creating thin pool logical volume using data logical volume %q with size %d bytes", poolname, poolSize)
+	err = runWithoutOutput(LVMPath, "lvcreate", "-Z", "n", "--yes", "--size", fmt.Sprintf("%dK", poolSize/1024), "--thin-pool", vgname+"/"+poolname)
 	if err != nil {
 		return errors.Wrapf(err, "error creating thin pool logical volume %q", vgname+"/"+poolname)
 	}
@@ -589,7 +574,7 @@ func (l *lvmDriver) Remove(id string) error {
 	if err != nil {
 		return errors.Wrapf(err, "error deactivating logical volume %q for ID %q", volume, id)
 	}
-	err = runWithoutOutput(LVMPath, "lvremove", l.vgname+"/"+volume)
+	err = runWithoutOutput(LVMPath, "lvremove", "-y", l.vgname+"/"+volume)
 	if err != nil {
 		return errors.Wrapf(err, "error removing logical volume %q for ID %q", volume, id)
 	}
@@ -628,6 +613,8 @@ func (l *lvmDriver) Get(id string, options graphdriver.MountOpts) (dir string, e
 		return "", errors.Wrapf(err, "error finding device path for logical volume %q", volume)
 	}
 	logrus.Debugf("mounting volume device %q on %q", lvDevice, mpath)
+	// TODO FIXME
+	// /dev/{vg}/{lvname} -- device
 	err = mount.Mount(lvDevice, mpath, l.fs, label.FormatMountLabel(FSMountOptions(l.fs, lvDevice), options.MountLabel))
 	if err != nil {
 		return "", errors.Wrapf(err, "error mounting logical volume device %q for ID %q at %q", lvDevice, id, mpath)

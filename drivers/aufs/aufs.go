@@ -194,10 +194,16 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 func supportsAufs() error {
 	// We can try to modprobe aufs first before looking at
 	// proc/filesystems for when aufs is supported
-	exec.Command("modprobe", "aufs").Run()
+	if err := exec.Command("modprobe", "aufs").Run(); err != nil {
+		return ErrAufsNotSupported
+	}
 
 	if rsystem.RunningInUserNS() {
 		return ErrAufsNested
+	}
+
+	if _, err := os.Open("/etc/debian_version"); err != nil {
+		return ErrAufsNotSupported
 	}
 
 	f, err := os.Open("/proc/filesystems")

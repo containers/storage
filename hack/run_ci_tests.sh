@@ -7,7 +7,7 @@ set -e
 # `export SPCCMD=bash` beforehand.
 
 SPCCMD="${SPCCMD:-./hack/spc_ci_test.sh}"
-DISTRO="${DISTRO:-ubuntu}"
+DISTRO="${DISTRO:-fedora}"
 FQIN="docker.io/cevich/travis_${DISTRO}:latest"
 
 # This can take a while, start it going as early as possible
@@ -42,6 +42,7 @@ VOL_ARGS="-v $TMP_SPC_REPO_COPY:$WORKDIR
           -v /run:/run -v /etc/localtime:/etc/localtime
           -v /var/log:/var/log -v /sys/fs/cgroup:/sys/fs/cgroup
           -v /var/run/docker.sock:/var/run/docker.sock
+          -v /dev:/dev
           --tmpfs /tmp:rw,nosuid,nodev,exec,relatime,mode=1777,size=50%
           --workdir $WORKDIR"
 
