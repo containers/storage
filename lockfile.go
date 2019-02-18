@@ -66,7 +66,10 @@ func getLockfile(path string, ro bool) (Locker, error) {
 	if lockfiles == nil {
 		lockfiles = make(map[string]Locker)
 	}
-	cleanPath := filepath.Clean(path)
+	cleanPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error ensuring that path %q is an absolute path", path)
+	}
 	if locker, ok := lockfiles[cleanPath]; ok {
 		if ro && locker.IsReadWrite() {
 			return nil, errors.Errorf("lock %q is not a read-only lock", cleanPath)

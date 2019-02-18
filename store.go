@@ -550,10 +550,18 @@ func GetStore(options StoreOptions) (Store, error) {
 	}
 
 	if options.GraphRoot != "" {
-		options.GraphRoot = filepath.Clean(options.GraphRoot)
+		dir, err := filepath.Abs(options.GraphRoot)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error deriving an absolute path from %q", options.GraphRoot)
+		}
+		options.GraphRoot = dir
 	}
 	if options.RunRoot != "" {
-		options.RunRoot = filepath.Clean(options.RunRoot)
+		dir, err := filepath.Abs(options.RunRoot)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error deriving an absolute path from %q", options.RunRoot)
+		}
+		options.RunRoot = dir
 	}
 
 	storesLock.Lock()
