@@ -862,8 +862,9 @@ func (r *layerStore) Delete(id string) error {
 		return ErrLayerUnknown
 	}
 	id = layer.ID
-	// This check is needed for idempotency of delete where the layer could have been
-	// already unmounted (since c/storage gives you that API directly)
+	// The layer may already have been explicitly unmounted, but if not, we
+	// should try to clean that up before we start deleting anything at the
+	// driver level.
 	for layer.MountCount > 0 {
 		if _, err := r.Unmount(id, false); err != nil {
 			return err
