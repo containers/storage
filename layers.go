@@ -378,7 +378,7 @@ func (r *layerStore) Save() error {
 		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to modify the layer store at %q", r.layerspath())
 	}
 	if !r.Locked() {
-		return errors.New("layer store is not locked")
+		return errors.New("layer store is not locked for writing")
 	}
 	rpath := r.layerspath()
 	if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {

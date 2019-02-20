@@ -139,9 +139,11 @@ func (l *lockfile) Unlock() {
 	l.stateMutex.Unlock()
 }
 
-// Locked checks if lockfile is locked.
+// Locked checks if lockfile is locked for writing by a thread in this process.
 func (l *lockfile) Locked() bool {
-	return l.locked
+	l.stateMutex.Lock()
+	defer l.stateMutex.Unlock()
+	return l.locked && (l.locktype == unix.F_WRLCK)
 }
 
 // Touch updates the lock file with the UID of the user.
