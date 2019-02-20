@@ -320,7 +320,7 @@ func (r *layerStore) Load() error {
 			}
 		}
 	}
-	if shouldSave && !r.IsReadWrite() {
+	if shouldSave && (!r.IsReadWrite() || !r.Locked()) {
 		return ErrDuplicateLayerNames
 	}
 	mpath := r.mountspath()
@@ -351,7 +351,7 @@ func (r *layerStore) Load() error {
 	// Last step: if we're writable, try to remove anything that a previous
 	// user of this storage area marked for deletion but didn't manage to
 	// actually delete.
-	if r.IsReadWrite() {
+	if r.IsReadWrite() && r.Locked() {
 		for _, layer := range r.layers {
 			if layer.Flags == nil {
 				layer.Flags = make(map[string]interface{})

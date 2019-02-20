@@ -272,7 +272,7 @@ func (r *imageStore) Load() error {
 			}
 		}
 	}
-	if shouldSave && !r.IsReadWrite() {
+	if shouldSave && (!r.IsReadWrite() || !r.Locked()) {
 		return ErrDuplicateImageNames
 	}
 	r.images = images
