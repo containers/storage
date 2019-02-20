@@ -41,7 +41,7 @@ func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 			}
 			size, err := m.ImageSize(image.ID)
 			if err != nil {
-				fmt.Printf("Size unknown: %v\n", err)
+				fmt.Printf("Size unknown: %+v\n", err)
 			} else {
 				fmt.Printf("Size: %d\n", size)
 			}
@@ -56,7 +56,7 @@ func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	d, err := m.ListImageBigData(image.ID)
@@ -73,7 +73,7 @@ func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args
 func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	output := os.Stdout
@@ -87,7 +87,7 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 	}
 	b, err := m.ImageBigData(image.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	output.Write(b)
@@ -98,12 +98,12 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 func getImageBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	size, err := m.ImageBigDataSize(image.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	fmt.Fprintf(os.Stdout, "%d\n", size)
@@ -113,12 +113,12 @@ func getImageBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, a
 func getImageBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	d, err := m.ImageBigDataDigest(image.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if d.Validate() != nil {

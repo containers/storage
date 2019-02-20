@@ -83,7 +83,7 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	options := &storage.LayerOptions{IDMappingOptions: *mappings}
 	layer, err := m.CreateLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, options)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
@@ -120,7 +120,7 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	options := &storage.LayerOptions{IDMappingOptions: *mappings}
 	layer, _, err := m.PutLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, options, diffStream)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
@@ -157,7 +157,7 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	image, err := m.CreateImage(paramID, paramNames, layer, paramMetadata, imageOptions)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
@@ -193,7 +193,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 	options := &storage.ContainerOptions{IDMappingOptions: *mappings}
 	container, err := m.CreateContainer(paramID, paramNames, args[0], paramLayer, paramMetadata, options)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {

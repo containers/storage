@@ -51,7 +51,7 @@ func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, arg
 	for _, layer := range matched {
 		uids, gids, err := m.LayerParentOwners(layer.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "LayerParentOwner: %v\n", err)
+			fmt.Fprintf(os.Stderr, "LayerParentOwner: %+v\n", err)
 			return 1
 		}
 		if jsonOutput {

@@ -17,7 +17,7 @@ var (
 func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	images, err := m.Images()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
@@ -52,7 +52,7 @@ func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args [
 		}
 		matched, err := m.ImagesByDigest(d)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
+			fmt.Fprintf(os.Stderr, "%+v\n", err)
 			return 1
 		}
 		for _, match := range matched {

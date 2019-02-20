@@ -16,12 +16,12 @@ func getNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	}
 	id, err := m.Lookup(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	names, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
@@ -40,12 +40,12 @@ func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	}
 	id, err := m.Lookup(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	oldnames, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	newNames := []string{}
@@ -56,12 +56,12 @@ func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		newNames = append(newNames, paramNames...)
 	}
 	if err := m.SetNames(id, newNames); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	names, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
@@ -76,16 +76,16 @@ func setNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	}
 	id, err := m.Lookup(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if err := m.SetNames(id, paramNames); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	names, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {
