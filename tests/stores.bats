@@ -12,10 +12,8 @@ load helpers
 	esac
 	# Initialize a store somewhere that we'll later use as a read-only store.
 	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot layers
-	# Skip this test if we can't initialize the driver with the option.
-	if ! storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layers ; then
-		skip
-	fi
+	# Fail this test if we can't initialize the driver with the option.
+	storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layers
 	# Create a layer in what will become the read-only store.
 	run storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot --debug=false create-layer
 	[ "$status" -eq 0 ]
