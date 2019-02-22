@@ -65,10 +65,13 @@ func (l *lockfile) lock(l_type int16) {
 		Len:    0,
 		Pid:    int32(os.Getpid()),
 	}
-	if l_type == unix.F_RDLCK {
+	switch l_type {
+	case unix.F_RDLCK:
 		l.rwMutex.RLock()
-	} else {
+	case unix.F_WRLCK:
 		l.rwMutex.Lock()
+	default:
+		panic(fmt.Sprintf("attempted to acquire a file lock of unrecognized type %d", l_type))
 	}
 	l.stateMutex.Lock()
 	if l.counter == 0 {
@@ -148,6 +151,11 @@ func (l *lockfile) Locked() bool {
 
 // Touch updates the lock file with the UID of the user.
 func (l *lockfile) Touch() error {
+	l.stateMutex.Lock()
+	if !l.locked || (l.locktype != unix.F_WRLCK) {
+		panic("attempted to update last-writer in lockfile without the write lock")
+	}
+	l.stateMutex.Unlock()
 	l.lw = stringid.GenerateRandomID()
 	id := []byte(l.lw)
 	_, err := unix.Seek(int(l.fd), 0, os.SEEK_SET)
@@ -172,6 +180,11 @@ func (l *lockfile) Touch() error {
 // was loaded.
 func (l *lockfile) Modified() (bool, error) {
 	id := []byte(l.lw)
+	l.stateMutex.Lock()
+	if !l.locked {
+		panic("attempted to check last-writer in lockfile without locking it first")
+	}
+	l.stateMutex.Unlock()
 	_, err := unix.Seek(int(l.fd), 0, os.SEEK_SET)
 	if err != nil {
 		return true, err
