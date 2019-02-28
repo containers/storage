@@ -49,13 +49,13 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 		targetLayer, err := m.Layer(targetParts[0])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error finding layer %q: %v\n", targetParts[0], err)
+			fmt.Fprintf(os.Stderr, "error finding layer %q: %+v\n", targetParts[0], err)
 			return 1
 		}
 		untarIDMappings = idtools.NewIDMappingsFromMaps(targetLayer.UIDMap, targetLayer.GIDMap)
 		targetMount, err := m.Mount(targetLayer.ID, targetLayer.MountLabel)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error mounting layer %q: %v\n", targetLayer.ID, err)
+			fmt.Fprintf(os.Stderr, "error mounting layer %q: %+v\n", targetLayer.ID, err)
 			return 1
 		}
 		target = filepath.Join(targetMount, targetParts[1])
@@ -73,13 +73,13 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			}
 			sourceLayer, err := m.Layer(sourceParts[0])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error finding layer %q: %v\n", sourceParts[0], err)
+				fmt.Fprintf(os.Stderr, "error finding layer %q: %+v\n", sourceParts[0], err)
 				return 1
 			}
 			tarIDMappings = idtools.NewIDMappingsFromMaps(sourceLayer.UIDMap, sourceLayer.GIDMap)
 			sourceMount, err := m.Mount(sourceLayer.ID, sourceLayer.MountLabel)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error mounting layer %q: %v\n", sourceLayer.ID, err)
+				fmt.Fprintf(os.Stderr, "error mounting layer %q: %+v\n", sourceLayer.ID, err)
 				return 1
 			}
 			source = filepath.Join(sourceMount, sourceParts[1])
@@ -87,7 +87,7 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 		archiver := chrootarchive.NewArchiverWithChown(tarIDMappings, chownOpts, untarIDMappings)
 		if err := archiver.CopyWithTar(source, target); err != nil {
-			fmt.Fprintf(os.Stderr, "error copying %q to %q: %v\n", source, target, err)
+			fmt.Fprintf(os.Stderr, "error copying %q to %q: %+v\n", source, target, err)
 			return 1
 		}
 	}

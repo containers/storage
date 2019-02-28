@@ -117,7 +117,7 @@ func main() {
 				}
 				store, err := storage.GetStore(options)
 				if err != nil {
-					fmt.Printf("error initializing: %v\n", err)
+					fmt.Printf("error initializing: %+v\n", err)
 					os.Exit(1)
 				}
 				os.Exit(command.action(flags, cmd, store, args))

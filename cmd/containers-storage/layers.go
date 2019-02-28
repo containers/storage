@@ -14,7 +14,7 @@ var listLayersTree = false
 func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	layers, err := m.Layers()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if jsonOutput {

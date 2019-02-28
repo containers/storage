@@ -17,7 +17,7 @@ var (
 func container(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	images, err := m.Images()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	matches := []*storage.Container{}
@@ -45,7 +45,7 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 			}
 			size, err := m.ContainerSize(container.ID)
 			if err != nil {
-				fmt.Printf("Size unknown: %v\n", err)
+				fmt.Printf("Size unknown: %+v\n", err)
 			} else {
 				fmt.Printf("Size: %d\n", size)
 			}
@@ -64,7 +64,7 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	d, err := m.ListContainerBigData(container.ID)
@@ -81,7 +81,7 @@ func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, 
 func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	output := os.Stdout
@@ -95,7 +95,7 @@ func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	}
 	b, err := m.ContainerBigData(container.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	output.Write(b)
@@ -106,12 +106,12 @@ func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 func getContainerBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	size, err := m.ContainerBigDataSize(container.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	fmt.Fprintf(os.Stdout, "%d\n", size)
@@ -121,12 +121,12 @@ func getContainerBigDataSize(flags *mflag.FlagSet, action string, m storage.Stor
 func getContainerBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	d, err := m.ContainerBigDataDigest(container.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	if d.Validate() != nil {
@@ -140,7 +140,7 @@ func getContainerBigDataDigest(flags *mflag.FlagSet, action string, m storage.St
 func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	input := os.Stdin
@@ -159,7 +159,7 @@ func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	}
 	err = m.SetContainerBigData(container.ID, args[1], b)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	return 0
@@ -168,7 +168,7 @@ func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 func getContainerDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	path, err := m.ContainerDirectory(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	fmt.Printf("%s\n", path)
@@ -178,7 +178,7 @@ func getContainerDir(flags *mflag.FlagSet, action string, m storage.Store, args 
 func getContainerRunDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	path, err := m.ContainerRunDirectory(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
 	}
 	fmt.Printf("%s\n", path)
@@ -195,7 +195,7 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 	for _, container := range matched {
 		uids, gids, err := m.ContainerParentOwners(container.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ContainerParentOwner: %v\n", err)
+			fmt.Fprintf(os.Stderr, "ContainerParentOwner: %+v\n", err)
 			return 1
 		}
 		if jsonOutput {

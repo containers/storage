@@ -35,7 +35,7 @@ type Locker interface {
 	// IsReadWrite() checks if the lock file is read-write
 	IsReadWrite() bool
 
-	// Locked() checks if lock is locked
+	// Locked() checks if lock is locked for writing by a thread in this process
 	Locked() bool
 }
 
