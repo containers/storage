@@ -32,7 +32,7 @@ import (
 
 var (
 	// DefaultStoreOptions is a reasonable default set of options.
-	DefaultStoreOptions StoreOptions
+	defaultStoreOptions StoreOptions
 	stores              []*store
 	storesLock          sync.Mutex
 )
@@ -550,7 +550,7 @@ type store struct {
 //   }
 func GetStore(options StoreOptions) (Store, error) {
 	if options.RunRoot == "" && options.GraphRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
-		options = DefaultStoreOptions
+		options = defaultStoreOptions
 	}
 
 	if options.GraphRoot != "" {
@@ -3217,8 +3217,20 @@ func copyStringInterfaceMap(m map[string]interface{}) map[string]interface{} {
 	return ret
 }
 
-// DefaultConfigFile path to the system wide storage.conf file
-const DefaultConfigFile = "/etc/containers/storage.conf"
+// defaultConfigFile path to the system wide storage.conf file
+const defaultConfigFile = "/etc/containers/storage.conf"
+
+// DefaultConfigFile returns the path to the storage config file used
+func DefaultConfigFile(rootless bool) (string, error) {
+	if rootless {
+		home, err := homeDir()
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot determine users homedir")
+		}
+		return filepath.Join(home, ".config/containers/storage.conf"), nil
+	}
+	return defaultConfigFile, nil
+}
 
 // TOML-friendly explicit tables used for conversions.
 type tomlConfig struct {
@@ -3358,19 +3370,19 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 }
 
 func init() {
-	DefaultStoreOptions.RunRoot = "/var/run/containers/storage"
-	DefaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
-	DefaultStoreOptions.GraphDriverName = ""
+	defaultStoreOptions.RunRoot = "/var/run/containers/storage"
+	defaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
+	defaultStoreOptions.GraphDriverName = ""
 
-	ReloadConfigurationFile(DefaultConfigFile, &DefaultStoreOptions)
+	ReloadConfigurationFile(defaultConfigFile, &defaultStoreOptions)
 }
 
 func GetDefaultMountOptions() ([]string, error) {
 	mountOpts := []string{
 		".mountopt",
-		fmt.Sprintf("%s.mountopt", DefaultStoreOptions.GraphDriverName),
+		fmt.Sprintf("%s.mountopt", defaultStoreOptions.GraphDriverName),
 	}
-	for _, option := range DefaultStoreOptions.GraphDriverOptions {
+	for _, option := range defaultStoreOptions.GraphDriverOptions {
 		key, val, err := parsers.ParseKeyValueOpt(option)
 		if err != nil {
 			return nil, err
