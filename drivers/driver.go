@@ -100,6 +100,9 @@ type ProtoDriver interface {
 	Cleanup() error
 	// AdditionalImageStores returns additional image stores supported by the driver
 	AdditionalImageStores() []string
+
+	// Mounted tells whether the path is mounted
+	Mounted(path string) (bool, error)
 }
 
 // DiffDriver is the interface to use to implement graph diffs

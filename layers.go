@@ -745,8 +745,16 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 		return "", ErrLayerUnknown
 	}
 	if layer.MountCount > 0 {
-		layer.MountCount++
-		return layer.MountPoint, r.saveMounts()
+		mounted, err := r.driver.Mounted(layer.MountPoint)
+		if err != nil {
+			return "", err
+		}
+		if mounted {
+			layer.MountCount++
+			return layer.MountPoint, r.saveMounts()
+		} else {
+			layer.MountCount = 0
+		}
 	}
 	if options.MountLabel == "" {
 		options.MountLabel = layer.MountLabel

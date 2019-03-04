@@ -742,3 +742,8 @@ func (a *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 func (a *Driver) SupportsShifting() bool {
 	return false
 }
+
+// Mounted tells whether the path is mounted
+func (a *Driver) Mounted(path string) (bool, error) {
+	return mountpk.Mounted(path)
+}

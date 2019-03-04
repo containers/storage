@@ -1052,6 +1052,11 @@ func (d *Driver) SupportsShifting() bool {
 	return d.options.mountProgram != ""
 }
 
+// Mounted tells whether the path is mounted
+func (d *Driver) Mounted(path string) (bool, error) {
+	return mount.Mounted(path)
+}
+
 // dumbJoin is more or less a dumber version of filepath.Join, but one which
 // won't Clean() the path, allowing us to append ".." as a component and trust
 // pathname resolution to do some non-obvious work.

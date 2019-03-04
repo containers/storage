@@ -219,3 +219,8 @@ func (d *Driver) AdditionalImageStores() []string {
 	}
 	return nil
 }
+
+// Mounted tells whether the path is mounted
+func (d *Driver) Mounted(path string) (bool, error) {
+	return true, nil
+}
