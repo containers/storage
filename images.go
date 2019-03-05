@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/containers/image/manifest"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
@@ -117,7 +116,7 @@ type ImageStore interface {
 	ROImageStore
 	RWFileBasedStore
 	RWMetadataStore
-	RWBigDataStore
+	RWImageBigDataStore
 	FlaggableStore
 
 	// Create creates an image that has a specified ID (or a random one) and
@@ -636,7 +635,7 @@ func imageSliceWithoutValue(slice []*Image, value *Image) []*Image {
 	return modified
 }
 
-func (r *imageStore) SetBigData(id, key string, data []byte) error {
+func (r *imageStore) SetBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error {
 	if key == "" {
 		return errors.Wrapf(ErrInvalidBigDataName, "can't set empty name for image big data item")
 	}
@@ -653,7 +652,10 @@ func (r *imageStore) SetBigData(id, key string, data []byte) error {
 	}
 	var newDigest digest.Digest
 	if bigDataNameIsManifest(key) {
-		if newDigest, err = manifest.Digest(data); err != nil {
+		if digestManifest == nil {
+			return errors.Wrapf(ErrDigestUnknown, "error digesting manifest: no manifest digest callback provided")
+		}
+		if newDigest, err = digestManifest(data); err != nil {
 			return errors.Wrapf(err, "error digesting manifest")
 		}
 	} else {
