@@ -595,15 +595,7 @@ func (r *imageStore) BigDataSize(id, key string) (int64, error) {
 		return size, nil
 	}
 	if data, err := r.BigData(id, key); err == nil && data != nil {
-		if r.SetBigData(id, key, data) == nil {
-			image, ok := r.lookup(id)
-			if !ok {
-				return -1, ErrImageUnknown
-			}
-			if size, ok := image.BigDataSizes[key]; ok {
-				return size, nil
-			}
-		}
+		return int64(len(data)), nil
 	}
 	return -1, ErrSizeUnknown
 }
@@ -621,17 +613,6 @@ func (r *imageStore) BigDataDigest(id, key string) (digest.Digest, error) {
 	}
 	if d, ok := image.BigDataDigests[key]; ok {
 		return d, nil
-	}
-	if data, err := r.BigData(id, key); err == nil && data != nil {
-		if r.SetBigData(id, key, data) == nil {
-			image, ok := r.lookup(id)
-			if !ok {
-				return "", ErrImageUnknown
-			}
-			if d, ok := image.BigDataDigests[key]; ok {
-				return d, nil
-			}
-		}
 	}
 	return "", ErrDigestUnknown
 }
