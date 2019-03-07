@@ -8,6 +8,7 @@ import (
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
+	digest "github.com/opencontainers/go-digest"
 )
 
 var (
@@ -95,6 +96,10 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 	return 0
 }
 
+func wrongManifestDigest(b []byte) (digest.Digest, error) {
+	return digest.Canonical.FromBytes(b), nil
+}
+
 func getImageBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	image, err := m.Image(args[0])
 	if err != nil {
@@ -149,7 +154,7 @@ func setImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	err = m.SetImageBigData(image.ID, args[1], b)
+	err = m.SetImageBigData(image.ID, args[1], b, wrongManifestDigest)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
@@ -207,7 +212,7 @@ func init() {
 		command{
 			names:       []string{"set-image-data", "setimagedata"},
 			optionsHelp: "[options [...]] imageNameOrID dataName",
-			usage:       "Set data that is attached to an image",
+			usage:       "Set data that is attached to an image (with sometimes wrong digest)",
 			action:      setImageBigData,
 			minArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
