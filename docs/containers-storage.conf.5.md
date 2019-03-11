@@ -129,7 +129,30 @@ Specifies the maximum number of retries XFS should attempt to complete IO when E
   Tell storage drivers to use the specified OSTree repository.  Some storage drivers, such as overlay, might use
 
 **skip_mount_home=""**
-  Tell storage drivers to not create a PRIVATE bind mount on their home directory.
+Tell storage drivers to not create a PRIVATE bind mount on their home directory.
+
+## SElinux labeling.
+
+When running on an SELinux system, if you move the containers storage graphroot directory, you must make sure the labeling is correct.
+
+Tell SELinux about the new containers storage by setting up an equivalence record.
+This tells SELinux to label content under the new path, as if it was stored
+under `/var/lib/containers/storage`.
+
+```
+semanage fcontext -a -e /var/lib/containers NEWSTORAGEPATH
+restorecon -R -v /src/containers
+```
+
+The semanage command above tells SELinux to setup the default labeling of
+`NEWSTORAGEPATH` to match `/var/lib/containers`.  The `restorecon` command
+tells SELinux to apply the labels to the actual content.
+
+Now all new content created in these directories will automatically be created
+with the correct label.
+
+## SEE ALSO
+`semanage(8)`, `restorecon(8)`
 
 # HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
