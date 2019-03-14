@@ -1,6 +1,6 @@
 // +build linux solaris
 
-package storage
+package lockfile
 
 import (
 	"time"

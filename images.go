@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
@@ -137,7 +138,7 @@ type ImageStore interface {
 }
 
 type imageStore struct {
-	lockfile Locker
+	lockfile lockfile.Locker
 	dir      string
 	images   []*Image
 	idindex  *truncindex.TruncIndex
@@ -308,7 +309,7 @@ func newImageStore(dir string) (ImageStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "images.lock"))
+	lockfile, err := lockfile.GetLockfile(filepath.Join(dir, "images.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +330,7 @@ func newImageStore(dir string) (ImageStore, error) {
 }
 
 func newROImageStore(dir string) (ROImageStore, error) {
-	lockfile, err := GetROLockfile(filepath.Join(dir, "images.lock"))
+	lockfile, err := lockfile.GetROLockfile(filepath.Join(dir, "images.lock"))
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,6 @@
 // +build darwin freebsd
 
-package storage
+package lockfile
 
 import (
 	"time"

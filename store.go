@@ -22,6 +22,7 @@ import (
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/stringutils"
@@ -41,7 +42,7 @@ var (
 // data stores that we implement which are needed for both read-only and
 // read-write files.
 type ROFileBasedStore interface {
-	Locker
+	lockfile.Locker
 
 	// Load reloads the contents of the store from disk.  It should be called
 	// with the lock held.
@@ -517,7 +518,7 @@ type ContainerOptions struct {
 type store struct {
 	lastLoaded      time.Time
 	runRoot         string
-	graphLock       Locker
+	graphLock       lockfile.Locker
 	graphRoot       string
 	graphDriverName string
 	graphOptions    []string
@@ -596,7 +597,7 @@ func GetStore(options StoreOptions) (Store, error) {
 		}
 	}
 
-	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
+	graphLock, err := lockfile.GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}

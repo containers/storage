@@ -1,6 +1,6 @@
 // +build linux solaris darwin freebsd
 
-package storage
+package lockfile
 
 import (
 	"fmt"

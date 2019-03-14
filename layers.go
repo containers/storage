@@ -16,6 +16,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/truncindex"
@@ -228,8 +229,8 @@ type LayerStore interface {
 }
 
 type layerStore struct {
-	lockfile          Locker
-	mountsLockfile    Locker
+	lockfile          lockfile.Locker
+	mountsLockfile    lockfile.Locker
 	rundir            string
 	driver            drivers.Driver
 	layerdir          string
@@ -452,18 +453,18 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver, uidMap
 	if err := os.MkdirAll(layerdir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(layerdir, "layers.lock"))
+	lfile, err := lockfile.GetLockfile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}
-	lockfile.Lock()
-	defer lockfile.Unlock()
-	mountsLockfile, err := GetLockfile(filepath.Join(rundir, "mountpoints.lock"))
+	lfile.Lock()
+	defer lfile.Unlock()
+	mountsLockfile, err := lockfile.GetLockfile(filepath.Join(rundir, "mountpoints.lock"))
 	if err != nil {
 		return nil, err
 	}
 	rlstore := layerStore{
-		lockfile:       lockfile,
+		lockfile:       lfile,
 		mountsLockfile: mountsLockfile,
 		driver:         driver,
 		rundir:         rundir,
@@ -481,7 +482,7 @@ func newLayerStore(rundir string, layerdir string, driver drivers.Driver, uidMap
 }
 
 func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (ROLayerStore, error) {
-	lockfile, err := GetROLockfile(filepath.Join(layerdir, "layers.lock"))
+	lockfile, err := lockfile.GetROLockfile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}

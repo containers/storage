@@ -10,6 +10,7 @@ import (
 
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
@@ -107,7 +108,7 @@ type ContainerStore interface {
 }
 
 type containerStore struct {
-	lockfile   Locker
+	lockfile   lockfile.Locker
 	dir        string
 	containers []*Container
 	idindex    *truncindex.TruncIndex
@@ -232,7 +233,7 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "containers.lock"))
+	lockfile, err := lockfile.GetLockfile(filepath.Join(dir, "containers.lock"))
 	if err != nil {
 		return nil, err
 	}
