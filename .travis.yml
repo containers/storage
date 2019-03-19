@@ -18,10 +18,7 @@ env:
     - GO_VERSION="1.11"
       DISTRO="ubuntu"
 
-    - GO_VERSION="1.10"
-      DISTRO="ubuntu"
-
-    - GO_VERSION="1.9"
+    - GO_VERSION="1.12"
       DISTRO="ubuntu"
 
     # Fedora
@@ -31,10 +28,7 @@ env:
     - GO_VERSION="1.11"
       DISTRO="fedora"
 
-    - GO_VERSION="1.10"
-      DISTRO="fedora"
-
-    - GO_VERSION="1.9"
+    - GO_VERSION="1.12"
       DISTRO="fedora"
 
     # CentOS
@@ -44,10 +38,7 @@ env:
     - GO_VERSION="1.11"
       DISTRO="centos"
 
-    - GO_VERSION="1.10"
-      DISTRO="centos"
-
-    - GO_VERSION="1.9"
+    - GO_VERSION="1.12"
       DISTRO="centos"
 
 # GO_VERSION="stable" builds successfully, but tests fail on all platforms.
