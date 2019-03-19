@@ -7,10 +7,10 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/BurntSushi/toml"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/system"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -72,8 +72,8 @@ func GetRootlessRuntimeDir(rootlessUid int) (string, error) {
 	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
 	if runtimeDir == "" {
 		tmpDir := fmt.Sprintf("/run/user/%d", rootlessUid)
-		st, err := os.Stat(tmpDir)
-		if err == nil && int(st.Sys().(*syscall.Stat_t).Uid) == os.Getuid() && st.Mode().Perm() == 0700 {
+		st, err := system.Stat(tmpDir)
+		if err == nil && int(st.UID()) == os.Getuid() && st.Mode() == 0700 {
 			return tmpDir, nil
 		}
 	}
@@ -81,10 +81,7 @@ func GetRootlessRuntimeDir(rootlessUid int) (string, error) {
 	if err := os.MkdirAll(tmpDir, 0700); err != nil {
 		logrus.Errorf("failed to create %s: %v", tmpDir, err)
 	} else {
-		st, err := os.Stat(tmpDir)
-		if err == nil && int(st.Sys().(*syscall.Stat_t).Uid) == os.Getuid() && st.Mode().Perm() == 0700 {
-			return tmpDir, nil
-		}
+		return tmpDir, nil
 	}
 	home, err := homeDir()
 	if err != nil {
