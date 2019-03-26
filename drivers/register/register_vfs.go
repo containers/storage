@@ -1,3 +1,5 @@
+// +build !exclude_graphdriver_vfs
+
 package register
 
 import (
