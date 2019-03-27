@@ -38,11 +38,20 @@ func openLock(path string, ro bool) (int, error) {
 	return unix.Open(path, os.O_RDWR|os.O_CREATE, unix.S_IRUSR|unix.S_IWUSR)
 }
 
-// getLockFile returns a Locker lockfile.  Note that getLockFile will always
-// return a new Locker and is hence not safe to be called multiple times by the
-// same process, which is why GetLockfile maintains a map to always return the
-// same Locker when called from within the same process.
-func getLockFile(path string, ro bool) (Locker, error) {
+// createLockerForPath returns a Locker object, possibly (depending on the platform)
+// working inter-process and associated with the specified path.
+//
+// This function will be called at most once for each path value within a single process.
+//
+// If ro, the lock is a read-write lock and the returned Locker should correspond to the
+// “lock for reading” (shared) operation; otherwise, the lock is either an exclusive lock,
+// or a read-write lock and Locker should correspond to the “lock for writing” (exclusive) operation.
+//
+// WARNING:
+// - The lock may or MAY NOT be inter-process.
+// - There may or MAY NOT be an actual object on the filesystem created for the specified path.
+// - Even if ro, the lock MAY be exclusive.
+func createLockerForPath(path string, ro bool) (Locker, error) {
 	// Check if we can open the lock.
 	fd, err := openLock(path, ro)
 	if err != nil {

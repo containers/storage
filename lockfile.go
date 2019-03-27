@@ -79,7 +79,7 @@ func getLockfile(path string, ro bool) (Locker, error) {
 		}
 		return locker, nil
 	}
-	locker, err := getLockFile(path, ro) // platform dependent locker
+	locker, err := createLockerForPath(path, ro) // platform-dependent locker
 	if err != nil {
 		return nil, err
 	}
