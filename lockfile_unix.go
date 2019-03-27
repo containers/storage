@@ -81,7 +81,6 @@ func (l *lockfile) lock(l_type int16) {
 		Whence: int16(os.SEEK_SET),
 		Start:  0,
 		Len:    0,
-		Pid:    int32(os.Getpid()),
 	}
 	switch l_type {
 	case unix.F_RDLCK:
