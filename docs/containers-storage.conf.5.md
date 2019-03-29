@@ -1,16 +1,16 @@
-% storage.conf(5) Container Storage Configuration File
+% containers-storage.conf(5) Container Storage Configuration File
 % Dan Walsh
 % May 2017
 
 # NAME
 storage.conf - Syntax of Container Storage configuration file
 
-# DESCRIPTION
+## DESCRIPTION
 The STORAGE configuration file specifies all of the available container storage options
 for tools using shared container storage, but in a TOML format that can be more easily modified
 and versioned.
 
-# FORMAT
+## FORMAT
 The [TOML format][toml] is used as the encoding of the configuration file.
 Every option and subtable listed here is nested under a global "storage" table.
 No bare options are used. The format of TOML can be simplified to:
@@ -154,6 +154,10 @@ with the correct label.
 ## SEE ALSO
 `semanage(8)`, `restorecon(8)`
 
-# HISTORY
+## FILES
+
+Distributions often provide a /usr/share/containers/storage.conf file to define default storage configuration. Administrators can override this file by creating `/etc/containers/storage.conf` to specify their own configuration. The storage.conf file for rootless users is stored in the $HOME/.config/containers/storage.conf file.
+
+## HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
 Format copied from crio.conf man page created by Aleksa Sarai <asarai@suse.de>
