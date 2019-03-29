@@ -67,7 +67,7 @@ func main() {
 	}
 
 	if options.GraphRoot == "" && options.RunRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
-		options, _ = storage.DefaultStoreOptions(false, 0)
+		options, _ = storage.DefaultStoreOptionsAutoDetectUID()
 	}
 	args := flags.Args()
 	if len(args) < 1 {
