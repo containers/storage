@@ -323,13 +323,13 @@ func TestLockfileReadConcurrent(t *testing.T) {
 	l, err := getTempLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
-	
+
 	// the test below is inspired by the stdlib's rwmutex tests
 	numReaders := 1000
 	locked := make(chan bool)
 	unlocked := make(chan bool)
 	done := make(chan bool)
-	
+
 	for i := 0; i < numReaders; i++ {
 		go func() {
 			l.RLock()
@@ -358,37 +358,54 @@ func TestLockfileMixedConcurrent(t *testing.T) {
 	l, err := getTempLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
-	var wg sync.WaitGroup
-	var rcounter, wcounter int64
-	var rhigher, whigher bool
-	for i := 0; i < 100000; i++ {
-		wg.Add(2)
-		go func() {
+
+	counter := int32(0)
+	diff := int32(10000)
+	numIterations := 10
+	numReaders := 100
+	numWriters := 50
+
+	done := make(chan bool)
+
+	// A writer always adds `diff` to the counter. Hence, `diff` is the
+	// only valid value in the critical section.
+	writer := func(c *int32) {
+		for i := 0; i < numIterations; i++ {
 			l.Lock()
-			tmp := atomic.AddInt64(&wcounter, 1)
-			if tmp > 1 {
-				whigher = true
-			}
-			assert.True(t, tmp >= 0, "write counter should never be less than zero")
-			atomic.AddInt64(&wcounter, -1)
+			tmp := atomic.AddInt32(c, diff)
+			assert.True(t, tmp == diff, "counter should be %d but instead is %d", diff, tmp)
+			time.Sleep(100 * time.Millisecond)
+			atomic.AddInt32(c, diff*(-1))
 			l.Unlock()
-			wg.Done()
-		}()
-		go func() {
-			l.RLock()
-			tmp := atomic.AddInt64(&rcounter, 1)
-			if tmp > 1 {
-				rhigher = true
-			}
-			assert.True(t, tmp >= 0, "read counter should never be less than zero")
-			atomic.AddInt64(&rcounter, -1)
-			l.Unlock()
-			wg.Done()
-		}()
+		}
+		done <- true
 	}
-	wg.Wait()
-	assert.False(t, whigher, "write counter should never have gone above 1")
-	assert.True(t, rhigher, "read counter never have gone above 1 at least once")
+
+	// A reader always adds `1` to the counter. Hence,
+	// [1,`numReaders*numIterations`] are valid values.
+	reader := func(c *int32) {
+		for i := 0; i < numIterations; i++ {
+			l.RLock()
+			tmp := atomic.AddInt32(c, 1)
+			assert.True(t, tmp >= 1 && tmp < diff)
+			time.Sleep(100 * time.Millisecond)
+			atomic.AddInt32(c, -1)
+			l.Unlock()
+		}
+		done <- true
+	}
+
+	for i := 0; i < numReaders; i++ {
+		go reader(&counter)
+		// schedule a writer every 2nd iteration
+		if i%2 == 1 {
+			go writer(&counter)
+		}
+	}
+
+	for i := 0; i < numReaders+numWriters; i++ {
+		<-done
+	}
 }
 
 func TestLockfileMultiprocessRead(t *testing.T) {
