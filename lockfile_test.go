@@ -323,31 +323,35 @@ func TestLockfileReadConcurrent(t *testing.T) {
 	l, err := getTempLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
-	var wg sync.WaitGroup
-	var counter, highest int64
-	var highestMutex sync.Mutex
-	for i := 0; i < 100000; i++ {
-		wg.Add(1)
+	
+	// the test below is inspired by the stdlib's rwmutex tests
+	numReaders := 1000
+	locked := make(chan bool)
+	unlocked := make(chan bool)
+	done := make(chan bool)
+	
+	for i := 0; i < numReaders; i++ {
 		go func() {
 			l.RLock()
-			tmp := atomic.AddInt64(&counter, 1)
-			assert.True(t, tmp >= 0, "counter should never be less than zero")
-			highestMutex.Lock()
-			if tmp > highest {
-				// multiple readers should have this lock at
-				// the same time, so there should be some
-				// overlap between the AddInt64() above and the
-				// one below
-				highest = tmp
-			}
-			highestMutex.Unlock()
-			atomic.AddInt64(&counter, -1)
+			locked <- true
+			<-unlocked
 			l.Unlock()
-			wg.Done()
+			done <- true
 		}()
 	}
-	wg.Wait()
-	assert.True(t, highest > 1, "counter should have gone above 1 at least once, only reached %d", highest)
+
+	// Wait for all parallel locks to succeed
+	for i := 0; i < numReaders; i++ {
+		<-locked
+	}
+	// Instruct all parallel locks to unlock
+	for i := 0; i < numReaders; i++ {
+		unlocked <- true
+	}
+	// Wait for all parallel locks to be unlocked
+	for i := 0; i < numReaders; i++ {
+		<-done
+	}
 }
 
 func TestLockfileMixedConcurrent(t *testing.T) {
