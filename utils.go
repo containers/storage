@@ -74,7 +74,7 @@ func GetRootlessRuntimeDir(rootlessUid int) (string, error) {
 	if runtimeDir == "" {
 		tmpDir := fmt.Sprintf("/run/user/%d", rootlessUid)
 		st, err := system.Stat(tmpDir)
-		if err == nil && int(st.UID()) == os.Getuid() && st.Mode() == 0700 {
+		if err == nil && int(st.UID()) == os.Getuid() && st.Mode()&0700 == 0700 && st.Mode()&0066 == 0000 {
 			return tmpDir, nil
 		}
 	}
