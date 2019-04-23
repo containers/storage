@@ -77,6 +77,35 @@ load helpers
 	# Unmount the third layer.
 	storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root unmount $upperlayer
 
+	# Create an image using this third layer.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-image $upperlayer
+        [ "$status" -eq 0 ]
+        [ "$output" != "" ]
+	upperimage=${output%%  *}
+	# Create a container based on the upperimage.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-container "$upperimage"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	uppercontainer="$output"
+	# Mount this container.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false mount $uppercontainer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	uppercontainermount="$output"
+	# Check that the file we removed from the second layer is still gone.
+	run test -s "$uppercontainermount"/layer1file1
+	[ "$status" -ne 0 ]
+	# Check that the file we added to the second layer is still there.
+	test -s "$uppercontainermount"/layer2file1
+	# Unmount the container.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false unmount $uppercontainer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	# Delete the container.
+	storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root delete-container $uppercontainer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+
 	# Create a container based on the image.
 	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-container "$image"
 	[ "$status" -eq 0 ]
