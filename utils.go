@@ -182,14 +182,14 @@ func DefaultStoreOptions(rootless bool, rootlessUid int) (StoreOptions, error) {
 		err                      error
 	)
 	storageOpts := defaultStoreOptions
-	if rootless {
+	if rootless && rootlessUid != 0 {
 		storageOpts, err = getRootlessStorageOpts(rootlessUid)
 		if err != nil {
 			return storageOpts, err
 		}
 	}
 
-	storageConf, err := DefaultConfigFile(rootless)
+	storageConf, err := DefaultConfigFile(rootless && rootlessUid != 0)
 	if err != nil {
 		return storageOpts, err
 	}
@@ -204,7 +204,7 @@ func DefaultStoreOptions(rootless bool, rootlessUid int) (StoreOptions, error) {
 		return storageOpts, errors.Wrapf(err, "cannot stat %s", storageConf)
 	}
 
-	if rootless {
+	if rootless && rootlessUid != 0 {
 		if err == nil {
 			// If the file did not specify a graphroot or runroot,
 			// set sane defaults so we don't try and use root-owned
