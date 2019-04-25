@@ -320,6 +320,8 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		mergedDir := filepath.Join(layerDir, "merged")
 		lower1Dir := filepath.Join(layerDir, "lower1")
 		lower2Dir := filepath.Join(layerDir, "lower2")
+		upperDir := filepath.Join(layerDir, "upper")
+		workDir := filepath.Join(layerDir, "work")
 		defer func() {
 			// Permitted to fail, since the various subdirectories
 			// can be empty or not even there, and the home might
@@ -331,7 +333,9 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		_ = idtools.MkdirAs(mergedDir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(lower1Dir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(lower2Dir, 0700, rootUID, rootGID)
-		flags := fmt.Sprintf("lowerdir=%s:%s", lower1Dir, lower2Dir)
+		_ = idtools.MkdirAs(upperDir, 0700, rootUID, rootGID)
+		_ = idtools.MkdirAs(workDir, 0700, rootUID, rootGID)
+		flags := fmt.Sprintf("lowerdir=%s:%s,upperdir=%s,workdir=%s", lower1Dir, lower2Dir, upperDir, workDir)
 		if len(flags) < unix.Getpagesize() {
 			err := mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags)
 			if err == nil {
@@ -341,7 +345,7 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 				logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 			}
 		}
-		flags = fmt.Sprintf("lowerdir=%s", lower1Dir)
+		flags = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lower1Dir, upperDir, workDir)
 		if len(flags) < unix.Getpagesize() {
 			err := mountFrom(filepath.Dir(home), "overlay", mergedDir, "overlay", 0, flags)
 			if err == nil {
