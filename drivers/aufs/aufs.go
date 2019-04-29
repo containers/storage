@@ -742,3 +742,16 @@ func (a *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 func (a *Driver) SupportsShifting() bool {
 	return false
 }
+
+// MountTemp creates a subdir of the contentDir based on the source directory
+// from the source system.  It then mounds up the source directory on to the
+// generated mount point and returns the mount point to the caller.
+func (a *Driver) MountTemp(contentdir, source, mountLabel string) (string, error) {
+	return "", fmt.Errorf("aufs driver does not support mount temp options")
+}
+
+// RemoveTemp removes temporary mountpoint and all content from its parent
+// directory
+func (a *Driver) RemoveTemp(mountpoint string) error {
+	return fmt.Errorf("aufs driver does not support mount temp options")
+}

@@ -447,3 +447,16 @@ func (d *Driver) Exists(id string) bool {
 func (d *Driver) AdditionalImageStores() []string {
 	return nil
 }
+
+// MountTemp creates a subdir of the contentDir based on the source directory
+// from the source system.  It then mounds up the source directory on to the
+// generated mount point and returns the mount point to the caller.
+func (d *Driver) MountTemp(contentdir, source, mountLabel string) (string, error) {
+	return "", fmt.Errorf("zfs driver does not support mount temp options")
+}
+
+// RemoveTemp removes temporary mountpoint and all content from its parent
+// directory
+func (d *Driver) RemoveTemp(mountpoint string) error {
+	return fmt.Errorf("zfs driver does not support mount temp options")
+}

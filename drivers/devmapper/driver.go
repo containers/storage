@@ -242,3 +242,15 @@ func (d *Driver) Exists(id string) bool {
 func (d *Driver) AdditionalImageStores() []string {
 	return nil
 }
+
+// MountTemp mounts a source directory from the host using
+// graphdriver and returns the mountpoint
+func (d *Driver) MountTemp(id, source, mountLabel string) (string, error) {
+	return "", fmt.Errorf("devmapper driver does not support mount temp options")
+}
+
+// RemoveTemp removes temporary mountpoint and all content from its parent
+// directory
+func (d *Driver) RemoveTemp(mountpoint string) error {
+	return fmt.Errorf("devmapper driver does not support mount temp options")
+}
