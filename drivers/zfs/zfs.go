@@ -447,3 +447,14 @@ func (d *Driver) Exists(id string) bool {
 func (d *Driver) AdditionalImageStores() []string {
 	return nil
 }
+
+// MountTempFromSource mounts a source directory from the host using
+// graphdriver and returns the mountpoint
+func (d *Driver) MountTempFromSource(sourcedir, source, mountLabel string) (string, error) {
+	return "", fmt.Errorf("zfs driver does not support mount temp options")
+}
+
+// RemoveTemp removes temporary mountpoint from host using graphdriver
+func (d *Driver) RemoveTemp(mountpoint string) error {
+	return fmt.Errorf("zfs driver does not support mount temp options")
+}
