@@ -474,7 +474,15 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
 	dir := d.dir(id)
 
-	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
+	uidMaps := d.uidMaps
+	gidMaps := d.gidMaps
+
+	if opts.IDMappings {
+		uidMaps = opts.IDMappings.UIDs()
+		gidMaps = opts.IDMappings.GIDs()
+	}
+
+	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMaps, gidMaps)
 	if err != nil {
 		return err
 	}
