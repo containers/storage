@@ -1129,41 +1129,6 @@ func (d *Driver) SupportsShifting() bool {
 	return d.options.mountProgram != ""
 }
 
-// MountTempFromSource mounts a source directory from the host using
-// graphdriver and returns the mountpoint
-func (d *Driver) MountTempFromSource(sourceDir, source, mountLabel string) (string, error) {
-	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
-	if err != nil {
-		return "", err
-	}
-
-	upperDir := filepath.Join(sourceDir, "upper")
-	workDir := filepath.Join(sourceDir, "work")
-	mergeDir := filepath.Join(sourceDir, "merge")
-	if err := idtools.MkdirAllAs(upperDir, 0700, rootUID, rootGID); err != nil {
-		return "", errors.Wrapf(err, "failed to create the overlay %s directory", upperDir)
-	}
-	if err := idtools.MkdirAllAs(workDir, 0700, rootUID, rootGID); err != nil {
-		return "", errors.Wrapf(err, "failed to create the overlay %s directory", workDir)
-	}
-	if err := idtools.MkdirAllAs(mergeDir, 0700, rootUID, rootGID); err != nil {
-		return "", errors.Wrapf(err, "failed to create the overlay %s directory", mergeDir)
-	}
-
-	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s,private", source, upperDir, workDir)
-	mountData := label.FormatMountLabel(opts, mountLabel)
-	if err := mount.Mount("none", mergeDir, "overlay", mountData); err != nil {
-		return "", errors.Wrapf(err, "failed to mount overlay %s directory", mergeDir)
-	}
-	return mergeDir, nil
-}
-
-// RemoveTemp removes temporary mountpoint from host using graphdriver
-func (d *Driver) RemoveTemp(mountpoint string) error {
-	mount.Unmount(mountpoint) //Attempt to umount source
-	return os.RemoveAll(path.Dir(mountpoint))
-}
-
 // dumbJoin is more or less a dumber version of filepath.Join, but one which
 // won't Clean() the path, allowing us to append ".." as a component and trust
 // pathname resolution to do some non-obvious work.

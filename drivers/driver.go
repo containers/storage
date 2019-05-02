@@ -101,13 +101,6 @@ type ProtoDriver interface {
 	Cleanup() error
 	// AdditionalImageStores returns additional image stores supported by the driver
 	AdditionalImageStores() []string
-
-	// MountTempFromSource mounts a source directory from the host using
-	// graphdriver and returns the mountpoint
-	MountTempFromSource(sourcedir, source, mountLabel string) (string, error)
-
-	// RemoveTemp removes temporary mountpoint from host using graphdriver
-	RemoveTemp(mountpoint string) error
 }
 
 // DiffDriver is the interface to use to implement graph diffs

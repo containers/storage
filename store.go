@@ -446,13 +446,6 @@ type Store interface {
 	// GID maps (if any are defined) don't contain corresponding IDs.
 	ContainerParentOwners(id string) ([]int, []int, error)
 
-	// MountTempFromSource mounts a source directory from the host using
-	// graphdriver and returns the mountpoint
-	MountTempFromSource(id, source string) (string, error)
-
-	// RemoveTemp removes temporary mountpoint from host using graphdriver
-	RemoveTemp(mountpoint string) error
-
 	// Lookup returns the ID of a layer, image, or container with the specified
 	// name or ID.
 	Lookup(name string) (string, error)
@@ -1460,42 +1453,6 @@ func (s *store) ImageBigDataSize(id, key string) (int64, error) {
 		}
 	}
 	return -1, ErrSizeUnknown
-}
-
-func (s *store) MountTempFromSource(id, source string) (string, error) {
-	rcstore, err := s.ContainerStore()
-	if err != nil {
-		return "", err
-	}
-	rcstore.RLock()
-	defer rcstore.Unlock()
-	container, err := rcstore.Get(id)
-	if err != nil {
-		return "", err
-	}
-	driver, err := s.GraphDriver()
-	if err != nil {
-		return "", err
-	}
-	middleDir := s.graphDriverName + "-containers"
-	sourcedir := filepath.Join(s.GraphRoot(), middleDir, id, strings.Replace(source, "/", "_", -1))
-
-	return driver.MountTempFromSource(sourcedir, source, container.MountLabel())
-}
-
-func (s *store) RemoveTemp(source string) error {
-	rcstore, err := s.ContainerStore()
-	if err != nil {
-		return err
-	}
-	rcstore.RLock()
-	defer rcstore.Unlock()
-	driver, err := s.GraphDriver()
-	if err != nil {
-		return err
-	}
-
-	return driver.RemoveTemp(source)
 }
 
 func (s *store) ImageBigDataDigest(id, key string) (digest.Digest, error) {
