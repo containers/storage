@@ -742,14 +742,3 @@ func (a *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 func (a *Driver) SupportsShifting() bool {
 	return false
 }
-
-// MountTempFromSource mounts a source directory from the host using
-// graphdriver and returns the mountpoint
-func (a *Driver) MountTempFromSource(sourcedir, source, mountLabel string) (string, error) {
-	return "", fmt.Errorf("aufs driver does not support mount temp options")
-}
-
-// RemoveTemp removes temporary mountpoint from host using graphdriver
-func (a *Driver) RemoveTemp(mountpoint string) error {
-	return fmt.Errorf("aufs driver does not support mount temp options")
-}

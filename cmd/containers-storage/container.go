@@ -165,24 +165,6 @@ func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	return 0
 }
 
-func MountTempContainerSource(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
-	mountpoint, err := m.MountTempFromSource(args[0], args[1])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
-	}
-	fmt.Fprintf(os.Stdout, "%s\n", mountpoint)
-	return 0
-}
-
-func RemoveTempContainerSource(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
-	if err := m.RemoveTemp(args[0]); err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
-	}
-	return 0
-}
-
 func getContainerDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	path, err := m.ContainerDirectory(args[0])
 	if err != nil {
@@ -323,19 +305,5 @@ func init() {
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},
-		},
-		command{
-			names:       []string{"mount-temp"},
-			optionsHelp: "[options [...]] containerNameOrID srcdir",
-			usage:       "Mount srcdir for use by the container",
-			action:      MountTempContainerSource,
-			minArgs:     2,
-		},
-		command{
-			names:       []string{"remove-temp"},
-			optionsHelp: "[options [...]] mountdir",
-			usage:       "Remove mount from use by the container",
-			action:      RemoveTempContainerSource,
-			minArgs:     1,
 		})
 }
