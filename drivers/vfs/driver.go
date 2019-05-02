@@ -123,9 +123,9 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, ro bool
 		return fmt.Errorf("--storage-opt is not supported for vfs")
 	}
 
-	idMappings := opts.IDMappings()
-	if idMappings == nil {
-		idMappings = d.idMappings
+	idMappings := d.idMappings
+	if opts != nil && opts.IDMappings != nil {
+		idMappings = opts.IDMappings
 	}
 
 	dir := d.dir(id)
