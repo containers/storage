@@ -477,7 +477,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	uidMaps := d.uidMaps
 	gidMaps := d.gidMaps
 
-	if opts.IDMappings {
+	if opts != nil && opts.IDMappings != nil {
 		uidMaps = opts.IDMappings.UIDs()
 		gidMaps = opts.IDMappings.GIDs()
 	}
