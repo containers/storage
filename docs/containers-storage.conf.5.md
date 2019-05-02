@@ -53,11 +53,52 @@ The `storage.options` table supports the following options:
   Maximum size of a container image.   This flag can be used to set quota on the size of container images. (default: 10GB)
 
 **mount_program**=""
-  Specifies the path to a custom program to use instead for mounting the file system.
+  Specifies the path to a custom program to use instead of using kernel defaults for mounting the file system.
+
+      mount_program = "/usr/bin/fuse-overlayfs"
 
 **mountopt**=""
 
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev".
+
+**remap-uids=**""
+**remap-gids=**""
+
+  Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of
+a container, to the UIDs/GIDs outside of the container, and the length of the
+range of UIDs/GIDs.  Additional mapped sets can be listed and will be heeded by
+libraries, but there are limits to the number of mappings which the kernel will
+allow when you later attempt to run a container.
+
+     Example
+     remap-uids = 0:1668442479:65536
+     remap-gids = 0:1668442479:65536
+
+     These mappings tell the container engines to map UID 0 inside of the
+     container to UID 1668442479 outside.  UID 1 will be mapped to 1668442480.
+     UID 2 will be mapped to 1668442481, etc, for the next 65533 UIDs in
+     Succession.
+
+**remap-user**=""
+**remap-group**=""
+
+  Remap-User/Group is a user name which can be used to look up one or more UID/GID
+ranges in the /etc/subuid or /etc/subgid file.  Mappings are set up starting
+with an in-container ID of 0 and then a host-level ID taken from the lowest
+range that matches the specified name, and using the length of that range.
+Additional ranges are then assigned, using the ranges which specify the
+lowest host-level IDs first, to the lowest not-yet-mapped in-container ID,
+until all of the entries have been used for maps.
+
+      remap-user = "storage"
+      remap-group = "storage"
+
+ostree_repo = ""
+   If specified, use OSTree to deduplicate files with the overlay backend.
+
+skip_mount_home = "false"
+   Set to skip a PRIVATE bind mount on the storage home directory.
+Only supported by certain container storage drivers (overlay).
 
 [storage.options.thinpool]
 
