@@ -93,10 +93,10 @@ until all of the entries have been used for maps.
       remap-user = "storage"
       remap-group = "storage"
 
-ostree_repo = ""
-   If specified, use OSTree to deduplicate files with the overlay backend.
+**ostree_repo** = ""
+   If specified, use OSTree to deduplicate files with the overlay or vfs backends.
 
-skip_mount_home = "false"
+**skip_mount_home** = "false"
    Set to skip a PRIVATE bind mount on the storage home directory.
 Only supported by certain container storage drivers (overlay).
 
@@ -165,12 +165,6 @@ Marks thinpool device for deferred deletion. If the thinpool is in use when the 
 **xfs_nospace_max_retries**=""
 
 Specifies the maximum number of retries XFS should attempt to complete IO when ENOSPC (no space) error is returned by underlying storage device. (default: 0, which means to try continuously.)
-
-**ostree_repo=""**
-  Tell storage drivers to use the specified OSTree repository.  Some storage drivers, such as overlay, might use
-
-**skip_mount_home=""**
-Tell storage drivers to not create a PRIVATE bind mount on their home directory.
 
 ## SElinux labeling.
 
