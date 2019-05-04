@@ -28,6 +28,12 @@ No bare options are used. The format of TOML can be simplified to:
 
 The `storage` table supports the following options:
 
+**driver**=""
+  container storage driver (default: "overlay")
+  Default Copy On Write (COW) container storage driver
+  Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs"
+  Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem
+
 **graphroot**=""
   container storage graph dir (default: "/var/lib/containers/storage")
   Default directory to store all writable content created by container storage programs
@@ -36,21 +42,12 @@ The `storage` table supports the following options:
   container storage run dir (default: "/var/run/containers/storage")
   Default directory to store all temporary writable content created by container storage programs
 
-**driver**=""
-  container storage driver (default: "overlay")
-  Default Copy On Write (COW) container storage driver
-  Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs"
-  Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem
-
 ### STORAGE OPTIONS TABLE
 
 The `storage.options` table supports the following options:
 
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
-
-**size**=""
-  Maximum size of a container image.   This flag can be used to set quota on the size of container images. (default: 10GB)
 
 **mount_program**=""
   Specifies the path to a custom program to use instead of using kernel defaults for mounting the file system.
@@ -60,6 +57,16 @@ The `storage.options` table supports the following options:
 **mountopt**=""
 
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev".
+
+**ostree_repo** = ""
+   If specified, use OSTree to deduplicate files with the overlay or vfs backends.
+
+**size**=""
+  Maximum size of a container image.   This flag can be used to set quota on the size of container images. (default: 10GB)
+
+**skip_mount_home** = "false"
+   Set to skip a PRIVATE bind mount on the storage home directory.
+Only supported by certain container storage drivers (overlay).
 
 **remap-uids=**""
 **remap-gids=**""
@@ -92,13 +99,6 @@ until all of the entries have been used for maps.
 
       remap-user = "storage"
       remap-group = "storage"
-
-**ostree_repo** = ""
-   If specified, use OSTree to deduplicate files with the overlay or vfs backends.
-
-**skip_mount_home** = "false"
-   Set to skip a PRIVATE bind mount on the storage home directory.
-Only supported by certain container storage drivers (overlay).
 
 [storage.options.thinpool]
 
@@ -154,13 +154,13 @@ Specifies the min free space percent in a thin pool required for new device crea
 
 Specifies extra mkfs arguments to be used when creating the base device.
 
-**use_deferred_removal**=""
-
-Marks devicemapper block device for deferred removal.  If the device is in use when its driver attempts to remove it, the driver tells the kernel to remove the device as soon as possible.  Note this does not free up the disk space, use deferred deletion to fully remove the thinpool.  (default: true).
-
 **use_deferred_deletion**=""
 
 Marks thinpool device for deferred deletion. If the thinpool is in use when the driver attempts to delete it, the driver will attempt to delete device every 30 seconds until successful, or when it restarts.  Deferred deletion permanently deletes the device and all data stored in the device will be lost. (default: true).
+
+**use_deferred_removal**=""
+
+Marks devicemapper block device for deferred removal.  If the device is in use when its driver attempts to remove it, the driver tells the kernel to remove the device as soon as possible.  Note this does not free up the disk space, use deferred deletion to fully remove the thinpool.  (default: true).
 
 **xfs_nospace_max_retries**=""
 
