@@ -100,9 +100,7 @@ until all of the entries have been used for maps.
       remap-user = "storage"
       remap-group = "storage"
 
-[storage.options.thinpool]
-
-Storage Options for thinpool
+### STORAGE OPTIONS FOR THINPOOL TABLE
 
 The `storage.options.thinpool` table supports the following options:
 
@@ -166,7 +164,7 @@ Marks devicemapper block device for deferred removal.  If the device is in use w
 
 Specifies the maximum number of retries XFS should attempt to complete IO when ENOSPC (no space) error is returned by underlying storage device. (default: 0, which means to try continuously.)
 
-## SElinux labeling.
+## SELINUX LABELING
 
 When running on an SELinux system, if you move the containers storage graphroot directory, you must make sure the labeling is correct.
 
