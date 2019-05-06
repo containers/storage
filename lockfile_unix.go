@@ -122,11 +122,10 @@ func (l *lockfile) lock(l_type int16, recursive bool) {
 	l.counter++
 }
 
-// Lock locks the lockfile as a writer.  Note that RLock() will be called if
-// the lock is a read-only one.
+// Lock locks the lockfile as a writer.  Panic if the lock is a read-only one.
 func (l *lockfile) Lock() {
 	if l.ro {
-		l.RLock()
+		panic("can't take write lock on read-only lock file")
 	} else {
 		l.lock(unix.F_WRLCK, false)
 	}

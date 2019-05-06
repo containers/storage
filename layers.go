@@ -298,7 +298,7 @@ func (r *layerStore) Load() error {
 	names := make(map[string]*Layer)
 	compressedsums := make(map[digest.Digest][]string)
 	uncompressedsums := make(map[digest.Digest][]string)
-	if r.lockfile.IsReadWrite() {
+	if r.IsReadWrite() {
 		label.ClearLabels()
 	}
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
@@ -488,7 +488,7 @@ func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (ROL
 	if err != nil {
 		return nil, err
 	}
-	lockfile.Lock()
+	lockfile.RLock()
 	defer lockfile.Unlock()
 	rlstore := layerStore{
 		lockfile:       lockfile,
