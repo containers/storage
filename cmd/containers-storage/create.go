@@ -148,10 +148,7 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 		paramMetadata = string(b)
 	}
-	layer := ""
-	if len(args) > 0 {
-		layer = args[0]
-	}
+	layer := args[0]
 	imageOptions := &storage.ImageOptions{
 		Digest: digest.Digest(paramDigest),
 	}
@@ -191,7 +188,8 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		return 1
 	}
 	options := &storage.ContainerOptions{IDMappingOptions: *mappings}
-	container, err := m.CreateContainer(paramID, paramNames, args[0], paramLayer, paramMetadata, options)
+	image := args[0]
+	container, err := m.CreateContainer(paramID, paramNames, image, paramLayer, paramMetadata, options)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		return 1
@@ -253,7 +251,7 @@ func init() {
 		names:       []string{"create-image", "createimage"},
 		optionsHelp: "[options [...]] topLayerNameOrID",
 		usage:       "Create a new image using layers",
-		minArgs:     0,
+		minArgs:     1,
 		maxArgs:     1,
 		action:      createImage,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {

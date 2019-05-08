@@ -3,6 +3,12 @@
 load helpers
 
 @test "create-image" {
+	# Create an image using no layer.
+	run storage --debug=false create-image ""
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	zerothimage=${output%%	*}
+
 	# Create a layer.
 	run storage --debug=false create-layer
 	[ "$status" -eq 0 ]
@@ -31,8 +37,11 @@ load helpers
 	run storage --debug=false images
 	[ "$status" -eq 0 ]
 	echo :"$output":
-	[ "${#lines[*]}" -eq 2 ]
+	[ "${#lines[*]}" -eq 3 ]
 	[ "${lines[0]}" != "${lines[1]}" ]
-	[ "${lines[0]}" = "$firstimage" ] || [ "${lines[0]}" = "$secondimage" ]
-	[ "${lines[1]}" = "$firstimage" ] || [ "${lines[1]}" = "$secondimage" ]
+	[ "${lines[1]}" != "${lines[2]}" ]
+	[ "${lines[0]}" != "${lines[2]}" ]
+	[ "${lines[0]}" = "$zerothimage" ] || [ "${lines[0]}" = "$firstimage" ] || [ "${lines[0]}" = "$secondimage" ]
+	[ "${lines[1]}" = "$zerothimage" ] || [ "${lines[1]}" = "$firstimage" ] || [ "${lines[1]}" = "$secondimage" ]
+	[ "${lines[2]}" = "$zerothimage" ] || [ "${lines[2]}" = "$firstimage" ] || [ "${lines[2]}" = "$secondimage" ]
 }
