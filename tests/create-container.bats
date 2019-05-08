@@ -40,6 +40,9 @@ load helpers
 	[ "$output" != "" ]
 	firstcontainer=${output%%	*}
 
+	firstwriter=$(cat ${TESTDIR}/root/${STORAGE_DRIVER}-containers/containers.lock)
+	[ "$firstwriter" != "" ]
+
 	# Check that the container can be found.
 	storage exists -c $firstcontainer
 
@@ -48,6 +51,10 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	secondcontainer=${output%%	*}
+
+	secondwriter=$(cat ${TESTDIR}/root/${STORAGE_DRIVER}-containers/containers.lock)
+	[ "$secondwriter" != "" ]
+	[ "$firstwriter" != "$secondwriter" ]
 
 	# Check that *that* container can be found.
 	storage exists -c $secondcontainer

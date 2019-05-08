@@ -9,6 +9,9 @@ load helpers
 	[ "$output" != "" ]
 	zerothimage=${output%%	*}
 
+	zerothwriter=$(cat ${TESTDIR}/root/${STORAGE_DRIVER}-images/images.lock)
+	[ "$zerothwriter" != "" ]
+
 	# Create a layer.
 	run storage --debug=false create-layer
 	[ "$status" -eq 0 ]
@@ -20,6 +23,10 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	firstimage=${output%%	*}
+
+	firstwriter=$(cat ${TESTDIR}/root/${STORAGE_DRIVER}-images/images.lock)
+	[ "$firstwriter" != "" ]
+	[ "$zerothwriter" != "$firstwriter" ]
 
 	# Check that the image can be accessed.
 	storage exists -i $firstimage
