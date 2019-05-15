@@ -79,9 +79,6 @@ testing_task:
 # Update metadata on VM images referenced by this repository state
 meta_task:
 
-    depends_on:
-        - "gating"
-
     container:
         image: "quay.io/libpod/imgts:latest"  # see contrib/imgts
         cpu: 1
@@ -101,5 +98,4 @@ meta_task:
         GCPPROJECT: ENCRYPTED[79b0f7eb5958e25bc7095d5d368fa8d94447a43ffacb9c693de438186e2f767b7efe9563d6954297ae4730220e10aa9c]
         CIRRUS_CLONE_DEPTH: 1  # source not used
 
-    script: '/usr/local/bin/entrypoint.sh |& ${TIMESTAMP}'
->>>>>>> 18f579438... fixup! Cirrus: Implement essential functions and scripts
+    script: '/usr/local/bin/entrypoint.sh |& ${_TIMESTAMP}'
