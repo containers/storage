@@ -1,0 +1,44 @@
+---
+
+# Main collection of env. vars to set for all tasks and scripts.
+env:
+    ####
+    #### Global variables used for all tasks
+    ####
+    # Overrides default location (/tmp/cirrus) for repo clone
+    CIRRUS_WORKING_DIR: "/var/tmp/go/src/github.com/containers/storage"
+    # Shell used to execute all script commands
+    CIRRUS_SHELL: "/bin/bash"
+    # Automation script path relative to $CIRRUS_WORKING_DIR)
+    SCRIPT_BASE: "./contrib/cirrus"
+    # No need to go crazy, but grab enough to cover most PRs
+    CIRRUS_CLONE_DEPTH: 50
+    # Command to prefix every output line with a timestamp
+    # (can't do inline awk script, Cirrus-CI or YAML mangles quoting)
+    TIMESTAMP: "awk --file ${CIRRUS_WORKING_DIR}/${SCRIPT_BASE}/timestamp.awk"
+
+    ####
+    #### Cache-image names to test with
+    ###
+    # GCE project where images live
+    IMAGE_PROJECT: "libpod-218412"
+    FEDORA_CACHE_IMAGE_NAME: "fedora-cloud-base-30-1-2-1556821664"
+    PRIOR_FEDORA_CACHE_IMAGE_NAME: "fedora-cloud-base-29-1-2-1541789245"
+    UBUNTU_CACHE_IMAGE_NAME: "ubuntu-1804-bionic-v20181203a"
+
+gcp_credentials: ENCRYPTED[c87717f04fb15499d19a3b3fa0ad2cdedecc047e82967785d101e9bc418e93219f755e662feac8390088a2df1a4d8464]
+
+# Default timeout for each task
+timeout_in: 120m
+
+# Default VM to use unless set or modified by task
+gce_instance:
+    image_project: "${IMAGE_PROJECT}"
+    zone: "us-central1-b"  # Required by Cirrus for the time being
+    cpu: 2
+    memory: "4Gb"
+    disk: 200
+    image_name: "${FEDORA_CACHE_IMAGE_NAME}"
+
+task:
+  script: '/bin/true'
