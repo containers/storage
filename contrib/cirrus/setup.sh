@@ -17,9 +17,11 @@ case "$OS_REL_VER" in
         ;;
     ubuntu-19)
         echo "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"  # STUB: Add VM setup instructions here
+        $SHORT_APTGET update  # Fetch latest package metadata
         ;;
     ubuntu-18)
         echo "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"  # STUB: Add VM setup instructions here
+        $SHORT_APTGET update  # Fetch latest package metadata
         ;;
     *)
         bad_os_id_ver
