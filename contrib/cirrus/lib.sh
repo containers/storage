@@ -56,6 +56,16 @@ OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | cut -d '.' -f 1)"
 # Combined to ease soe usage
 OS_REL_VER="${OS_RELEASE_ID}-${OS_RELEASE_VER}"
 
+# Working with apt under Debian/Ubuntu automation is a PITA, make it easy
+# Avoid some ways of getting stuck waiting for user input
+export DEBIAN_FRONTEND=noninteractive
+# Short-cut for frequently used base command
+export SUDOAPTGET='sudo -E apt-get -q --yes'
+# Short list of packages or quick-running command
+SHORT_APTGET="timeout_attempt_delay_command 24s 5 30s $SUDOAPTGET"
+# Long list / long-running command
+LONG_APTGET="timeout_attempt_delay_command 300s 5 30s $SUDOAPTGET"
+
 # Pass in a list of one or more envariable names; exit non-zero with
 # helpful error message if any value is empty
 req_env_var() {
@@ -103,4 +113,34 @@ die() {
 bad_os_id_ver() {
     echo "Unknown/Unsupported distro. $OS_RELEASE_ID and/or version $OS_RELEASE_VER for $(basename $0)"
     exit 42
+}
+
+timeout_attempt_delay_command() {
+    TIMEOUT=$1
+    ATTEMPTS=$2
+    DELAY=$3
+    shift 3
+    CMD=$(echo "$@" | tr --squeeze-repeats '\r\n\v\t' ' ')
+    STDOUTERR=$(mktemp -p '' $(basename $0)_XXXXX)
+    req_env_var ATTEMPTS DELAY
+    echo "Retrying $ATTEMPTS times with a $DELAY delay, and $TIMEOUT timeout for command: $CMD"
+    for (( COUNT=1 ; COUNT <= $ATTEMPTS ; COUNT++ ))
+    do
+        echo "##### (attempt #$COUNT)" &>> "$STDOUTERR"
+        if timeout --foreground $TIMEOUT $CMD &>> "$STDOUTERR"
+        then
+            echo "##### (success after #$COUNT attempts)" &>> "$STDOUTERR"
+            break
+        else
+            echo "##### (failed with exit: $?)" &>> "$STDOUTERR"
+            sleep $DELAY
+        fi
+    done
+    cat "$STDOUTERR"
+    rm -f "$STDOUTERR"
+    if (( COUNT > $ATTEMPTS ))
+    then
+        echo "##### (exceeded $ATTEMPTS attempts)"
+        exit 125
+    fi
 }
