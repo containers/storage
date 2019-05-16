@@ -141,6 +141,7 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 		}
 	}
 	volunteeredVFS := map[string]struct{}{"seclabel": {}}
+	volunteeredOPT := map[string]struct{}{"relatime": {}}
 
 	mnts := make(map[int]*Info, len(info))
 	for _, mi := range info {
@@ -171,7 +172,7 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 		if mi.Opts != "" {
 			for _, opt := range strings.Split(mi.Opts, ",") {
 				opt = clean(opt)
-				if !has(wantedOpts, opt) && !has(pOpts, opt) {
+				if !has(volunteeredOPT, opt) && !has(wantedOpts, opt) && !has(pOpts, opt) {
 					t.Errorf("unexpected mount option %q expected %q", opt, opts)
 				}
 				delete(wantedOpts, opt)
