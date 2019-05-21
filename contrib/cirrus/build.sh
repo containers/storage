@@ -12,17 +12,13 @@ echo "local-test-integration Overlay"
 make STORAGE_DRIVER=overlay local-test-integration
 echo "local-test-integration Fuse-overlay"
 make STORAGE_DRIVER=overlay STORAGE_OPTION=overlay.mount_program=/usr/bin/fuse-overlayfs local-test-integration
+echo "local-test-unit"
+make local-test-unit
 
 case "$OS_REL_VER" in
     ubuntu-19)
 	echo "local-test-integration Aufs"
 	make STORAGE_DRIVER=aufs local-test-integration
-	echo "local-test-unit"
-	make local-test-unit
-        ;;
-    fedora-30)
-	echo "local-test-unit"
-	make local-test-unit
         ;;
 esac
 #make STORAGE_DRIVER=vfs local-test-integration
