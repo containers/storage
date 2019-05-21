@@ -33,6 +33,9 @@ func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 			for _, name := range layer.Names {
 				fmt.Printf("Name: %s\n", name)
 			}
+			if layer.ReadOnly {
+				fmt.Printf("Read Only: true\n")
+			}
 		}
 	}
 	if len(matched) != len(args) {

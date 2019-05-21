@@ -54,7 +54,7 @@ load helpers
 	run storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot --debug=false create-image $midlayer
         [ "$status" -eq 0 ]
         [ "$output" != "" ]
-        image=${output%%  *}
+        lowerimage=${output%%  *}
 
 	# We no longer need to use the read-only root as a writeable location, so shut it down.
 	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
@@ -106,8 +106,8 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 
-	# Create a container based on the image.
-	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-container "$image"
+	# Create a container based on the lowerimage.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-container "$lowerimage"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	container="$output"
@@ -123,4 +123,26 @@ load helpers
 	test -s "$containermount"/layer2file1
 	# Unmount the container.
 	storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root delete-container $container
+
+	# Check that the first two layers and the first image are marked read-only, and that the rest are not.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layer $lowerlayer
+        [ "$status" -eq 0 ]
+        [ "$output" != "" ]
+        [[ "$output" =~ "Read Only: true" ]]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layer $midlayer
+        [ "$status" -eq 0 ]
+        [ "$output" != "" ]
+        [[ "$output" =~ "Read Only: true" ]]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layer $upperlayer
+        [ "$status" -eq 0 ]
+        [ "$output" != "" ]
+        ! [[ "$output" =~ "Read Only: true" ]]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root image $lowerimage
+        [ "$status" -eq 0 ]
+        [ "$output" != "" ]
+        [[ "$output" =~ "Read Only: true" ]]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root image $upperimage
+        [ "$status" -eq 0 ]
+        [ "$output" != "" ]
+        ! [[ "$output" =~ "Read Only: true" ]]
 }
