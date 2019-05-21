@@ -29,7 +29,7 @@ fi
 CIRRUS_WORKING_DIR="${CIRRUS_WORKING_DIR:-$GOPATH/src/github.com/containers/storage}"
 export GOSRC="${GOSRC:-$CIRRUS_WORKING_DIR}"
 export PATH="$HOME/bin:$GOPATH/bin:/usr/local/bin:$PATH"
-SCRIPT_BASE=${SCRIPT_BASE:-./contrib/cirrus}
+SCRIPT_BASE=${GOSRC}/contrib/cirrus
 
 cd $GOSRC
 if type -P git &> /dev/null
@@ -143,4 +143,25 @@ timeout_attempt_delay_command() {
         echo "##### (exceeded $ATTEMPTS attempts)"
         exit 125
     fi
+}
+
+# Helper/wrapper script to only show stderr/stdout on non-zero exit
+install_ooe() {
+    req_env_var SCRIPT_BASE
+    echo "Installing script to mask stdout/stderr unless non-zero exit."
+    sudo install -D -m 755 "$SCRIPT_BASE/ooe.sh" /usr/local/bin/ooe.sh
+}
+
+install_fuse_overlayfs_from_git(){
+    wd=$(pwd)
+    DEST="$GOPATH/src/github.com/containers/fuse-overlayfs"
+    rm -rf "$DEST"
+    ooe.sh git clone https://github.com/containers/fuse-overlayfs.git "$DEST"
+    cd "$DEST"
+    ooe.sh git fetch origin --tags
+    ooe.sh ./autogen.sh
+    ooe.sh ./configure
+    ooe.sh make
+    sudo make install prefix=/usr
+    cd $wd
 }
