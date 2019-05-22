@@ -539,5 +539,18 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		if err = checkChanges(expectedChanges, changes); err != nil {
 			t.Fatal(err)
 		}
+
+		err = driver.Put(third)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = driver.Put(second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = driver.Put(base)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
