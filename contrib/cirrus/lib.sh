@@ -165,3 +165,17 @@ install_fuse_overlayfs_from_git(){
     sudo make install prefix=/usr
     cd $wd
 }
+
+showrun() {
+    if [[ "$1" == "--background" ]]
+    then
+        shift
+        # Properly escape any nested spaces, so command can be copy-pasted
+        echo '+ '$(printf " %q" "$@")' &' > /dev/stderr
+        "$@" &
+        echo -e "${RED}<backgrounded>${NOR}"
+    else
+        echo '+ '$(printf " %q" "$@") > /dev/stderr
+        "$@"
+    fi
+}
