@@ -206,7 +206,7 @@ func setupDirectLVM(cfg directLVMConfig) error {
 		cfg.ThinpMetaPercent = 1
 	}
 
-	out, err := exec.Command("pvcreate", "-f", cfg.Device).CombinedOutput()
+	out, err := exec.Command("pvcreate", "--metadatasize", "128M", "-f", cfg.Device).CombinedOutput()
 	if err != nil {
 		return errors.Wrap(err, string(out))
 	}
