@@ -175,6 +175,7 @@ showrun() {
         "$@" &
         echo -e "${RED}<backgrounded>${NOR}"
     else
+        echo '--------------------------------------------------'
         echo '+ '$(printf " %q" "$@") > /dev/stderr
         "$@"
     fi
