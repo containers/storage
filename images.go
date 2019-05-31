@@ -744,6 +744,10 @@ func (r *imageStore) Lock() {
 	r.lockfile.Lock()
 }
 
+func (r *imageStore) RecursiveLock() {
+	r.lockfile.RecursiveLock()
+}
+
 func (r *imageStore) RLock() {
 	r.lockfile.RLock()
 }
