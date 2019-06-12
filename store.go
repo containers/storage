@@ -25,6 +25,7 @@ import (
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/stringutils"
+	"github.com/docker/distribution/reference"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
@@ -3187,9 +3188,15 @@ func stringSliceWithoutValue(slice []string, value string) []string {
 	modified := make([]string, 0, len(slice))
 	for _, v := range slice {
 		if v == value {
-			continue
+			ref, err := reference.ParseNamed(v)
+			if err != nil {
+				continue
+			}
+			name := fmt.Sprintf("%s:<none>", reference.TrimNamed(ref).String())
+			modified = append(modified, name)
+		} else {
+			modified = append(modified, v)
 		}
-		modified = append(modified, v)
 	}
 	return modified
 }
