@@ -148,6 +148,9 @@ type StoreOptions struct {
 	// for use inside of a user namespace where UID mapping is being used.
 	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
 	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
+	// IgnoreChownErrors tells chown to ignore errors when running in single
+	// user mode.
+	IgnoreChownErrors bool `json:"ignore-chown-errors,omitempty"`
 }
 
 // Store wraps up the various types of file-based stores that we use into a
@@ -518,21 +521,22 @@ type ContainerOptions struct {
 }
 
 type store struct {
-	lastLoaded      time.Time
-	runRoot         string
-	graphLock       Locker
-	graphRoot       string
-	graphDriverName string
-	graphOptions    []string
-	uidMap          []idtools.IDMap
-	gidMap          []idtools.IDMap
-	graphDriver     drivers.Driver
-	layerStore      LayerStore
-	roLayerStores   []ROLayerStore
-	imageStore      ImageStore
-	roImageStores   []ROImageStore
-	containerStore  ContainerStore
-	digestLockRoot  string
+	lastLoaded        time.Time
+	runRoot           string
+	graphLock         Locker
+	graphRoot         string
+	graphDriverName   string
+	graphOptions      []string
+	uidMap            []idtools.IDMap
+	gidMap            []idtools.IDMap
+	ignoreChownErrors bool
+	graphDriver       drivers.Driver
+	layerStore        LayerStore
+	roLayerStores     []ROLayerStore
+	imageStore        ImageStore
+	roImageStores     []ROImageStore
+	containerStore    ContainerStore
+	digestLockRoot    string
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -605,13 +609,14 @@ func GetStore(options StoreOptions) (Store, error) {
 		return nil, err
 	}
 	s := &store{
-		runRoot:         options.RunRoot,
-		graphLock:       graphLock,
-		graphRoot:       options.GraphRoot,
-		graphDriverName: options.GraphDriverName,
-		graphOptions:    options.GraphDriverOptions,
-		uidMap:          copyIDMap(options.UIDMap),
-		gidMap:          copyIDMap(options.GIDMap),
+		runRoot:           options.RunRoot,
+		graphLock:         graphLock,
+		graphRoot:         options.GraphRoot,
+		graphDriverName:   options.GraphDriverName,
+		graphOptions:      options.GraphDriverOptions,
+		uidMap:            copyIDMap(options.UIDMap),
+		gidMap:            copyIDMap(options.GIDMap),
+		ignoreChownErrors: options.IgnoreChownErrors,
 	}
 	if err := s.load(); err != nil {
 		return nil, err
@@ -773,7 +778,7 @@ func (s *store) LayerStore() (LayerStore, error) {
 	if err := os.MkdirAll(glpath, 0700); err != nil {
 		return nil, err
 	}
-	rls, err := newLayerStore(rlpath, glpath, driver, s.uidMap, s.gidMap)
+	rls, err := newLayerStore(rlpath, glpath, driver, s.uidMap, s.gidMap, s.ignoreChownErrors)
 	if err != nil {
 		return nil, err
 	}

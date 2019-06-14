@@ -967,9 +967,9 @@ func (d *Driver) getWhiteoutFormat() archive.WhiteoutFormat {
 }
 
 // ApplyDiff applies the new layer into a root
-func (d *Driver) ApplyDiff(id string, idMappings *idtools.IDMappings, parent string, mountLabel string, diff io.Reader) (size int64, err error) {
+func (d *Driver) ApplyDiff(id string, idMappings *idtools.IDMappings, parent string, mountLabel string, diff io.Reader, ignoreChownErrors bool) (size int64, err error) {
 	if !d.isParent(id, parent) {
-		return d.naiveDiff.ApplyDiff(id, idMappings, parent, mountLabel, diff)
+		return d.naiveDiff.ApplyDiff(id, idMappings, parent, mountLabel, diff, ignoreChownErrors)
 	}
 
 	if idMappings == nil {
@@ -981,10 +981,11 @@ func (d *Driver) ApplyDiff(id string, idMappings *idtools.IDMappings, parent str
 	logrus.Debugf("Applying tar in %s", applyDir)
 	// Overlay doesn't need the parent id to apply the diff
 	if err := untar(diff, applyDir, &archive.TarOptions{
-		UIDMaps:        idMappings.UIDs(),
-		GIDMaps:        idMappings.GIDs(),
-		WhiteoutFormat: d.getWhiteoutFormat(),
-		InUserNS:       rsystem.RunningInUserNS(),
+		UIDMaps:           idMappings.UIDs(),
+		GIDMaps:           idMappings.GIDs(),
+		IgnoreChownErrors: ignoreChownErrors,
+		WhiteoutFormat:    d.getWhiteoutFormat(),
+		InUserNS:          rsystem.RunningInUserNS(),
 	}); err != nil {
 		return 0, err
 	}

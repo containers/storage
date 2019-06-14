@@ -151,7 +151,7 @@ func (gdw *NaiveDiffDriver) Changes(id string, idMappings *idtools.IDMappings, p
 // ApplyDiff extracts the changeset from the given diff into the
 // layer with the specified id and parent, returning the size of the
 // new layer in bytes.
-func (gdw *NaiveDiffDriver) ApplyDiff(id string, applyMappings *idtools.IDMappings, parent, mountLabel string, diff io.Reader) (size int64, err error) {
+func (gdw *NaiveDiffDriver) ApplyDiff(id string, applyMappings *idtools.IDMappings, parent, mountLabel string, diff io.Reader, ignoreChownErrors bool) (size int64, err error) {
 	driver := gdw.ProtoDriver
 
 	if applyMappings == nil {
@@ -169,7 +169,8 @@ func (gdw *NaiveDiffDriver) ApplyDiff(id string, applyMappings *idtools.IDMappin
 	defer driver.Put(id)
 
 	options := &archive.TarOptions{
-		InUserNS: rsystem.RunningInUserNS(),
+		InUserNS:          rsystem.RunningInUserNS(),
+		IgnoreChownErrors: ignoreChownErrors,
 	}
 	if applyMappings != nil {
 		options.UIDMaps = applyMappings.UIDs()
