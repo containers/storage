@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/stringid"
 )
 
@@ -165,7 +165,7 @@ func DriverBenchDiffApplyN(b *testing.B, fileCount int, drivername string, drive
 			b.Fatal(err)
 		}
 
-		applyDiffSize, err := driver.ApplyDiff(diff, nil, "", "", arch)
+		applyDiffSize, err := driver.ApplyDiff(diff, nil, "", "", arch, false)
 		if err != nil {
 			b.Fatal(err)
 		}

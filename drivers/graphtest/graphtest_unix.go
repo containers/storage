@@ -14,7 +14,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/docker/go-units"
@@ -336,7 +336,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 		t.Fatal(err)
 	}
 
-	applyDiffSize, err := driver.ApplyDiff(diff, nil, base, "", bytes.NewReader(buf.Bytes()))
+	applyDiffSize, err := driver.ApplyDiff(diff, nil, base, "", bytes.NewReader(buf.Bytes()), false)
 	if err != nil {
 		t.Fatal(err)
 	}

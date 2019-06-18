@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
@@ -624,7 +624,7 @@ func TestApplyDiff(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := d.applyDiff("3", nil, diff); err != nil {
+	if err := d.applyDiff("3", nil, diff, false); err != nil {
 		t.Fatal(err)
 	}
 
