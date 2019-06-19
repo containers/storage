@@ -97,6 +97,7 @@ type overlayOptions struct {
 type Driver struct {
 	name          string
 	home          string
+	runhome       string
 	uidMaps       []idtools.IDMap
 	gidMaps       []idtools.IDMap
 	ctr           *graphdriver.RefCounter
@@ -157,32 +158,72 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
+	runhome := filepath.Join(options.RunRoot, filepath.Base(home))
+	if err := idtools.MkdirAllAs(runhome, 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
 
 	var usingMetacopy bool
 	var supportsDType bool
 	if opts.mountProgram != "" {
 		supportsDType = true
 	} else {
-		supportsDType, err = supportsOverlay(home, fsMagic, rootUID, rootGID)
-		if err != nil {
-			os.Remove(filepath.Join(home, linkDir))
-			os.Remove(home)
-			patherr, ok := err.(*os.PathError)
-			if ok && patherr.Err == syscall.ENOSPC {
-				return nil, err
-			}
-			return nil, errors.Wrap(err, "kernel does not support overlay fs")
-		}
-		usingMetacopy, err = doesMetacopy(home, opts.mountOptions)
+		feature := "overlay"
+		overlayCacheResult, overlayCacheText, err := cachedFeatureCheck(runhome, feature)
 		if err == nil {
-			if usingMetacopy {
-				logrus.Debugf("overlay test mount indicated that metacopy is being used")
+			if overlayCacheResult {
+				logrus.Debugf("cached value indicated that overlay is supported")
 			} else {
-				logrus.Debugf("overlay test mount indicated that metacopy is not being used")
+				logrus.Debugf("cached value indicated that overlay is not supported")
+			}
+			supportsDType = overlayCacheResult
+			if !supportsDType {
+				return nil, errors.New(overlayCacheText)
 			}
 		} else {
-			logrus.Warnf("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
-			return nil, err
+			supportsDType, err = supportsOverlay(home, fsMagic, rootUID, rootGID)
+			if err != nil {
+				os.Remove(filepath.Join(home, linkDir))
+				os.Remove(home)
+				patherr, ok := err.(*os.PathError)
+				if ok && patherr.Err == syscall.ENOSPC {
+					return nil, err
+				}
+				err = errors.Wrap(err, "kernel does not support overlay fs")
+				if err2 := cachedFeatureRecord(runhome, feature, false, err.Error()); err2 != nil {
+					return nil, errors.Wrapf(err2, "error recording overlay not being supported (%v)", err)
+				}
+				return nil, err
+			}
+			if err = cachedFeatureRecord(runhome, feature, supportsDType, ""); err != nil {
+				return nil, errors.Wrap(err, "error recording overlay support status")
+			}
+		}
+
+		feature = fmt.Sprintf("metacopy(%s)", opts.mountOptions)
+		metacopyCacheResult, _, err := cachedFeatureCheck(runhome, feature)
+		if err == nil {
+			if metacopyCacheResult {
+				logrus.Debugf("cached value indicated that metacopy is being used")
+			} else {
+				logrus.Debugf("cached value indicated that metacopy is not being used")
+			}
+			usingMetacopy = metacopyCacheResult
+		} else {
+			usingMetacopy, err = doesMetacopy(home, opts.mountOptions)
+			if err == nil {
+				if usingMetacopy {
+					logrus.Debugf("overlay test mount indicated that metacopy is being used")
+				} else {
+					logrus.Debugf("overlay test mount indicated that metacopy is not being used")
+				}
+				if err = cachedFeatureRecord(runhome, feature, usingMetacopy, ""); err != nil {
+					return nil, errors.Wrap(err, "error recording metacopy-being-used status")
+				}
+			} else {
+				logrus.Warnf("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
+				return nil, err
+			}
 		}
 	}
 
@@ -201,6 +242,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	d := &Driver{
 		name:          "overlay",
 		home:          home,
+		runhome:       runhome,
 		uidMaps:       options.UIDMaps,
 		gidMaps:       options.GIDMaps,
 		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
@@ -399,10 +441,24 @@ func (d *Driver) useNaiveDiff() bool {
 			useNaiveDiffOnly = true
 			return
 		}
+		feature := fmt.Sprintf("native-diff(%s)", d.options.mountOptions)
+		nativeDiffCacheResult, nativeDiffCacheText, err := cachedFeatureCheck(d.runhome, feature)
+		if err == nil {
+			if nativeDiffCacheResult {
+				logrus.Debugf("cached value indicated that native-diff is usable")
+			} else {
+				logrus.Debugf("cached value indicated that native-diff is not being used")
+				logrus.Warn(nativeDiffCacheText)
+			}
+			useNaiveDiffOnly = !nativeDiffCacheResult
+			return
+		}
 		if err := doesSupportNativeDiff(d.home, d.options.mountOptions); err != nil {
-			logrus.Warnf("Not using native diff for overlay, this may cause degraded performance for building images: %v", err)
+			nativeDiffCacheText = fmt.Sprintf("Not using native diff for overlay, this may cause degraded performance for building images: %v", err)
+			logrus.Warn(nativeDiffCacheText)
 			useNaiveDiffOnly = true
 		}
+		cachedFeatureRecord(d.runhome, feature, !useNaiveDiffOnly, nativeDiffCacheText)
 	})
 	return useNaiveDiffOnly
 }
