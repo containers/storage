@@ -293,6 +293,36 @@ func parseOptions(options []string) (*overlayOptions, error) {
 	return o, nil
 }
 
+func cachedFeatureSet(feature string, set bool) string {
+	if set {
+		return fmt.Sprintf("%s-true", feature)
+	}
+	return fmt.Sprintf("%s-false", feature)
+}
+
+func cachedFeatureCheck(runhome, feature string) (supported bool, text string, err error) {
+	content, err := ioutil.ReadFile(filepath.Join(runhome, cachedFeatureSet(feature, true)))
+	if err == nil {
+		return true, string(content), nil
+	}
+	content, err = ioutil.ReadFile(filepath.Join(runhome, cachedFeatureSet(feature, false)))
+	if err == nil {
+		return false, string(content), nil
+	}
+	return false, "", err
+}
+
+func cachedFeatureRecord(runhome, feature string, supported bool, text string) (err error) {
+	f, err := os.Create(filepath.Join(runhome, cachedFeatureSet(feature, supported)))
+	if f != nil {
+		if text != "" {
+			fmt.Fprintf(f, "%s", text)
+		}
+		f.Close()
+	}
+	return err
+}
+
 func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
 	// We can try to modprobe overlay first
 
