@@ -125,8 +125,8 @@ func init() {
 // Init returns the a native diff driver for overlay filesystem.
 // If overlay filesystem is not supported on the host, a wrapped graphdriver.ErrNotSupported is returned as error.
 // If an overlay filesystem is not supported over an existing filesystem then a wrapped graphdriver.ErrIncompatibleFS is returned.
-func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-	opts, err := parseOptions(options)
+func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) {
+	opts, err := parseOptions(options.DriverOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		}
 	}
 
-	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMaps, gidMaps)
+	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UIDMaps, options.GIDMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -201,8 +201,8 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	d := &Driver{
 		name:          "overlay",
 		home:          home,
-		uidMaps:       uidMaps,
-		gidMaps:       gidMaps,
+		uidMaps:       options.UIDMaps,
+		gidMaps:       options.GIDMaps,
 		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
 		supportsDType: supportsDType,
 		usingMetacopy: usingMetacopy,
