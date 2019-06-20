@@ -34,15 +34,18 @@ var (
 type Driver struct {
 	graphdriver.Driver
 	root     string
+	runroot  string
 	refCount int
 }
 
 func newDriver(t testing.TB, name string, options []string) *Driver {
 	root, err := ioutil.TempDir("", "storage-graphtest-")
 	require.NoError(t, err)
+	runroot, err := ioutil.TempDir("", "storage-graphtest-")
+	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(root, 0755))
-	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root})
+	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root, RunRoot: runroot})
 	if err != nil {
 		t.Logf("graphdriver: %v\n", err)
 		cause := errors.Cause(err)
@@ -51,13 +54,14 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 		}
 		t.Fatal(err)
 	}
-	return &Driver{d, root, 1}
+	return &Driver{d, root, runroot, 1}
 }
 
 func cleanup(t testing.TB, d *Driver) {
 	if err := drv.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
+	os.RemoveAll(d.runroot)
 	os.RemoveAll(d.root)
 }
 
