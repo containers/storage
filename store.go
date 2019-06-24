@@ -2262,6 +2262,9 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 	}
 	if commit {
 		for _, layer := range layersToRemove {
+			if !rlstore.Exists(layer) {
+				continue
+			}
 			if err = rlstore.Delete(layer); err != nil {
 				return nil, err
 			}
