@@ -1,4 +1,4 @@
-package storage
+package lockfile
 
 import (
 	"fmt"
@@ -263,10 +263,6 @@ func TestROLockfileRead(t *testing.T) {
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 
-	l.Lock()
-	assert.False(t, l.Locked(), "Locked() said we have a write lock")
-	l.Unlock()
-
 	l.RLock()
 	assert.False(t, l.Locked(), "Locked() said we have a write lock")
 	l.Unlock()
@@ -299,6 +295,9 @@ func TestROLockfileWrite(t *testing.T) {
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 
+	defer func() {
+		assert.NotNil(t, recover(), "Should have panicked trying to take a write lock using a read lock")
+	}()
 	l.Lock()
 	assert.False(t, l.Locked(), "Locked() said we have a write lock")
 	l.Unlock()
