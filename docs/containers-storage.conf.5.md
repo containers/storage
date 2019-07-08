@@ -174,7 +174,7 @@ under `/var/lib/containers/storage`.
 
 ```
 semanage fcontext -a -e /var/lib/containers NEWSTORAGEPATH
-restorecon -R -v /src/containers
+restorecon -R -v NEWSTORAGEPATH
 ```
 
 The semanage command above tells SELinux to setup the default labeling of
