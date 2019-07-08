@@ -1,4 +1,26 @@
-.PHONY: all binary clean cross default docs gccgo help install.tools local-binary local-cross local-gccgo local-test-integration local-test-unit local-validate test test-integration test-unit validate
+export GO111MODULE=off
+
+.PHONY: \
+	all \
+	binary \
+	clean \
+	cross \
+	default \
+	docs \
+	gccgo \
+	help \
+	install.tools \
+	local-binary \
+	local-cross \
+	local-gccgo \
+	local-test-integration \
+	local-test-unit \
+	local-validate \
+	test \
+	test-integration \
+	test-unit \
+	validate \
+	vendor
 
 PACKAGE := github.com/containers/storage
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -90,3 +112,9 @@ install.tools:
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-z A-Z_-]+:.*?## / {gsub(" ",",",$$1);gsub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-21s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+vendor:
+	export GO111MODULE=on \
+		$(GO) mod tidy && \
+		$(GO) mod vendor && \
+		$(GO) mod verify
