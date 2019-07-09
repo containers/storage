@@ -1,0 +1,90 @@
+# github.com/BurntSushi/toml v0.3.1
+github.com/BurntSushi/toml
+# github.com/DataDog/zstd v1.4.0
+github.com/DataDog/zstd
+# github.com/Microsoft/go-winio v0.4.12
+github.com/Microsoft/go-winio
+github.com/Microsoft/go-winio/archive/tar
+github.com/Microsoft/go-winio/backuptar
+# github.com/Microsoft/hcsshim v0.8.6
+github.com/Microsoft/hcsshim
+github.com/Microsoft/hcsshim/internal/guid
+github.com/Microsoft/hcsshim/internal/hcs
+github.com/Microsoft/hcsshim/internal/hcserror
+github.com/Microsoft/hcsshim/internal/hns
+github.com/Microsoft/hcsshim/internal/mergemaps
+github.com/Microsoft/hcsshim/internal/schema1
+github.com/Microsoft/hcsshim/internal/wclayer
+github.com/Microsoft/hcsshim/internal/guestrequest
+github.com/Microsoft/hcsshim/internal/interop
+github.com/Microsoft/hcsshim/internal/logfields
+github.com/Microsoft/hcsshim/internal/timeout
+github.com/Microsoft/hcsshim/internal/schema2
+github.com/Microsoft/hcsshim/internal/longpath
+github.com/Microsoft/hcsshim/internal/safefile
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
+# github.com/docker/docker v0.0.0-20171019062838-86f080cff091
+github.com/docker/docker/api/types/filters
+github.com/docker/docker/api/types/versions
+# github.com/docker/go-units v0.4.0
+github.com/docker/go-units
+# github.com/google/go-cmp v0.2.0
+github.com/google/go-cmp/cmp
+github.com/google/go-cmp/cmp/internal/diff
+github.com/google/go-cmp/cmp/internal/function
+github.com/google/go-cmp/cmp/internal/value
+# github.com/klauspost/compress v1.7.2
+github.com/klauspost/compress/flate
+# github.com/klauspost/cpuid v1.2.1
+github.com/klauspost/cpuid
+# github.com/klauspost/pgzip v1.2.1
+github.com/klauspost/pgzip
+# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+github.com/konsorten/go-windows-terminal-sequences
+# github.com/mattn/go-shellwords v1.0.5
+github.com/mattn/go-shellwords
+# github.com/mistifyio/go-zfs v2.1.1+incompatible
+github.com/mistifyio/go-zfs
+# github.com/opencontainers/go-digest v1.0.0-rc1
+github.com/opencontainers/go-digest
+# github.com/opencontainers/runc v1.0.0-rc8
+github.com/opencontainers/runc/libcontainer/system
+github.com/opencontainers/runc/libcontainer/user
+# github.com/opencontainers/selinux v1.2.2
+github.com/opencontainers/selinux/go-selinux/label
+github.com/opencontainers/selinux/go-selinux
+# github.com/ostreedev/ostree-go v0.0.0-20190702140239-759a8c1ac913
+github.com/ostreedev/ostree-go/pkg/glibobject
+github.com/ostreedev/ostree-go/pkg/otbuiltin
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
+# github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
+github.com/pquerna/ffjson/fflib/v1
+github.com/pquerna/ffjson/fflib/v1/internal
+# github.com/sirupsen/logrus v1.4.2
+github.com/sirupsen/logrus
+# github.com/stretchr/testify v1.3.0
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+# github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
+github.com/syndtr/gocapability/capability
+# github.com/tchap/go-patricia v2.3.0+incompatible
+github.com/tchap/go-patricia/patricia
+# github.com/vbatts/tar-split v0.11.1
+github.com/vbatts/tar-split/tar/asm
+github.com/vbatts/tar-split/tar/storage
+github.com/vbatts/tar-split/archive/tar
+# golang.org/x/net v0.0.0-20190628185345-da137c7871d7
+golang.org/x/net/context
+# golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
+golang.org/x/sys/unix
+golang.org/x/sys/windows
+# gotest.tools v0.0.0-20190624233834-05ebafbffc79
+gotest.tools/assert
+gotest.tools/assert/cmp
+gotest.tools/internal/format
+gotest.tools/internal/source
+gotest.tools/internal/difflib
