@@ -1261,7 +1261,12 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	if err != nil {
 		return -1, err
 	}
-	size, err = r.driver.ApplyDiff(layer.ID, r.layerMappings(layer), layer.Parent, layer.MountLabel, payload)
+	options := drivers.ApplyDiffOpts{
+		Diff:       payload,
+		Mappings:   r.layerMappings(layer),
+		MountLabel: layer.MountLabel,
+	}
+	size, err = r.driver.ApplyDiff(layer.ID, layer.Parent, options)
 	if err != nil {
 		return -1, err
 	}

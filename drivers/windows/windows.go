@@ -581,7 +581,7 @@ func (d *Driver) Changes(id string, idMappings *idtools.IDMappings, parent strin
 // layer with the specified id and parent, returning the size of the
 // new layer in bytes.
 // The layer should not be mounted when calling this function
-func (d *Driver) ApplyDiff(id string, idMappings *idtools.IDMappings, parent, mountLabel string, diff io.Reader) (int64, error) {
+func (d *Driver) ApplyDiff(id, parentstring, diff io.Reader, options graphdriver.ApplyDiffOpts) (int64, error) {
 	panicIfUsedByLcow()
 	var layerChain []string
 	if parent != "" {

@@ -165,7 +165,7 @@ func DriverBenchDiffApplyN(b *testing.B, fileCount int, drivername string, drive
 			b.Fatal(err)
 		}
 
-		applyDiffSize, err := driver.ApplyDiff(diff, nil, "", "", arch)
+		applyDiffSize, err := driver.ApplyDiff(diff, "", graphdriver.ApplyDiffOpts{})
 		if err != nil {
 			b.Fatal(err)
 		}
