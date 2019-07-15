@@ -26,6 +26,7 @@ func init() {
 // This sets the home directory for the driver and returns NaiveDiffDriver.
 func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) {
 	d := &Driver{
+		name:       "vfs",
 		homes:      []string{home},
 		idMappings: idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps),
 	}
@@ -75,9 +76,12 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 // In order to support layering, files are copied from the parent layer into the new layer. There is no copy-on-write support.
 // Driver must be wrapped in NaiveDiffDriver to be used as a graphdriver.Driver
 type Driver struct {
-	homes      []string
-	idMappings *idtools.IDMappings
-	ostreeRepo string
+	name              string
+	homes             []string
+	idMappings        *idtools.IDMappings
+	ostreeRepo        string
+	ignoreChownErrors bool
+	naiveDiff         graphdriver.DiffDriver
 }
 
 func (d *Driver) String() string {
