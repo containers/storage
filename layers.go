@@ -1,15 +1,18 @@
 package storage
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	drivers "github.com/containers/storage/drivers"
@@ -18,6 +21,7 @@ import (
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tarlog"
 	"github.com/containers/storage/pkg/truncindex"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -95,6 +99,12 @@ type Layer struct {
 	// CompressionType is the type of compression which we detected on the blob
 	// that was last passed to ApplyDiff() or Put().
 	CompressionType archive.Compression `json:"compression,omitempty"`
+
+	// UIDs and GIDs are lists of UIDs and GIDs used in the layer.  This
+	// field is only populated (i.e., will only contain one or more
+	// entries) if the layer was created using ApplyDiff() or Put().
+	UIDs []uint32 `json:"uidset,omitempty"`
+	GIDs []uint32 `json:"gidset,omitempty"`
 
 	// Flags is arbitrary data about the layer.
 	Flags map[string]interface{} `json:"flags,omitempty"`
@@ -1236,7 +1246,17 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	}
 	uncompressedDigest := digest.Canonical.Digester()
 	uncompressedCounter := ioutils.NewWriteCounter(uncompressedDigest.Hash())
-	payload, err := asm.NewInputTarStream(io.TeeReader(uncompressed, uncompressedCounter), metadata, storage.NewDiscardFilePutter())
+	uidLog := make(map[uint32]struct{})
+	gidLog := make(map[uint32]struct{})
+	logIDs := func(h *tar.Header) {
+		if !strings.HasPrefix(path.Base(h.Name), archive.WhiteoutPrefix) {
+			uidLog[uint32(h.Uid)] = struct{}{}
+			gidLog[uint32(h.Gid)] = struct{}{}
+		}
+	}
+	idLogger := tarlog.NewLogger(logIDs)
+	idLogged := io.TeeReader(io.TeeReader(uncompressed, uncompressedCounter), idLogger)
+	payload, err := asm.NewInputTarStream(idLogged, metadata, storage.NewDiscardFilePutter())
 	if err != nil {
 		return -1, err
 	}
@@ -1245,6 +1265,7 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 		return -1, err
 	}
 	compressor.Close()
+	idLogger.Close()
 	if err == nil {
 		if err := os.MkdirAll(filepath.Dir(r.tspath(layer.ID)), 0700); err != nil {
 			return -1, err
@@ -1279,6 +1300,20 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	layer.UncompressedDigest = uncompressedDigest.Digest()
 	layer.UncompressedSize = uncompressedCounter.Count
 	layer.CompressionType = compression
+	layer.UIDs = make([]uint32, 0, len(uidLog))
+	for uid := range uidLog {
+		layer.UIDs = append(layer.UIDs, uid)
+	}
+	sort.Slice(layer.UIDs, func(i, j int) bool {
+		return layer.UIDs[i] < layer.UIDs[j]
+	})
+	layer.GIDs = make([]uint32, 0, len(gidLog))
+	for gid := range gidLog {
+		layer.GIDs = append(layer.GIDs, gid)
+	}
+	sort.Slice(layer.GIDs, func(i, j int) bool {
+		return layer.GIDs[i] < layer.GIDs[j]
+	})
 
 	err = r.Save()
 
