@@ -94,3 +94,12 @@ meta_task:
         CIRRUS_CLONE_DEPTH: 1  # source not used
 
     script: '/usr/local/bin/entrypoint.sh |& ${_TIMESTAMP}'
+
+vendor_task:
+    container:
+        image: golang:1.12
+    modules_cache:
+        fingerprint_script: cat go.sum
+        folder: $GOPATH/pkg/mod
+    build_script: make vendor
+    test_script: hack/tree_status.sh
