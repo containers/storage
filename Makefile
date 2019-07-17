@@ -16,6 +16,7 @@ export GO111MODULE=off
 	local-test-integration \
 	local-test-unit \
 	local-validate \
+	lint \
 	test \
 	test-integration \
 	test-unit \
@@ -32,6 +33,7 @@ BUILDFLAGS := -tags "$(AUTOTAGS) $(TAGS)" $(FLAGS)
 GO := go
 
 RUNINVM := vagrant/runinvm.sh
+FFJSON := tests/tools/build/ffjson
 
 default all: local-binary docs local-validate local-cross local-gccgo test-unit test-integration ## validate all checks, build and cross-build\nbinaries and docs, run tests in a VM
 
@@ -45,19 +47,19 @@ containers-storage: $(sources) ## build using gc on the host
 
 layers_ffjson.go: layers.go
 	$(RM) $@
-	ffjson layers.go
+	$(FFJSON) layers.go
 
 images_ffjson.go: images.go
 	$(RM) $@
-	ffjson images.go
+	$(FFJSON) images.go
 
 containers_ffjson.go: containers.go
 	$(RM) $@
-	ffjson containers.go
+	$(FFJSON) containers.go
 
 pkg/archive/archive_ffjson.go: pkg/archive/archive.go
 	$(RM) $@
-	ffjson pkg/archive/archive.go
+	$(FFJSON) pkg/archive/archive.go
 
 binary local-binary: containers-storage
 
@@ -75,7 +77,7 @@ local-cross: ## cross build the binaries for arm, darwin, and\nfreebsd
 cross: ## cross build the binaries for arm, darwin, and\nfreebsd using VMs
 	$(RUNINVM) make local-$@
 
-docs: ## build the docs on the host
+docs: install.tools ## build the docs on the host
 	$(MAKE) -C docs docs
 
 gccgo: ## build using gccgo using VMs
@@ -104,11 +106,10 @@ validate: ## validate DCO, gofmt, ./pkg/ isolation, golint,\ngo vet and vendor u
 	$(RUNINVM) make local-$@
 
 install.tools:
-	go get -u $(BUILDFLAGS) github.com/cpuguy83/go-md2man
-	go get -u $(BUILDFLAGS) github.com/vbatts/git-validation
-	go get -u $(BUILDFLAGS) gopkg.in/alecthomas/gometalinter.v1
-	go get -u $(BUILDFLAGS) github.com/pquerna/ffjson
-	gometalinter.v1 -i
+	make -C tests/tools
+
+lint: install.tools
+	tests/tools/build/golangci-lint run
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-z A-Z_-]+:.*?## / {gsub(" ",",",$$1);gsub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-21s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)

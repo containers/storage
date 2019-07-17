@@ -1,4 +1,4 @@
-GOMD2MAN = go-md2man
+GOMD2MAN = ../tests/tools/build/go-md2man
 
 docs: $(patsubst %.md,%.1,$(filter-out %.5.md,$(wildcard *.md))) containers-storage.conf.5
 
