@@ -108,6 +108,11 @@ validate: ## validate DCO, gofmt, ./pkg/ isolation, golint,\ngo vet and vendor u
 install.tools:
 	make -C tests/tools
 
+install.docs: docs
+	make -C docs install
+
+install: install.docs
+
 lint: install.tools
 	tests/tools/build/golangci-lint run
 
