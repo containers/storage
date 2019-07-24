@@ -255,7 +255,6 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d)
-
 	if backingFs == "xfs" {
 		// Try to enable project quota support over xfs.
 		if d.quotaCtl, err = quota.NewControl(home); err == nil {

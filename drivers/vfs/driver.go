@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ostree"
+	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -29,33 +32,37 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		homes:      []string{home},
 		idMappings: idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps),
 	}
+	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d)
+
 	rootIDs := d.idMappings.RootPair()
 	if err := idtools.MkdirAllAndChown(home, 0700, rootIDs); err != nil {
 		return nil, err
 	}
 	for _, option := range options.DriverOptions {
-		if strings.HasPrefix(option, "vfs.imagestore=") {
-			d.homes = append(d.homes, strings.Split(option[15:], ",")...)
-			continue
+
+		key, val, err := parsers.ParseKeyValueOpt(option)
+		if err != nil {
+			return nil, err
 		}
-		if strings.HasPrefix(option, ".imagestore=") {
-			d.homes = append(d.homes, strings.Split(option[12:], ",")...)
+		key = strings.ToLower(key)
+		switch key {
+		case "vfs.imagestore", ".imagestore":
+			d.homes = append(d.homes, strings.Split(val, ",")...)
 			continue
-		}
-		if strings.HasPrefix(option, "vfs.ostree_repo=") {
+		case "vfs.ostree_repo", ".ostree_repo=":
 			if !ostree.OstreeSupport() {
 				return nil, fmt.Errorf("vfs: ostree_repo specified but support for ostree is missing")
 			}
-			d.ostreeRepo = option[16:]
-		}
-		if strings.HasPrefix(option, ".ostree_repo=") {
-			if !ostree.OstreeSupport() {
-				return nil, fmt.Errorf("vfs: ostree_repo specified but support for ostree is missing")
-			}
-			d.ostreeRepo = option[13:]
-		}
-		if strings.HasPrefix(option, "vfs.mountopt=") {
+			d.ostreeRepo = val
+		case "vfs.mountopt":
 			return nil, fmt.Errorf("vfs driver does not support mount options")
+		case "vfs.ignore_chown_errors":
+			logrus.Debugf("vfs: ignore_chown_errors=%s", val)
+			var err error
+			d.ignoreChownErrors, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if d.ostreeRepo != "" {
@@ -67,6 +74,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 			return nil, err
 		}
 	}
+
 	return graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d)), nil
 }
 
@@ -75,9 +83,11 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 // In order to support layering, files are copied from the parent layer into the new layer. There is no copy-on-write support.
 // Driver must be wrapped in NaiveDiffDriver to be used as a graphdriver.Driver
 type Driver struct {
-	homes      []string
-	idMappings *idtools.IDMappings
-	ostreeRepo string
+	homes             []string
+	idMappings        *idtools.IDMappings
+	ostreeRepo        string
+	ignoreChownErrors bool
+	naiveDiff         graphdriver.DiffDriver
 }
 
 func (d *Driver) String() string {
@@ -105,6 +115,14 @@ func (d *Driver) CreateFromTemplate(id, template string, templateIDMappings *idt
 		return d.CreateReadWrite(id, template, opts)
 	}
 	return d.Create(id, template, opts)
+}
+
+// ApplyDiff applies the new layer into a root
+func (d *Driver) ApplyDiff(id, parent string, options graphdriver.ApplyDiffOpts) (size int64, err error) {
+	if d.ignoreChownErrors {
+		options.IgnoreChownErrors = d.ignoreChownErrors
+	}
+	return d.naiveDiff.ApplyDiff(id, parent, options)
 }
 
 // CreateReadWrite creates a layer that is writable for use as a container
@@ -229,5 +247,16 @@ func (d *Driver) AdditionalImageStores() []string {
 	if len(d.homes) > 1 {
 		return d.homes[1:]
 	}
+	return nil
+}
+
+// SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
+func (d *Driver) SupportsShifting() bool {
+	return false
+}
+
+// UpdateLayerIDMap updates ID mappings in a from matching the ones specified
+// by toContainer to those specified by toHost.
+func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error {
 	return nil
 }

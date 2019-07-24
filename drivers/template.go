@@ -37,9 +37,10 @@ func NaiveCreateFromTemplate(d TemplateDriver, id, template string, templateIDMa
 	}
 
 	applyOptions := ApplyDiffOpts{
-		Diff:       diff,
-		Mappings:   templateIDMappings,
-		MountLabel: opts.MountLabel,
+		Diff:              diff,
+		Mappings:          templateIDMappings,
+		MountLabel:        opts.MountLabel,
+		IgnoreChownErrors: opts.ignoreChownErrors,
 	}
 	if _, err = d.ApplyDiff(id, parent, applyOptions); err != nil {
 		if err2 := d.Remove(id); err2 != nil {
