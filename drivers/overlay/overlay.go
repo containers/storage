@@ -1005,7 +1005,7 @@ func (d *Driver) Put(id string) error {
 	if _, err := os.Stat(dir); err != nil {
 		return err
 	}
-	mountpoint := path.Join(d.dir(id), "merged")
+	mountpoint := path.Join(dir, "merged")
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
