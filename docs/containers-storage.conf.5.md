@@ -49,6 +49,9 @@ The `storage.options` table supports the following options:
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
 
+**ignore_chown_errors** = "true|False"
+  ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squasheddown to the default uid in the container.  These images will have no separation between the users in the container. Only supported for the overlay and vfs drivers.
+
 **mount_program**=""
   Specifies the path to a custom program to use instead of using kernel defaults for mounting the file system.
 
