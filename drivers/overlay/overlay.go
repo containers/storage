@@ -1017,7 +1017,7 @@ func (d *Driver) Put(id string) error {
 	if _, err := ioutil.ReadFile(path.Join(dir, lowerFile)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil {
+	if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil && !os.IsNotExist(err) {
 		logrus.Debugf("Failed to unmount %s overlay: %s - %v", id, mountpoint, err)
 	}
 
