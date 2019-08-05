@@ -30,11 +30,11 @@ EPOCH_TEST_COMMIT := 0418ebf59f9e1f564831c0ba9378b7f8e40a1c73
 NATIVETAGS := exclude_graphdriver_devicemapper exclude_graphdriver_btrfs exclude_graphdriver_overlay
 AUTOTAGS := $(shell ./hack/btrfs_tag.sh) $(shell ./hack/libdm_tag.sh) $(shell ./hack/ostree_tag.sh)
 BUILDFLAGS := -tags "$(AUTOTAGS) $(TAGS)" $(FLAGS)
-GO := go
+GO ?= go
 
 GO_BUILD=$(GO) build
 # Go module support: set `-mod=vendor` to use the vendored sources
-ifeq ($(shell go help mod >/dev/null 2>&1 && echo true), true)
+ifeq ($(shell $(GO) help mod >/dev/null 2>&1 && echo true), true)
 	GO_BUILD=GO111MODULE=on $(GO) build -mod=vendor
 endif
 
