@@ -1,10 +1,10 @@
 package tarlog
 
 import (
-	"archive/tar"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/vbatts/tar-split/archive/tar"
 )
 
 func TestTarLogger(t *testing.T) {
