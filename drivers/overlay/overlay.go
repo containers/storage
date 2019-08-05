@@ -322,7 +322,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				return nil, fmt.Errorf("overlay: ostree_repo specified but support for ostree is missing")
 			}
 			o.ostreeRepo = val
-		case "overlay2.ignore_chown_errors", "overlay.ignore_chown_errors":
+		case ".ignore_chown_errors", "overlay2.ignore_chown_errors", "overlay.ignore_chown_errors":
 			logrus.Debugf("overlay: ignore_chown_errors=%s", val)
 			o.ignoreChownErrors, err = strconv.ParseBool(val)
 			if err != nil {
