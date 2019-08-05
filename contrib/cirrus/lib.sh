@@ -56,6 +56,9 @@ OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | cut -d '.' -f 1)"
 # Combined to ease soe usage
 OS_REL_VER="${OS_RELEASE_ID}-${OS_RELEASE_VER}"
 
+# Working with dnf + timeout/retry
+export SHORT_DNFY='timeout_attempt_delay_command 120s 5 30s dnf -y'
+export LONG_DNFY='timeout_attempt_delay_command 300s 5 60s dnf -y'
 # Working with apt under Debian/Ubuntu automation is a PITA, make it easy
 # Avoid some ways of getting stuck waiting for user input
 export DEBIAN_FRONTEND=noninteractive
@@ -65,6 +68,14 @@ export SUDOAPTGET='sudo -E apt-get -q --yes'
 SHORT_APTGET="timeout_attempt_delay_command 120s 5 60s $SUDOAPTGET"
 # Long list / long-running command
 LONG_APTGET="timeout_attempt_delay_command 300s 5 60s $SUDOAPTGET"
+
+# Packaging adjustments needed to:
+# https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/fedora_setup.sh
+RPMS_REQUIRED="autoconf automake"
+RPMS_CONFLICTING="gcc-go"
+# https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/ubuntu_setup.sh
+DEBS_REQUIRED=""
+DEBS_CONFLICTING=""
 
 # Pass in a list of one or more envariable names; exit non-zero with
 # helpful error message if any value is empty
