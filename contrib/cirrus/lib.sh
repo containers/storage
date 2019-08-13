@@ -77,6 +77,14 @@ RPMS_CONFLICTING="gcc-go"
 DEBS_REQUIRED=""
 DEBS_CONFLICTING=""
 
+# For devicemapper testing, device names need to be passed down for use in tests
+if [[ "$TEST_DRIVER" == "devicemapper" ]]; then
+    DM_LVM_VG_NAME="test_vg"
+    DM_REF_FILEPATH="/root/volume_group_ready"
+else
+    unset DM_LVM_VG_NAME DM_REF_FILEPATH
+fi
+
 # Pass in a list of one or more envariable names; exit non-zero with
 # helpful error message if any value is empty
 req_env_var() {
@@ -189,5 +197,27 @@ showrun() {
         echo '--------------------------------------------------'
         echo '+ '$(printf " %q" "$@") > /dev/stderr
         "$@"
+    fi
+}
+
+devicemapper_setup() {
+    req_env_var TEST_DRIVER DM_LVM_VG_NAME DM_REF_FILEPATH
+    # Requires add_second_partition.sh to have already run successfully
+    if [[ -r "/root/second_partition_ready" ]]
+    then
+        device=$(< /root/second_partition_ready)
+        if [[ -n "$device" ]] # LVM setup should only ever happen once
+        then
+            echo "Setting up LVM PV on $device to validate it's functional"
+            showrun pvcreate --force --yes "$device"
+            echo "Wiping LVM signatures from $device to prepare it for testing use"
+            showrun pvremove --force --yes "$device"
+            # Block setup from happening ever again
+            truncate --size=0 /root/second_partition_ready  # mark completion|in-use
+            echo "$device" > "$DM_REF_FILEPATH"
+        fi
+        echo "Test device $(cat $DM_REF_FILEPATH) is ready to go."
+    else
+        echo "WARNING: Can't read /root/second_partition_ready, created by $(dirname $0)/add_second_partition.sh"
     fi
 }

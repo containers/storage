@@ -4,7 +4,7 @@ set -e
 
 source $(dirname $0)/lib.sh
 
-req_env_var GOSRC OS_RELEASE_ID OS_RELEASE_VER SHORT_APTGET
+req_env_var GOSRC OS_RELEASE_ID OS_RELEASE_VER SHORT_APTGET TEST_DRIVER
 
 install_ooe
 
@@ -20,6 +20,12 @@ case "$OS_RELEASE_ID" in
             $SHORT_DNFY install $RPMS_REQUIRED
         [[ -z "$RPMS_CONFLICTING" ]] || \
             $SHORT_DNFY erase $RPMS_CONFLICTING
+        # Only works on Fedora VM images
+        bash "$SCRIPT_BASE/add_second_partition.sh"
+        if [[ "$TEST_DRIVER" == "devicemapper" ]]; then
+            $SHORT_DNFY install lvm2
+            devicemapper_setup
+        fi
         ;;
     ubuntu)
         $SHORT_APTGET update  # Fetch latest package metadata
@@ -35,6 +41,3 @@ case "$OS_RELEASE_ID" in
 esac
 
 install_fuse_overlayfs_from_git
-
-echo "Installing common tooling"
-#make install.tools
