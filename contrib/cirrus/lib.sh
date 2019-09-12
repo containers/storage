@@ -64,7 +64,7 @@ export SUDOAPTGET='sudo -E apt-get -q --yes'
 # Short list of packages or quick-running command
 SHORT_APTGET="timeout_attempt_delay_command 24s 5 30s $SUDOAPTGET"
 # Long list / long-running command
-LONG_APTGET="timeout_attempt_delay_command 300s 5 30s $SUDOAPTGET"
+LONG_APTGET="timeout_attempt_delay_command 300s 5 60s $SUDOAPTGET"
 
 # Pass in a list of one or more envariable names; exit non-zero with
 # helpful error message if any value is empty

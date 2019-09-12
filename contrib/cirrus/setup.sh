@@ -27,7 +27,7 @@ case "$OS_REL_VER" in
         echo "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"  # STUB: Add VM setup instructions here
         $SHORT_APTGET update  # Fetch latest package metadata
         $SHORT_APTGET -qq remove $AptBuildConflicts
-        $SHORT_APTGET -qq install $AptBuildRequires
+        $LONG_APTGET -qq install $AptBuildRequires
         install_fuse_overlayfs_from_git
         ;;
     *)
