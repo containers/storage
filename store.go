@@ -1502,6 +1502,7 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	foundImage := false
 	for _, s := range append([]ROImageStore{istore}, istores...) {
 		store := s
 		store.RLock()
@@ -1515,6 +1516,12 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 		if err == nil {
 			return data, nil
 		}
+		if store.Exists(id) {
+			foundImage = true
+		}
+	}
+	if foundImage {
+		return nil, errors.Wrapf(os.ErrNotExist, "error locating item named %q for image with ID %q", key, id)
 	}
 	return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 }

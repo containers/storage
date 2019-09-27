@@ -53,6 +53,16 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" -eq 5678 ]
 
+	# Check that we can distinguish between no-such-image and no-such-item.
+	run storage --debug=false get-image-data nosuchimage big-item
+	[ "$status" -ne 0 ]
+	echo "$output"
+	[[ "$output" =~ "image not known" ]]
+	run storage --debug=false get-image-data $image no-such-big-item
+	[ "$status" -ne 0 ]
+	echo "$output"
+	[[ "$output" =~ "does not exist" ]]
+
 	# Save the contents of the big data items to disk and compare them with the originals.
 	run storage --debug=false get-image-data $image no-such-item
 	[ "$status" -ne 0 ]
