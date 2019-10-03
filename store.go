@@ -254,6 +254,10 @@ type Store interface {
 	// Wipe removes all known layers, images, and containers.
 	Wipe() error
 
+	// MountImage mounts an image to temp folder and returns the mount point.
+	// Currently only supported option in "ro" i.e. Read Only.
+	MountImage(id string, mountOptions []string) (string, error)
+
 	// Mount attempts to mount a layer, image, or container for access, and
 	// returns the pathname if it succeeds.
 	// Note if the mountLabel == "", the default label for the container
@@ -2463,6 +2467,40 @@ func (s *store) Status() ([][2]string, error) {
 
 func (s *store) Version() ([][2]string, error) {
 	return [][2]string{}, nil
+}
+
+func (s *store) MountImage(id string, mountOptions []string) (string, error) {
+	// Append ReadOnly option to mountOptions
+	img, err := s.Image(id)
+	if err != nil {
+		return "", err
+	}
+
+	mountOptions = append(mountOptions, "ro")
+	if err := validateMountOptions(mountOptions); err != nil {
+		return "", err
+	}
+
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return "", err
+	}
+
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		if err = rlstore.Load(); err != nil {
+			return "", err
+		}
+	}
+
+	if rlstore.Exists(img.TopLayer) {
+		options := drivers.MountOpts{
+			Options: mountOptions,
+		}
+		return rlstore.Mount(img.TopLayer, options)
+	}
+	return "", ErrLayerUnknown
 }
 
 func (s *store) Mount(id, mountLabel string) (string, error) {

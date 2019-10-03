@@ -248,3 +248,18 @@ func DefaultStoreOptions(rootless bool, rootlessUID int) (StoreOptions, error) {
 	}
 	return storageOpts, nil
 }
+
+func validateMountOptions(mountOptions []string) error {
+	var Empty struct{}
+	// Add invlaid options for ImageMount() here.
+	invalidOptions := map[string]struct{}{
+		"rw": Empty,
+	}
+
+	for _, opt := range mountOptions {
+		if _, ok := invalidOptions[opt]; ok {
+			return fmt.Errorf(" '%s' option not supported", opt)
+		}
+	}
+	return nil
+}
