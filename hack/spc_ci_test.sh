@@ -16,15 +16,15 @@ export UPDATE_CMD="true"
 case "$DISTRO" in
     *ubuntu*)
         export UPDATE_CMD="apt-get update"
-        export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev ostree libostree-dev"
+        export INSTALL_CMD="apt-get -qq install bats btrfs-tools libdevmapper-dev"
         ;;
     *fedora*)
         export INSTALL_CMD="dnf -y install bats btrfs-progs btrfs-progs-devel
-                            e2fsprogs xfsprogs device-mapper-devel ostree ostree-devel"
+                            e2fsprogs xfsprogs device-mapper-devel"
         ;;
     *centos*)
         export INSTALL_CMD="yum install -y bats btrfs-progs btrfs-progs-devel
-                            e2fsprogs xfsprogs device-mapper-devel ostree ostree-devel"
+                            e2fsprogs xfsprogs device-mapper-devel"
         ;;
     *)
         echo "Unknown/unsupported \$DISTRO=$DISTRO"

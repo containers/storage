@@ -85,8 +85,6 @@ type OptionsConfig struct {
 	RemapGroup string `toml:"remap-group"`
 	// Thinpool container options to be handed to thinpool drivers
 	Thinpool struct{ ThinpoolOptionsConfig } `toml:"thinpool"`
-	// OSTree repository
-	OstreeRepo string `toml:"ostree_repo"`
 
 	// Do not create a bind mount on the storage home
 	SkipMountHome string `toml:"skip_mount_home"`

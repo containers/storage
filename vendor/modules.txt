@@ -57,9 +57,6 @@ github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/selinux v1.2.2
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/go-selinux
-# github.com/ostreedev/ostree-go v0.0.0-20190702140239-759a8c1ac913
-github.com/ostreedev/ostree-go/pkg/glibobject
-github.com/ostreedev/ostree-go/pkg/otbuiltin
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
