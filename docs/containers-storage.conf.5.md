@@ -64,10 +64,6 @@ The `storage.options` table supports the following options:
 **size**=""
   Maximum size of a container image.   This flag can be used to set quota on the size of container images. (default: 10GB)
 
-**skip_mount_home** = "false"
-   Set to skip a PRIVATE bind mount on the storage home directory.
-Only supported by certain container storage drivers (overlay).
-
 **remap-uids=**""
 **remap-gids=**""
 

@@ -86,9 +86,6 @@ type OptionsConfig struct {
 	// Thinpool container options to be handed to thinpool drivers
 	Thinpool struct{ ThinpoolOptionsConfig } `toml:"thinpool"`
 
-	// Do not create a bind mount on the storage home
-	SkipMountHome string `toml:"skip_mount_home"`
-
 	// Alternative program to use for the mount of the file system
 	MountProgram string `toml:"mount_program"`
 

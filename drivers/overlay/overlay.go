@@ -312,12 +312,6 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			if err != nil {
 				return nil, err
 			}
-		case "overlay2.skip_mount_home", "overlay.skip_mount_home", ".skip_mount_home":
-			logrus.Debugf("overlay: skip_mount_home=%s", val)
-			o.skipMountHome, err = strconv.ParseBool(val)
-			if err != nil {
-				return nil, err
-			}
 		default:
 			return nil, fmt.Errorf("overlay: Unknown option %s", key)
 		}
