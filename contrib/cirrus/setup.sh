@@ -10,9 +10,9 @@ show_env_vars
 
 cd $GOSRC
 
-export RPMBuildRequires="podman autoconf automake gcc golang go-md2man gpgme-devel device-mapper-devel btrfs-progs-devel libassuan-devel libseccomp-devel glib2-devel ostree-devel make bats fuse3-devel fuse3"
+export RPMBuildRequires="podman autoconf automake gcc golang go-md2man gpgme-devel device-mapper-devel btrfs-progs-devel libassuan-devel libseccomp-devel glib2-devel make bats fuse3-devel fuse3"
 export RPMBuildConflicts="gcc-go"
-export AptBuildRequires="autoconf automake gcc golang go-md2man libgpgme11-dev libdevmapper-dev libseccomp-dev libglib2.0-dev libostree-dev make bats aufs-tools fuse3 libfuse3-dev libbtrfs-dev"
+export AptBuildRequires="autoconf automake gcc golang go-md2man libgpgme11-dev libdevmapper-dev libseccomp-dev libglib2.0-dev make bats aufs-tools fuse3 libfuse3-dev libbtrfs-dev"
 export AptBuildConflicts="cryptsetup-initramfs"
 
 case "$OS_REL_VER" in
