@@ -62,7 +62,7 @@ export DEBIAN_FRONTEND=noninteractive
 # Short-cut for frequently used base command
 export SUDOAPTGET='sudo -E apt-get -q --yes'
 # Short list of packages or quick-running command
-SHORT_APTGET="timeout_attempt_delay_command 24s 5 30s $SUDOAPTGET"
+SHORT_APTGET="timeout_attempt_delay_command 120s 5 60s $SUDOAPTGET"
 # Long list / long-running command
 LONG_APTGET="timeout_attempt_delay_command 300s 5 60s $SUDOAPTGET"
 
