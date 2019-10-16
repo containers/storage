@@ -386,7 +386,7 @@ func TestMatches(t *testing.T) {
 		pm, err := NewPatternMatcher([]string{test.pattern})
 		require.NoError(t, err, desc)
 		res, _ := pm.Matches(test.text)
-		assert.Equal(t, test.pass, res, desc)
+		assert.Equal(t, test.pass, res > 0, desc)
 	}
 }
 
@@ -587,5 +587,29 @@ func TestMatch(t *testing.T) {
 		if ok != tt.match || err != tt.err {
 			t.Fatalf("Match(%#q, %#q) = %v, %q want %v, %q", pattern, s, ok, errp(err), tt.match, errp(tt.err))
 		}
+	}
+}
+
+func TestMatchesAmount(t *testing.T) {
+	purityTests := []struct {
+		patterns []string
+		input    string
+		amount   uint
+	}{
+		{[]string{"1", "2", "3"}, "2", 1},
+		{[]string{"1", "2", "2"}, "2", 2},
+		{[]string{"1", "2", "2", "2"}, "2", 3},
+		{[]string{"/prefix/path", "/prefix/other"}, "/prefix/path", 1},
+		{[]string{"/prefix*", "/prefix/path"}, "/prefix/path", 2},
+		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/match", 1},
+	}
+
+	for _, testCase := range purityTests {
+		pm, err := NewPatternMatcher(testCase.patterns)
+		require.NoError(t, err)
+		res, err := pm.Matches(testCase.input)
+		require.NoError(t, err)
+		assert.Equal(t, testCase.amount, res,
+			fmt.Sprintf("pattern=%q input=%q", testCase.patterns, testCase.input))
 	}
 }
