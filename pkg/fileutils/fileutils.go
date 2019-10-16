@@ -58,9 +58,10 @@ func NewPatternMatcher(patterns []string) (*PatternMatcher, error) {
 }
 
 // Matches verifies the provided filepath against all patterns.
-// It returns the amount of `matches` or an error in case of any failure.
+// It returns the amount of `matches` and `excludes` for the patterns on
+// success, otherwise an error.
 // It is not safe to be called concurrently.
-func (pm *PatternMatcher) Matches(file string) (matches uint, err error) {
+func (pm *PatternMatcher) Matches(file string) (matches, excludes uint, err error) {
 	file = filepath.FromSlash(file)
 	parentPath := filepath.Dir(file)
 	parentPathDirs := strings.Split(parentPath, string(os.PathSeparator))
@@ -74,7 +75,7 @@ func (pm *PatternMatcher) Matches(file string) (matches uint, err error) {
 
 		match, err := pattern.match(file)
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 
 		if !match && parentPath != "." {
@@ -85,9 +86,8 @@ func (pm *PatternMatcher) Matches(file string) (matches uint, err error) {
 		}
 
 		if match {
-			// Subtract negative matches if possible
-			if matches > 0 && negative {
-				matches--
+			if negative {
+				excludes++
 			} else {
 				matches++
 			}
@@ -98,7 +98,23 @@ func (pm *PatternMatcher) Matches(file string) (matches uint, err error) {
 		logrus.Debugf("Skipping excluded path: %s", file)
 	}
 
-	return matches, nil
+	return matches, excludes, nil
+}
+
+// IsMatch verifies the provided filepath against all patterns and returns true
+// if it matches. A match is valid if the amount of positive matches is larger
+// than the negative (excludes) ones.
+// It returns an error on failure and is not safe to be called concurrently.
+func (pm *PatternMatcher) IsMatch(file string) (matched bool, err error) {
+	matches, excludes, err := pm.Matches(file)
+	if err != nil {
+		return false, err
+	}
+
+	if matches > excludes && matches-excludes > 0 {
+		matched = true
+	}
+	return matched, nil
 }
 
 // Exclusions returns true if any of the patterns define exclusions
@@ -233,8 +249,7 @@ func Matches(file string, patterns []string) (bool, error) {
 		return false, nil
 	}
 
-	matches, err := pm.Matches(file)
-	return matches > 0, err
+	return pm.IsMatch(file)
 }
 
 // CopyFile copies from src to dst until either EOF is reached
