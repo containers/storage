@@ -225,11 +225,11 @@ func TestPatternMatches(t *testing.T) {
 	}
 }
 
-// An exclusion followed by an inclusion should return true.
+// An exclusion followed by an inclusion should return false.
 func TestExclusionPatternMatchesPatternBefore(t *testing.T) {
 	match, _ := Matches("fileutils.go", []string{"!fileutils.go", "*.go"})
-	if match {
-		t.Errorf("failed to get true match on exclusion pattern, got %v", match)
+	if !match {
+		t.Errorf("failed to get false match on exclusion pattern, got %v", match)
 	}
 }
 
@@ -385,8 +385,9 @@ func TestMatches(t *testing.T) {
 		desc := fmt.Sprintf("pattern=%q text=%q", test.pattern, test.text)
 		pm, err := NewPatternMatcher([]string{test.pattern})
 		require.NoError(t, err, desc)
-		res, _, _ := pm.Matches(test.text)
-		assert.Equal(t, test.pass, res > 0, desc)
+		res, err := pm.MatchesResult(test.text)
+		assert.Nil(t, err)
+		assert.Equal(t, test.pass, res.isMatched, desc)
 	}
 }
 
@@ -611,11 +612,12 @@ func TestMatchesAmount(t *testing.T) {
 	for _, testCase := range testData {
 		pm, err := NewPatternMatcher(testCase.patterns)
 		require.NoError(t, err)
-		matches, excludes, err := pm.Matches(testCase.input)
+		res, err := pm.MatchesResult(testCase.input)
 		require.NoError(t, err)
 		desc := fmt.Sprintf("pattern=%q input=%q", testCase.patterns, testCase.input)
-		assert.Equal(t, testCase.excludes, excludes, desc)
-		assert.Equal(t, testCase.matches, matches, desc)
+		assert.Equal(t, testCase.excludes, res.Excludes(), desc)
+		assert.Equal(t, testCase.matches, res.Matches(), desc)
+		assert.Equal(t, testCase.isMatch, res.IsMatched(), desc)
 
 		isMatch, err := pm.IsMatch(testCase.input)
 		assert.Equal(t, testCase.isMatch, isMatch, desc)
