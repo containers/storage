@@ -110,7 +110,7 @@ meta_task:
 
 vendor_task:
     container:
-        image: golang:1.12
+        image: golang:1.13
     modules_cache:
         fingerprint_script: cat go.sum
         folder: $GOPATH/pkg/mod
