@@ -921,8 +921,10 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	if err := idtools.MkdirAs(mergedDir, 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
 		return "", err
 	}
-	if count := d.ctr.Increment(mergedDir); count > 1 {
-		return mergedDir, nil
+	if d.options.mountProgram == "" {
+		if count := d.ctr.Increment(mergedDir); count > 1 {
+			return mergedDir, nil
+		}
 	}
 	defer func() {
 		if retErr != nil {
