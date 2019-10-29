@@ -5,8 +5,6 @@ import (
 	"net"
 	"regexp"
 	"strings"
-
-	"github.com/docker/docker/api/types/filters"
 )
 
 var (
@@ -287,16 +285,16 @@ func ValidateSysctl(val string) (string, error) {
 
 // FilterOpt is a flag type for validating filters
 type FilterOpt struct {
-	filter filters.Args
+	filter Args
 }
 
 // NewFilterOpt returns a new FilterOpt
 func NewFilterOpt() FilterOpt {
-	return FilterOpt{filter: filters.NewArgs()}
+	return FilterOpt{filter: NewArgs()}
 }
 
 func (o *FilterOpt) String() string {
-	repr, err := filters.ToParam(o.filter)
+	repr, err := ToParam(o.filter)
 	if err != nil {
 		return "invalid filters"
 	}
@@ -306,7 +304,7 @@ func (o *FilterOpt) String() string {
 // Set sets the value of the opt by parsing the command line value
 func (o *FilterOpt) Set(value string) error {
 	var err error
-	o.filter, err = filters.ParseFlag(value, o.filter)
+	o.filter, err = ParseFlag(value, o.filter)
 	return err
 }
 
@@ -316,6 +314,6 @@ func (o *FilterOpt) Type() string {
 }
 
 // Value returns the value of this option
-func (o *FilterOpt) Value() filters.Args {
+func (o *FilterOpt) Value() Args {
 	return o.filter
 }

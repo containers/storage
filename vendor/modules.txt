@@ -22,9 +22,6 @@ github.com/Microsoft/hcsshim/internal/timeout
 github.com/Microsoft/hcsshim/internal/wclayer
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/docker/docker v0.0.0-20171019062838-86f080cff091
-github.com/docker/docker/api/types/filters
-github.com/docker/docker/api/types/versions
 # github.com/docker/go-units v0.4.0
 github.com/docker/go-units
 # github.com/google/go-cmp v0.2.0

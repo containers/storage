@@ -1,15 +1,15 @@
-/*Package filters provides tools for encoding a mapping of keys to a set of
-multiple values.
-*/
-package filters
+// Note that this file has originally been copied from github.com/docker/docker,
+// commit 86f080cff091 and been modified afterwards.
+//
+// Copyright 2012-2017 Docker, Inc.
+
+package opts
 
 import (
 	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
-
-	"github.com/docker/docker/api/types/versions"
 )
 
 // Args stores a mapping of keys to a set of multiple values.
@@ -87,63 +87,6 @@ func ToJSON(a Args) (string, error) {
 	}
 	buf, err := json.Marshal(a)
 	return string(buf), err
-}
-
-// ToParamWithVersion encodes Args as a JSON string. If version is less than 1.22
-// then the encoded format will use an older legacy format where the values are a
-// list of strings, instead of a set.
-//
-// Deprecated: Use ToJSON
-func ToParamWithVersion(version string, a Args) (string, error) {
-	if a.Len() == 0 {
-		return "", nil
-	}
-
-	if version != "" && versions.LessThan(version, "1.22") {
-		buf, err := json.Marshal(convertArgsToSlice(a.fields))
-		return string(buf), err
-	}
-
-	return ToJSON(a)
-}
-
-// FromParam decodes a JSON encoded string into Args
-//
-// Deprecated: use FromJSON
-func FromParam(p string) (Args, error) {
-	return FromJSON(p)
-}
-
-// FromJSON decodes a JSON encoded string into Args
-func FromJSON(p string) (Args, error) {
-	args := NewArgs()
-
-	if p == "" {
-		return args, nil
-	}
-
-	raw := []byte(p)
-	err := json.Unmarshal(raw, &args)
-	if err == nil {
-		return args, nil
-	}
-
-	// Fallback to parsing arguments in the legacy slice format
-	deprecated := map[string][]string{}
-	if legacyErr := json.Unmarshal(raw, &deprecated); legacyErr != nil {
-		return args, err
-	}
-
-	args.fields = deprecatedArgs(deprecated)
-	return args, nil
-}
-
-// UnmarshalJSON populates the Args from JSON encode bytes
-func (args Args) UnmarshalJSON(raw []byte) error {
-	if len(raw) == 0 {
-		return nil
-	}
-	return json.Unmarshal(raw, &args.fields)
 }
 
 // Get returns the list of values associated with the key
