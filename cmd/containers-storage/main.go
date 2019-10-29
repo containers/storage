@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/containers/storage"
-	"github.com/containers/storage/opts"
+	"github.com/containers/storage/internal/opts"
 	"github.com/containers/storage/pkg/mflag"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/sirupsen/logrus"
