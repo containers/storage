@@ -231,13 +231,18 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		}
 	}
 
+	fileSystemType := graphdriver.FsMagicOverlay
+	if opts.mountProgram != "" {
+		fileSystemType = graphdriver.FsMagicFUSE
+	}
+
 	d := &Driver{
 		name:          "overlay",
 		home:          home,
 		runhome:       runhome,
 		uidMaps:       options.UIDMaps,
 		gidMaps:       options.GIDMaps,
-		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicOverlay)),
+		ctr:           graphdriver.NewRefCounter(graphdriver.NewFsChecker(fileSystemType)),
 		supportsDType: supportsDType,
 		usingMetacopy: usingMetacopy,
 		locker:        locker.New(),
