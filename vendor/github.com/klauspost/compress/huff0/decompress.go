@@ -193,14 +193,26 @@ func (s *Scratch) Decompress1X(in []byte) (out []byte, err error) {
 		tmp[off+3] = hasDec(dt[br.peekBitsFast(s.actualTableLog)&tlMask])
 		off += 4
 		if off == 0 {
+			if len(s.Out)+256 > s.MaxDecodedSize {
+				br.close()
+				return nil, ErrMaxDecodedSizeExceeded
+			}
 			s.Out = append(s.Out, tmp...)
 		}
 	}
 
+	if len(s.Out)+int(off) > s.MaxDecodedSize {
+		br.close()
+		return nil, ErrMaxDecodedSizeExceeded
+	}
 	s.Out = append(s.Out, tmp[:off]...)
 
 	for !br.finished() {
 		br.fill()
+		if len(s.Out) >= s.MaxDecodedSize {
+			br.close()
+			return nil, ErrMaxDecodedSizeExceeded
+		}
 		s.Out = append(s.Out, decode())
 	}
 	return s.Out, br.close()
@@ -217,6 +229,9 @@ func (s *Scratch) Decompress4X(in []byte, dstSize int) (out []byte, err error) {
 	}
 	if len(in) < 6+(4*1) {
 		return nil, errors.New("input too small")
+	}
+	if dstSize > s.MaxDecodedSize {
+		return nil, ErrMaxDecodedSizeExceeded
 	}
 	// TODO: We do not detect when we overrun a buffer, except if the last one does.
 
@@ -247,9 +262,13 @@ func (s *Scratch) Decompress4X(in []byte, dstSize int) (out []byte, err error) {
 	dstOut := s.Out
 	dstEvery := (dstSize + 3) / 4
 
+	const tlSize = 1 << tableLogMax
+	const tlMask = tlSize - 1
+	single := s.dt.single[:tlSize]
+
 	decode := func(br *bitReader) byte {
 		val := br.peekBitsFast(s.actualTableLog) /* note : actualTableLog >= 1 */
-		v := s.dt.single[val]
+		v := single[val&tlMask]
 		br.bitsRead += v.nBits
 		return v.byte
 	}
@@ -257,6 +276,7 @@ func (s *Scratch) Decompress4X(in []byte, dstSize int) (out []byte, err error) {
 	// Use temp table to avoid bound checks/append penalty.
 	var tmp = s.huffWeight[:256]
 	var off uint8
+	var decoded int
 
 	// Decode 2 values from each decoder/loop.
 	const bufoff = 256 / 4
@@ -279,7 +299,7 @@ bigloop:
 		off += 2
 		if off == bufoff {
 			if bufoff > dstEvery {
-				return nil, errors.New("corruption detected: stream overrun")
+				return nil, errors.New("corruption detected: stream overrun 1")
 			}
 			copy(dstOut, tmp[:bufoff])
 			copy(dstOut[dstEvery:], tmp[bufoff:bufoff*2])
@@ -287,41 +307,47 @@ bigloop:
 			copy(dstOut[dstEvery*3:], tmp[bufoff*3:bufoff*4])
 			off = 0
 			dstOut = dstOut[bufoff:]
+			decoded += 256
 			// There must at least be 3 buffers left.
-			if len(dstOut) < dstEvery*3+3 {
-				return nil, errors.New("corruption detected: stream overrun")
+			if len(dstOut) < dstEvery*3 {
+				return nil, errors.New("corruption detected: stream overrun 2")
 			}
 		}
 	}
 	if off > 0 {
 		ioff := int(off)
 		if len(dstOut) < dstEvery*3+ioff {
-			return nil, errors.New("corruption detected: stream overrun")
+			return nil, errors.New("corruption detected: stream overrun 3")
 		}
 		copy(dstOut, tmp[:off])
 		copy(dstOut[dstEvery:dstEvery+ioff], tmp[bufoff:bufoff*2])
 		copy(dstOut[dstEvery*2:dstEvery*2+ioff], tmp[bufoff*2:bufoff*3])
 		copy(dstOut[dstEvery*3:dstEvery*3+ioff], tmp[bufoff*3:bufoff*4])
+		decoded += int(off) * 4
 		dstOut = dstOut[off:]
 	}
 
+	// Decode remaining.
 	for i := range br {
 		offset := dstEvery * i
 		br := &br[i]
 		for !br.finished() {
 			br.fill()
 			if offset >= len(dstOut) {
-				return nil, errors.New("corruption detected: stream overrun")
+				return nil, errors.New("corruption detected: stream overrun 4")
 			}
 			dstOut[offset] = decode(br)
 			offset++
 		}
+		decoded += offset - dstEvery*i
 		err = br.close()
 		if err != nil {
 			return nil, err
 		}
 	}
-
+	if dstSize != decoded {
+		return nil, errors.New("corruption detected: short output block")
+	}
 	return s.Out, nil
 }
 
