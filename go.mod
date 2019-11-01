@@ -13,7 +13,7 @@ require (
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/mistifyio/go-zfs v2.1.1+incompatible
 	github.com/opencontainers/go-digest v1.0.0-rc1
-	github.com/opencontainers/runc v1.0.0-rc8
+	github.com/opencontainers/runc v1.0.0-rc9
 	github.com/opencontainers/selinux v1.3.0
 	github.com/pkg/errors v0.8.1
 	github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
