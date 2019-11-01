@@ -65,7 +65,7 @@ github.com/pquerna/ffjson/inception
 github.com/pquerna/ffjson/shared
 # github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.3.0
+# github.com/stretchr/testify v1.4.0
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
@@ -81,6 +81,8 @@ golang.org/x/net/context
 # golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
 golang.org/x/sys/unix
 golang.org/x/sys/windows
+# gopkg.in/yaml.v2 v2.2.2
+gopkg.in/yaml.v2
 # gotest.tools v0.0.0-20190624233834-05ebafbffc79
 gotest.tools/assert
 gotest.tools/assert/cmp
