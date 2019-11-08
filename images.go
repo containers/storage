@@ -362,6 +362,11 @@ func (r *imageStore) lookup(id string) (*Image, bool) {
 	} else if longid, err := r.idindex.Get(id); err == nil {
 		image, ok := r.byid[longid]
 		return image, ok
+	} else if digest.Digest(id).Validate() == nil {
+		if images, ok := r.bydigest[digest.Digest(id)]; ok && len(images) == 1 {
+			image := images[0]
+			return image, ok
+		}
 	}
 	return nil, false
 }
