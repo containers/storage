@@ -69,9 +69,11 @@ delvm() {
 }
 
 image_hints() {
+    _BIS=$(egrep -m 1 '_BUILT_IMAGE_SUFFIX:[[:space:]+"[[:print:]]+"' \
+        "$STORAGEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]')
     egrep '[[:space:]]+[[:alnum:]].+_CACHE_IMAGE_NAME:[[:space:]+"[[:print:]]+"' \
         "$STORAGEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]' | \
-        grep -v 'notready' | sort -u
+        sed -r -e "s/\\\$[{]_BUILT_IMAGE_SUFFIX[}]/$_BIS/" | sort -u
 }
 
 show_usage() {
