@@ -57,11 +57,11 @@ func NewPatternMatcher(patterns []string) (*PatternMatcher, error) {
 	return pm, nil
 }
 
-// Matches verifies the provided filepath against all patterns.
-// It returns the amount of `matches` and `excludes` for the patterns on
-// success, otherwise an error.
-// It is not safe to be called concurrently.
-func (pm *PatternMatcher) Matches(file string) (matches, excludes uint, err error) {
+// Deprecated: Please use the `MatchesResult` method instead.
+// Matches matches path against all the patterns. Matches is not safe to be
+// called concurrently
+func (pm *PatternMatcher) Matches(file string) (bool, error) {
+	matched := false
 	file = filepath.FromSlash(file)
 	parentPath := filepath.Dir(file)
 	parentPathDirs := strings.Split(parentPath, string(os.PathSeparator))
@@ -75,7 +75,7 @@ func (pm *PatternMatcher) Matches(file string) (matches, excludes uint, err erro
 
 		match, err := pattern.match(file)
 		if err != nil {
-			return 0, 0, err
+			return false, err
 		}
 
 		if !match && parentPath != "." {
@@ -86,35 +86,94 @@ func (pm *PatternMatcher) Matches(file string) (matches, excludes uint, err erro
 		}
 
 		if match {
+			matched = !negative
+		}
+	}
+
+	if matched {
+		logrus.Debugf("Skipping excluded path: %s", file)
+	}
+
+	return matched, nil
+}
+
+type MatchResult struct {
+	isMatched         bool
+	matches, excludes uint
+}
+
+// Excludes returns true if the overall result is matched
+func (m *MatchResult) IsMatched() bool {
+	return m.isMatched
+}
+
+// Excludes returns the amount of matches of an MatchResult
+func (m *MatchResult) Matches() uint {
+	return m.matches
+}
+
+// Excludes returns the amount of excludes of an MatchResult
+func (m *MatchResult) Excludes() uint {
+	return m.excludes
+}
+
+// MatchesResult verifies the provided filepath against all patterns.
+// It returns the `*MatchResult` result for the patterns on success, otherwise
+// an error. This method is not safe to be called concurrently.
+func (pm *PatternMatcher) MatchesResult(file string) (res *MatchResult, err error) {
+	file = filepath.FromSlash(file)
+	parentPath := filepath.Dir(file)
+	parentPathDirs := strings.Split(parentPath, string(os.PathSeparator))
+	res = &MatchResult{false, 0, 0}
+
+	for _, pattern := range pm.patterns {
+		negative := false
+
+		if pattern.exclusion {
+			negative = true
+		}
+
+		match, err := pattern.match(file)
+		if err != nil {
+			return nil, err
+		}
+
+		if !match && parentPath != "." {
+			// Check to see if the pattern matches one of our parent dirs.
+			if len(pattern.dirs) <= len(parentPathDirs) {
+				match, _ = pattern.match(strings.Join(
+					parentPathDirs[:len(pattern.dirs)],
+					string(os.PathSeparator)),
+				)
+			}
+		}
+
+		if match {
+			res.isMatched = !negative
 			if negative {
-				excludes++
+				res.excludes++
 			} else {
-				matches++
+				res.matches++
 			}
 		}
 	}
 
-	if matches > 0 {
+	if res.matches > 0 {
 		logrus.Debugf("Skipping excluded path: %s", file)
 	}
 
-	return matches, excludes, nil
+	return res, nil
 }
 
 // IsMatch verifies the provided filepath against all patterns and returns true
-// if it matches. A match is valid if the amount of positive matches is larger
-// than the negative (excludes) ones.
+// if it matches. A match is valid if the last match is a positive one.
 // It returns an error on failure and is not safe to be called concurrently.
 func (pm *PatternMatcher) IsMatch(file string) (matched bool, err error) {
-	matches, excludes, err := pm.Matches(file)
+	res, err := pm.MatchesResult(file)
 	if err != nil {
 		return false, err
 	}
-
-	if matches > excludes && matches-excludes > 0 {
-		matched = true
-	}
-	return matched, nil
+	return res.isMatched, nil
 }
 
 // Exclusions returns true if any of the patterns define exclusions
