@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -84,6 +85,22 @@ func walkchunk(path string, fi os.FileInfo, dir string, root *FileInfo) error {
 	}
 	info.stat = stat
 	info.capability, _ = system.Lgetxattr(cpath, "security.capability") // lgetxattr(2): fs access
+	xattrs, err := system.Llistxattr(cpath)
+	if err != nil && err != unix.EOPNOTSUPP {
+		return err
+	}
+	if xattrs != nil {
+		for _, key := range xattrs {
+			if strings.HasPrefix(key, "user.") {
+				if value, _ := system.Lgetxattr(cpath, key); value != nil {
+					if info.xattrs == nil {
+						info.xattrs = make(map[string]string)
+					}
+					info.xattrs[key] = string(value)
+				}
+			}
+		}
+	}
 	parent.children[info.name] = info
 	return nil
 }

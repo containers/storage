@@ -395,6 +395,23 @@ func ReadSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 	return nil
 }
 
+// ReadUserXattrToTarHeader reads user.* xattr from filesystem to a tar header
+func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
+	if xattrs, _ := system.Llistxattr(path); xattrs != nil {
+		for _, key := range xattrs {
+			if strings.HasPrefix(key, "user.") {
+				if value, _ := system.Lgetxattr(path, key); value != nil {
+					if hdr.Xattrs == nil {
+						hdr.Xattrs = make(map[string]string)
+					}
+					hdr.Xattrs[key] = string(value)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 type tarWhiteoutConverter interface {
 	ConvertWrite(*tar.Header, string, os.FileInfo) (*tar.Header, error)
 	ConvertRead(*tar.Header, string) (bool, error)
@@ -467,6 +484,9 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 		return err
 	}
 	if err := ReadSecurityXattrToTarHeader(path, hdr); err != nil {
+		return err
+	}
+	if err := ReadUserXattrToTarHeader(path, hdr); err != nil {
 		return err
 	}
 	if ta.CopyPass {
