@@ -277,12 +277,10 @@ func doCopyXattrs(srcPath, dstPath string) error {
 		return err
 	}
 
-	if xattrs != nil {
-		for _, key := range xattrs {
-			if strings.HasPrefix(key, "user.") {
-				if err := copyXattr(srcPath, dstPath, key); err != nil {
-					return err
-				}
+	for _, key := range xattrs {
+		if strings.HasPrefix(key, "user.") {
+			if err := copyXattr(srcPath, dstPath, key); err != nil {
+				return err
 			}
 		}
 	}

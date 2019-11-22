@@ -92,18 +92,16 @@ func walkchunk(path string, fi os.FileInfo, dir string, root *FileInfo) error {
 	if err != nil && err != system.EOPNOTSUPP {
 		return err
 	}
-	if xattrs != nil {
-		for _, key := range xattrs {
-			if strings.HasPrefix(key, "user.") {
-				value, err := system.Lgetxattr(cpath, key)
-				if err != nil {
-					return err
-				}
-				if info.xattrs == nil {
-					info.xattrs = make(map[string]string)
-				}
-				info.xattrs[key] = string(value)
+	for _, key := range xattrs {
+		if strings.HasPrefix(key, "user.") {
+			value, err := system.Lgetxattr(cpath, key)
+			if err != nil {
+				return err
 			}
+			if info.xattrs == nil {
+				info.xattrs = make(map[string]string)
+			}
+			info.xattrs[key] = string(value)
 		}
 	}
 	parent.children[info.name] = info

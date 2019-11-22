@@ -404,18 +404,16 @@ func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	if err != nil && err != system.EOPNOTSUPP {
 		return err
 	}
-	if xattrs != nil {
-		for _, key := range xattrs {
-			if strings.HasPrefix(key, "user.") {
-				value, err := system.Lgetxattr(path, key)
-				if err != nil {
-					return err
-				}
-				if hdr.Xattrs == nil {
-					hdr.Xattrs = make(map[string]string)
-				}
-				hdr.Xattrs[key] = string(value)
+	for _, key := range xattrs {
+		if strings.HasPrefix(key, "user.") {
+			value, err := system.Lgetxattr(path, key)
+			if err != nil {
+				return err
 			}
+			if hdr.Xattrs == nil {
+				hdr.Xattrs = make(map[string]string)
+			}
+			hdr.Xattrs[key] = string(value)
 		}
 	}
 	return nil
