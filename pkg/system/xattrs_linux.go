@@ -2,8 +2,14 @@ package system
 
 import (
 	"bytes"
+	"syscall"
 
 	"golang.org/x/sys/unix"
+)
+
+const (
+	// Operation not supported
+	EOPNOTSUPP syscall.Errno = unix.EOPNOTSUPP
 )
 
 // Lgetxattr retrieves the value of the extended attribute identified by attr

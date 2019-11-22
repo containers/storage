@@ -387,7 +387,10 @@ func fillGo18FileTypeBits(mode int64, fi os.FileInfo) int64 {
 // ReadSecurityXattrToTarHeader reads security.capability xattr from filesystem
 // to a tar header
 func ReadSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
-	capability, _ := system.Lgetxattr(path, "security.capability")
+	capability, err := system.Lgetxattr(path, "security.capability")
+	if err != nil && err != system.EOPNOTSUPP {
+		return err
+	}
 	if capability != nil {
 		hdr.Xattrs = make(map[string]string)
 		hdr.Xattrs["security.capability"] = string(capability)
@@ -397,15 +400,21 @@ func ReadSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 
 // ReadUserXattrToTarHeader reads user.* xattr from filesystem to a tar header
 func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
-	if xattrs, _ := system.Llistxattr(path); xattrs != nil {
+	xattrs, err := system.Llistxattr(path)
+	if err != nil && err != system.EOPNOTSUPP {
+		return err
+	}
+	if xattrs != nil {
 		for _, key := range xattrs {
 			if strings.HasPrefix(key, "user.") {
-				if value, _ := system.Lgetxattr(path, key); value != nil {
-					if hdr.Xattrs == nil {
-						hdr.Xattrs = make(map[string]string)
-					}
-					hdr.Xattrs[key] = string(value)
+				value, err := system.Lgetxattr(path, key)
+				if err != nil {
+					return err
 				}
+				if hdr.Xattrs == nil {
+					hdr.Xattrs = make(map[string]string)
+				}
+				hdr.Xattrs[key] = string(value)
 			}
 		}
 	}

@@ -84,20 +84,25 @@ func walkchunk(path string, fi os.FileInfo, dir string, root *FileInfo) error {
 		return err
 	}
 	info.stat = stat
-	info.capability, _ = system.Lgetxattr(cpath, "security.capability") // lgetxattr(2): fs access
+	info.capability, err = system.Lgetxattr(cpath, "security.capability") // lgetxattr(2): fs access
+	if err != nil && err != system.EOPNOTSUPP {
+		return err
+	}
 	xattrs, err := system.Llistxattr(cpath)
-	if err != nil && err != unix.EOPNOTSUPP {
+	if err != nil && err != system.EOPNOTSUPP {
 		return err
 	}
 	if xattrs != nil {
 		for _, key := range xattrs {
 			if strings.HasPrefix(key, "user.") {
-				if value, _ := system.Lgetxattr(cpath, key); value != nil {
-					if info.xattrs == nil {
-						info.xattrs = make(map[string]string)
-					}
-					info.xattrs[key] = string(value)
+				value, err := system.Lgetxattr(cpath, key)
+				if err != nil {
+					return err
 				}
+				if info.xattrs == nil {
+					info.xattrs = make(map[string]string)
+				}
+				info.xattrs[key] = string(value)
 			}
 		}
 	}

@@ -2,6 +2,13 @@
 
 package system
 
+import "syscall"
+
+const (
+	// Operation not supported
+	EOPNOTSUPP syscall.Errno = syscall.Errno(0)
+)
+
 // Lgetxattr is not supported on platforms other than linux.
 func Lgetxattr(path string, attr string) ([]byte, error) {
 	return nil, ErrNotSupportedPlatform
