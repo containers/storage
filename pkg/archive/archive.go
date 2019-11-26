@@ -567,10 +567,7 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	}
 
 	if hdr.Typeflag == tar.TypeReg && hdr.Size > 0 {
-		// We use system.OpenSequential to ensure we use sequential file
-		// access on Windows to avoid depleting the standby list.
-		// On Linux, this equates to a regular os.Open.
-		file, err := system.OpenSequential(path)
+		file, err := os.Open(path)
 		if err != nil {
 			return err
 		}
@@ -611,7 +608,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		// Source is regular file. We use system.OpenFileSequential to use sequential
 		// file access to avoid depleting the standby list on Windows.
 		// On Linux, this equates to a regular os.OpenFile
-		file, err := system.OpenFileSequential(path, os.O_CREATE|os.O_WRONLY, hdrInfo.Mode())
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, hdrInfo.Mode())
 		if err != nil {
 			return err
 		}
@@ -1192,7 +1189,7 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 		dst = filepath.Join(dst, filepath.Base(src))
 	}
 	// Create the holding directory if necessary
-	if err := system.MkdirAll(filepath.Dir(dst), 0700, ""); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0700); err != nil {
 		return err
 	}
 

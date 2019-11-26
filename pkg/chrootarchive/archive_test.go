@@ -17,7 +17,6 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/reexec"
-	"github.com/containers/storage/pkg/system"
 )
 
 func init() {
@@ -49,7 +48,7 @@ func TestChrootTarUntar(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := ioutil.WriteFile(filepath.Join(src, "toto"), []byte("hello toto"), 0644); err != nil {
@@ -63,7 +62,7 @@ func TestChrootTarUntar(t *testing.T) {
 		t.Fatal(err)
 	}
 	dest := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(dest, 0700, ""); err != nil {
+	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := Untar(stream, dest, &archive.TarOptions{ExcludePatterns: []string{"lolo"}}); err != nil {
@@ -80,7 +79,7 @@ func TestChrootUntarWithHugeExcludesList(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := ioutil.WriteFile(filepath.Join(src, "toto"), []byte("hello toto"), 0644); err != nil {
@@ -91,7 +90,7 @@ func TestChrootUntarWithHugeExcludesList(t *testing.T) {
 		t.Fatal(err)
 	}
 	dest := filepath.Join(tmpdir, "dest")
-	if err := system.MkdirAll(dest, 0700, ""); err != nil {
+	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
 	}
 	options := &archive.TarOptions{}
@@ -212,7 +211,7 @@ func TestChrootTarUntarWithSymlink(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, false); err != nil {
@@ -238,7 +237,7 @@ func TestChrootCopyWithTar(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, true); err != nil {
@@ -288,7 +287,7 @@ func TestChrootCopyWithTarAndChown(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, true); err != nil {
@@ -340,7 +339,7 @@ func TestChrootCopyFileWithTar(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, true); err != nil {
@@ -383,7 +382,7 @@ func TestChrootCopyFileWithTarAndChown(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, true); err != nil {
@@ -437,7 +436,7 @@ func TestChrootUntarPath(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, false); err != nil {
@@ -480,7 +479,7 @@ func TestChrootUntarPathAndChown(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := prepareSourceDirectory(10, src, false); err != nil {
@@ -552,7 +551,7 @@ func TestChrootUntarEmptyArchiveFromSlowReader(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	dest := filepath.Join(tmpdir, "dest")
-	if err := system.MkdirAll(dest, 0700, ""); err != nil {
+	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
 	}
 	stream := &slowEmptyTarReader{size: 10240, chunkSize: 1024}
@@ -568,7 +567,7 @@ func TestChrootApplyEmptyArchiveFromSlowReader(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	dest := filepath.Join(tmpdir, "dest")
-	if err := system.MkdirAll(dest, 0700, ""); err != nil {
+	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
 	}
 	stream := &slowEmptyTarReader{size: 10240, chunkSize: 1024}
@@ -584,7 +583,7 @@ func TestChrootApplyDotDotFile(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "src")
-	if err := system.MkdirAll(src, 0700, ""); err != nil {
+	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := ioutil.WriteFile(filepath.Join(src, "..gitme"), []byte(""), 0644); err != nil {
@@ -595,7 +594,7 @@ func TestChrootApplyDotDotFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	dest := filepath.Join(tmpdir, "dest")
-	if err := system.MkdirAll(dest, 0700, ""); err != nil {
+	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ApplyLayer(dest, stream); err != nil {
