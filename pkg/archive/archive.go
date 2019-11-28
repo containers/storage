@@ -407,6 +407,10 @@ func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	for _, key := range xattrs {
 		if strings.HasPrefix(key, "user.") {
 			value, err := system.Lgetxattr(path, key)
+			if err == system.E2BIG {
+				logrus.Errorf("archive: Skipping xattr for file %s since value is too big: %s", path, key)
+				continue
+			}
 			if err != nil {
 				return err
 			}
