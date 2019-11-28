@@ -7,7 +7,7 @@ require (
 	github.com/Microsoft/hcsshim v0.8.6
 	github.com/docker/docker v0.0.0-20171019062838-86f080cff091 // indirect
 	github.com/docker/go-units v0.4.0
-	github.com/klauspost/compress v1.9.2
+	github.com/klauspost/compress v1.9.3
 	github.com/klauspost/cpuid v1.2.1 // indirect
 	github.com/klauspost/pgzip v1.2.1
 	github.com/mattn/go-shellwords v1.0.6
