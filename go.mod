@@ -23,7 +23,7 @@ require (
 	github.com/tchap/go-patricia v2.3.0+incompatible
 	github.com/vbatts/tar-split v0.11.1
 	golang.org/x/net v0.0.0-20190628185345-da137c7871d7
-	golang.org/x/sys v0.0.0-20191127021746-63cb32ae39b2
+	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
 	gotest.tools v0.0.0-20190624233834-05ebafbffc79
 )
 
