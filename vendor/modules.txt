@@ -77,7 +77,7 @@ github.com/vbatts/tar-split/tar/asm
 github.com/vbatts/tar-split/tar/storage
 # golang.org/x/net v0.0.0-20190628185345-da137c7871d7
 golang.org/x/net/context
-# golang.org/x/sys v0.0.0-20191127021746-63cb32ae39b2
+# golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/yaml.v2 v2.2.2
