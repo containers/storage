@@ -236,26 +236,9 @@ func TestOverlayOptions(t *testing.T) {
 	if !searchOptions(doptions, "mount_program=/usr/bin/fuse_overlay") {
 		t.Fatalf("Expected to find 'fuse_overlay' options, got %v", doptions)
 	}
-	options.Overlay.SkipMountHome = "true"
-	doptions = GetGraphDriverOptions("overlay", options)
-	if len(doptions) == 0 {
-		t.Fatalf("Expected 0 options, got %v", doptions)
-	}
-	if !searchOptions(doptions, "skip_mount_home") {
-		t.Fatalf("Expected to find 'skip_mount_home' options, got %v", doptions)
-	}
 
 	// Make sure legacy mountopt still works
 	options = OptionsConfig{}
-	options.SkipMountHome = "true"
-	doptions = GetGraphDriverOptions("overlay", options)
-	if len(doptions) == 0 {
-		t.Fatalf("Expected 0 options, got %v", doptions)
-	}
-	if !searchOptions(doptions, "skip_mount_home") {
-		t.Fatalf("Expected to find 'skip_mount_home' options, got %v", doptions)
-	}
-
 	options.Size = "200"
 	doptions = GetGraphDriverOptions("overlay", options)
 	if len(doptions) == 0 {
