@@ -16,12 +16,11 @@ import (
 // Result will contain a message about why it failed.
 type Comparison func() Result
 
-// DeepEqual compares two values using google/go-cmp
-// (https://godoc.org/github.com/google/go-cmp/cmp)
+// DeepEqual compares two values using google/go-cmp (http://bit.do/go-cmp)
 // and succeeds if the values are equal.
 //
 // The comparison can be customized using comparison Options.
-// Package http://gotest.tools/assert/opt provides some additional
+// Package https://godoc.org/gotest.tools/assert/opt provides some additional
 // commonly used Options.
 func DeepEqual(x, y interface{}, opts ...cmp.Option) Comparison {
 	return func() (result Result) {
@@ -242,12 +241,10 @@ func ErrorContains(err error, substring string) Comparison {
 	}
 }
 
-type causer interface {
-	Cause() error
-}
-
 func formatErrorMessage(err error) string {
-	if _, ok := err.(causer); ok {
+	if _, ok := err.(interface {
+		Cause() error
+	}); ok {
 		return fmt.Sprintf("%q\n%+v", err, err)
 	}
 	// This error was not wrapped with github.com/pkg/errors
@@ -286,16 +283,10 @@ func isNil(obj interface{}, msgFunc func(reflect.Value) string) Comparison {
 // ErrorType succeeds if err is not nil and is of the expected type.
 //
 // Expected can be one of:
-//   func(error) bool
-// Function should return true if the error is the expected type.
-//   type struct{}, type &struct{}
-// A struct or a pointer to a struct.
-// Fails if the error is not of the same type as expected.
-//   type &interface{}
-// A pointer to an interface type.
-// Fails if err does not implement the interface.
-//   reflect.Type
-// Fails if err does not implement the reflect.Type
+// a func(error) bool which returns true if the error is the expected type,
+// an instance of (or a pointer to) a struct of the expected type,
+// a pointer to an interface the error is expected to implement,
+// a reflect.Type of the expected struct or interface.
 func ErrorType(err error, expected interface{}) Comparison {
 	return func() Result {
 		switch expectedType := expected.(type) {
