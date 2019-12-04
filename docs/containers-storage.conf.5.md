@@ -154,9 +154,6 @@ The `storage.options.overlay` table supports the following options:
 **size**=""
   Maximum size of a container image.   This flag can be used to set quota on the size of container images. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
-**skip_mount_home** = "false"
-  Set to skip a PRIVATE bind mount on the storage home directory.
-
 ### STORAGE OPTIONS FOR VFS TABLE
 
 The `storage.options.vfs` table supports the following options:
