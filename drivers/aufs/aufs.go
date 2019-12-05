@@ -93,7 +93,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	fsMagic, err := graphdriver.GetFSMagic(home)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "aufs: failed to getfsmagic %s", home)
 	}
 	if fsName, ok := graphdriver.FsNames[fsMagic]; ok {
 		backingFs = fsName
@@ -109,7 +109,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	for _, option := range options.DriverOptions {
 		key, val, err := parsers.ParseKeyValueOpt(option)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "aufs: ParseKeyValueOpt %s", option)
 		}
 		key = strings.ToLower(key)
 		switch key {
@@ -137,7 +137,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UIDMaps, options.GIDMaps)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "aufs: failed to GetRootUIDGID")
 	}
 	// Create the root aufs driver dir and return
 	// if it already exists
@@ -146,17 +146,17 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		if os.IsExist(err) {
 			return a, nil
 		}
-		return nil, err
+		return nil, errors.Wrapf(err, "aufs: failed to mkdirallas: %s", home)
 	}
 
 	if err := mountpk.MakePrivate(home); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "aufs: failed to MakePrivate: %s", home)
 	}
 
 	// Populate the dir structure
 	for _, p := range paths {
 		if err := idtools.MkdirAllAs(path.Join(home, p), 0700, rootUID, rootGID); err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "aufs: failed to MakePrivate: %s", path.Join(home, p))
 		}
 	}
 	logger := logrus.WithFields(logrus.Fields{
@@ -326,7 +326,7 @@ func (a *Driver) createDirsFor(id, parent string) error {
 			rootPair.GID = int(st.GID())
 		}
 		if err := idtools.MkdirAllAndChownNew(path.Join(a.rootPath(), p, id), os.FileMode(0755), rootPair); err != nil {
-			return err
+			return errors.Wrapf(err, "aufs: failed to makedir %s", path.Join(a.rootPath(), p))
 		}
 	}
 	return nil

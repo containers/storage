@@ -3278,7 +3278,7 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			fmt.Printf("Failed to read %s %v\n", configFile, err.Error())
+			fmt.Fprintf(os.Stderr, "Failed to read %s %v\n", configFile, err.Error())
 			return
 		}
 	}
@@ -3286,7 +3286,7 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	config := new(tomlConfig)
 
 	if _, err := toml.Decode(string(data), config); err != nil {
-		fmt.Printf("Failed to parse %s %v\n", configFile, err.Error())
+		fmt.Fprintf(os.Stderr, "Failed to parse %s %v\n", configFile, err.Error())
 		return
 	}
 	if config.Storage.Driver != "" {
@@ -3322,7 +3322,7 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	if config.Storage.Options.RemapUser != "" && config.Storage.Options.RemapGroup != "" {
 		mappings, err := idtools.NewIDMappings(config.Storage.Options.RemapUser, config.Storage.Options.RemapGroup)
 		if err != nil {
-			fmt.Printf("Error initializing ID mappings for %s:%s %v\n", config.Storage.Options.RemapUser, config.Storage.Options.RemapGroup, err)
+			fmt.Fprintf(os.Stderr, "Error initializing ID mappings for %s:%s %v\n", config.Storage.Options.RemapUser, config.Storage.Options.RemapGroup, err)
 			return
 		}
 		storeOptions.UIDMap = mappings.UIDs()
@@ -3331,13 +3331,13 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 
 	uidmap, err := idtools.ParseIDMap([]string{config.Storage.Options.RemapUIDs}, "remap-uids")
 	if err != nil {
-		fmt.Print(err)
+		fmt.Fprint(os.Stderr, err)
 	} else {
 		storeOptions.UIDMap = append(storeOptions.UIDMap, uidmap...)
 	}
 	gidmap, err := idtools.ParseIDMap([]string{config.Storage.Options.RemapGIDs}, "remap-gids")
 	if err != nil {
-		fmt.Print(err)
+		fmt.Fprint(os.Stderr, err)
 	} else {
 		storeOptions.GIDMap = append(storeOptions.GIDMap, gidmap...)
 	}
@@ -3345,6 +3345,20 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		storeOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
 	}
 
+	if storeOptions.GraphDriverName == "" {
+		options := drivers.Options{
+			Root:    storeOptions.GraphRoot,
+			RunRoot: storeOptions.RunRoot,
+			UIDMaps: storeOptions.UIDMap,
+			GIDMaps: storeOptions.GIDMap,
+		}
+		name, err := drivers.GetDefaultDriverName(options)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting default driver name: %v\n", err)
+		} else {
+			storeOptions.GraphDriverName = name
+		}
+	}
 	storeOptions.GraphDriverOptions = cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)
 
 	if os.Getenv("STORAGE_OPTS") != "" {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,9 @@ const (
 )
 
 var (
+	once                 sync.Once
+	defaultDriverName    string
+	defaultDriverNameErr error
 	// All registered drivers
 	drivers map[string]InitFunc
 
@@ -209,6 +213,46 @@ func Register(name string, initFunc InitFunc) error {
 	return nil
 }
 
+// GetDefaultDriverName returns the driver name
+func GetDefaultDriverName(config Options) (string, error) {
+	once.Do(func() {
+		driver, err := getDefaultDriver(config)
+		if err != nil {
+			defaultDriverNameErr = err
+		} else {
+			defaultDriverName = driver.String()
+		}
+	})
+	return defaultDriverName, defaultDriverNameErr
+}
+
+// GetDefaultDriver initializes and returns the registered driver
+func getDefaultDriver(config Options) (Driver, error) {
+	// Check for priority drivers first
+	for _, name := range priority {
+		driver, err := getBuiltinDriver(name, config.Root, config)
+		if err != nil {
+			if isDriverNotSupported(err) {
+				continue
+			}
+			return nil, err
+		}
+		return driver, nil
+	}
+	// Check all registered drivers if no priority driver is found
+	for name, initFunc := range drivers {
+		driver, err := initFunc(filepath.Join(config.Root, name), config)
+		if err != nil {
+			if isDriverNotSupported(err) {
+				continue
+			}
+			return nil, err
+		}
+		return driver, nil
+	}
+	return nil, fmt.Errorf("No supported storage backend found")
+}
+
 // GetDriver initializes and returns the registered driver
 func GetDriver(name string, config Options) (Driver, error) {
 	if initFunc, exists := drivers[name]; exists {
@@ -281,30 +325,7 @@ func New(name string, config Options) (Driver, error) {
 		}
 	}
 
-	// Check for priority drivers first
-	for _, name := range priority {
-		driver, err := getBuiltinDriver(name, config.Root, config)
-		if err != nil {
-			if isDriverNotSupported(err) {
-				continue
-			}
-			return nil, err
-		}
-		return driver, nil
-	}
-
-	// Check all registered drivers if no priority driver is found
-	for name, initFunc := range drivers {
-		driver, err := initFunc(filepath.Join(config.Root, name), config)
-		if err != nil {
-			if isDriverNotSupported(err) {
-				continue
-			}
-			return nil, err
-		}
-		return driver, nil
-	}
-	return nil, fmt.Errorf("No supported storage backend found")
+	return getDefaultDriver(config)
 }
 
 // isDriverNotSupported returns true if the error initializing

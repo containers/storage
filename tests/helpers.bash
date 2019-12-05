@@ -54,6 +54,7 @@ populate() {
 	lowerlayer="$output"
 	# Mount the layer.
 	run storage --debug=false mount $lowerlayer
+	echo $output
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	local lowermount="$output"
@@ -81,11 +82,13 @@ populate() {
 
 	# Create a second layer based on the first.
 	run storage --debug=false create-layer "$lowerlayer"
+	echo $output
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	midlayer="$output"
 	# Mount the second layer.
 	run storage --debug=false mount $midlayer
+	echo $output
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	local midmount="$output"
@@ -133,11 +136,13 @@ populate() {
 
 	# Create a third layer based on the second.
 	run storage --debug=false create-layer "$midlayer"
+	echo $output
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	upperlayer="$output"
 	# Mount the third layer.
 	run storage --debug=false mount $upperlayer
+	echo $output
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	local uppermount="$output"
