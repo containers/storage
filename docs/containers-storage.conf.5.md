@@ -145,7 +145,12 @@ The `storage.options.overlay` table supports the following options:
   ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: false)
 
 **mount_program**=""
-  Specifies the path to a custom program to use instead of using kernel defaults for mounting the file system.
+  Specifies the path to a custom program to use instead of using kernel defaults
+for mounting the file system. In rootless mode, without the CAP_SYS_ADMIN
+capability, many kernels prevent mounting of overlay file systems, requiring
+you to specify a mount_program. The mount_program option is also required on
+systems where the underlying storage is btrfs, aufs, zfs, overlay, or ecryptfs
+based file systems.
   mount_program = "/usr/bin/fuse-overlayfs"
 
 **mountopt**=""
