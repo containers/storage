@@ -138,6 +138,9 @@ type StoreOptions struct {
 	// GraphRoot is the filesystem path under which we will store the
 	// contents of layers, images, and containers.
 	GraphRoot string `json:"root,omitempty"`
+	// RooltessStoragePath is the storage path for rootless users
+	// (default is $HOME/.config/containers/storage)
+	RootlessStoragePath string `toml:"rootless_storage_path"`
 	// GraphDriverName is the underlying storage driver that we'll be
 	// using.  It only needs to be specified the first time a Store is
 	// initialized for a given RunRoot and GraphRoot.

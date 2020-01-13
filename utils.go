@@ -228,7 +228,21 @@ func DefaultStoreOptions(rootless bool, rootlessUid int) (StoreOptions, error) {
 			}
 			if storageOpts.GraphRoot == "" {
 				storageOpts.GraphRoot = defaultRootlessGraphRoot
+			} else if storageOpts.RootlessStoragePath != "" {
+				home, err := homeDir()
+				if err != nil {
+					return storageOpts, err
+				}
+				rootlessStoragePath := strings.Replace(storageOpts.RootlessStoragePath, "$HOME", home, -1)
+				rootlessStoragePath = strings.Replace(rootlessStoragePath, "$UID", string(rootlessUid), -1)
+				usr, err := user.LookupId(string(rootlessUid))
+				if err != nil {
+					return storageOpts, err
+				}
+				rootlessStoragePath = strings.Replace(rootlessStoragePath, "$USER", usr.Name, -1)
+				storageOpts.GraphRoot = rootlessStoragePath
 			}
+
 		} else {
 			if err := os.MkdirAll(filepath.Dir(storageConf), 0755); err != nil {
 				return storageOpts, errors.Wrapf(err, "cannot make directory %s", filepath.Dir(storageConf))
@@ -256,7 +270,7 @@ func homeDir() (string, error) {
 	if home == "" {
 		usr, err := user.Current()
 		if err != nil {
-			return "", errors.Wrapf(err, "neither XDG_RUNTIME_DIR nor HOME was set non-empty")
+			return "", errors.Wrapf(err, "unable to retrieve the current user information")
 		}
 		home = usr.HomeDir
 	}
