@@ -346,14 +346,14 @@ func (r *layerStore) Load() error {
 	r.byname = names
 	r.bycompressedsum = compressedsums
 	r.byuncompressedsum = uncompressedsums
+
 	// Load and merge information about which layers are mounted, and where.
-	if r.IsReadWrite() {
-		r.mountsLockfile.RLock()
-		defer r.mountsLockfile.Unlock()
-		if err = r.loadMounts(); err != nil {
-			return err
-		}
+	r.mountsLockfile.RLock()
+	defer r.mountsLockfile.Unlock()
+	if err = r.loadMounts(); err != nil {
+		return err
 	}
+
 	// Last step: if we're writable, try to remove anything that a previous
 	// user of this storage area marked for deletion but didn't manage to
 	// actually delete.
