@@ -15,7 +15,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/runc v1.0.0-rc9
 	github.com/opencontainers/selinux v1.3.0
-	github.com/pkg/errors v0.9.0
+	github.com/pkg/errors v0.9.1
 	github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.3 // indirect
