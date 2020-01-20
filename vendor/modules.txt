@@ -53,7 +53,7 @@ github.com/klauspost/compress/zstd/internal/xxhash
 github.com/klauspost/pgzip
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
 github.com/konsorten/go-windows-terminal-sequences
-# github.com/mattn/go-shellwords v1.0.7
+# github.com/mattn/go-shellwords v1.0.9
 github.com/mattn/go-shellwords
 # github.com/mistifyio/go-zfs v2.1.1+incompatible
 github.com/mistifyio/go-zfs
