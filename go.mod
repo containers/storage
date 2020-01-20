@@ -10,7 +10,7 @@ require (
 	github.com/klauspost/compress v1.9.7
 	github.com/klauspost/cpuid v1.2.1 // indirect
 	github.com/klauspost/pgzip v1.2.1
-	github.com/mattn/go-shellwords v1.0.7
+	github.com/mattn/go-shellwords v1.0.9
 	github.com/mistifyio/go-zfs v2.1.1+incompatible
 	github.com/opencontainers/go-digest v1.0.0-rc1
 	github.com/opencontainers/runc v1.0.0-rc9
