@@ -810,15 +810,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		return "", err
 	}
 	readWrite := true
-	// fuse-overlayfs doesn't support working without an upperdir.
-	if d.options.mountProgram == "" {
-		for _, o := range options.Options {
-			if o == "ro" {
-				readWrite = false
-				break
-			}
-		}
-	}
 
 	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
 	if err != nil && !os.IsNotExist(err) {
