@@ -7,7 +7,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 )
 

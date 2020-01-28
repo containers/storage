@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/devicemapper"
 	"github.com/containers/storage/pkg/dmesg"
 	"github.com/containers/storage/pkg/idtools"

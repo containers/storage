@@ -9,6 +9,7 @@ linters:
     - depguard
     - goconst
     - gofmt
+    - goimports
     - goprintffuncname
     - interfacer
     - rowserrcheck
@@ -24,7 +25,6 @@ linters:
     - gocritic
     - gocyclo
     - godox
-    - goimports
     - golint
     - gomnd
     - gosec

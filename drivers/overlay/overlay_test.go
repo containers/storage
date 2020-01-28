@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
