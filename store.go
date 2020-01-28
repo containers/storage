@@ -2505,8 +2505,8 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 	if rlstore.Exists(id) {
 		options := drivers.MountOpts{
 			MountLabel: mountLabel,
-			UidMaps:    uidMap,
-			GidMaps:    gidMap,
+			UIDMaps:    uidMap,
+			GIDMaps:    gidMap,
 			Options:    mountOpts,
 		}
 		return rlstore.Mount(id, options)

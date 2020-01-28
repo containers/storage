@@ -10,6 +10,7 @@ linters:
     - goconst
     - gofmt
     - goimports
+    - golint
     - goprintffuncname
     - interfacer
     - rowserrcheck
@@ -25,7 +26,6 @@ linters:
     - gocritic
     - gocyclo
     - godox
-    - golint
     - gomnd
     - gosec
     - gosimple

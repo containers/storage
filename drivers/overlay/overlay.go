@@ -401,9 +401,8 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			if err == nil {
 				logrus.Debugf("overlay test mount with multiple lowers succeeded")
 				return supportsDType, nil
-			} else {
-				logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 			}
+			logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 		}
 		flags = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lower1Dir, upperDir, workDir)
 		if len(flags) < unix.Getpagesize() {
@@ -411,9 +410,8 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			if err == nil {
 				logrus.Errorf("overlay test mount with multiple lowers failed, but succeeded with a single lower")
 				return supportsDType, errors.Wrap(graphdriver.ErrNotSupported, "kernel too old to provide multiple lowers feature for overlay")
-			} else {
-				logrus.Debugf("overlay test mount with a single lower failed %v", err)
 			}
+			logrus.Debugf("overlay test mount with a single lower failed %v", err)
 		}
 		logrus.Errorf("'overlay' is not supported over %s at %q", backingFs, home)
 		return supportsDType, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s at %q", backingFs, home)
@@ -954,7 +952,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	if d.options.mountProgram != "" {
 		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
 			if !disableShifting {
-				label = d.optsAppendMappings(label, options.UidMaps, options.GidMaps)
+				label = d.optsAppendMappings(label, options.UIDMaps, options.GIDMaps)
 			}
 
 			mountProgram := exec.Command(d.options.mountProgram, "-o", label, target)
