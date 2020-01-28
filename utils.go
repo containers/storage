@@ -153,10 +153,6 @@ func getRootlessStorageOpts(rootlessUid int) (StoreOptions, error) {
 	return opts, nil
 }
 
-type tomlOptionsConfig struct {
-	MountProgram string `toml:"mount_program"`
-}
-
 func getTomlStorage(storeOptions *StoreOptions) *tomlConfig {
 	config := new(tomlConfig)
 
