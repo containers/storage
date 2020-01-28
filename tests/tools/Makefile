@@ -38,4 +38,8 @@ $(BUILDDIR)/go-md2man:
 	$(call go-build,./vendor/github.com/cpuguy83/go-md2man)
 
 $(BUILDDIR)/golangci-lint:
-	$(call go-build,./vendor/github.com/golangci/golangci-lint/cmd/golangci-lint)
+	export \
+		VERSION=v1.23.1 \
+		URL=https://raw.githubusercontent.com/golangci/golangci-lint \
+		BINDIR=$(BUILDDIR) && \
+	curl -sfL $$URL/$$VERSION/install.sh | sh -s $$VERSION
