@@ -265,29 +265,3 @@ func (args Args) WalkValues(field string, op func(value string) error) error {
 	}
 	return nil
 }
-
-func deprecatedArgs(d map[string][]string) map[string]map[string]bool {
-	m := map[string]map[string]bool{}
-	for k, v := range d {
-		values := map[string]bool{}
-		for _, vv := range v {
-			values[vv] = true
-		}
-		m[k] = values
-	}
-	return m
-}
-
-func convertArgsToSlice(f map[string]map[string]bool) map[string][]string {
-	m := map[string][]string{}
-	for k, v := range f {
-		values := []string{}
-		for kk := range v {
-			if v[kk] {
-				values = append(values, kk)
-			}
-		}
-		m[k] = values
-	}
-	return m
-}

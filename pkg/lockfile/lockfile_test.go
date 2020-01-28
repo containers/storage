@@ -690,14 +690,18 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 	var wg sync.WaitGroup
 	var rcounter, wcounter, rhighest, whighest int64
 	var rhighestMutex, whighestMutex sync.Mutex
-	bias_p := 1
-	bias_q := 10
-	groups := 15
-	writer := func(i int) bool { return (i % bias_q) < bias_p }
+
+	const (
+		biasP  = 1
+		biasQ  = 10
+		groups = 15
+	)
+
+	writer := func(i int) bool { return (i % biasQ) < biasP }
 	subs := make([]struct {
 		stdin  io.WriteCloser
 		stdout io.ReadCloser
-	}, bias_q*groups)
+	}, biasQ*groups)
 	for i := range subs {
 		var stdin io.WriteCloser
 		var stdout io.ReadCloser

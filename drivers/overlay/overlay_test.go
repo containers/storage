@@ -7,11 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
-	"golang.org/x/sys/unix"
 )
 
 const driverName = "overlay"
@@ -23,17 +22,6 @@ func init() {
 	graphdriver.ApplyUncompressedLayer = archive.ApplyUncompressedLayer
 
 	reexec.Init()
-}
-
-func cdMountFrom(dir, device, target, mType, label string) error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	os.Chdir(dir)
-	defer os.Chdir(wd)
-
-	return unix.Mount(device, target, mType, 0, label)
 }
 
 func skipIfNaive(t *testing.T) {

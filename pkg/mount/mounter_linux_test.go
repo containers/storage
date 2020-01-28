@@ -73,10 +73,10 @@ func TestMount(t *testing.T) {
 	for _, tc := range tests {
 		ftype, options := tc.ftype, tc.options
 		if tc.ftype == "" {
-			ftype = "none"
+			ftype = none
 		}
 		if tc.options == "" {
-			options = "none"
+			options = none
 		}
 
 		t.Run(fmt.Sprintf("%v-%v", ftype, options), func(t *testing.T) {

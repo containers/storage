@@ -57,30 +57,30 @@ func TestGenerateRandomAsciiStringIsAscii(t *testing.T) {
 	}
 }
 
+const ststring = "t🐳ststring"
+
 func TestEllipsis(t *testing.T) {
-	str := "t🐳ststring"
-	newstr := Ellipsis(str, 3)
+	newstr := Ellipsis(ststring, 3)
 	if newstr != "t🐳s" {
 		t.Fatalf("Expected t🐳s, got %s", newstr)
 	}
-	newstr = Ellipsis(str, 8)
+	newstr = Ellipsis(ststring, 8)
 	if newstr != "t🐳sts..." {
 		t.Fatalf("Expected tests..., got %s", newstr)
 	}
-	newstr = Ellipsis(str, 20)
-	if newstr != "t🐳ststring" {
-		t.Fatalf("Expected t🐳ststring, got %s", newstr)
+	newstr = Ellipsis(ststring, 20)
+	if newstr != ststring {
+		t.Fatalf("Expected %s, got %s", ststring, newstr)
 	}
 }
 
 func TestTruncate(t *testing.T) {
-	str := "t🐳ststring"
-	newstr := Truncate(str, 4)
+	newstr := Truncate(ststring, 4)
 	if newstr != "t🐳st" {
 		t.Fatalf("Expected t🐳st, got %s", newstr)
 	}
-	newstr = Truncate(str, 20)
-	if newstr != "t🐳ststring" {
+	newstr = Truncate(ststring, 20)
+	if newstr != ststring {
 		t.Fatalf("Expected t🐳ststring, got %s", newstr)
 	}
 }

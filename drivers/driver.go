@@ -48,9 +48,9 @@ type CreateOpts struct {
 type MountOpts struct {
 	// Mount label is the MAC Labels to assign to mount point (SELINUX)
 	MountLabel string
-	// UidMaps & GidMaps are the User Namespace mappings to be assigned to content in the mount point
-	UidMaps []idtools.IDMap
-	GidMaps []idtools.IDMap
+	// UIDMaps & GIDMaps are the User Namespace mappings to be assigned to content in the mount point
+	UIDMaps []idtools.IDMap
+	GIDMaps []idtools.IDMap
 	Options []string
 }
 

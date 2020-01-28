@@ -3,16 +3,8 @@ run:
   concurrency: 6
   deadline: 5m
 linters:
-  enable:
-    - bodyclose
-    - depguard
-    - gofmt
-    - goprintffuncname
-    - interfacer
-    - rowserrcheck
-    - typecheck
+  enable-all: true
   disable:
-    - deadcode
     - dogsled
     - dupl
     - errcheck
@@ -20,12 +12,9 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocognit
-    - goconst
     - gocritic
     - gocyclo
     - godox
-    - goimports
-    - golint
     - gomnd
     - gosec
     - gosimple

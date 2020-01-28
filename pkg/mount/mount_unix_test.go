@@ -54,7 +54,7 @@ func TestMounted(t *testing.T) {
 	}
 	f.Close()
 
-	if err := Mount(sourceDir, targetDir, "none", "bind,rw"); err != nil {
+	if err := Mount(sourceDir, targetDir, none, "bind,rw"); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
@@ -105,7 +105,7 @@ func TestMountReadonly(t *testing.T) {
 	}
 	f.Close()
 
-	if err := Mount(sourceDir, targetDir, "none", "bind,ro"); err != nil {
+	if err := Mount(sourceDir, targetDir, none, "bind,ro"); err != nil {
 		t.Fatal(err)
 	}
 	defer func() {

@@ -23,7 +23,7 @@ var tmp string
 
 func init() {
 	tmp = "/tmp/"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		tmp = os.Getenv("TEMP") + `\`
 	}
 }
@@ -73,7 +73,7 @@ func TestIsArchivePathInvalidFile(t *testing.T) {
 
 func TestIsArchivePathTar(t *testing.T) {
 	var whichTar string
-	if runtime.GOOS == "solaris" {
+	if runtime.GOOS == solaris {
 		whichTar = "gtar"
 	} else {
 		whichTar = "tar"
@@ -127,7 +127,7 @@ func TestDecompressStreamBzip2(t *testing.T) {
 }
 
 func TestDecompressStreamXz(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Xz not present in msys2")
 	}
 	testDecompressStream(t, "xz", "xz -f")
@@ -232,7 +232,7 @@ func TestCmdStreamLargeStderr(t *testing.T) {
 
 func TestCmdStreamBad(t *testing.T) {
 	// TODO Windows: Figure out why this is failing in CI but not locally
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows CI machines")
 	}
 	badCmd := exec.Command("sh", "-c", "echo hello; echo >&2 error couldn\\'t reverse the phase pulser; exit 1")
@@ -276,7 +276,7 @@ func TestUntarPathWithInvalidDest(t *testing.T) {
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
 	tarFileU := tarFile
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		tarFileU = "/tmp/" + filepath.Base(filepath.Dir(tarFile)) + "/src.tar"
 		srcFileU = "/tmp/" + filepath.Base(filepath.Dir(srcFile)) + "/src"
 	}
@@ -320,7 +320,7 @@ func TestUntarPath(t *testing.T) {
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
 	tarFileU := tarFile
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		tarFileU = "/tmp/" + filepath.Base(filepath.Dir(tarFile)) + "/src.tar"
 		srcFileU = "/tmp/" + filepath.Base(filepath.Dir(srcFile)) + "/src"
 	}
@@ -353,7 +353,7 @@ func TestUntarPathWithDestinationFile(t *testing.T) {
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
 	tarFileU := tarFile
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		tarFileU = "/tmp/" + filepath.Base(filepath.Dir(tarFile)) + "/src.tar"
 		srcFileU = "/tmp/" + filepath.Base(filepath.Dir(srcFile)) + "/src"
 	}
@@ -389,7 +389,7 @@ func TestUntarPathWithDestinationSrcFileAsFolder(t *testing.T) {
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
 	tarFileU := tarFile
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		tarFileU = "/tmp/" + filepath.Base(filepath.Dir(tarFile)) + "/src.tar"
 		srcFileU = "/tmp/" + filepath.Base(filepath.Dir(srcFile)) + "/src"
 	}
@@ -606,7 +606,7 @@ func TestCopyFileWithTarSrcFile(t *testing.T) {
 
 func TestTarFiles(t *testing.T) {
 	// TODO Windows: Figure out how to port this test.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 	// try without hardlinks
@@ -688,7 +688,7 @@ func tarUntar(t *testing.T, origin string, options *TarOptions) ([]Change, error
 
 func TestTarUntar(t *testing.T) {
 	// TODO Windows: Figure out how to fix this test.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
@@ -778,7 +778,7 @@ func TestTarWithOptionsChownOptsAlwaysOverridesIdPair(t *testing.T) {
 
 func TestTarWithOptions(t *testing.T) {
 	// TODO Windows: Figure out how to fix this test.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
@@ -940,7 +940,7 @@ func BenchmarkTarUntarWithLinks(b *testing.B) {
 
 func TestUntarInvalidFilenames(t *testing.T) {
 	// TODO Windows: Figure out how to fix this test.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Passes but hits breakoutError: platform and architecture is not supported")
 	}
 	for i, headers := range [][]*tar.Header{
@@ -968,7 +968,7 @@ func TestUntarInvalidFilenames(t *testing.T) {
 
 func TestUntarHardlinkToSymlink(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("hardlinks on Windows")
 	}
 	for i, headers := range [][]*tar.Header{
@@ -1000,7 +1000,7 @@ func TestUntarHardlinkToSymlink(t *testing.T) {
 
 func TestUntarInvalidHardlink(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("hardlinks on Windows")
 	}
 	for i, headers := range [][]*tar.Header{
@@ -1084,7 +1084,7 @@ func TestUntarInvalidHardlink(t *testing.T) {
 
 func TestUntarInvalidSymlink(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("hardlinks on Windows")
 	}
 	for i, headers := range [][]*tar.Header{
