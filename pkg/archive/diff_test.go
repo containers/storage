@@ -15,7 +15,7 @@ import (
 
 func TestApplyLayerInvalidFilenames(t *testing.T) {
 	// TODO Windows: Figure out how to fix this test.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Passes but hits breakoutError: platform and architecture is not supported")
 	}
 	for i, headers := range [][]*tar.Header{
@@ -42,7 +42,7 @@ func TestApplyLayerInvalidFilenames(t *testing.T) {
 }
 
 func TestApplyLayerInvalidHardlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("TypeLink support on Windows")
 	}
 	for i, headers := range [][]*tar.Header{
@@ -125,7 +125,7 @@ func TestApplyLayerInvalidHardlink(t *testing.T) {
 }
 
 func TestApplyLayerInvalidSymlink(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("TypeSymLink support on Windows")
 	}
 	for i, headers := range [][]*tar.Header{
@@ -209,7 +209,7 @@ func TestApplyLayerInvalidSymlink(t *testing.T) {
 
 func TestApplyLayerWhiteouts(t *testing.T) {
 	// TODO Windows: Figure out why this test fails
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 

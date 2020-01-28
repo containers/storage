@@ -24,7 +24,7 @@ func max(x, y int) int {
 
 func copyDir(src, dst string) error {
 	cmd := exec.Command("cp", "-a", src, dst)
-	if runtime.GOOS == "solaris" {
+	if runtime.GOOS == solaris {
 		cmd = exec.Command("gcp", "-a", src, dst)
 	}
 
@@ -120,7 +120,7 @@ func TestChangeString(t *testing.T) {
 func TestChangesWithNoChanges(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("symlinks on Windows")
 	}
 	rwLayer, err := ioutil.TempDir("", "storage-changes-test")
@@ -140,7 +140,7 @@ func TestChangesWithNoChanges(t *testing.T) {
 func TestChangesWithChanges(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("symlinks on Windows")
 	}
 	// Mock the readonly layer
@@ -185,7 +185,7 @@ func TestChangesWithChanges(t *testing.T) {
 func TestChangesWithChangesGH13590(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("symlinks on Windows")
 	}
 	baseLayer, err := ioutil.TempDir("", "storage-changes-test.")
@@ -245,7 +245,7 @@ func TestChangesDirsEmpty(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
 	// TODO Should work for Solaris
-	if runtime.GOOS == "windows" || runtime.GOOS == "solaris" {
+	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("symlinks on Windows; gcp failure on Solaris")
 	}
 	src, err := ioutil.TempDir("", "storage-changes-test")
@@ -333,7 +333,7 @@ func TestChangesDirsMutated(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
 	// TODO Should work for Solaris
-	if runtime.GOOS == "windows" || runtime.GOOS == "solaris" {
+	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("symlinks on Windows; gcp failures on Solaris")
 	}
 	src, err := ioutil.TempDir("", "storage-changes-test")
@@ -390,7 +390,7 @@ func TestApplyLayer(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
 	// TODO Should work for Solaris
-	if runtime.GOOS == "windows" || runtime.GOOS == "solaris" {
+	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("symlinks on Windows; gcp failures on Solaris")
 	}
 	src, err := ioutil.TempDir("", "storage-changes-test")
@@ -426,7 +426,7 @@ func TestApplyLayer(t *testing.T) {
 func TestChangesSizeWithHardlinks(t *testing.T) {
 	// TODO Windows. There may be a way of running this, but turning off for now
 	// as createSampleDir uses symlinks.
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("hardlinks on Windows")
 	}
 	srcDir, err := ioutil.TempDir("", "storage-test-srcDir")

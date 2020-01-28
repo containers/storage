@@ -19,6 +19,11 @@ import (
 	"github.com/containers/storage/pkg/reexec"
 )
 
+const (
+	windows = "windows"
+	solaris = "solaris"
+)
+
 func init() {
 	reexec.Init()
 }
@@ -202,7 +207,7 @@ func compareFilesChown(src string, dest string, uid, gid int) error {
 
 func TestChrootTarUntarWithSymlink(t *testing.T) {
 	// TODO Windows: Figure out why this is failing
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 	tmpdir, err := ioutil.TempDir("", "storage-TestChrootTarUntarWithSymlink")
@@ -228,7 +233,7 @@ func TestChrootTarUntarWithSymlink(t *testing.T) {
 
 func TestChrootCopyWithTar(t *testing.T) {
 	// TODO Windows: Figure out why this is failing
-	if runtime.GOOS == "windows" || runtime.GOOS == "solaris" {
+	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("Failing on Windows and Solaris")
 	}
 	tmpdir, err := ioutil.TempDir("", "storage-TestChrootCopyWithTar")
@@ -278,7 +283,7 @@ func TestChrootCopyWithTar(t *testing.T) {
 
 func TestChrootCopyWithTarAndChown(t *testing.T) {
 	// TODO Windows: Figure out why this is failing
-	if runtime.GOOS == "windows" || runtime.GOOS == "solaris" {
+	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("Failing on Windows and Solaris")
 	}
 	tmpdir, err := ioutil.TempDir("", "storage-TestChrootCopyWithTar")
@@ -427,7 +432,7 @@ func TestChrootCopyFileWithTarAndChown(t *testing.T) {
 
 func TestChrootUntarPath(t *testing.T) {
 	// TODO Windows: Figure out why this is failing
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarPath")
@@ -470,7 +475,7 @@ func TestChrootUntarPath(t *testing.T) {
 
 func TestChrootUntarPathAndChown(t *testing.T) {
 	// TODO Windows: Figure out why this is failing
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
 	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarPath")

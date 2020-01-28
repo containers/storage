@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const windows = "windows"
+
 // CopyFile with invalid src
 func TestCopyFileWithInvalidSrc(t *testing.T) {
 	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
@@ -130,7 +132,7 @@ func TestCopyFile(t *testing.T) {
 // Reading a symlink to a directory must return the directory
 func TestReadSymlinkedDirectoryExistingDirectory(t *testing.T) {
 	// TODO Windows: Port this test
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Needs porting to Windows")
 	}
 	var err error
@@ -176,7 +178,7 @@ func TestReadSymlinkedDirectoryNonExistingSymlink(t *testing.T) {
 // Reading a symlink to a file must fail
 func TestReadSymlinkedDirectoryToFile(t *testing.T) {
 	// TODO Windows: Port this test
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windows {
 		t.Skip("Needs porting to Windows")
 	}
 	var err error
@@ -373,7 +375,7 @@ func TestMatches(t *testing.T) {
 		{"**/.foo", "bar.foo", false},
 	}
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != windows {
 		tests = append(tests, []matchesTestCase{
 			{"a\\*b", "a*b", true},
 			{"a\\", "a", false},
@@ -576,7 +578,7 @@ func TestMatch(t *testing.T) {
 	for _, tt := range matchTests {
 		pattern := tt.pattern
 		s := tt.s
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == windows {
 			if strings.Contains(pattern, "\\") {
 				// no escape allowed on windows.
 				continue

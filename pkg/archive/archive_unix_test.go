@@ -224,7 +224,7 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 
 // TestTarUntarWithXattr is Unix as Lsetxattr is not supported on Windows
 func TestTarUntarWithXattr(t *testing.T) {
-	if runtime.GOOS == "solaris" {
+	if runtime.GOOS == solaris {
 		t.Skip()
 	}
 	origin, err := ioutil.TempDir("", "storage-test-untar-origin")

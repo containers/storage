@@ -7,6 +7,7 @@ linters:
     - bodyclose
     - deadcode
     - depguard
+    - goconst
     - gofmt
     - goprintffuncname
     - interfacer
@@ -20,7 +21,6 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocognit
-    - goconst
     - gocritic
     - gocyclo
     - godox
