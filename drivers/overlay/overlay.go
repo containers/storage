@@ -952,7 +952,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	if d.options.mountProgram != "" {
 		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
 			if !disableShifting {
-				label = d.optsAppendMappings(label, options.UIDMaps, options.GIDMaps)
+				label = d.optsAppendMappings(label, options.UidMaps, options.GidMaps)
 			}
 
 			mountProgram := exec.Command(d.options.mountProgram, "-o", label, target)
