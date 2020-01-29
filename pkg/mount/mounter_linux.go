@@ -14,7 +14,7 @@ const (
 	// broflags is the combination of bind and read only
 	broflags = unix.MS_BIND | unix.MS_RDONLY
 
-	none = "non"
+	none = "none"
 )
 
 // isremount returns true if either device name or flags identify a remount request, false otherwise.
