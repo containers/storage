@@ -66,6 +66,8 @@ testing_task:
         ( $VM_IMAGE =~ '.*UBUNTU.*' && $TEST_DRIVER == "fuse-overlay" ) ||
         ( $VM_IMAGE =~ '.*FEDORA.*' && $TEST_DRIVER != "aufs" )
 
+    allow_failures: $TEST_DRIVER == "devicemapper"
+
     env:
         matrix:
             VM_IMAGE: "${FEDORA_CACHE_IMAGE_NAME}"
