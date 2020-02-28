@@ -230,17 +230,11 @@ func DefaultStoreOptions(rootless bool, rootlessUID int) (StoreOptions, error) {
 			}
 			if storageOpts.GraphRoot == "" {
 				storageOpts.GraphRoot = defaultRootlessGraphRoot
-			} else if storageOpts.RootlessStoragePath != "" {
-				splitPaths := strings.SplitAfter(storageOpts.RootlessStoragePath, "$")
-				validEnv := regexp.MustCompile(`^(HOME|USER|UID)[^a-zA-Z]`).MatchString
-				if len(splitPaths) > 1 {
-					for _, path := range splitPaths {
-						if !validEnv(path) {
-							return storageOpts, errors.Errorf("Unrecognized environment variable")
-						}
-					}
+			}
+			if storageOpts.RootlessStoragePath != "" {
+				if err = validRootlessStoragePathFormat(storageOpts.RootlessStoragePath); err != nil {
+					return storageOpts, err
 				}
-
 				rootlessStoragePath := strings.Replace(storageOpts.RootlessStoragePath, "$HOME", homedir.Get(), -1)
 				rootlessStoragePath = strings.Replace(rootlessStoragePath, "$UID", strconv.Itoa(rootlessUID), -1)
 				usr, err := user.LookupId(strconv.Itoa(rootlessUID))
@@ -270,4 +264,22 @@ func DefaultStoreOptions(rootless bool, rootlessUID int) (StoreOptions, error) {
 		}
 	}
 	return storageOpts, nil
+}
+
+// validRootlessStoragePathFormat checks if the environments contained in the path are accepted
+func validRootlessStoragePathFormat(path string) error {
+	if !strings.Contains(path, "$") {
+		return nil
+	}
+
+	splitPaths := strings.SplitAfter(path, "$")
+	validEnv := regexp.MustCompile(`^(HOME|USER|UID)([^a-zA-Z]|$)`).MatchString
+	if len(splitPaths) > 1 {
+		for _, p := range splitPaths[1:] {
+			if !validEnv(p) {
+				return errors.Errorf("Unrecognized environment variable")
+			}
+		}
+	}
+	return nil
 }
