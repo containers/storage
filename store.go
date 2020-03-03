@@ -3375,7 +3375,7 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		storeOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
 	}
 
-	storeOptions.GraphDriverOptions = cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)
+	storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)...)
 
 	if os.Getenv("STORAGE_OPTS") != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, strings.Split(os.Getenv("STORAGE_OPTS"), ",")...)
