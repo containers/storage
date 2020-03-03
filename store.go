@@ -3316,6 +3316,9 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		fmt.Printf("Failed to parse %s %v\n", configFile, err.Error())
 		return
 	}
+	if os.Getenv("STORAGE_DRIVER") != "" {
+		config.Storage.Driver = os.Getenv("STORAGE_DRIVER")
+	}
 	if config.Storage.Driver != "" {
 		storeOptions.GraphDriverName = config.Storage.Driver
 	}
@@ -3371,11 +3374,8 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	} else {
 		storeOptions.GIDMap = append(storeOptions.GIDMap, gidmap...)
 	}
-	if os.Getenv("STORAGE_DRIVER") != "" {
-		storeOptions.GraphDriverName = os.Getenv("STORAGE_DRIVER")
-	}
 
-	storeOptions.GraphDriverOptions = cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)
+	storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)...)
 
 	if os.Getenv("STORAGE_OPTS") != "" {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, strings.Split(os.Getenv("STORAGE_OPTS"), ",")...)
