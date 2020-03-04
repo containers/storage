@@ -51,24 +51,25 @@ func Lsetxattr(path string, attr string, data []byte, flags int) error {
 // Llistxattr lists extended attributes associated with the given path
 // in the file system.
 func Llistxattr(path string) ([]string, error) {
-	var dest []byte
+	dest := make([]byte, 128)
+	sz, errno := unix.Llistxattr(path, dest)
 
-	for {
-		sz, err := unix.Llistxattr(path, dest)
-		if err != nil {
-			return nil, err
+	for errno == unix.ERANGE {
+		// Buffer too small, use zero-sized buffer to get the actual size
+		sz, errno = unix.Llistxattr(path, []byte{})
+		if errno != nil {
+			return nil, errno
 		}
 
-		if sz > len(dest) {
-			dest = make([]byte, sz)
-		} else {
-			dest = dest[:sz]
-			break
-		}
+		dest = make([]byte, sz)
+		sz, errno = unix.Llistxattr(path, dest)
+	}
+	if errno != nil {
+		return nil, errno
 	}
 
 	var attrs []string
-	for _, token := range bytes.Split(dest, []byte{0}) {
+	for _, token := range bytes.Split(dest[:sz], []byte{0}) {
 		if len(token) > 0 {
 			attrs = append(attrs, string(token))
 		}
