@@ -2,17 +2,16 @@ package system
 
 import (
 	"bytes"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
 
 const (
 	// Value is larger than the maximum size allowed
-	E2BIG syscall.Errno = unix.E2BIG
+	E2BIG unix.Errno = unix.E2BIG
 
 	// Operation not supported
-	EOPNOTSUPP syscall.Errno = unix.EOPNOTSUPP
+	EOPNOTSUPP unix.Errno = unix.EOPNOTSUPP
 )
 
 // Lgetxattr retrieves the value of the extended attribute identified by attr
