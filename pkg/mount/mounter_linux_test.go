@@ -171,7 +171,7 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 			for _, opt := range strings.Split(mi.Opts, ",") {
 				opt = clean(opt)
 				if !has(volunteeredOPT, opt) && !has(wantedOpts, opt) && !has(pOpts, opt) {
-					t.Errorf("unexpected mount option %q expected %q", opt, opts)
+					t.Errorf("unexpected mount option %q, expected %q", opt, opts)
 				}
 				delete(wantedOpts, opt)
 			}
@@ -185,13 +185,13 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 			for _, field := range strings.Split(mi.Optional, ",") {
 				field = clean(field)
 				if !has(wantedOptional, field) && !has(pOptional, field) {
-					t.Errorf("unexpected optional failed %q expected %q", field, optional)
+					t.Errorf("unexpected optional field %q, expected %q", field, optional)
 				}
 				delete(wantedOptional, field)
 			}
 		}
 		for field := range wantedOptional {
-			t.Errorf("missing optional field %q found %q", field, mi.Optional)
+			t.Errorf("missing optional field %q, found %q", field, mi.Optional)
 		}
 
 		// Validate VFS if set
@@ -200,13 +200,13 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 				for _, opt := range strings.Split(mi.VfsOpts, ",") {
 					opt = clean(opt)
 					if !has(wantedVFS, opt) && !has(volunteeredVFS, opt) {
-						t.Errorf("unexpected mount option %q expected %q", opt, vfs)
+						t.Errorf("unexpected vfs option %q, expected %q", opt, vfs)
 					}
 					delete(wantedVFS, opt)
 				}
 			}
 			for opt := range wantedVFS {
-				t.Errorf("missing mount option %q found %q", opt, mi.VfsOpts)
+				t.Errorf("missing vfs option %q, found %q", opt, mi.VfsOpts)
 			}
 		}
 
