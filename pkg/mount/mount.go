@@ -59,9 +59,6 @@ func ForceMount(device, target, mType, options string) error {
 // Unmount lazily unmounts a filesystem on supported platforms, otherwise
 // does a normal unmount.
 func Unmount(target string) error {
-	if mounted, err := Mounted(target); err != nil || !mounted {
-		return err
-	}
 	return unmount(target, mntDetach)
 }
 
