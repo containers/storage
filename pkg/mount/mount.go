@@ -67,7 +67,7 @@ func Unmount(target string) error {
 }
 
 // RecursiveUnmount unmounts the target and all mounts underneath, starting with
-// the deepsest mount first.
+// the deepest mount first.
 func RecursiveUnmount(target string) error {
 	mounts, err := GetMounts()
 	if err != nil {
@@ -75,7 +75,9 @@ func RecursiveUnmount(target string) error {
 	}
 
 	// Make the deepest mount be first
-	sort.Sort(sort.Reverse(byMountpoint(mounts)))
+	sort.Slice(mounts, func(i, j int) bool {
+		return len(mounts[i].Mountpoint) > len(mounts[j].Mountpoint)
+	})
 
 	for i, m := range mounts {
 		if !strings.HasPrefix(m.Mountpoint, target) {
