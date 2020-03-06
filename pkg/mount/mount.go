@@ -3,7 +3,6 @@ package mount
 import (
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/containers/storage/pkg/fileutils"
 )
@@ -63,7 +62,7 @@ func Unmount(target string) error {
 	if mounted, err := Mounted(target); err != nil || !mounted {
 		return err
 	}
-	return ForceUnmount(target)
+	return unmount(target, mntDetach)
 }
 
 // RecursiveUnmount unmounts the target and all mounts underneath, starting with
@@ -96,13 +95,6 @@ func RecursiveUnmount(target string) error {
 
 // ForceUnmount will force an unmount of the target filesystem, regardless if
 // it is mounted or not.
-func ForceUnmount(target string) (err error) {
-	// Simple retry logic for unmount
-	for i := 0; i < 10; i++ {
-		if err = unmount(target, 0); err == nil {
-			return nil
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil
+func ForceUnmount(target string) error {
+	return unmount(target, mntDetach)
 }
