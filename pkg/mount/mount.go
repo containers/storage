@@ -90,8 +90,10 @@ func RecursiveUnmount(target string) error {
 	return nil
 }
 
-// ForceUnmount will force an unmount of the target filesystem, regardless if
-// it is mounted or not.
+// ForceUnmount lazily unmounts a filesystem on supported platforms,
+// otherwise does a normal unmount.
+//
+// Deprecated: please use Unmount instead, it is identical.
 func ForceUnmount(target string) error {
 	return unmount(target, mntDetach)
 }
