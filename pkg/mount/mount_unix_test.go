@@ -1,4 +1,4 @@
-// +build !windows,!solaris
+// +build linux
 
 package mount
 
