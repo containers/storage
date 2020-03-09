@@ -116,9 +116,7 @@ func RecursiveUnmount(target string) error {
 			continue
 		}
 		if err := Unmount(m.Mountpoint); err != nil && i == len(mounts)-1 {
-			if mounted, err := Mounted(m.Mountpoint); err != nil || mounted {
-				return err
-			}
+			return err
 			// Ignore errors for submounts and continue trying to unmount others
 			// The final unmount should fail if there ane any submounts remaining
 		}
