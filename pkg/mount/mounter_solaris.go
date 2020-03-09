@@ -4,8 +4,6 @@ package mount
 
 import (
 	"unsafe"
-
-	"golang.org/x/sys/unix"
 )
 
 // #include <stdlib.h>
@@ -25,10 +23,5 @@ func mount(device, target, mType string, flag uintptr, data string) error {
 	C.free(unsafe.Pointer(spec))
 	C.free(unsafe.Pointer(dir))
 	C.free(unsafe.Pointer(fstype))
-	return err
-}
-
-func unmount(target string, flag int) error {
-	err := unix.Unmount(target, flag)
 	return err
 }

@@ -3,7 +3,6 @@ package mount
 import (
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/containers/storage/pkg/fileutils"
 )
@@ -39,13 +38,13 @@ func Mounted(mountpoint string) (bool, error) {
 // specified like the mount or fstab unix commands: "opt1=val1,opt2=val2". See
 // flags.go for supported option flags.
 func Mount(device, target, mType, options string) error {
-	flag, _ := ParseOptions(options)
+	flag, data := ParseOptions(options)
 	if flag&REMOUNT != REMOUNT {
 		if mounted, err := Mounted(target); err != nil || mounted {
 			return err
 		}
 	}
-	return ForceMount(device, target, mType, options)
+	return mount(device, target, mType, uintptr(flag), data)
 }
 
 // ForceMount will mount a filesystem according to the specified configuration,
@@ -60,14 +59,11 @@ func ForceMount(device, target, mType, options string) error {
 // Unmount lazily unmounts a filesystem on supported platforms, otherwise
 // does a normal unmount.
 func Unmount(target string) error {
-	if mounted, err := Mounted(target); err != nil || !mounted {
-		return err
-	}
-	return ForceUnmount(target)
+	return unmount(target, mntDetach)
 }
 
 // RecursiveUnmount unmounts the target and all mounts underneath, starting with
-// the deepsest mount first.
+// the deepest mount first.
 func RecursiveUnmount(target string) error {
 	mounts, err := GetMounts()
 	if err != nil {
@@ -75,7 +71,9 @@ func RecursiveUnmount(target string) error {
 	}
 
 	// Make the deepest mount be first
-	sort.Sort(sort.Reverse(byMountpoint(mounts)))
+	sort.Slice(mounts, func(i, j int) bool {
+		return len(mounts[i].Mountpoint) > len(mounts[j].Mountpoint)
+	})
 
 	for i, m := range mounts {
 		if !strings.HasPrefix(m.Mountpoint, target) {
@@ -92,15 +90,10 @@ func RecursiveUnmount(target string) error {
 	return nil
 }
 
-// ForceUnmount will force an unmount of the target filesystem, regardless if
-// it is mounted or not.
-func ForceUnmount(target string) (err error) {
-	// Simple retry logic for unmount
-	for i := 0; i < 10; i++ {
-		if err = unmount(target, 0); err == nil {
-			return nil
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return nil
+// ForceUnmount lazily unmounts a filesystem on supported platforms,
+// otherwise does a normal unmount.
+//
+// Deprecated: please use Unmount instead, it is identical.
+func ForceUnmount(target string) error {
+	return unmount(target, mntDetach)
 }
