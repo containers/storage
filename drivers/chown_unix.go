@@ -48,10 +48,6 @@ func platformLChown(path string, info os.FileInfo, toHost, toContainer *idtools.
 		uid, gid = mappedPair.UID, mappedPair.GID
 	}
 	if uid != int(st.Uid) || gid != int(st.Gid) {
-		stat, err := os.Lstat(path)
-		if err != nil {
-			return fmt.Errorf("%s: lstat(%q): %v", os.Args[0], path, err)
-		}
 		cap, err := system.Lgetxattr(path, "security.capability")
 		if err != nil && err != system.ErrNotSupportedPlatform {
 			return fmt.Errorf("%s: Lgetxattr(%q): %v", os.Args[0], path, err)
@@ -62,8 +58,8 @@ func platformLChown(path string, info os.FileInfo, toHost, toContainer *idtools.
 			return fmt.Errorf("%s: chown(%q): %v", os.Args[0], path, err)
 		}
 		// Restore the SUID and SGID bits if they were originally set.
-		if (stat.Mode()&os.ModeSymlink == 0) && stat.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
-			if err := os.Chmod(path, stat.Mode()); err != nil {
+		if (info.Mode()&os.ModeSymlink == 0) && info.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
+			if err := os.Chmod(path, info.Mode()); err != nil {
 				return fmt.Errorf("%s: chmod(%q): %v", os.Args[0], path, err)
 			}
 		}
