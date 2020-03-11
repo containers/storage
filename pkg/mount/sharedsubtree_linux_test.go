@@ -341,6 +341,8 @@ func createFile(path string) error {
 	if err != nil {
 		return err
 	}
-	f.WriteString("hello world!")
+	if _, err = f.WriteString("hello world!"); err != nil {
+		return err
+	}
 	return f.Close()
 }

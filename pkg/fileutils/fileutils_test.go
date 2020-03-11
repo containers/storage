@@ -111,8 +111,11 @@ func TestCopyFile(t *testing.T) {
 	}
 	src := path.Join(tempFolder, "src")
 	dest := path.Join(tempFolder, "dest")
-	ioutil.WriteFile(src, []byte("content"), 0777)
-	ioutil.WriteFile(dest, []byte("destContent"), 0777)
+	err = ioutil.WriteFile(src, []byte("content"), 0777)
+	require.NoError(t, err)
+
+	err = ioutil.WriteFile(dest, []byte("destContent"), 0777)
+	require.NoError(t, err)
 	bytes, err := CopyFile(src, dest)
 	if err != nil {
 		t.Fatal(err)
@@ -622,6 +625,7 @@ func TestMatchesAmount(t *testing.T) {
 		assert.Equal(t, testCase.isMatch, res.IsMatched(), desc)
 
 		isMatch, err := pm.IsMatch(testCase.input)
+		require.NoError(t, err)
 		assert.Equal(t, testCase.isMatch, isMatch, desc)
 	}
 }

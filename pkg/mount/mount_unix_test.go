@@ -42,14 +42,22 @@ func TestMounted(t *testing.T) {
 		targetPath = path.Join(targetDir, "file.txt")
 	)
 
-	os.Mkdir(sourceDir, 0777)
-	os.Mkdir(targetDir, 0777)
+	if err := os.Mkdir(sourceDir, 0777); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Mkdir(targetDir, 0777); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err := os.Create(sourcePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("hello")
+	if _, err = f.WriteString("hello"); err != nil {
+		t.Fatal(err)
+	}
+
 	f.Close()
 
 	f, err = os.Create(targetPath)
@@ -97,14 +105,21 @@ func TestMountReadonly(t *testing.T) {
 		targetPath = path.Join(targetDir, "file.txt")
 	)
 
-	os.Mkdir(sourceDir, 0777)
-	os.Mkdir(targetDir, 0777)
+	if err := os.Mkdir(sourceDir, 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(targetDir, 0777); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err := os.Create(sourcePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.WriteString("hello")
+	_, err = f.WriteString("hello")
+	if err != nil {
+		t.Fatal(err)
+	}
 	f.Close()
 
 	f, err = os.Create(targetPath)
@@ -124,6 +139,7 @@ func TestMountReadonly(t *testing.T) {
 
 	f, err = os.OpenFile(targetPath, os.O_RDWR, 0777)
 	if err == nil {
+		f.Close()
 		t.Fatal("Should not be able to open a ro file as rw")
 	}
 }
