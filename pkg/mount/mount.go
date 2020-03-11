@@ -2,10 +2,46 @@ package mount
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/containers/storage/pkg/fileutils"
 )
+
+// mountError holds an error from a mount or unmount operation
+type mountError struct {
+	op             string
+	source, target string
+	flags          uintptr
+	data           string
+	err            error
+}
+
+// Error returns a string representation of mountError
+func (e *mountError) Error() string {
+	out := e.op + " "
+
+	if e.source != "" {
+		out += e.source + ":" + e.target
+	} else {
+		out += e.target
+	}
+
+	if e.flags != uintptr(0) {
+		out += ", flags: 0x" + strconv.FormatUint(uint64(e.flags), 16)
+	}
+	if e.data != "" {
+		out += ", data: " + e.data
+	}
+
+	out += ": " + e.err.Error()
+	return out
+}
+
+// Cause returns the underlying cause of the error
+func (e *mountError) Cause() error {
+	return e.err
+}
 
 // GetMounts retrieves a list of mounts for the current running process.
 func GetMounts() ([]*Info, error) {
@@ -80,9 +116,7 @@ func RecursiveUnmount(target string) error {
 			continue
 		}
 		if err := Unmount(m.Mountpoint); err != nil && i == len(mounts)-1 {
-			if mounted, err := Mounted(m.Mountpoint); err != nil || mounted {
-				return err
-			}
+			return err
 			// Ignore errors for submounts and continue trying to unmount others
 			// The final unmount should fail if there ane any submounts remaining
 		}
