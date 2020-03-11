@@ -33,7 +33,9 @@ func TestChtimes(t *testing.T) {
 	unixMaxTime := maxTime
 
 	// Test both aTime and mTime set to Unix Epoch
-	Chtimes(file, unixEpochTime, unixEpochTime)
+	if err := Chtimes(file, unixEpochTime, unixEpochTime); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err := os.Stat(file)
 	if err != nil {
@@ -45,7 +47,9 @@ func TestChtimes(t *testing.T) {
 	}
 
 	// Test aTime before Unix Epoch and mTime set to Unix Epoch
-	Chtimes(file, beforeUnixEpochTime, unixEpochTime)
+	if err := Chtimes(file, beforeUnixEpochTime, unixEpochTime); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err = os.Stat(file)
 	if err != nil {
@@ -57,7 +61,9 @@ func TestChtimes(t *testing.T) {
 	}
 
 	// Test aTime set to Unix Epoch and mTime before Unix Epoch
-	Chtimes(file, unixEpochTime, beforeUnixEpochTime)
+	if err := Chtimes(file, unixEpochTime, beforeUnixEpochTime); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err = os.Stat(file)
 	if err != nil {
@@ -69,7 +75,9 @@ func TestChtimes(t *testing.T) {
 	}
 
 	// Test both aTime and mTime set to after Unix Epoch (valid time)
-	Chtimes(file, afterUnixEpochTime, afterUnixEpochTime)
+	if err := Chtimes(file, afterUnixEpochTime, afterUnixEpochTime); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err = os.Stat(file)
 	if err != nil {
@@ -81,7 +89,9 @@ func TestChtimes(t *testing.T) {
 	}
 
 	// Test both aTime and mTime set to Unix max time
-	Chtimes(file, unixMaxTime, unixMaxTime)
+	if err := Chtimes(file, unixMaxTime, unixMaxTime); err != nil {
+		t.Fatal(err)
+	}
 
 	f, err = os.Stat(file)
 	if err != nil {

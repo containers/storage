@@ -20,7 +20,7 @@ func init() {
 		panic("Return Error")
 	})
 	Register("sleep", func() {
-		fmt.Printf(sleepMessage)
+		fmt.Print(sleepMessage)
 		time.Sleep(time.Hour)
 		fmt.Printf("\nfinished " + sleepMessage)
 	})
@@ -51,7 +51,8 @@ func TestCommand(t *testing.T) {
 func TestCommandContext(t *testing.T) {
 	stdout := &bytes.Buffer{}
 
-	ctx, _ := context.WithDeadline(context.TODO(), time.Now().Add(5*time.Second))
+	ctx, finish := context.WithDeadline(context.TODO(), time.Now().Add(5*time.Second))
+	defer finish()
 	cmd := CommandContext(ctx, "sleep")
 	w, err := cmd.StdinPipe()
 	require.NoError(t, err, "Error on pipe creation: %v", err)
