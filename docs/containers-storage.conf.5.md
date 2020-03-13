@@ -212,7 +212,7 @@ Now all new content created in these directories will automatically be created w
 
 ## FILES
 
-Distributions often provide a `/usr/share/containers/storage.conf` file to define default storage configuration. Administrators can override this file by creating `/etc/containers/storage.conf` to specify their own configuration. The storage.conf file for rootless users is stored in the `$HOME/.config/containers/storage.conf` file.
+Distributions often provide a `/usr/share/containers/storage.conf` file to define default storage configuration. Administrators can override this file by creating `/etc/containers/storage.conf` to specify their own configuration. The storage.conf file for rootless users is stored in the `$XDG_CONFIG_HOME/containers/storage.conf` file.  If `$XDG_CONFIG_HOME` is not set then the file `$HOME/.config/containers/storage.conf` is used.
 
 ## HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
