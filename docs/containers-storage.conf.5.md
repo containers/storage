@@ -76,6 +76,15 @@ The `storage.options` table supports the following options:
      remap-user = "containers"
      remap-group = "containers"
 
+**root-auto-userns-user**=""
+  Root-auto-userns-user is a user name which can be used to look up one or more UID/GID ranges in the /etc/subuid and /etc/subgid file.  These ranges will be partioned to containers configured to create automatically a user namespace.  Containers configured to automatically create a user namespace can still overlap with containers having an explicit mapping set.  This setting is ignored when running as rootless.
+
+**auto-userns-min-size**=1024
+  Auto-userns-min-size is the minimum size for a user namespace created automatically.
+
+**auto-userns-max-size**=65536
+  Auto-userns-max-size is the maximum size for a user namespace created automatically.
+
 ### STORAGE OPTIONS FOR AUFS TABLE
 
 The `storage.options.aufs` table supports the following options:
