@@ -626,6 +626,18 @@ func GetStore(options StoreOptions) (Store, error) {
 	return s, nil
 }
 
+func copyUint32Slice(slice []uint32) []uint32 {
+	m := []uint32{}
+	if slice != nil {
+		m = make([]uint32, len(slice))
+		copy(m, slice)
+	}
+	if len(m) > 0 {
+		return m[:]
+	}
+	return nil
+}
+
 func copyIDMap(idmap []idtools.IDMap) []idtools.IDMap {
 	m := []idtools.IDMap{}
 	if idmap != nil {
