@@ -26,7 +26,7 @@ github.com/Microsoft/hcsshim/internal/wclayer
 github.com/Microsoft/hcsshim/osversion
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 github.com/containerd/cgroups/stats/v1
-# github.com/containers/common v0.5.0
+# github.com/containers/common v0.6.1
 github.com/containers/common/pkg/unshare
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew

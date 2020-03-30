@@ -4,7 +4,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 	github.com/Microsoft/hcsshim v0.8.7
-	github.com/containers/common v0.5.0
+	github.com/containers/common v0.6.1
 	github.com/docker/go-units v0.4.0
 	github.com/klauspost/compress v1.10.3
 	github.com/klauspost/pgzip v1.2.3
