@@ -41,3 +41,4 @@ case "$OS_RELEASE_ID" in
 esac
 
 install_fuse_overlayfs_from_git
+install_bats_from_git

@@ -71,10 +71,10 @@ LONG_APTGET="timeout_attempt_delay_command 300s 5 60s $SUDOAPTGET"
 
 # Packaging adjustments needed to:
 # https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/fedora_setup.sh
-RPMS_REQUIRED="autoconf automake"
+RPMS_REQUIRED="autoconf automake parallel"
 RPMS_CONFLICTING="gcc-go"
 # https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/ubuntu_setup.sh
-DEBS_REQUIRED=""
+DEBS_REQUIRED="parallel"
 DEBS_CONFLICTING=""
 
 # For devicemapper testing, device names need to be passed down for use in tests
@@ -183,6 +183,14 @@ install_fuse_overlayfs_from_git(){
     ooe.sh make
     sudo make install prefix=/usr
     cd $wd
+}
+
+install_bats_from_git(){
+    git clone https://github.com/bats-core/bats-core --depth=1
+    sudo ./bats-core/install.sh /usr
+    rm -rf bats-core
+    mkdir -p ~/.parallel
+    touch ~/.parallel/will-cite
 }
 
 showrun() {
