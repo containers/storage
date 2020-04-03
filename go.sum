@@ -21,6 +21,8 @@ github.com/containers/common v0.5.0 h1:ZAef7h3oO46PcbTyfooZf8XLHrYad+GkhSu3EhH6P
 github.com/containers/common v0.5.0/go.mod h1:m62kenckrWi5rZx32kaLje2Og0hpf6NsaTBn6+b+Oys=
 github.com/containers/common v0.6.1 h1:z9VeVXYeOnNV99uNLp7zoE5KO1n0hqz1mdm5a6AiIrA=
 github.com/containers/common v0.6.1/go.mod h1:m62kenckrWi5rZx32kaLje2Og0hpf6NsaTBn6+b+Oys=
+github.com/containers/common v1.0.0 h1:sZB48LzGP4bP1CmrkQIFUzdUVBysqRv3kWVk4+qbaVA=
+github.com/containers/common v1.0.0/go.mod h1:m62kenckrWi5rZx32kaLje2Og0hpf6NsaTBn6+b+Oys=
 github.com/containers/storage v1.16.0/go.mod h1:nqN09JSi1/RSI1UAUwDYXPRiGSlq5FPbNkN/xb0TfG0=
 github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e/go.mod h1:F5haX7vjVVG0kc13fIWeqUViNPyEJxv/OmvnBo0Yme4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

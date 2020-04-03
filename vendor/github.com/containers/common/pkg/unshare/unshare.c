@@ -1,5 +1,3 @@
-#ifndef UNSHARE_NO_CODE_AT_ALL
-
 #define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -287,5 +285,3 @@ void _containers_unshare(void)
 	}
 	return;
 }
-
-#endif // !UNSHARE_NO_CODE_AT_ALL

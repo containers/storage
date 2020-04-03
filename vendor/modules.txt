@@ -26,6 +26,8 @@ github.com/Microsoft/hcsshim/internal/wclayer
 github.com/Microsoft/hcsshim/osversion
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 github.com/containerd/cgroups/stats/v1
+# github.com/containers/common v1.0.0
+github.com/containers/common/pkg/unshare
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/docker/go-units v0.4.0
@@ -66,7 +68,7 @@ github.com/opencontainers/go-digest
 # github.com/opencontainers/runc v1.0.0-rc9
 github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
-# github.com/opencontainers/runtime-spec v0.1.2-0.20190507144316-5b71a03e2700
+# github.com/opencontainers/runtime-spec v0.1.2-0.20190618234442-a950415649c7
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/selinux v1.4.0
 github.com/opencontainers/selinux/go-selinux
@@ -105,7 +107,7 @@ golang.org/x/net/context
 # golang.org/x/sys v0.0.0-20191127021746-63cb32ae39b2
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# gopkg.in/yaml.v2 v2.2.2
+# gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
 # gotest.tools v2.2.0+incompatible
 gotest.tools/assert
