@@ -68,14 +68,6 @@ delvm() {
     cleanup
 }
 
-image_hints() {
-    _BIS=$(egrep -m 1 '_BUILT_IMAGE_SUFFIX:[[:space:]+"[[:print:]]+"' \
-        "$STORAGEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]')
-    egrep '[[:space:]]+[[:alnum:]].+_CACHE_IMAGE_NAME:[[:space:]+"[[:print:]]+"' \
-        "$STORAGEROOT/.cirrus.yml" | cut -d: -f 2 | tr -d '"[:blank:]' | \
-        sed -r -e "s/\\\$[{]_BUILT_IMAGE_SUFFIX[}]/$_BIS/" | sort -u
-}
-
 show_usage() {
     echo -e "\n${RED}ERROR: $1${NOR}"
     echo -e "${YEL}Usage: $(basename $0) <image_name>${NOR}"
@@ -90,15 +82,31 @@ show_usage() {
 }
 
 get_env_vars() {
-    python -c '
-import yaml
+    # Deal with both YAML and embedded shell-like substitutions in values
+    # if substitution fails, fall back to printing naked env. var as-is.
+    python3 -c '
+import yaml,re
 env=yaml.load(open(".cirrus.yml"), Loader=yaml.SafeLoader)["env"]
-keys=[k for k in env if "ENCRYPTED" not in str(env[k])]
+dollar_env_var=re.compile(r"\$(\w+)")
+dollarcurly_env_var=re.compile(r"\$\{(\w+)\}")
+class ReIterKey(dict):
+    def __missing__(self, key):
+        # Cirrus-CI provides some runtime-only env. vars.  Avoid
+        # breaking this hack-script if/when any are present in YAML
+        return "${0}".format(key)
+rep=r"{\1}"  # Convert env vars markup to -> str.format_map(re_iter_key) markup
+out=ReIterKey()
 for k,v in env.items():
     v=str(v)
     if "ENCRYPTED" not in v:
-        print "{0}=\"{1}\"".format(k, v),
+        out[k]=dollar_env_var.sub(rep, dollarcurly_env_var.sub(rep, v))
+for k,v in out.items():
+    print("{0}=\"{1}\"".format(k, v.format_map(out)))
     '
+}
+
+image_hints() {
+    get_env_vars | fgrep '_CACHE_IMAGE_NAME' | awk -F "=" '{print $2}'
 }
 
 parse_args(){
@@ -109,14 +117,14 @@ parse_args(){
         show_usage "This script must be run as a regular user."
     fi
 
-    ENVS="$(get_env_vars)"
+    ENVS="$(get_env_vars | tr [:space:] ' ')"
     IMAGE_NAME="$1"
     if [[ -z "$IMAGE_NAME" ]]
     then
         show_usage "No image-name specified."
     fi
 
-    ENVS="$ENVS SPECIALMODE=\"$SPECIALMODE\""
+    ENVS="$ENVS TEST_DRIVER=\"vfs\""
     SETUP_CMD="env $ENVS $GOSRC/contrib/cirrus/setup.sh"
     VMNAME="${VMNAME:-${USER}-${IMAGE_NAME}}"
     CREATE_CMD="$PGCLOUD compute instances create --zone=$ZONE --image-project=libpod-218412 --image=${IMAGE_NAME} --custom-cpu=$CPUS --custom-memory=$MEMORY --boot-disk-size=$DISK --labels=in-use-by=$USER $VMNAME"
@@ -198,7 +206,7 @@ echo -e "\n${YEL}Removing and re-creating $GOSRC on $VMNAME.${NOR}"
 showrun $SSH_CMD --command "rm -rf $GOSRC"
 showrun $SSH_CMD --command "mkdir -p $GOSRC"
 
-echo -e "\n${YEL}Transfering tarball to $VMNAME.${NOR}"
+echo -e "\n${YEL}Transferring tarball to $VMNAME.${NOR}"
 wait
 showrun $SCP_CMD $HOME/$TARBALL $SSHUSER@$VMNAME:/tmp/$TARBALL
 

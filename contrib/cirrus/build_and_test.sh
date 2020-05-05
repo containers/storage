@@ -9,6 +9,13 @@ make install.tools
 showrun make local-binary
 showrun make local-cross
 
+# On Ubuntu w/ Bats <= 1.2.0 using more than one job throws errors like:
+# cat: /tmp/bats-run-23134/parallel_output/1/stdout: No such file or directory
+if [[ "$OS_RELEASE_ID" == "ubuntu" ]]; then
+    # See tests/test_runner.bash
+    export JOBS=1  # Only ~50 tests @ 1-second each, not so bad to do one at a time.
+fi
+
 case $TEST_DRIVER in
     overlay)
         showrun make STORAGE_DRIVER=overlay local-test-integration
