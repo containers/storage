@@ -8,7 +8,7 @@ source /etc/environment  # not always loaded under all circumstances
 
 # Under some contexts these values are not set, make sure they are.
 USER="$(whoami)"
-HOME="$(getent passwd $USER | cut -d : -f 6)"
+export HOME="$(getent passwd $USER | cut -d : -f 6)"
 [[ -n "$UID" ]] || UID=$(getent passwd $USER | cut -d : -f 3)
 GID=$(getent passwd $USER | cut -d : -f 4)
 
