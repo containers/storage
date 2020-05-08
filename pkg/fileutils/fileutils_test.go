@@ -311,78 +311,80 @@ func TestMatchesWithMalformedPatterns(t *testing.T) {
 type matchesTestCase struct {
 	pattern string
 	text    string
-	pass    bool
+	fail    bool
+	match   bool
 }
 
 func TestMatches(t *testing.T) {
 	tests := []matchesTestCase{
-		{"**", "file", true},
-		{"**", "file/", true},
-		{"**/", "file", true}, // weird one
-		{"**/", "file/", true},
-		{"**", "/", true},
-		{"**/", "/", true},
-		{"**", "dir/file", true},
-		{"**/", "dir/file", true},
-		{"**", "dir/file/", true},
-		{"**/", "dir/file/", true},
-		{"**/**", "dir/file", true},
-		{"**/**", "dir/file/", true},
-		{"dir/**", "dir/file", true},
-		{"dir/**", "dir/file/", true},
-		{"dir/**", "dir/dir2/file", true},
-		{"dir/**", "dir/dir2/file/", true},
-		{"**/dir2/*", "dir/dir2/file", true},
-		{"**/dir2/*", "dir/dir2/file/", true},
-		{"**/dir2/**", "dir/dir2/dir3/file", true},
-		{"**/dir2/**", "dir/dir2/dir3/file/", true},
-		{"**file", "file", true},
-		{"**file", "dir/file", true},
-		{"**/file", "dir/file", true},
-		{"**file", "dir/dir/file", true},
-		{"**/file", "dir/dir/file", true},
-		{"**/file*", "dir/dir/file", true},
-		{"**/file*", "dir/dir/file.txt", true},
-		{"**/file*txt", "dir/dir/file.txt", true},
-		{"**/file*.txt", "dir/dir/file.txt", true},
-		{"**/file*.txt*", "dir/dir/file.txt", true},
-		{"**/**/*.txt", "dir/dir/file.txt", true},
-		{"**/**/*.txt2", "dir/dir/file.txt", false},
-		{"**/*.txt", "file.txt", true},
-		{"**/**/*.txt", "file.txt", true},
-		{"a**/*.txt", "a/file.txt", true},
-		{"a**/*.txt", "a/dir/file.txt", true},
-		{"a**/*.txt", "a/dir/dir/file.txt", true},
-		{"a/*.txt", "a/dir/file.txt", false},
-		{"a/*.txt", "a/file.txt", true},
-		{"a/*.txt**", "a/file.txt", true},
-		{"a[b-d]e", "ae", false},
-		{"a[b-d]e", "ace", true},
-		{"a[b-d]e", "aae", false},
-		{"a[^b-d]e", "aze", true},
-		{".*", ".foo", true},
-		{".*", "foo", false},
-		{"abc.def", "abcdef", false},
-		{"abc.def", "abc.def", true},
-		{"abc.def", "abcZdef", false},
-		{"abc?def", "abcZdef", true},
-		{"abc?def", "abcdef", false},
-		{"a\\\\", "a\\", true},
-		{"**/foo/bar", "foo/bar", true},
-		{"**/foo/bar", "dir/foo/bar", true},
-		{"**/foo/bar", "dir/dir2/foo/bar", true},
-		{"abc/**", "abc", false},
-		{"abc/**", "abc/def", true},
-		{"abc/**", "abc/def/ghi", true},
-		{"**/.foo", ".foo", true},
-		{"**/.foo", "bar.foo", false},
+		{"**", "file", false, true},
+		{"**", "file/", false, true},
+		{"**/", "file", false, true}, // weird one
+		{"**/", "file/", false, true},
+		{"**", "/", false, true},
+		{"**/", "/", false, true},
+		{"**", "dir/file", false, true},
+		{"**/", "dir/file", false, true},
+		{"**", "dir/file/", false, true},
+		{"**/", "dir/file/", false, true},
+		{"**/**", "dir/file", false, true},
+		{"**/**", "dir/file/", false, true},
+		{"dir/**", "dir/file", false, true},
+		{"dir/**", "dir/file/", false, true},
+		{"dir/**", "dir/dir2/file", false, true},
+		{"dir/**", "dir/dir2/file/", false, true},
+		{"**/dir2/*", "dir/dir2/file", false, true},
+		{"**/dir2/*", "dir/dir2/file/", false, true},
+		{"**/dir2/**", "dir/dir2/dir3/file", false, true},
+		{"**/dir2/**", "dir/dir2/dir3/file/", false, true},
+		{"**file", "file", false, true},
+		{"**file", "dir/file", false, true},
+		{"**/file", "dir/file", false, true},
+		{"**file", "dir/dir/file", false, true},
+		{"**/file", "dir/dir/file", false, true},
+		{"**/file*", "dir/dir/file", false, true},
+		{"**/file*", "dir/dir/file.txt", false, true},
+		{"**/file*txt", "dir/dir/file.txt", false, true},
+		{"**/file*.txt", "dir/dir/file.txt", false, true},
+		{"**/file*.txt*", "dir/dir/file.txt", false, true},
+		{"**/**/*.txt", "dir/dir/file.txt", false, true},
+		{"**/**/*.txt2", "dir/dir/file.txt", false, false},
+		{"**/*.txt", "file.txt", false, true},
+		{"**/**/*.txt", "file.txt", false, true},
+		{"a**/*.txt", "a/file.txt", false, true},
+		{"a**/*.txt", "a/dir/file.txt", false, true},
+		{"a**/*.txt", "a/dir/dir/file.txt", false, true},
+		{"a/*.txt", "a/dir/file.txt", false, false},
+		{"a/*.txt", "a/file.txt", false, true},
+		{"a/*.txt**", "a/file.txt", false, true},
+		{"a[b-d]e", "ae", false, false},
+		{"a[b-d]e", "ace", false, true},
+		{"a[b-d]e", "aae", false, false},
+		{"a[^b-d]e", "aze", false, true},
+		{".*", ".foo", false, true},
+		{".*", "foo", false, false},
+		{"abc.def", "abcdef", false, false},
+		{"abc.def", "abc.def", false, true},
+		{"abc.def", "abcZdef", false, false},
+		{"abc?def", "abcZdef", false, true},
+		{"abc?def", "abcdef", false, false},
+		{"a\\\\", "a\\", false, true},
+		{"**/foo/bar", "foo/bar", false, true},
+		{"**/foo/bar", "dir/foo/bar", false, true},
+		{"**/foo/bar", "dir/dir2/foo/bar", false, true},
+		{"abc/**", "abc", false, false},
+		{"abc/**", "abc/def", false, true},
+		{"abc/**", "abc/def/ghi", false, true},
+		{"**/.foo", ".foo", false, true},
+		{"**/.foo", "bar.foo", false, false},
 	}
 
 	if runtime.GOOS != windows {
 		tests = append(tests, []matchesTestCase{
-			{"a\\*b", "a*b", true},
-			{"a\\", "a", false},
-			{"a\\", "a\\", false},
+			{"a\\*b", "a*b", false, true},
+			{"a\\", "a", true, false},
+			{"a\\", "a\\", true, false},
+			{"a\\", "a$", true, false},
 		}...)
 	}
 
@@ -391,8 +393,12 @@ func TestMatches(t *testing.T) {
 		pm, err := NewPatternMatcher([]string{test.pattern})
 		require.NoError(t, err, desc)
 		res, err := pm.MatchesResult(test.text)
-		assert.Nil(t, err)
-		assert.Equal(t, test.pass, res.isMatched, desc)
+		if test.fail {
+			assert.Equal(t, err, filepath.ErrBadPattern)
+		} else {
+			assert.Nil(t, err)
+			assert.Equal(t, test.match, res.isMatched, desc)
+		}
 	}
 }
 

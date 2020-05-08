@@ -265,8 +265,7 @@ func (p *Pattern) compile() error {
 			// in golang's filepath.Match
 			regStr += bs + string(ch)
 		} else if ch == '\\' {
-			// escape next char. Note that a trailing \ in the pattern
-			// will be left alone (but need to escape it)
+			// escape next char.
 			if sl == bs {
 				// On windows map "\" to "\\", meaning an escaped backslash,
 				// and then just continue because filepath.Match on
@@ -277,7 +276,7 @@ func (p *Pattern) compile() error {
 			if scan.Peek() != scanner.EOF {
 				regStr += bs + string(scan.Next())
 			} else {
-				regStr += bs
+				return filepath.ErrBadPattern
 			}
 		} else {
 			regStr += string(ch)
