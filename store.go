@@ -2742,7 +2742,11 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 	}
 	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
 		store := s
-		store.RLock()
+		if store == lstore {
+			store.Lock()
+		} else {
+			store.RLock()
+		}
 		if modified, err := store.Modified(); modified || err != nil {
 			if err = store.Load(); err != nil {
 				return nil, err
@@ -3002,7 +3006,11 @@ func (s *store) Layer(id string) (*Layer, error) {
 	}
 	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
 		store := s
-		store.RLock()
+		if store == lstore {
+			store.Lock()
+		} else {
+			store.RLock()
+		}
 		defer store.Unlock()
 		if modified, err := store.Modified(); modified || err != nil {
 			if err = store.Load(); err != nil {
