@@ -55,7 +55,7 @@ func mkdirAs(path string, mode os.FileMode, ownerUID, ownerGID int, mkAll, chown
 				paths = append(paths, dirPath)
 			}
 		}
-		if err := os.MkdirAll(path, mode); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(path, mode); err != nil {
 			return err
 		}
 	} else {
