@@ -1023,7 +1023,7 @@ func (d *Driver) Put(id string) error {
 		// If they fail, fallback to unix.Unmount
 		for _, v := range []string{"fusermount3", "fusermount"} {
 			err := exec.Command(v, "-u", mountpoint).Run()
-			if err != nil && !os.IsNotExist(err) {
+			if err != nil && errors.Cause(err) != exec.ErrNotFound {
 				logrus.Debugf("Error unmounting %s with %s - %v", mountpoint, v, err)
 			}
 			if err == nil {
