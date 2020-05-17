@@ -809,6 +809,13 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 	readWrite := true
 
+	for _, o := range options.Options {
+		if o == "ro" {
+			readWrite = false
+			break
+		}
+	}
+
 	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
@@ -886,7 +893,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	// if we are doing a readOnly mount, and there is only one lower
 	// We should just return the lower directory, no reason to mount.
-	if !readWrite {
+	if !readWrite && d.options.mountProgram == "" {
 		if len(absLowers) == 0 {
 			return path.Join(dir, "empty"), nil
 		}
@@ -904,10 +911,8 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		return "", err
 	}
 	diffDir := path.Join(dir, "diff")
-	if readWrite {
-		if err := idtools.MkdirAllAs(diffDir, 0755, rootUID, rootGID); err != nil && !os.IsExist(err) {
-			return "", err
-		}
+	if err := idtools.MkdirAllAs(diffDir, 0755, rootUID, rootGID); err != nil && !os.IsExist(err) {
+		return "", err
 	}
 
 	mergedDir := path.Join(dir, "merged")
@@ -932,7 +937,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	if readWrite {
 		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(absLowers, ":"), diffDir, path.Join(dir, "work"))
 	} else {
-		opts = fmt.Sprintf("lowerdir=%s", strings.Join(absLowers, ":"))
+		opts = fmt.Sprintf("lowerdir=%s:%s", diffDir, strings.Join(absLowers, ":"))
 	}
 	if len(options.Options) > 0 {
 		opts = fmt.Sprintf("%s,%s", strings.Join(options.Options, ","), opts)
@@ -1018,7 +1023,7 @@ func (d *Driver) Put(id string) error {
 		// If they fail, fallback to unix.Unmount
 		for _, v := range []string{"fusermount3", "fusermount"} {
 			err := exec.Command(v, "-u", mountpoint).Run()
-			if err != nil && !os.IsNotExist(err) {
+			if err != nil && errors.Cause(err) != exec.ErrNotFound {
 				logrus.Debugf("Error unmounting %s with %s - %v", mountpoint, v, err)
 			}
 			if err == nil {
