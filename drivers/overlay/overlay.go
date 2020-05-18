@@ -152,11 +152,11 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	// Create the driver home dir
-	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil {
 		return nil, err
 	}
 	runhome := filepath.Join(options.RunRoot, filepath.Base(home))
-	if err := idtools.MkdirAllAs(runhome, 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAs(runhome, 0700, rootUID, rootGID); err != nil {
 		return nil, err
 	}
 
@@ -555,7 +555,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 	// Make the link directory if it does not exist
-	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0700, rootUID, rootGID); err != nil {
 		return err
 	}
 	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
@@ -767,7 +767,7 @@ func (d *Driver) recreateSymlinks() error {
 	if err != nil {
 		return err
 	}
-	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0700, rootUID, rootGID); err != nil {
 		return err
 	}
 	for _, dir := range dirs {
@@ -911,7 +911,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		return "", err
 	}
 	diffDir := path.Join(dir, "diff")
-	if err := idtools.MkdirAllAs(diffDir, 0755, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAs(diffDir, 0755, rootUID, rootGID); err != nil {
 		return "", err
 	}
 
