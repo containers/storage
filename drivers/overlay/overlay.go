@@ -33,6 +33,7 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/vbatts/tar-split/tar/storage"
 	"golang.org/x/sys/unix"
 )
 
@@ -1093,6 +1094,21 @@ func (d *Driver) getWhiteoutFormat() archive.WhiteoutFormat {
 		whiteoutFormat = archive.AUFSWhiteoutFormat
 	}
 	return whiteoutFormat
+}
+
+type fileGetNilCloser struct {
+	storage.FileGetter
+}
+
+func (f fileGetNilCloser) Close() error {
+	return nil
+}
+
+// DiffGetter returns a FileGetCloser that can read files from the directory that
+// contains files for the layer differences. Used for direct access for tar-split.
+func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
+	p := d.getDiffPath(id)
+	return fileGetNilCloser{storage.NewPathFileGetter(p)}, nil
 }
 
 // ApplyDiff applies the new layer into a root
