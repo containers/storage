@@ -198,6 +198,9 @@ The `storage.options.zfs` table supports the following options:
 **mountopt**=""
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev". Mount options are documented in the mount(8) man page.
 
+**skip_mount_home=""**
+  Tell storage drivers to not create a PRIVATE bind mount on their home directory.
+
 **size**=""
   Maximum size of a container image.   This flag can be used to set quota on the size of container images. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
