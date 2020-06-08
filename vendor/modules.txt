@@ -84,7 +84,7 @@ github.com/pquerna/ffjson/inception
 github.com/pquerna/ffjson/shared
 # github.com/sirupsen/logrus v1.6.0
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.6.0
+# github.com/stretchr/testify v1.6.1
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
