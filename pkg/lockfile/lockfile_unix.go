@@ -35,7 +35,7 @@ type lockfile struct {
 // necessary.
 func openLock(path string, ro bool) (int, error) {
 	if ro {
-		return unix.Open(path, os.O_RDONLY|unix.O_CLOEXEC, 0)
+		return unix.Open(path, os.O_RDONLY|unix.O_CLOEXEC|os.O_CREATE, 0)
 	}
 	return unix.Open(path, os.O_RDWR|unix.O_CLOEXEC|os.O_CREATE, unix.S_IRUSR|unix.S_IWUSR|unix.S_IRGRP|unix.S_IROTH)
 }
