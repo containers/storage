@@ -529,6 +529,12 @@ type LayerOptions struct {
 	// initialize this layer.  If set, it should be a child of the layer
 	// which we want to use as the parent of the new layer.
 	TemplateLayer string
+
+	// Labels is a map from string to string which contains additional
+	// information for the targetting layer. This will be passed to the
+	// graphdrivers and they can use it for deeply searching the targetting
+	// contents.
+	Labels map[string]string
 }
 
 // ImageOptions is used for passing options to a Store's CreateImage() method.
@@ -1019,6 +1025,7 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 			},
 		}
 	}
+	layerOptions.Labels = options.Labels
 	return rlstore.Put(id, parentLayer, names, mountLabel, nil, layerOptions, writeable, nil, diff)
 }
 

@@ -653,9 +653,16 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		label.ReserveLabel(mountLabel)
 	}
 	idMappings := idtools.NewIDMappingsFromMaps(moreOptions.UIDMap, moreOptions.GIDMap)
+	storageOpt := options
+	if storageOpt == nil {
+		storageOpt = make(map[string]string)
+	}
+	for k, v := range moreOptions.Labels {
+		storageOpt[k] = v
+	}
 	opts := drivers.CreateOpts{
 		MountLabel: mountLabel,
-		StorageOpt: options,
+		StorageOpt: storageOpt,
 		IDMappings: idMappings,
 	}
 	if moreOptions.TemplateLayer != "" {
@@ -675,11 +682,14 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 				return nil, -1, errors.Wrapf(err, "error creating read-write layer")
 			}
 		} else {
-			if err = r.driver.Create(id, parent, &opts); err != nil {
+			if err = r.driver.Create(id, parent, &opts); err != nil && err != drivers.ErrTargetLayerAlreadyExists {
 				if id != "" {
 					return nil, -1, errors.Wrapf(err, "error creating layer with ID %q", id)
 				}
 				return nil, -1, errors.Wrapf(err, "error creating layer")
+			} else if err == drivers.ErrTargetLayerAlreadyExists {
+				// Expect the graphdriver added this layer to the underlying additional store
+				return nil, -1, errors.Wrapf(ErrTargetLayerAlreadyExists, "targetting layer already exists in the graphdriver")
 			}
 		}
 		oldMappings = parentMappings

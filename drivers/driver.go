@@ -33,6 +33,8 @@ var (
 	ErrPrerequisites = errors.New("prerequisites for driver not satisfied (wrong filesystem?)")
 	// ErrIncompatibleFS returned when file system is not supported.
 	ErrIncompatibleFS = fmt.Errorf("backing file system is unsupported for this graph driver")
+	// ErrTargetLayerAlreadyExists indicates that the specified layer already exists in the driver
+	ErrTargetLayerAlreadyExists = errors.New("targetting layer already exists in the driver")
 )
 
 //CreateOpts contains optional arguments for Create() and CreateReadWrite()
