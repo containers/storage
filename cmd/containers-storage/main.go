@@ -120,6 +120,7 @@ func main() {
 					fmt.Printf("error initializing: %+v\n", err)
 					os.Exit(1)
 				}
+				store.Free()
 				os.Exit(command.action(flags, cmd, store, args))
 				break
 			}
