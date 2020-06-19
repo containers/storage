@@ -3601,3 +3601,13 @@ func GetMountOptions(driver string, graphDriverOptions []string) ([]string, erro
 	}
 	return nil, nil
 }
+
+// DeleteStore deletes an already-created Store object
+func DeleteStore(s Store) {
+	for i := 0; i < len(stores); i++ {
+		if stores[i] == s {
+			stores = append(stores[:i], stores[i+1:]...)
+			return
+		}
+	}
+}
