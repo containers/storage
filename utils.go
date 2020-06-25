@@ -310,3 +310,18 @@ func validRootlessStoragePathFormat(path string) error {
 	}
 	return nil
 }
+
+func validateMountOptions(mountOptions []string) error {
+	var Empty struct{}
+	// Add invalid options for ImageMount() here.
+	invalidOptions := map[string]struct{}{
+		"rw": Empty,
+	}
+
+	for _, opt := range mountOptions {
+		if _, ok := invalidOptions[opt]; ok {
+			return fmt.Errorf(" %q option not supported", opt)
+		}
+	}
+	return nil
+}

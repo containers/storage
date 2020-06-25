@@ -30,6 +30,7 @@ var (
 	paramGIDMap       = ""
 	paramSubUIDMap    = ""
 	paramSubGIDMap    = ""
+	paramReadOnly     = false
 )
 
 func paramIDMapping() (*storage.IDMappingOptions, error) {
