@@ -121,15 +121,19 @@ func checkDevHasFS(dev string) error {
 }
 
 func verifyBlockDevice(dev string, force bool) error {
-	realPath, err := filepath.Abs(dev)
+	absPath, err := filepath.Abs(dev)
 	if err != nil {
 		return errors.Errorf("unable to get absolute path for %s: %s", dev, err)
 	}
-	if realPath, err = filepath.EvalSymlinks(realPath); err != nil {
+	realPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
 		return errors.Errorf("failed to canonicalise path for %s: %s", dev, err)
 	}
-	if err := checkDevAvailable(realPath); err != nil {
-		return err
+	if err := checkDevAvailable(absPath); err != nil {
+		logrus.Infof("block device '%s' not available, checking '%s'", absPath, realPath)
+		if err := checkDevAvailable(realPath); err != nil {
+			return errors.Errorf("neither '%s' nor '%s' are in the output of lvmdiskscan, can't use device.", absPath, realPath)
+		}
 	}
 	if err := checkDevInVG(realPath); err != nil {
 		return err
