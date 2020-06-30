@@ -346,6 +346,9 @@ type Store interface {
 	// Names returns the list of names for a layer, image, or container.
 	Names(id string) ([]string, error)
 
+	// Free removes the store from the list of stores
+	Free()
+
 	// SetNames changes the list of names for a layer, image, or container.
 	// Duplicate names are removed from the list automatically.
 	SetNames(id string, names []string) error
@@ -3600,4 +3603,14 @@ func GetMountOptions(driver string, graphDriverOptions []string) ([]string, erro
 		}
 	}
 	return nil, nil
+}
+
+// Free removes the store from the list of stores
+func (s *store) Free() {
+	for i := 0; i < len(stores); i++ {
+		if stores[i] == s {
+			stores = append(stores[:i], stores[i+1:]...)
+			return
+		}
+	}
 }
