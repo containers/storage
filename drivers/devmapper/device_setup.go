@@ -23,6 +23,7 @@ type directLVMConfig struct {
 	ThinpMetaPercent    uint64
 	AutoExtendPercent   uint64
 	AutoExtendThreshold uint64
+	MetaDataSize        string
 }
 
 var (
@@ -209,8 +210,11 @@ func setupDirectLVM(cfg directLVMConfig) error {
 	if cfg.ThinpMetaPercent == 0 {
 		cfg.ThinpMetaPercent = 1
 	}
+	if cfg.MetaDataSize == "" {
+		cfg.MetaDataSize = "128k"
+	}
 
-	out, err := exec.Command("pvcreate", "-f", cfg.Device).CombinedOutput()
+	out, err := exec.Command("pvcreate", "--metadatasize", cfg.MetaDataSize, "-f", cfg.Device).CombinedOutput()
 	if err != nil {
 		return errors.Wrap(err, string(out))
 	}

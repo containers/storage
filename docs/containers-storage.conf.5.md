@@ -138,6 +138,9 @@ The `storage.options.thinpool` table supports the following options for the `dev
     6: LogLevelInfo
     7: LogLevelDebug
 
+**metadata_size**=""
+  metadata_size is used to set the `pvcreate --metadatasize` options when creating thin devices. (Default 128k)
+
 **min_free_space**=""
   Specifies the min free space percent in a thin pool required for new device creation to succeed. Valid values are from 0% - 99%. Value 0% disables. (default: 10%)
 
