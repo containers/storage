@@ -772,7 +772,20 @@ func (r *layerStore) Mounted(id string) (int, error) {
 }
 
 func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error) {
-	if !r.IsReadWrite() {
+
+	// check whether options include ro option
+	hasReadOnlyOpt := func(opts []string) bool {
+		for _, item := range opts {
+			if item == "ro" {
+				return false
+			}
+		}
+		return true
+	}
+
+	// You are not allowed to mount layers from readonly stores if they
+	// are not mounted read/only.
+	if !r.IsReadWrite() && !hasReadOnlyOpt(options.Options) {
 		return "", errors.Wrapf(ErrStoreIsReadOnly, "not allowed to update mount locations for layers at %q", r.mountspath())
 	}
 	r.mountsLockfile.Lock()
