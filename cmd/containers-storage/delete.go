@@ -19,7 +19,7 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	for _, what := range args {
 		err := m.Delete(what)
 		if err != nil {
-			deleted[what] = fmt.Sprintf("%v", err)
+			deleted[what] = err.Error()
 		} else {
 			deleted[what] = ""
 		}
@@ -49,7 +49,7 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	for _, what := range args {
 		err := m.DeleteLayer(what)
 		if err != nil {
-			deleted[what] = fmt.Sprintf("%v", err)
+			deleted[what] = err.Error()
 		} else {
 			deleted[what] = ""
 		}
@@ -85,7 +85,7 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		layers, err := m.DeleteImage(what, !testDeleteImage)
 		errText := ""
 		if err != nil {
-			errText = fmt.Sprintf("%v", err)
+			errText = err.Error()
 		}
 		deleted[what] = deletedImage{
 			DeletedLayers: layers,
@@ -121,7 +121,7 @@ func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 	for _, what := range args {
 		err := m.DeleteContainer(what)
 		if err != nil {
-			deleted[what] = fmt.Sprintf("%v", err)
+			deleted[what] = err.Error()
 		} else {
 			deleted[what] = ""
 		}

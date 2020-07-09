@@ -22,12 +22,21 @@ type mountPointError struct {
 func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	moes := []mountPointOrError{}
 	for _, arg := range args {
-		result, err := m.Mount(arg, paramMountLabel)
-		errText := ""
-		if err != nil {
-			errText = fmt.Sprintf("%v", err)
+		if paramReadOnly {
+			result, err := m.MountImage(arg, []string{"noexec", "nosuid"}, paramMountLabel)
+			errText := ""
+			if err != nil {
+				errText = err.Error()
+			}
+			moes = append(moes, mountPointOrError{arg, result, errText})
+		} else {
+			result, err := m.Mount(arg, paramMountLabel)
+			errText := ""
+			if err != nil {
+				errText = err.Error()
+			}
+			moes = append(moes, mountPointOrError{arg, result, errText})
 		}
-		moes = append(moes, mountPointOrError{arg, result, errText})
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(moes)
@@ -54,8 +63,12 @@ func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		mounted, err := m.Unmount(arg, force)
 		errText := ""
 		if err != nil {
-			errText = fmt.Sprintf("%v", err)
-			errors = true
+			var err1 error
+			mounted, err1 = m.UnmountImage(arg, force)
+			if err1 != nil {
+				errText = err.Error()
+				errors = true
+			}
 		} else {
 			if !mounted {
 				fmt.Printf("%s mountpoint unmounted\n", arg)
@@ -85,7 +98,7 @@ func mounted(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		mounted, err := m.Mounted(arg)
 		errText := ""
 		if err != nil {
-			errText = fmt.Sprintf("%v", err)
+			errText = err.Error()
 			errors = true
 		} else {
 			if mounted > 0 {
@@ -119,13 +132,14 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&paramMountOptions, []string{"-opt", "o"}, "", "Mount Options")
 			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
+			flags.BoolVar(&paramReadOnly, []string{"-ro", "r"}, paramReadOnly, "Mount image readonly")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
 	commands = append(commands, command{
 		names:       []string{"unmount", "umount"},
 		optionsHelp: "LayerOrContainerNameOrID",
-		usage:       "Unmount a layer or container",
+		usage:       "Unmount an image, layer or container",
 		minArgs:     1,
 		action:      unmount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
