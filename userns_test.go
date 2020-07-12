@@ -114,6 +114,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret := subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
+	assert.Equal(t, 0, ret[0].HostID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -128,12 +129,13 @@ func TestSubtractContainerID(t *testing.T) {
 
 	used = idtools.IDMap{
 		ContainerID: 0,
-		HostID:      0,
+		HostID:      1,
 		Size:        65536,
 	}
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
+	assert.Equal(t, 0, ret[0].HostID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -144,6 +146,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, ret[0].ContainerID, avail.ContainerID+4096)
+	assert.Equal(t, 4096, ret[0].HostID)
 	assert.Equal(t, ret[0].Size, avail.Size-4096)
 
 	used = idtools.IDMap{
