@@ -777,10 +777,10 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 	hasReadOnlyOpt := func(opts []string) bool {
 		for _, item := range opts {
 			if item == "ro" {
-				return false
+				return true
 			}
 		}
-		return true
+		return false
 	}
 
 	// You are not allowed to mount layers from readonly stores if they
