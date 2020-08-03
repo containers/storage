@@ -314,22 +314,17 @@ func subtractContainerIDs(avail idtools.IDMap, used idtools.IDMap) []idtools.IDM
 // subtractAll subtracts all usedIDs from the available IDs.
 func subtractAll(availableIDs, usedIDs []idtools.IDMap, host bool) []idtools.IDMap {
 	for _, u := range usedIDs {
-		for i := 0; i < len(availableIDs); {
-			var prev []idtools.IDMap
-			if i > 0 {
-				prev = availableIDs[:i-1]
-			}
-			next := availableIDs[i+1:]
-			cur := availableIDs[i]
+		var newAvailableIDs []idtools.IDMap
+		for _, cur := range availableIDs {
 			var newRanges []idtools.IDMap
 			if host {
 				newRanges = subtractHostIDs(cur, u)
 			} else {
 				newRanges = subtractContainerIDs(cur, u)
 			}
-			availableIDs = append(append(prev, newRanges...), next...)
-			i += len(newRanges)
+			newAvailableIDs = append(newAvailableIDs, newRanges...)
 		}
+		availableIDs = newAvailableIDs
 	}
 	return availableIDs
 }
