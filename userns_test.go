@@ -256,4 +256,17 @@ func TestFindAvailableIDRange(t *testing.T) {
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, ret[0].HostID, 100000+32768)
 	assert.Equal(t, ret[0].Size, 4096)
+
+	used = []idtools.IDMap{
+		{
+			ContainerID: 0,
+			HostID:      100010,
+			Size:        10,
+		},
+	}
+	ret, err = findAvailableIDRange(4096, avail, used)
+	assert.Nil(t, err)
+	assert.Equal(t, len(ret), 2)
+	assert.Equal(t, ret[0].HostID, 100000)
+	assert.Equal(t, ret[1].HostID, 100010)
 }

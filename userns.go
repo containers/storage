@@ -356,6 +356,7 @@ func findAvailableIDRange(size uint32, availableIDs, usedIDs []idtools.IDMap) ([
 			return avail[:i+1], nil
 		}
 		remaining -= uint32(avail[i].Size)
+		currentID += avail[i].Size
 	}
 
 	return nil, errors.New("could not find enough available IDs")
