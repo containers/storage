@@ -252,7 +252,7 @@ func subtractHostIDs(avail idtools.IDMap, used idtools.IDMap) []idtools.IDMap {
 		}
 		r2 := idtools.IDMap{
 			ContainerID: used.ContainerID + used.Size,
-			HostID:      used.HostID + used.Size,
+			HostID:      avail.HostID + (used.HostID - avail.HostID),
 			Size:        avail.HostID + avail.Size - used.HostID - used.Size,
 		}
 		return []idtools.IDMap{r1, r2}
@@ -297,7 +297,7 @@ func subtractContainerIDs(avail idtools.IDMap, used idtools.IDMap) []idtools.IDM
 		}
 		r2 := idtools.IDMap{
 			ContainerID: used.ContainerID + used.Size,
-			HostID:      avail.HostID + used.Size,
+			HostID:      avail.HostID + (used.ContainerID - avail.ContainerID),
 			Size:        avail.ContainerID + avail.Size - used.ContainerID - used.Size,
 		}
 		return []idtools.IDMap{r1, r2}
@@ -447,6 +447,5 @@ func (s *store) getAutoUserNS(id string, options *AutoUserNsOptions, image *Imag
 	if len(options.AdditionalGIDMappings) > 0 {
 		availableGIDs = subtractAll(availableGIDs, options.AdditionalGIDMappings, false)
 	}
-
 	return append(availableUIDs, options.AdditionalUIDMappings...), append(availableGIDs, options.AdditionalGIDMappings...), nil
 }
