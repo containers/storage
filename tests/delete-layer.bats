@@ -67,3 +67,55 @@ load helpers
 	# Try to delete the first again, and it should succeed because that child is gone.
 	storage delete-layer $lowerlayer
 }
+
+@test "delete-layer-with-mappings" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+	case "$STORAGE_OPTION" in
+	*mount_program*)
+		skip "test not supported when using mount_program"
+		;;
+	esac
+	run storage --debug=false create-layer -r
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowerlayer="$output"
+
+	run storage --debug=false create-layer -r --uidmap 0:100:100000 --gidmap 0:100:100000  $lowerlayer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowerlayer2="$output"
+
+	run storage --debug=false create-layer -r --uidmap 0:200:100000 --gidmap 0:200:100000  $lowerlayer2
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	upperlayer="$output"
+
+        # Expect an error as both lower layers are referenced
+	run storage --debug=false delete-layer $lowerlayer2
+	[ "$status" -ne 0 ]
+	run storage --debug=false delete-layer $lowerlayer
+	[ "$status" -ne 0 ]
+
+	run storage --debug=false delete-layer $upperlayer
+	[ "$status" -eq 0 ]
+	run storage --debug=false delete-layer $lowerlayer2
+	[ "$status" -eq 0 ]
+
+        run storage --debug=false create-image $lowerlayer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	image="$output"
+
+        # The layer is referenced by the image, it cannot be deleted
+	run storage --debug=false delete-layer $upperlayer
+	[ "$status" -ne 0 ]
+
+	run storage --debug=false delete-image $image
+	[ "$status" -eq 0 ]
+}
