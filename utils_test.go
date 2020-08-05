@@ -39,12 +39,12 @@ func TestValidStoragePathFormat(t *testing.T) {
 
 	// Then
 	for _, conf := range invalidPaths {
-		err := validRootlessStoragePathFormat(conf.path)
+		err := validEnvPathFormat(conf.path)
 		assert.Error(t, err, "Unrecognized environment variable")
 	}
 
 	for _, path := range validPaths {
-		err := validRootlessStoragePathFormat(path)
+		err := validEnvPathFormat(path)
 		assert.NilError(t, err)
 	}
 }
