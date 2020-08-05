@@ -148,3 +148,15 @@ vendor_task:
         folder: $GOPATH/pkg/mod
     build_script: make vendor
     test_script: hack/tree_status.sh
+
+# Represent overall pass/fail status from required dependent tasks
+success_task:
+    depends_on:
+        - lint
+        - testing
+        - meta
+        - vendor
+    container:
+        image: golang:1.14
+    clone_script: 'mkdir -p "$CIRRUS_WORKING_DIR"'  # Source code not needed
+    script: /bin/true
