@@ -62,8 +62,10 @@ testing_task:
         - lint
 
     # Not all $TEST_DRIVER combinations are valid for all OS types.
-    # Note: Nested-variable resolution happens at runtime, not eval. time.
-    # Use verbose logic for ease of reading/maintaining.
+    # N/B: As of the addition of this note, nested-variable resolution
+    # does not happen for boolean `only_if` expressions.  Since $VM_IMAGE
+    # contains nested variables, we must filter based on that and not the
+    # actual distro/version value.
     only_if: >-
         ( $VM_IMAGE =~ '.*UBUNTU.*' && $TEST_DRIVER == "vfs" ) ||
         ( $VM_IMAGE =~ '.*UBUNTU.*' && $TEST_DRIVER == "aufs" ) ||
