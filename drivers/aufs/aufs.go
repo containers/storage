@@ -493,9 +493,9 @@ func (a *Driver) isParent(id, parent string) bool {
 
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
-func (a *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (io.ReadCloser, error) {
+func (a *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string, omitTimestamp bool) (io.ReadCloser, error) {
 	if !a.isParent(id, parent) {
-		return a.naiveDiff.Diff(id, idMappings, parent, parentMappings, mountLabel)
+		return a.naiveDiff.Diff(id, idMappings, parent, parentMappings, mountLabel, omitTimestamp)
 	}
 
 	if idMappings == nil {

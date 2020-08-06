@@ -129,6 +129,9 @@ type layerMountPoint struct {
 type DiffOptions struct {
 	// Compression, if set overrides the default compressor when generating a diff.
 	Compression *archive.Compression
+	// OmitTimestamp forces all files in the layer to be saved as epoch 0
+	// This can be used for deterministic builds
+	OmitTimestamp bool
 }
 
 // ROLayerStore wraps a graph driver, adding the ability to refer to layers by
@@ -1239,7 +1242,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 	}
 
 	if from != toLayer.Parent {
-		diff, err := r.driver.Diff(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
+		diff, err := r.driver.Diff(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel, options.OmitTimestamp)
 		if err != nil {
 			return nil, err
 		}
@@ -1251,7 +1254,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		diff, err := r.driver.Diff(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
+		diff, err := r.driver.Diff(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel, options.OmitTimestamp)
 		if err != nil {
 			return nil, err
 		}

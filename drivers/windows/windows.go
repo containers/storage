@@ -496,7 +496,7 @@ func (d *Driver) Cleanup() error {
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
 // The layer should be mounted when calling this function
-func (d *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (_ io.ReadCloser, err error) {
+func (d *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string, omitTimestamp bool) (_ io.ReadCloser, err error) {
 	panicIfUsedByLcow()
 	rID, err := d.resolveID(id)
 	if err != nil {

@@ -42,6 +42,7 @@ type CreateOpts struct {
 	StorageOpt map[string]string
 	*idtools.IDMappings
 	ignoreChownErrors bool
+	OmitTimestamp     bool
 }
 
 // MountOpts contains optional arguments for LayerStope.Mount() methods.
@@ -60,6 +61,7 @@ type ApplyDiffOpts struct {
 	Mappings          *idtools.IDMappings
 	MountLabel        string
 	IgnoreChownErrors bool
+	OmitTimestamp     bool
 }
 
 // InitFunc initializes the storage driver.
@@ -116,7 +118,7 @@ type ProtoDriver interface {
 type DiffDriver interface {
 	// Diff produces an archive of the changes between the specified
 	// layer and its parent layer which may be "".
-	Diff(id string, idMappings *idtools.IDMappings, parent string, parentIDMappings *idtools.IDMappings, mountLabel string) (io.ReadCloser, error)
+	Diff(id string, idMappings *idtools.IDMappings, parent string, parentIDMappings *idtools.IDMappings, mountLabel string, omitTimestamp bool) (io.ReadCloser, error)
 	// Changes produces a list of changes between the specified layer
 	// and its parent layer. If parent is "", then all changes will be ADD changes.
 	Changes(id string, idMappings *idtools.IDMappings, parent string, parentIDMappings *idtools.IDMappings, mountLabel string) ([]archive.Change, error)

@@ -31,7 +31,7 @@ type NaiveDiffDriver struct {
 // NewNaiveDiffDriver returns a fully functional driver that wraps the
 // given ProtoDriver and adds the capability of the following methods which
 // it may or may not support on its own:
-//     Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (io.ReadCloser, error)
+//     Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string, omitTimestamp bool) (io.ReadCloser, error)
 //     Changes(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) ([]archive.Change, error)
 //     ApplyDiff(id, parent string, options ApplyDiffOpts) (size int64, err error)
 //     DiffSize(id string, idMappings *idtools.IDMappings, parent, parentMappings *idtools.IDMappings, mountLabel string) (size int64, err error)
@@ -41,7 +41,7 @@ func NewNaiveDiffDriver(driver ProtoDriver, updater LayerIDMapUpdater) Driver {
 
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
-func (gdw *NaiveDiffDriver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (arch io.ReadCloser, err error) {
+func (gdw *NaiveDiffDriver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string, omitTimestamp bool) (arch io.ReadCloser, err error) {
 	startTime := time.Now()
 	driver := gdw.ProtoDriver
 
@@ -94,7 +94,7 @@ func (gdw *NaiveDiffDriver) Diff(id string, idMappings *idtools.IDMappings, pare
 		return nil, err
 	}
 
-	archive, err := archive.ExportChanges(layerFs, changes, idMappings.UIDs(), idMappings.GIDs())
+	archive, err := archive.ExportChanges(layerFs, changes, idMappings.UIDs(), idMappings.GIDs(), omitTimestamp)
 	if err != nil {
 		return nil, err
 	}

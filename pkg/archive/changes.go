@@ -447,7 +447,7 @@ func ChangesSize(newDir string, changes []Change) int64 {
 }
 
 // ExportChanges produces an Archive from the provided changes, relative to dir.
-func ExportChanges(dir string, changes []Change, uidMaps, gidMaps []idtools.IDMap) (io.ReadCloser, error) {
+func ExportChanges(dir string, changes []Change, uidMaps, gidMaps []idtools.IDMap, omitTimestamp bool) (io.ReadCloser, error) {
 	reader, writer := io.Pipe()
 	go func() {
 		ta := newTarAppender(idtools.NewIDMappingsFromMaps(uidMaps, gidMaps), writer, nil)
@@ -467,6 +467,9 @@ func ExportChanges(dir string, changes []Change, uidMaps, gidMaps []idtools.IDMa
 				whiteOutBase := filepath.Base(change.Path)
 				whiteOut := filepath.Join(whiteOutDir, WhiteoutPrefix+whiteOutBase)
 				timestamp := time.Now()
+				if omitTimestamp {
+					timestamp = time.Unix(0, 0)
+				}
 				hdr := &tar.Header{
 					Name:       whiteOut[1:],
 					Size:       0,

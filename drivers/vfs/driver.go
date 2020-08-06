@@ -276,8 +276,8 @@ func (d *Driver) Changes(id string, idMappings *idtools.IDMappings, parent strin
 
 // Diff produces an archive of the changes between the specified
 // layer and its parent layer which may be "".
-func (d *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (io.ReadCloser, error) {
-	return d.naiveDiff.Diff(id, idMappings, parent, parentMappings, mountLabel)
+func (d *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string, omitTimestamp bool) (io.ReadCloser, error) {
+	return d.naiveDiff.Diff(id, idMappings, parent, parentMappings, mountLabel, omitTimestamp)
 }
 
 // DiffSize calculates the changes between the specified id
