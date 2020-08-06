@@ -34,13 +34,18 @@ The `storage` table supports the following options:
   container storage graph dir (default: "/var/lib/containers/storage")
   Default directory to store all writable content created by container storage programs.
 
+    The rootless graphroot path supports three substitutions:
+    * `$HOME` => Replaced by the users home directory.
+    * `$UID`  => Replaced by the users UID
+    * `$USER` => Replaced by the users name
+
 **rootless_storage_path**="$HOME/.local/share/containers/storage"
   Storage path for rootless users. By default the graphroot for rootless users
-is set to `$XDG_DATA_HOME/containers/storage`, if XDG_DATA_HOME is set.
-Otherwise `$HOME/.local/share/containers/storage` is used.  This field can
-be used if administrators need to change the storage location for all users.
+  is set to `$XDG_DATA_HOME/containers/storage`, if XDG_DATA_HOME is set.
+  Otherwise `$HOME/.local/share/containers/storage` is used.  This field can
+  be used if administrators need to change the storage location for all users.
 
-    The rootless storage path supports three substations:
+    The rootless storage path supports three substitutions:
     * `$HOME` => Replaced by the users home directory.
     * `$UID`  => Replaced by the users UID
     * `$USER` => Replaced by the users name
@@ -50,6 +55,11 @@ be used if administrators need to change the storage location for all users.
 **runroot**=""
   container storage run dir (default: "/var/run/containers/storage")
   Default directory to store all temporary writable content created by container storage programs.
+
+    The rootless runroot path supports three substitutions:
+    * `$HOME` => Replaced by the users home directory.
+    * `$UID`  => Replaced by the users UID
+    * `$USER` => Replaced by the users name
 
 ### STORAGE OPTIONS TABLE
 
