@@ -35,7 +35,7 @@ github.com/docker/go-units
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
-# github.com/google/go-cmp v0.3.0
+# github.com/google/go-cmp v0.4.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
@@ -64,10 +64,10 @@ github.com/mattn/go-shellwords
 github.com/mistifyio/go-zfs
 # github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
-# github.com/opencontainers/runc v1.0.0-rc91
+# github.com/opencontainers/runc v1.0.0-rc92
 github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
-# github.com/opencontainers/runtime-spec v1.0.3-0.20200520003142-237cc4f519e2
+# github.com/opencontainers/runtime-spec v1.0.3-0.20200728170252-4d89ac9fbff6
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/selinux v1.6.0
 github.com/opencontainers/selinux/go-selinux
@@ -105,7 +105,8 @@ go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
 # golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
 golang.org/x/net/context
-# golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
+# golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
