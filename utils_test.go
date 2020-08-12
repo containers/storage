@@ -12,43 +12,6 @@ import (
 	"gotest.tools/assert"
 )
 
-func TestValidStoragePathFormat(t *testing.T) {
-	// Given
-	expectErr := "Unrecognized environment variable"
-	invalidPaths := []struct {
-		path   string
-		expect string
-	}{
-		{"$", expectErr},
-		{"$HOMEDIR", expectErr},
-		{"$HOMEdir", expectErr},
-		{"/test/$HOMEDIR/$USERNAME/$UID", expectErr},
-		{"/test/$HOME/$USERNAME/$UID", expectErr},
-		{"/test/$HOME/$USER/$UIDNUM", expectErr},
-	}
-	validPaths := []string{
-		"$HOME",
-		"$HOME/",
-		"/test/path",
-		"/test/$HOME",
-		"/test/$HOME/path",
-		"/test/$HOME/$USER/$UID",
-		"/test/$HOME/$USER/$UID/path",
-		"$HOME/$USER/$UID/path",
-	}
-
-	// Then
-	for _, conf := range invalidPaths {
-		err := validEnvPathFormat(conf.path)
-		assert.Error(t, err, "Unrecognized environment variable")
-	}
-
-	for _, path := range validPaths {
-		err := validEnvPathFormat(path)
-		assert.NilError(t, err)
-	}
-}
-
 type homeRuntimeData struct {
 	dir   string
 	error error
@@ -294,4 +257,15 @@ func TestRootlessRuntimeDirRace(t *testing.T) {
 	})
 	assert.NilError(t, err)
 	assert.Assert(t, resultDir != tmpPerUserDir, "Rootless runtime dir shouldn't follow race dir.")
+}
+
+func TestDefaultStoreOpts(t *testing.T) {
+	storageOpts, err := defaultStoreOptionsIsolated(true, 1000, "./storage_test.conf")
+
+	expectedPath := filepath.Join(os.Getenv("NAME"), "1000", "containers/storage")
+
+	assert.NilError(t, err)
+	assert.Assert(t, storageOpts.RunRoot == expectedPath)
+	assert.Assert(t, storageOpts.GraphRoot == expectedPath)
+	assert.Assert(t, storageOpts.RootlessStoragePath == expectedPath)
 }
