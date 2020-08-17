@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 STORAGE_BINARY=${STORAGE_BINARY:-$(dirname ${BASH_SOURCE})/../containers-storage}
 TESTSDIR=${TESTSDIR:-$(dirname ${BASH_SOURCE})}

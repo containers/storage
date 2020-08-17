@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 export PKG='github.com/containers/storage'
 export VAGRANT_MACHINES="fedora debian"
