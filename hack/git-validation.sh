@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 export PATH=${GOPATH%%:*}/bin:${PATH}
 export GIT_VALIDATION=tests/tools/build/git-validation
 if [ ! -x "$GIT_VALIDATION" ]; then

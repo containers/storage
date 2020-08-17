@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 TMPDIR=${TMPDIR:-/var/tmp}
 

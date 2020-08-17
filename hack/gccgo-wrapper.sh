@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Work around, based on one described in https://github.com/golang/go/issues/15628
 #
