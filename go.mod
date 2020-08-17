@@ -1,3 +1,5 @@
+go 1.15
+
 module github.com/containers/storage
 
 require (
@@ -25,5 +27,3 @@ require (
 	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
 	gotest.tools v2.2.0+incompatible
 )
-
-go 1.13
