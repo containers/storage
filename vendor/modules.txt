@@ -1,12 +1,15 @@
 # github.com/BurntSushi/toml v0.3.1
+## explicit
 github.com/BurntSushi/toml
 # github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
+## explicit
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/archive/tar
 github.com/Microsoft/go-winio/backuptar
 github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/go-winio/vhd
 # github.com/Microsoft/hcsshim v0.8.9
+## explicit
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/internal/cow
 github.com/Microsoft/hcsshim/internal/hcs
@@ -30,6 +33,7 @@ github.com/containerd/cgroups/stats/v1
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/docker/go-units v0.4.0
+## explicit
 github.com/docker/go-units
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/gogoproto
@@ -44,10 +48,12 @@ github.com/google/go-cmp/cmp/internal/value
 # github.com/hashicorp/errwrap v1.0.0
 github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.0
+## explicit
 github.com/hashicorp/go-multierror
 # github.com/hashicorp/golang-lru v0.5.1
 github.com/hashicorp/golang-lru/simplelru
 # github.com/klauspost/compress v1.10.11
+## explicit
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
@@ -55,43 +61,57 @@ github.com/klauspost/compress/snappy
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/klauspost/pgzip v1.2.4
+## explicit
 github.com/klauspost/pgzip
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/mattn/go-shellwords v1.0.10
+## explicit
 github.com/mattn/go-shellwords
 # github.com/mistifyio/go-zfs v2.1.1+incompatible
+## explicit
 github.com/mistifyio/go-zfs
 # github.com/opencontainers/go-digest v1.0.0
+## explicit
 github.com/opencontainers/go-digest
 # github.com/opencontainers/runc v1.0.0-rc91
+## explicit
 github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/runtime-spec v1.0.3-0.20200520003142-237cc4f519e2
+## explicit
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/selinux v1.6.0
+## explicit
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
 # github.com/pkg/errors v0.9.1
+## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
 # github.com/pquerna/ffjson v0.0.0-20181028064349-e517b90714f7
+## explicit
 github.com/pquerna/ffjson/fflib/v1
 github.com/pquerna/ffjson/fflib/v1/internal
 github.com/pquerna/ffjson/inception
 github.com/pquerna/ffjson/shared
 # github.com/sirupsen/logrus v1.6.0
+## explicit
 github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.6.1
+## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/syndtr/gocapability v0.0.0-20180916011248-d98352740cb2
+## explicit
 github.com/syndtr/gocapability/capability
 # github.com/tchap/go-patricia v2.3.0+incompatible
+## explicit
 github.com/tchap/go-patricia/patricia
 # github.com/vbatts/tar-split v0.11.1
+## explicit
 github.com/vbatts/tar-split/archive/tar
 github.com/vbatts/tar-split/tar/asm
 github.com/vbatts/tar-split/tar/storage
@@ -104,13 +124,16 @@ go.opencensus.io/trace
 go.opencensus.io/trace/internal
 go.opencensus.io/trace/tracestate
 # golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
+## explicit
 golang.org/x/net/context
 # golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
+## explicit
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 gopkg.in/yaml.v3
 # gotest.tools v2.2.0+incompatible
+## explicit
 gotest.tools/assert
 gotest.tools/assert/cmp
 gotest.tools/internal/difflib
