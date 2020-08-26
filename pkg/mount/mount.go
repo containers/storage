@@ -6,7 +6,10 @@ import (
 	"strings"
 
 	"github.com/containers/storage/pkg/fileutils"
+	"github.com/moby/sys/mountinfo"
 )
+
+type Info mountinfo.Info
 
 // mountError holds an error from a mount or unmount operation
 type mountError struct {
@@ -43,15 +46,28 @@ func (e *mountError) Cause() error {
 	return e.err
 }
 
+func convert(minfo []*mountinfo.Info) []*Info {
+	info := []*Info{}
+	for _, i := range minfo {
+		myinfo := Info(*i)
+		info = append(info, &myinfo)
+	}
+	return info
+}
+
 // GetMounts retrieves a list of mounts for the current running process.
 func GetMounts() ([]*Info, error) {
-	return parseMountTable()
+	mounts, err := mountinfo.GetMounts(nil)
+	if err != nil {
+		return nil, err
+	}
+	return convert(mounts), nil
 }
 
 // Mounted determines if a specified mountpoint has been mounted.
 // On Linux it looks at /proc/self/mountinfo and on Solaris at mnttab.
 func Mounted(mountpoint string) (bool, error) {
-	entries, err := parseMountTable()
+	entries, err := mountinfo.GetMounts(nil)
 	if err != nil {
 		return false, err
 	}
@@ -131,4 +147,15 @@ func RecursiveUnmount(target string) error {
 // Deprecated: please use Unmount instead, it is identical.
 func ForceUnmount(target string) error {
 	return unmount(target, mntDetach)
+}
+
+// PidMountInfo collects the mounts for a specific process ID. If the process
+// ID is unknown, it is better to use `GetMounts` which will inspect
+// "/proc/self/mountinfo" instead.
+func PidMountInfo(pid int) ([]*Info, error) {
+	info, err := mountinfo.PidMountInfo(pid)
+	if err != nil {
+		return nil, err
+	}
+	return convert(info), nil
 }
