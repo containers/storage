@@ -265,7 +265,7 @@ func TestDefaultStoreOpts(t *testing.T) {
 	expectedPath := filepath.Join(os.Getenv("NAME"), "1000", "containers/storage")
 
 	assert.NilError(t, err)
-	assert.Assert(t, storageOpts.RunRoot == expectedPath)
-	assert.Assert(t, storageOpts.GraphRoot == expectedPath)
-	assert.Assert(t, storageOpts.RootlessStoragePath == expectedPath)
+	assert.Equal(t, storageOpts.RunRoot, expectedPath)
+	assert.Equal(t, storageOpts.GraphRoot, expectedPath)
+	assert.Equal(t, storageOpts.RootlessStoragePath, expectedPath)
 }
