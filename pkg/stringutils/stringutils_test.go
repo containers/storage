@@ -112,9 +112,9 @@ func TestShellQuoteArgumentsEmpty(t *testing.T) {
 
 func TestShellQuoteArguments(t *testing.T) {
 	simpleString := "simpleString"
-	complexString := "This is a 'more' complex $tring with some special char *"
+	complexString := "This is a 'more' complex $string with some special char *"
 	actual := ShellQuoteArguments([]string{simpleString, complexString})
-	expected := "simpleString 'This is a '\\''more'\\'' complex $tring with some special char *'"
+	expected := "simpleString 'This is a '\\''more'\\'' complex $string with some special char *'"
 	if actual != expected {
 		t.Fatalf("Expected \"%v\", got \"%v\"", expected, actual)
 	}

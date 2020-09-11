@@ -14,7 +14,7 @@ function execute() {
 # Tests to run. Defaults to all.
 TESTS=${@:-.}
 
-# N/B: Testing in parallel under automation is discourraged in this instance
+# N/B: Testing in parallel under automation is discouraged in this instance
 #      (so `export JOBS=1`).  It has been observed to cause errors on Ubuntu,
 #      and with so few tests here anyway, doesn't save much time (i.e. maybe a
 #      few seconds at most)
