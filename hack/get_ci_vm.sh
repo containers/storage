@@ -28,7 +28,7 @@ STORAGEROOT=$(realpath "$(dirname $0)/../")
 # else: Assume $PWD is the root of the storage repository
 [[ "$STORAGEROOT" != "/" ]] || STORAGEROOT=$PWD
 
-# Command shortcuts save some typing (asumes $STORAGEROOT is subdir of $HOME)
+# Command shortcuts save some typing (assumes $STORAGEROOT is subdir of $HOME)
 PGCLOUD="$GCLOUD_SUDO podman run -it --rm -e AS_ID=$UID -e AS_USER=$USER --security-opt label=disable -v $TMPDIR:$HOME -v $HOME/.config/gcloud:$HOME/.config/gcloud -v $HOME/.config/gcloud/ssh:$HOME/.ssh -v $STORAGEROOT:$STORAGEROOT $GCLOUD_IMAGE --configuration=storage --project=$PROJECT"
 SCP_CMD="$PGCLOUD compute scp"
 
