@@ -116,11 +116,13 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 func (d *Driver) Cleanup() error {
 	err := d.DeviceSet.Shutdown(d.home)
 
-	if err2 := mount.Unmount(d.home); err == nil {
-		err = err2
+	umountErr := mount.Unmount(d.home)
+	// in case we have two errors, prefer the one from Shutdown()
+	if err != nil {
+		return err
 	}
 
-	return err
+	return umountErr
 }
 
 // CreateFromTemplate creates a layer with the same contents and parent as another layer.
