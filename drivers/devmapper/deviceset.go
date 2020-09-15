@@ -1213,7 +1213,11 @@ func (devices *DeviceSet) growFS(info *devInfo) error {
 		return errors.Wrapf(err, "Failed to mount; dmesg: %s", string(dmesg.Dmesg(256)))
 	}
 
-	defer unix.Unmount(fsMountPoint, unix.MNT_DETACH)
+	defer func() {
+		if err := mount.Unmount(fsMountPoint); err != nil {
+			logrus.Warnf("devmapper.growFS cleanup error: %v", err)
+		}
+	}()
 
 	switch devices.BaseDeviceFilesystem {
 	case ext4:
@@ -2275,8 +2279,8 @@ func (devices *DeviceSet) unmountAndDeactivateAll(dir string) {
 		// We use MNT_DETACH here in case it is still busy in some running
 		// container. This means it'll go away from the global scope directly,
 		// and the device will be released when that container dies.
-		if err := unix.Unmount(fullname, unix.MNT_DETACH); err != nil && err != unix.EINVAL {
-			logrus.Warnf("devmapper: Shutdown unmounting %s, error: %s", fullname, err)
+		if err := mount.Unmount(fullname); err != nil {
+			logrus.Warnf("devmapper.Shutdown error: %s", err)
 		}
 
 		if devInfo, err := devices.lookupDevice(name); err != nil {
@@ -2414,7 +2418,9 @@ func (devices *DeviceSet) MountDevice(hash, path string, moptions graphdriver.Mo
 
 	if fstype == xfs && devices.xfsNospaceRetries != "" {
 		if err := devices.xfsSetNospaceRetries(info); err != nil {
-			unix.Unmount(path, unix.MNT_DETACH)
+			if err := mount.Unmount(path); err != nil {
+				logrus.Warnf("devmapper.MountDevice cleanup error: %v", err)
+			}
 			devices.deactivateDevice(info)
 			return err
 		}
@@ -2440,7 +2446,7 @@ func (devices *DeviceSet) UnmountDevice(hash, mountPath string) error {
 	defer devices.Unlock()
 
 	logrus.Debugf("devmapper: Unmount(%s)", mountPath)
-	if err := unix.Unmount(mountPath, unix.MNT_DETACH); err != nil {
+	if err := mount.Unmount(mountPath); err != nil {
 		return err
 	}
 	logrus.Debug("devmapper: Unmount done")
