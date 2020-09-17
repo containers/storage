@@ -12,7 +12,7 @@ require (
 	github.com/klauspost/pgzip v1.2.5
 	github.com/mattn/go-shellwords v1.0.10
 	github.com/mistifyio/go-zfs v2.1.1+incompatible
-	github.com/moby/sys/mountinfo v0.1.3
+	github.com/moby/sys/mountinfo v0.2.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/runc v1.0.0-rc91
 	github.com/opencontainers/runtime-spec v1.0.3-0.20200520003142-237cc4f519e2
@@ -25,6 +25,6 @@ require (
 	github.com/tchap/go-patricia v2.3.0+incompatible
 	github.com/vbatts/tar-split v0.11.1
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
-	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
+	golang.org/x/sys v0.0.0-20200909081042-eff7692f9009
 	gotest.tools v2.2.0+incompatible
 )
