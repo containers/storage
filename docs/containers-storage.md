@@ -163,3 +163,10 @@ This is still a work in progress, so some functionality may not yet be
 implemented, and some will be removed if it is found to be unnecessary.  That
 said, if anything isn't working correctly, please report it to [the project's
 issue tracker] (https://github.com/containers/storage/issues).
+
+## FOOTNOTES
+The Containers Storage project is committed to inclusivity, a core value of open source.
+The `master` and `slave` mount propagation terminology is used in this repository.
+This language is problematic and divisive, and should be changed.
+However, these terms are currently used within the Linux kernel and must be used as-is at this time.
+When the kernel maintainers rectify this usage, Containers Storage will follow suit immediately.
