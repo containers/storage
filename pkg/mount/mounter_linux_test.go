@@ -154,8 +154,8 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 		// Use parent info as the defaults
 		p := mnts[mi.Parent]
 		pOpts := make(map[string]struct{})
-		if p.Opts != "" {
-			for _, opt := range strings.Split(p.Opts, ",") {
+		if p.Options != "" {
+			for _, opt := range strings.Split(p.Options, ",") {
 				pOpts[clean(opt)] = struct{}{}
 			}
 		}
@@ -166,9 +166,9 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 			}
 		}
 
-		// Validate Opts
-		if mi.Opts != "" {
-			for _, opt := range strings.Split(mi.Opts, ",") {
+		// Validate Options
+		if mi.Options != "" {
+			for _, opt := range strings.Split(mi.Options, ",") {
 				opt = clean(opt)
 				if !has(volunteeredOPT, opt) && !has(wantedOpts, opt) && !has(pOpts, opt) {
 					t.Errorf("unexpected mount option %q, expected %q", opt, opts)
@@ -177,7 +177,7 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 			}
 		}
 		for opt := range wantedOpts {
-			t.Errorf("missing mount option %q found %q", opt, mi.Opts)
+			t.Errorf("missing mount option %q found %q", opt, mi.Options)
 		}
 
 		// Validate Optional
@@ -196,8 +196,8 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 
 		// Validate VFS if set
 		if vfs != "" {
-			if mi.VfsOpts != "" {
-				for _, opt := range strings.Split(mi.VfsOpts, ",") {
+			if mi.VFSOptions != "" {
+				for _, opt := range strings.Split(mi.VFSOptions, ",") {
 					opt = clean(opt)
 					if !has(wantedVFS, opt) && !has(volunteeredVFS, opt) {
 						t.Errorf("unexpected vfs option %q, expected %q", opt, vfs)
@@ -206,7 +206,7 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 				}
 			}
 			for opt := range wantedVFS {
-				t.Errorf("missing vfs option %q, found %q", opt, mi.VfsOpts)
+				t.Errorf("missing vfs option %q, found %q", opt, mi.VFSOptions)
 			}
 		}
 
