@@ -22,7 +22,7 @@ case $TEST_DRIVER in
     devicemapper)
         # Setup by devicemapper_setup in lib.sh
         DM_DEVICE=$(< $DM_REF_FILEPATH)
-        echo "WARNING: Performing destructive testing against $DM_DEVICE"
+        warn "Performing destructive testing against $DM_DEVICE"
         showrun make STORAGE_DRIVER=devicemapper STORAGE_OPTION=dm.directlvm_device=$DM_DEVICE local-test-integration
         ;;
     vfs)
@@ -32,6 +32,6 @@ case $TEST_DRIVER in
         showrun make STORAGE_DRIVER=aufs local-test-integration
         ;;
     *)
-        die 11 "Unknown/Unsupported \$TEST_DRIVER=$TEST_DRIVER (see .cirrus.yml and $(basename $0))"
+        die "Unknown/Unsupported \$TEST_DRIVER=$TEST_DRIVER (see .cirrus.yml and $(basename $0))"
         ;;
 esac

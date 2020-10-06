@@ -4,15 +4,12 @@ set -e
 
 source $(dirname $0)/lib.sh
 
-req_env_var GOSRC OS_RELEASE_ID OS_RELEASE_VER SHORT_APTGET TEST_DRIVER
-
-install_ooe
+req_env_vars GOSRC OS_RELEASE_ID OS_RELEASE_VER SHORT_APTGET TEST_DRIVER
 
 show_env_vars
 
 cd $GOSRC
-
-echo "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"
+msg "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"
 case "$OS_RELEASE_ID" in
     fedora)
         $LONG_DNFY update  # install latest packages

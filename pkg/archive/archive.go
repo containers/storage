@@ -1247,10 +1247,11 @@ func (archiver *Archiver) CopyFileWithTar(src, dst string) (err error) {
 	}()
 
 	options := &TarOptions{
-		UIDMaps:   archiver.UntarIDMappings.UIDs(),
-		GIDMaps:   archiver.UntarIDMappings.GIDs(),
-		ChownOpts: archiver.ChownOpts,
-		InUserNS:  rsystem.RunningInUserNS(),
+		UIDMaps:              archiver.UntarIDMappings.UIDs(),
+		GIDMaps:              archiver.UntarIDMappings.GIDs(),
+		ChownOpts:            archiver.ChownOpts,
+		InUserNS:             rsystem.RunningInUserNS(),
+		NoOverwriteDirNonDir: true,
 	}
 	err = archiver.Untar(r, filepath.Dir(dst), options)
 	if err != nil {
