@@ -82,7 +82,7 @@ validate: ## validate DCO, gofmt, ./pkg/ isolation, golint,\ngo vet and vendor u
 	$(RUNINVM) make local-$@
 
 install.tools:
-	go get -u $(BUILDFLAGS) github.com/cpuguy83/go-md2man
+	go get -u $(BUILDFLAGS) gopkg.in/cpuguy83/go-md2man.v1
 	go get -u $(BUILDFLAGS) github.com/vbatts/git-validation
 	go get -u $(BUILDFLAGS) gopkg.in/alecthomas/gometalinter.v1
 	go get -u $(BUILDFLAGS) github.com/pquerna/ffjson
