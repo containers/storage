@@ -41,21 +41,32 @@ $INSTALL_CMD &> $TMPFILE || ( cat $TMPFILE && exit 3 )
 rm -f "$TMPFILE"
 echo "done"
 
-if [[ ! -d "$HOME/.gimme" ]]
-then
-    echo
-    echo "Setting up for go version \"$GO_VERSION\""
-    # Ref: https://github.com/travis-ci/gimme/blob/master/README.md
-    mkdir -p "$HOME/bin"
-    curl -sL -o $HOME/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
-    chmod +x $HOME/bin/gimme
-    # Set env. vars here and for any future bash sessions
-    X=$(echo 'export GOPATH="$HOME/go"' | tee -a $HOME/.bashrc) && eval "$X"
-    X=$(echo 'export PATH="${PATH}:$HOME/bin:${GOPATH//://bin:}/bin"' | tee -a $HOME/.bashrc) && eval "$X"
-    # Install go & set env vars
-    X="$($HOME/bin/gimme $GO_VERSION | tee -a $HOME/.bashrc)" && eval "$X"
-    unset X
-fi
+echo
+echo "Setting up for go version \"stable\""
+# Ref: https://github.com/travis-ci/gimme/blob/master/README.md
+mkdir -p "$HOME/bin"
+curl -sL -o $HOME/bin/gimme https://raw.githubusercontent.com/travis-ci/gimme/master/gimme
+chmod +x $HOME/bin/gimme
+# Set env. vars here
+export GOPATH="$HOME/go"
+export PATH="${PATH}:$HOME/bin:${GOPATH}/bin"
+X="$($HOME/bin/gimme stable)" && eval "$X"
+unset X
+
+echo
+echo "Installing tools"
+make install.tools
+
+echo
+echo "Setting up for go version \"$GO_VERSION\""
+# Ref: https://github.com/travis-ci/gimme/blob/master/README.md
+# Set env. vars here and for any future bash sessions
+X=$(echo 'export GOPATH="$HOME/go"' | tee -a $HOME/.bashrc) && eval "$X"
+X=$(echo 'export PATH="${PATH}:$HOME/bin:${GOPATH//://bin:}/bin"' | tee -a $HOME/.bashrc) && eval "$X"
+# Install go & set env vars
+X="$($HOME/bin/gimme $GO_VERSION | tee -a $HOME/.bashrc)" && eval "$X"
+unset X
+
 source "$HOME/.bashrc"  # Just in case anything was missed
 
 echo
@@ -66,6 +77,5 @@ echo "PWD=$PWD"
 
 echo
 echo "Building/Running tests"
-make install.tools
 make local-binary docs local-cross local-validate
 make local-test-unit local-test-integration
