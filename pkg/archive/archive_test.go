@@ -829,7 +829,7 @@ func TestTypeXGlobalHeaderDoesNotFail(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	buffer := make([]byte, 1<<20)
-	err = createTarFile(filepath.Join(tmpDir, "pax_global_header"), tmpDir, &hdr, nil, true, nil, false, false, buffer)
+	err = createTarFile(filepath.Join(tmpDir, "pax_global_header"), tmpDir, &hdr, nil, true, nil, false, false, nil, buffer)
 	if err != nil {
 		t.Fatal(err)
 	}

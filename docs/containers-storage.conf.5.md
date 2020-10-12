@@ -149,7 +149,7 @@ The `storage.options.thinpool` table supports the following options for the `dev
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev". Mount options are documented in the mount(8) man page.
 
 **size**=""
-  Maximum size of a container image.   This flag can be used to set quota on the size of container images. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
+  Maximum size of a container image.  This flag can be used to set quota on the size of container images. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
 **use_deferred_deletion**=""
   Marks thinpool device for deferred deletion. If the thinpool is in use when the driver attempts to delete it, the driver will attempt to delete device every 30 seconds until successful, or when it restarts.  Deferred deletion permanently deletes the device and all data stored in the device will be lost. (default: true).
@@ -166,6 +166,13 @@ The `storage.options.overlay` table supports the following options:
 
 **ignore_chown_errors** = "false"
   ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: false)
+
+**force_mask** = "0000|shared|private"
+  force_mask sets an octal permission mask that is used for the new files and directories.  The values "native", "shared", "private" are also accepted.  (default: "native")
+  "private": it is equivalent to 0700.  The owner has rwx access to the files.
+  "shared": it is equivalent to 0755.  The owner has rwx access to the files and everyone else can read, access and execute them.
+  It is possible to use **force_mask** only when **mount_program** is specified.
+  Note: The force_mask Flag is an experimental feature, it could change in the future.
 
 **mount_program**=""
   Specifies the path to a custom program to use instead of using kernel defaults

@@ -65,6 +65,8 @@ type (
 		// from the traditional behavior/format to get features like subsecond
 		// precision in timestamps.
 		CopyPass bool
+		// ForceMask, if set, indicates the permission mask used for created files.
+		ForceMask *os.FileMode
 	}
 )
 
@@ -603,18 +605,23 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	return nil
 }
 
-func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, Lchown bool, chownOpts *idtools.IDPair, inUserns, ignoreChownErrors bool, buffer []byte) error {
+func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, Lchown bool, chownOpts *idtools.IDPair, inUserns, ignoreChownErrors bool, forceMask *os.FileMode, buffer []byte) error {
 	// hdr.Mode is in linux format, which we can use for sycalls,
 	// but for os.Foo() calls we need the mode converted to os.FileMode,
 	// so use hdrInfo.Mode() (they differ for e.g. setuid bits)
 	hdrInfo := hdr.FileInfo()
+
+	mask := hdrInfo.Mode()
+	if forceMask != nil {
+		mask = *forceMask
+	}
 
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		// Create directory unless it exists as a directory already.
 		// In that case we just want to merge the two
 		if fi, err := os.Lstat(path); !(err == nil && fi.IsDir()) {
-			if err := os.Mkdir(path, hdrInfo.Mode()); err != nil {
+			if err := os.Mkdir(path, mask); err != nil {
 				return err
 			}
 		}
@@ -623,7 +630,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		// Source is regular file. We use system.OpenFileSequential to use sequential
 		// file access to avoid depleting the standby list on Windows.
 		// On Linux, this equates to a regular os.OpenFile
-		file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, hdrInfo.Mode())
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, mask)
 		if err != nil {
 			return err
 		}
@@ -697,7 +704,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 
 	// There is no LChmod, so ignore mode for symlink. Also, this
 	// must happen after chown, as that can modify the file mode
-	if err := handleLChmod(hdr, path, hdrInfo); err != nil {
+	if err := handleLChmod(hdr, path, hdrInfo, forceMask); err != nil {
 		return err
 	}
 
@@ -1041,7 +1048,7 @@ loop:
 			chownOpts = &idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid}
 		}
 
-		if err := createTarFile(path, dest, hdr, trBuf, !options.NoLchown, chownOpts, options.InUserNS, options.IgnoreChownErrors, buffer); err != nil {
+		if err := createTarFile(path, dest, hdr, trBuf, !options.NoLchown, chownOpts, options.InUserNS, options.IgnoreChownErrors, options.ForceMask, buffer); err != nil {
 			return err
 		}
 
