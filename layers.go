@@ -907,7 +907,7 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	for dir := filepath.Dir(layer.MountPoint); dir != "" && dir != string(os.PathSeparator); dir = filepath.Dir(dir) {
 		st, err := system.Stat(dir)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrap(err, "read directory ownership")
 		}
 		lst, err := system.Lstat(dir)
 		if err != nil {
