@@ -76,7 +76,7 @@ func GetRootlessRuntimeDir(rootlessUID int) (string, error) {
 	}
 	path = filepath.Join(path, "containers")
 	if err := os.MkdirAll(path, 0700); err != nil {
-		return "", errors.Wrapf(err, "unable to make rootless runtime dir %s", path)
+		return "", errors.Wrapf(err, "unable to make rootless runtime")
 	}
 	return path, nil
 }
@@ -154,7 +154,7 @@ func getRootlessRuntimeDirIsolated(env rootlessRuntimeDirEnvironment) (string, e
 	}
 	resolvedHomeDir, err := filepath.EvalSymlinks(homeDir)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot resolve %s", homeDir)
+		return "", err
 	}
 	return filepath.Join(resolvedHomeDir, "rundir"), nil
 }
@@ -190,7 +190,7 @@ func getRootlessDirInfo(rootlessUID int) (string, string, error) {
 	// on CoreOS /home is a symlink to /var/home, so resolve any symlink.
 	resolvedHome, err := filepath.EvalSymlinks(home)
 	if err != nil {
-		return "", "", errors.Wrapf(err, "cannot resolve %s", home)
+		return "", "", err
 	}
 	dataDir = filepath.Join(resolvedHome, ".local", "share")
 
@@ -259,7 +259,7 @@ func defaultStoreOptionsIsolated(rootless bool, rootlessUID int, storageConf str
 	}
 	_, err = os.Stat(storageConf)
 	if err != nil && !os.IsNotExist(err) {
-		return storageOpts, errors.Wrapf(err, "cannot stat %s", storageConf)
+		return storageOpts, err
 	}
 	if err == nil {
 		defaultRootlessRunRoot = storageOpts.RunRoot

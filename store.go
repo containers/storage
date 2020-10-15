@@ -613,14 +613,14 @@ func GetStore(options StoreOptions) (Store, error) {
 	if options.GraphRoot != "" {
 		dir, err := filepath.Abs(options.GraphRoot)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error deriving an absolute path from %q", options.GraphRoot)
+			return nil, err
 		}
 		options.GraphRoot = dir
 	}
 	if options.RunRoot != "" {
 		dir, err := filepath.Abs(options.RunRoot)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error deriving an absolute path from %q", options.RunRoot)
+			return nil, err
 		}
 		options.RunRoot = dir
 	}
