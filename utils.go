@@ -206,11 +206,10 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 		return opts, err
 	}
 	opts.RunRoot = rootlessRuntime
-	opts.GraphRoot = filepath.Join(dataDir, "containers", "storage")
 	if systemOpts.RootlessStoragePath != "" {
-		opts.RootlessStoragePath = systemOpts.RootlessStoragePath
+		opts.GraphRoot = systemOpts.RootlessStoragePath
 	} else {
-		opts.RootlessStoragePath = opts.GraphRoot
+		opts.GraphRoot = filepath.Join(dataDir, "containers", "storage")
 	}
 	if path, err := exec.LookPath("fuse-overlayfs"); err == nil {
 		opts.GraphDriverName = "overlay"
@@ -266,6 +265,17 @@ func defaultStoreOptionsIsolated(rootless bool, rootlessUID int, storageConf str
 		defaultRootlessGraphRoot = storageOpts.GraphRoot
 		storageOpts = StoreOptions{}
 		reloadConfigurationFileIfNeeded(storageConf, &storageOpts)
+		if rootless && rootlessUID != 0 {
+			// If the file did not specify a graphroot or runroot,
+			// set sane defaults so we don't try and use root-owned
+			// directories
+			if storageOpts.RunRoot == "" {
+				storageOpts.RunRoot = defaultRootlessRunRoot
+			}
+			if storageOpts.GraphRoot == "" {
+				storageOpts.GraphRoot = defaultRootlessGraphRoot
+			}
+		}
 	}
 	if storageOpts.RunRoot != "" {
 		runRoot, err := expandEnvPath(storageOpts.RunRoot, rootlessUID)
@@ -282,26 +292,6 @@ func defaultStoreOptionsIsolated(rootless bool, rootlessUID int, storageConf str
 		storageOpts.GraphRoot = graphRoot
 	}
 
-	if rootless && rootlessUID != 0 {
-		if err == nil {
-			// If the file did not specify a graphroot or runroot,
-			// set sane defaults so we don't try and use root-owned
-			// directories
-			if storageOpts.RunRoot == "" {
-				storageOpts.RunRoot = defaultRootlessRunRoot
-			}
-			if storageOpts.GraphRoot == "" {
-				storageOpts.GraphRoot = defaultRootlessGraphRoot
-			}
-			if storageOpts.RootlessStoragePath != "" {
-				rootlessStoragePath, err := expandEnvPath(storageOpts.RootlessStoragePath, rootlessUID)
-				if err != nil {
-					return storageOpts, err
-				}
-				storageOpts.GraphRoot = rootlessStoragePath
-			}
-		}
-	}
 	return storageOpts, nil
 }
 
