@@ -3455,7 +3455,10 @@ func copyStringInterfaceMap(m map[string]interface{}) map[string]interface{} {
 }
 
 // defaultConfigFile path to the system wide storage.conf file
-var defaultConfigFile = "/etc/containers/storage.conf"
+var (
+	defaultConfigFile    = "/etc/containers/storage.conf"
+	defaultConfigFileSet = false
+)
 
 // AutoUserNsMinSize is the minimum size for automatically created user namespaces
 const AutoUserNsMinSize = 1024
@@ -3470,21 +3473,24 @@ const RootAutoUserNsUser = "containers"
 // SetDefaultConfigFilePath sets the default configuration to the specified path
 func SetDefaultConfigFilePath(path string) {
 	defaultConfigFile = path
+	defaultConfigFileSet = true
+	reloadConfigurationFileIfNeeded(defaultConfigFile, &defaultStoreOptions)
 }
 
 // DefaultConfigFile returns the path to the storage config file used
 func DefaultConfigFile(rootless bool) (string, error) {
-	if rootless {
-		if configHome := os.Getenv("XDG_CONFIG_HOME"); configHome != "" {
-			return filepath.Join(configHome, "containers/storage.conf"), nil
-		}
-		home := homedir.Get()
-		if home == "" {
-			return "", errors.New("cannot determine user's homedir")
-		}
-		return filepath.Join(home, ".config/containers/storage.conf"), nil
+	if defaultConfigFileSet || !rootless {
+		return defaultConfigFile, nil
 	}
-	return defaultConfigFile, nil
+
+	if configHome := os.Getenv("XDG_CONFIG_HOME"); configHome != "" {
+		return filepath.Join(configHome, "containers/storage.conf"), nil
+	}
+	home := homedir.Get()
+	if home == "" {
+		return "", errors.New("cannot determine user's homedir")
+	}
+	return filepath.Join(home, ".config/containers/storage.conf"), nil
 }
 
 // TOML-friendly explicit tables used for conversions.
