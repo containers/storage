@@ -260,7 +260,7 @@ func defaultStoreOptionsIsolated(rootless bool, rootlessUID int, storageConf str
 	if err != nil && !os.IsNotExist(err) {
 		return storageOpts, err
 	}
-	if err == nil {
+	if err == nil && !defaultConfigFileSet {
 		defaultRootlessRunRoot = storageOpts.RunRoot
 		defaultRootlessGraphRoot = storageOpts.GraphRoot
 		storageOpts = StoreOptions{}
