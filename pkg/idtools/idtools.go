@@ -297,19 +297,27 @@ func checkChownErr(err error, name string, uid, gid int) error {
 }
 
 func SafeChown(name string, uid, gid int) error {
+	err := os.Chown(name, uid, gid)
+	if err == nil {
+		return nil
+	}
 	if stat, statErr := system.Stat(name); statErr == nil {
 		if stat.UID() == uint32(uid) && stat.GID() == uint32(gid) {
 			return nil
 		}
 	}
-	return checkChownErr(os.Chown(name, uid, gid), name, uid, gid)
+	return checkChownErr(err, name, uid, gid)
 }
 
 func SafeLchown(name string, uid, gid int) error {
+	err := os.Lchown(name, uid, gid)
+	if err == nil {
+		return nil
+	}
 	if stat, statErr := system.Lstat(name); statErr == nil {
 		if stat.UID() == uint32(uid) && stat.GID() == uint32(gid) {
 			return nil
 		}
 	}
-	return checkChownErr(os.Lchown(name, uid, gid), name, uid, gid)
+	return checkChownErr(err, name, uid, gid)
 }
