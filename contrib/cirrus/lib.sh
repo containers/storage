@@ -99,6 +99,9 @@ RPMS_CONFLICTING="gcc-go"
 # https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/ubuntu_setup.sh
 DEBS_REQUIRED="parallel"
 DEBS_CONFLICTING=""
+# Upgrading grub-efi-amd64-signed doesn't make sense at test-runtime
+# and has some config. scripts which frequently fail.  Block updates
+DEBS_HOLD="grub-efi-amd64-signed"
 
 # For devicemapper testing, device names need to be passed down for use in tests
 if [[ "$TEST_DRIVER" == "devicemapper" ]]; then
