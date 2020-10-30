@@ -26,6 +26,8 @@ case "$OS_RELEASE_ID" in
         ;;
     ubuntu)
         $SHORT_APTGET update  # Fetch latest package metadata
+        [[ -z "$DEBS_HOLD" ]] || \
+            apt-mark hold $DEBS_HOLD
         $LONG_APTGET upgrade # install latest packages
         [[ -z "$DEBS_REQUIRED" ]] || \
             $SHORT_APTGET -q install $DEBS_REQUIRED
