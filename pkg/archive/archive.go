@@ -71,9 +71,10 @@ type (
 )
 
 const (
-	tarExt  = "tar"
-	solaris = "solaris"
-	windows = "windows"
+	tarExt                  = "tar"
+	solaris                 = "solaris"
+	windows                 = "windows"
+	containersOverrideXattr = "user.containers.override_stat"
 )
 
 // Archiver allows the reuse of most utility functions of this package with a
@@ -687,6 +688,13 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		return fmt.Errorf("unhandled tar header type %d", hdr.Typeflag)
 	}
 
+	if forceMask != nil && hdr.Typeflag != tar.TypeSymlink {
+		value := fmt.Sprintf("%d:%d:0%o", hdr.Uid, hdr.Gid, hdrInfo.Mode()&07777)
+		if err := system.Lsetxattr(path, containersOverrideXattr, []byte(value), 0); err != nil {
+			return err
+		}
+	}
+
 	// Lchown is not supported on Windows.
 	if Lchown && runtime.GOOS != windows {
 		if chownOpts == nil {
@@ -952,6 +960,16 @@ func Unpack(decompressedArchive io.Reader, dest string, options *TarOptions) err
 	rootIDs := idMappings.RootPair()
 	whiteoutConverter := getWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 	buffer := make([]byte, 1<<20)
+
+	if options.ForceMask != nil {
+		uid, gid, mode, err := getFileOwner(dest)
+		if err == nil {
+			value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
+			if err := system.Lsetxattr(dest, containersOverrideXattr, []byte(value), 0); err != nil {
+				return err
+			}
+		}
+	}
 
 	// Iterate through the files in the archive.
 loop:

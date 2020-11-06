@@ -171,8 +171,8 @@ The `storage.options.overlay` table supports the following options:
   force_mask sets an octal permission mask that is used for the new files and directories.  The values "native", "shared", "private" are also accepted.  (default: "native")
   "private": it is equivalent to 0700.  The owner has rwx access to the files.
   "shared": it is equivalent to 0755.  The owner has rwx access to the files and everyone else can read, access and execute them.
-  It is possible to use **force_mask** only when **mount_program** is specified.
   Note: The force_mask Flag is an experimental feature, it could change in the future.
+  When "force_mask" is used then the original permission mask is stored in the "user.containers.override_stat" xattr.
 
 **mount_program**=""
   Specifies the path to a custom program to use instead of using kernel defaults
