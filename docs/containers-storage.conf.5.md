@@ -168,11 +168,37 @@ The `storage.options.overlay` table supports the following options:
   ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: false)
 
 **force_mask** = "0000|shared|private"
-  force_mask sets an octal permission mask that is used for the new files and directories.  The values "native", "shared", "private" are also accepted.  (default: "native")
-  "private": it is equivalent to 0700.  The owner has rwx access to the files.
-  "shared": it is equivalent to 0755.  The owner has rwx access to the files and everyone else can read, access and execute them.
-  Note: The force_mask Flag is an experimental feature, it could change in the future.
-  When "force_mask" is used then the original permission mask is stored in the "user.containers.override_stat" xattr.
+  ForceMask specifies the permissions mask that is used for new files and
+directories.
+The values "shared" and "private" are accepted.  (default: ""). Octal permission
+masks are also accepted.
+
+  ``: Not set
+     All files/directories, get set with the permissions identified within the
+image.
+
+  `private`: it is equivalent to 0700.
+     All files/directories get set with 0700 permissions.  The owner has rwx
+access to the files. No other users on the system can access the files.
+This setting could be used with networked based home directories.
+
+  `shared`: it is equivalent to 0755.
+     The owner has rwx access to the files and everyone else can read, access
+and execute them. This setting is useful for sharing containers storage
+with other users.  For instance, a storage owned by root could be shared
+to rootless users as an additional store.
+NOTE:  All files within the image are made readable and executable by any
+user on the system. Even /etc/shadow within your image is now readable by
+any user.
+
+  `OCTAL`: Users can experiment with other OCTAL Permissions.
+
+Note: The force_mask Flag is an experimental feature, it could change in the
+future.  When "force_mask" is set the original permission mask is stored in the
+"user.containers.override_stat" xattr and the "mount_program" option must be
+specified. Mount programs like "/usr/bin/fuse-overlayfs" present the extended
+attribute permissions to processes within containers rather then the
+"force_mask"  permissions.
 
 **mount_program**=""
   Specifies the path to a custom program to use instead of using kernel defaults
@@ -228,7 +254,7 @@ The semanage command above tells SELinux to setup the default labeling of `NEWST
 Now all new content created in these directories will automatically be created with the correct label.
 
 ## SEE ALSO
-`semanage(8)`, `restorecon(8)`, `mount(8)`
+`semanage(8)`, `restorecon(8)`, `mount(8)`, `fuse-overlayfs(1)`
 
 ## FILES
 
