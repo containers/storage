@@ -593,20 +593,15 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
 		return err
 	}
-	perms := defaultPerms
-	if d.options.forceMask != nil {
-		perms = *d.options.forceMask
-	}
 	if parent != "" {
 		st, err := system.Stat(d.dir(parent))
 		if err != nil {
 			return err
 		}
-		perms = os.FileMode(st.Mode())
 		rootUID = int(st.UID())
 		rootGID = int(st.GID())
 	}
-	if err := idtools.MkdirAs(dir, perms, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
 		return err
 	}
 
@@ -629,6 +624,18 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 				return err
 			}
 		}
+	}
+
+	perms := defaultPerms
+	if d.options.forceMask != nil {
+		perms = *d.options.forceMask
+	}
+	if parent != "" {
+		st, err := system.Stat(filepath.Join(d.dir(parent), "diff"))
+		if err != nil {
+			return err
+		}
+		perms = os.FileMode(st.Mode())
 	}
 
 	if err := idtools.MkdirAs(path.Join(dir, "diff"), perms, rootUID, rootGID); err != nil {
@@ -878,15 +885,21 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	if d.options.forceMask != nil {
 		perms = *d.options.forceMask
 	}
+	permsKnown := false
 	st, err := os.Stat(filepath.Join(dir, nameWithSuffix("diff", diffN)))
 	if err == nil {
 		perms = os.FileMode(st.Mode())
+		permsKnown = true
 	}
 	for err == nil {
 		absLowers = append(absLowers, filepath.Join(dir, nameWithSuffix("diff", diffN)))
 		relLowers = append(relLowers, dumbJoin(string(link), "..", nameWithSuffix("diff", diffN)))
 		diffN++
-		_, err = os.Stat(filepath.Join(dir, nameWithSuffix("diff", diffN)))
+		st, err = os.Stat(filepath.Join(dir, nameWithSuffix("diff", diffN)))
+		if err == nil && !permsKnown {
+			perms = os.FileMode(st.Mode())
+			permsKnown = true
+		}
 	}
 
 	// For each lower, resolve its path, and append it and any additional diffN
@@ -897,10 +910,14 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 		lower := ""
 		newpath := path.Join(d.home, l)
-		if _, err := os.Stat(newpath); err != nil {
+		if st, err := os.Stat(newpath); err != nil {
 			for _, p := range d.AdditionalImageStores() {
 				lower = path.Join(p, d.name, l)
-				if _, err2 := os.Stat(lower); err2 == nil {
+				if st2, err2 := os.Stat(lower); err2 == nil {
+					if !permsKnown {
+						perms = os.FileMode(st2.Mode())
+						permsKnown = true
+					}
 					break
 				}
 				lower = ""
@@ -918,6 +935,10 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 				return "", fmt.Errorf("Can't stat lower layer %q: %v", newpath, err)
 			}
 		} else {
+			if !permsKnown {
+				perms = os.FileMode(st.Mode())
+				permsKnown = true
+			}
 			lower = newpath
 		}
 		absLowers = append(absLowers, lower)
@@ -1280,12 +1301,13 @@ func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMapp
 	// Rotate the diff directories.
 	i := 0
 	perms := defaultPerms
+	st, err := os.Stat(nameWithSuffix(diffDir, i))
 	if d.options.forceMask != nil {
 		perms = *d.options.forceMask
-	}
-	st, err := os.Stat(nameWithSuffix(diffDir, i))
-	if err == nil {
-		perms = os.FileMode(st.Mode())
+	} else {
+		if err == nil {
+			perms = os.FileMode(st.Mode())
+		}
 	}
 	for err == nil {
 		i++
