@@ -51,7 +51,7 @@ github.com/hashicorp/errwrap
 github.com/hashicorp/go-multierror
 # github.com/hashicorp/golang-lru v0.5.1
 github.com/hashicorp/golang-lru/simplelru
-# github.com/klauspost/compress v1.11.2
+# github.com/klauspost/compress v1.11.3
 ## explicit
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
