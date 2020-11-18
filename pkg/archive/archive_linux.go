@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func getWhiteoutConverter(format WhiteoutFormat, data interface{}) tarWhiteoutConverter {
+func GetWhiteoutConverter(format WhiteoutFormat, data interface{}) TarWhiteoutConverter {
 	if format == OverlayWhiteoutFormat {
 		if rolayers, ok := data.([]string); ok && len(rolayers) > 0 {
 			return overlayWhiteoutConverter{rolayers: rolayers}
