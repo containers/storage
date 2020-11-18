@@ -2,7 +2,11 @@
 
 package copy
 
-import "github.com/containers/storage/pkg/chrootarchive"
+import (
+	"os"
+
+	"github.com/containers/storage/pkg/chrootarchive"
+)
 
 // Mode indicates whether to use hardlink or copy content
 type Mode int
@@ -16,4 +20,9 @@ const (
 // properly handling soft links
 func DirCopy(srcDir, dstDir string, _ Mode, _ bool) error {
 	return chrootarchive.NewArchiver(nil).CopyWithTar(srcDir, dstDir)
+}
+
+// CopyRegular copies the content of a file to another
+func CopyRegular(srcPath, dstPath string, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error {
+	return chrootarchive.NewArchiver(nil).CopyWithTar(srcPath, dstPath)
 }

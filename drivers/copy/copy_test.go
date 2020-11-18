@@ -123,7 +123,7 @@ func doCopyTest(t *testing.T, copyWithFileRange, copyWithFileClone *bool) {
 	fileinfo, err := os.Stat(srcFilename)
 	assert.NilError(t, err)
 
-	assert.NilError(t, copyRegular(srcFilename, dstFilename, fileinfo, copyWithFileRange, copyWithFileClone))
+	assert.NilError(t, CopyRegular(srcFilename, dstFilename, fileinfo, copyWithFileRange, copyWithFileClone))
 	readBuf, err := ioutil.ReadFile(dstFilename)
 	assert.NilError(t, err)
 	assert.Check(t, is.DeepEqual(buf, readBuf))

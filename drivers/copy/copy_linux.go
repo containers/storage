@@ -38,7 +38,8 @@ const (
 	Hardlink
 )
 
-func copyRegular(srcPath, dstPath string, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error {
+// CopyRegular copies the content of a file to another
+func CopyRegular(srcPath, dstPath string, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error { // nolint: golint
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
 		return err
@@ -164,7 +165,7 @@ func DirCopy(srcDir, dstDir string, copyMode Mode, copyXattrs bool) error {
 					return err2
 				}
 			} else {
-				if err2 := copyRegular(srcPath, dstPath, f, &copyWithFileRange, &copyWithFileClone); err2 != nil {
+				if err2 := CopyRegular(srcPath, dstPath, f, &copyWithFileRange, &copyWithFileClone); err2 != nil {
 					return err2
 				}
 				copiedFiles[id] = dstPath
