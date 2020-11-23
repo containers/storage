@@ -3,6 +3,7 @@
 package copy
 
 import (
+	"io"
 	"os"
 
 	"github.com/containers/storage/pkg/chrootarchive"
@@ -20,6 +21,17 @@ const (
 // properly handling soft links
 func DirCopy(srcDir, dstDir string, _ Mode, _ bool) error {
 	return chrootarchive.NewArchiver(nil).CopyWithTar(srcDir, dstDir)
+}
+
+// CopyRegularToFile copies the content of a file to another
+func CopyRegularToFile(srcPath string, dstFile *os.File, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error {
+	f, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(dstFile, f)
+	return err
 }
 
 // CopyRegular copies the content of a file to another
