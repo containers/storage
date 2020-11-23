@@ -443,9 +443,16 @@ func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	return nil
 }
 
+type TarWhiteoutHandler interface {
+	Setxattr(path, name string, value []byte) error
+	Mknod(path string, mode uint32, dev int) error
+	Chown(path string, uid, gid int) error
+}
+
 type TarWhiteoutConverter interface {
 	ConvertWrite(*tar.Header, string, os.FileInfo) (*tar.Header, error)
 	ConvertRead(*tar.Header, string) (bool, error)
+	ConvertReadWithHandler(*tar.Header, string, TarWhiteoutHandler) (bool, error)
 }
 
 type tarAppender struct {
