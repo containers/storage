@@ -163,7 +163,7 @@ func isWhiteOut(stat os.FileInfo) bool {
 	return major(uint64(s.Rdev)) == 0 && minor(uint64(s.Rdev)) == 0
 }
 
-func getFileOwner(path string) (uint32, uint32, uint32, error) {
+func GetFileOwner(path string) (uint32, uint32, uint32, error) {
 	f, err := os.Stat(path)
 	if err != nil {
 		return 0, 0, 0, err

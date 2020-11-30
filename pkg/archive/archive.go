@@ -969,7 +969,7 @@ func Unpack(decompressedArchive io.Reader, dest string, options *TarOptions) err
 	buffer := make([]byte, 1<<20)
 
 	if options.ForceMask != nil {
-		uid, gid, mode, err := getFileOwner(dest)
+		uid, gid, mode, err := GetFileOwner(dest)
 		if err == nil {
 			value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
 			if err := system.Lsetxattr(dest, containersOverrideXattr, []byte(value), 0); err != nil {

@@ -6,6 +6,6 @@ func GetWhiteoutConverter(format WhiteoutFormat, data interface{}) TarWhiteoutCo
 	return nil
 }
 
-func getFileOwner(path string) (uint32, uint32, uint32, error) {
+func GetFileOwner(path string) (uint32, uint32, uint32, error) {
 	return 0, 0, 0, nil
 }
