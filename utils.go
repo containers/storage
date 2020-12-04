@@ -244,42 +244,23 @@ func DefaultStoreOptionsAutoDetectUID() (StoreOptions, error) {
 // defaultStoreOptionsIsolated is an internal implementation detail of DefaultStoreOptions to allow testing.
 // Everyone but the tests this is intended for should only call DefaultStoreOptions, never this function.
 func defaultStoreOptionsIsolated(rootless bool, rootlessUID int, storageConf string) (StoreOptions, error) {
-	var (
-		defaultRootlessRunRoot   string
-		defaultRootlessGraphRoot string
-		err                      error
-	)
+	var err error
 	storageOpts := defaultStoreOptions
 	if rootless && rootlessUID != 0 {
 		storageOpts, err = getRootlessStorageOpts(rootlessUID, storageOpts)
 		if err != nil {
 			return storageOpts, err
 		}
-		return storageOpts, nil
-	}
-	_, err = os.Stat(storageConf)
-	if err != nil && !os.IsNotExist(err) {
-		return storageOpts, err
-	}
-	if err == nil && !defaultConfigFileSet {
-		defaultRootlessRunRoot = storageOpts.RunRoot
-		defaultRootlessGraphRoot = storageOpts.GraphRoot
-		storageOpts = StoreOptions{}
-		reloadConfigurationFileIfNeeded(storageConf, &storageOpts)
-		if rootless && rootlessUID != 0 {
-			// If the file did not specify a graphroot or runroot,
-			// set sane defaults so we don't try and use root-owned
-			// directories
-			if storageOpts.RunRoot == "" {
-				storageOpts.RunRoot = defaultRootlessRunRoot
-			}
-			if storageOpts.GraphRoot == "" {
-				if storageOpts.RootlessStoragePath != "" {
-					storageOpts.GraphRoot = storageOpts.RootlessStoragePath
-				} else {
-					storageOpts.GraphRoot = defaultRootlessGraphRoot
-				}
-			}
+	} else {
+		_, err := os.Stat(storageConf)
+		if err != nil && !os.IsNotExist(err) {
+			return storageOpts, err
+		}
+		if err == nil && !defaultConfigFileSet {
+			defaultRootlessRunRoot := storageOpts.RunRoot
+			defaultRootlessGraphRoot := storageOpts.GraphRoot
+			storageOpts = StoreOptions{}
+			reloadConfigurationFileIfNeeded(storageConf, &storageOpts)
 		}
 	}
 	if storageOpts.RunRoot != "" {
