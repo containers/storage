@@ -27,8 +27,9 @@ No bare options are used. The format of TOML can be simplified to:
 The `storage` table supports the following options:
 
 **driver**=""
-  container storage driver (default: "overlay")
+  container storage driver
   Default Copy On Write (COW) container storage driver. Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs". Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem.
+  This field is requiered to guarantee proper operation.
 
 **graphroot**=""
   container storage graph dir (default: "/var/lib/containers/storage")
