@@ -18,15 +18,11 @@ export HOME="$(getent passwd $USER | cut -d : -f 6)"
 GID=$(getent passwd $USER | cut -d : -f 4)
 
 # During VM Image build, the 'containers/automation' installation
-# was performed.  The final step of that installation sets the
-# installation location in $AUTOMATION_LIB_PATH in /etc/environment
-# or in the default shell profile.
+# was performed.  The final step of installation sets the library
+# location $AUTOMATION_LIB_PATH in /etc/environment or in the
+# default shell profile depending on distribution.
 if [[ -n "$AUTOMATION_LIB_PATH" ]]; then
-    for libname in defaults anchors console_output utils; do
-        # There's no way shellcheck can process this location
-        # shellcheck disable=SC1090
-        source $AUTOMATION_LIB_PATH/${libname}.sh
-    done
+    source $AUTOMATION_LIB_PATH/common_lib.sh
 else
     (
     echo "WARNING: It does not appear that containers/automation was installed."
@@ -75,7 +71,7 @@ SECRET_ENV_RE='(IRCID)|(ACCOUNT)|(^GC[EP]..+)|(SSH)'
 # GCE image-name compatible string representation of distribution name
 OS_RELEASE_ID="$(source /etc/os-release; echo $ID)"
 # GCE image-name compatible string representation of distribution _major_ version
-OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | cut -d '.' -f 1)"
+OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | tr -d '.')"
 # Combined to ease soe usage
 OS_REL_VER="${OS_RELEASE_ID}-${OS_RELEASE_VER}"
 
