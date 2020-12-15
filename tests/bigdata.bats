@@ -174,3 +174,39 @@ load helpers
 	echo sum:"$sum":
 	[ "$output" = "$sum" ]
 }
+
+@test "layer-data" {
+	# Create a layer.
+	run storage --debug=false create-layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	layer=$output
+
+	# Make sure the layer has no big data items associated with it.
+	run storage --debug=false list-layer-data $layer
+	[ "$status" -eq 0 ]
+	[ "$output" = "" ]
+
+	# Create two random files.
+	createrandom $TESTDIR/big-item-1 1234
+	createrandom $TESTDIR/big-item-2 5678
+
+	# Set each of those files as a big data item named after the file.
+	storage set-layer-data -f $TESTDIR/big-item-1 $layer big-item-1
+	storage set-layer-data -f $TESTDIR/big-item-2 $layer big-item-2
+
+	# Get a list of the items.  Make sure they're both listed.
+	run storage --debug=false list-layer-data $layer
+	[ "$status" -eq 0 ]
+	[ "${#lines[*]}" -eq 2 ]
+	[ "${lines[0]}" = "big-item-1" ]
+	[ "${lines[1]}" = "big-item-2" ]
+
+	# Save the contents of the big data items to disk and compare them with the originals.
+	run storage --debug=false get-layer-data $layer no-such-item
+	[ "$status" -ne 0 ]
+	storage get-layer-data -f $TESTDIR/big-item-1.2 $layer big-item-1
+	cmp $TESTDIR/big-item-1 $TESTDIR/big-item-1.2
+	storage get-layer-data -f $TESTDIR/big-item-2.2 $layer big-item-2
+	cmp $TESTDIR/big-item-2 $TESTDIR/big-item-2.2
+}
