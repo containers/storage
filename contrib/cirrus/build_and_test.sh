@@ -19,12 +19,6 @@ case $TEST_DRIVER in
     fuse-overlay-whiteout)
         showrun make STORAGE_DRIVER=overlay FUSE_OVERLAYFS_DISABLE_OVL_WHITEOUT=1 STORAGE_OPTION=overlay.mount_program=/usr/bin/fuse-overlayfs local-test-integration
         ;;
-    devicemapper)
-        # Setup by devicemapper_setup in lib.sh
-        DM_DEVICE=$(< $DM_REF_FILEPATH)
-        warn "Performing destructive testing against $DM_DEVICE"
-        showrun make STORAGE_DRIVER=devicemapper STORAGE_OPTION=dm.directlvm_device=$DM_DEVICE local-test-integration
-        ;;
     vfs)
         showrun make STORAGE_DRIVER=vfs local-test-integration
         ;;

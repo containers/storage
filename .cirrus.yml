@@ -63,9 +63,6 @@ fedora_testing_task: &fedora_testing
     depends_on:
         - lint
 
-    # TODO: Nearly/all tests fail
-    allow_failures: $TEST_DRIVER == "devicemapper"
-
     gce_instance:  # Only need to specify differences from defaults (above)
         image_name: "${VM_IMAGE}"
 
@@ -81,8 +78,6 @@ fedora_testing_task: &fedora_testing
             TEST_DRIVER: "overlay"
         - env:
             TEST_DRIVER: "fuse-overlay"
-        - env:
-            TEST_DRIVER: "devicemapper"
         - env:
             TEST_DRIVER: "fuse-overlay-whiteout"
 

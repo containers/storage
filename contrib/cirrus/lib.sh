@@ -99,14 +99,6 @@ DEBS_CONFLICTING=""
 # and has some config. scripts which frequently fail.  Block updates
 DEBS_HOLD="grub-efi-amd64-signed"
 
-# For devicemapper testing, device names need to be passed down for use in tests
-if [[ "$TEST_DRIVER" == "devicemapper" ]]; then
-    DM_LVM_VG_NAME="test_vg"
-    DM_REF_FILEPATH="/root/volume_group_ready"
-else
-    unset DM_LVM_VG_NAME DM_REF_FILEPATH
-fi
-
 bad_os_id_ver() {
     die "Unknown/Unsupported distro. $OS_RELEASE_ID and/or version $OS_RELEASE_VER for $(basename $0)"
 }
@@ -148,27 +140,5 @@ showrun() {
         msg '--------------------------------------------------'
         msg '+ '$(printf " %q" "$@") > /dev/stderr
         "$@"
-    fi
-}
-
-devicemapper_setup() {
-    req_env_vars TEST_DRIVER DM_LVM_VG_NAME DM_REF_FILEPATH
-    # Requires add_second_partition.sh to have already run successfully
-    if [[ -r "/root/second_partition_ready" ]]
-    then
-        device=$(< /root/second_partition_ready)
-        if [[ -n "$device" ]] # LVM setup should only ever happen once
-        then
-            msg "Setting up LVM PV on $device to validate it's functional"
-            showrun pvcreate --force --yes "$device"
-            msg "Wiping LVM signatures from $device to prepare it for testing use"
-            showrun pvremove --force --yes "$device"
-            # Block setup from happening ever again
-            truncate --size=0 /root/second_partition_ready  # mark completion|in-use
-            echo "$device" > "$DM_REF_FILEPATH"
-        fi
-        msg "Test device $(cat $DM_REF_FILEPATH) is ready to go."
-    else
-        warn "Can't read /root/second_partition_ready, created by $(dirname $0)/add_second_partition.sh"
     fi
 }
