@@ -3,11 +3,84 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
 )
+
+var (
+	paramLayerDataFile = ""
+)
+
+func listLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	layer, err := m.Layer(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
+	d, err := m.ListLayerBigData(layer.ID)
+	if jsonOutput {
+		json.NewEncoder(os.Stdout).Encode(d)
+	} else {
+		for _, name := range d {
+			fmt.Printf("%s\n", name)
+		}
+	}
+	return 0
+}
+
+func getLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	layer, err := m.Layer(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
+	output := os.Stdout
+	if paramLayerDataFile != "" {
+		f, err := os.Create(paramLayerDataFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		output = f
+	}
+	b, err := m.LayerBigData(layer.ID, args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
+	if _, err := io.Copy(output, b); err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
+	output.Close()
+	return 0
+}
+
+func setLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+	layer, err := m.Layer(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
+	input := os.Stdin
+	if paramLayerDataFile != "" {
+		f, err := os.Open(paramLayerDataFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		input = f
+	}
+	err = m.SetLayerBigData(layer.ID, args[1], input)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
+	return 0
+}
 
 func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
 	matched := []*storage.Layer{}
@@ -104,6 +177,37 @@ func init() {
 			minArgs:     1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			},
+		},
+		command{
+			names:       []string{"list-layer-data", "listlayerdata"},
+			optionsHelp: "[options [...]] layerNameOrID",
+			usage:       "List data items that are attached to a layer",
+			action:      listLayerBigData,
+			minArgs:     1,
+			maxArgs:     1,
+			addFlags: func(flags *mflag.FlagSet, cmd *command) {
+				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			},
+		},
+		command{
+			names:       []string{"get-layer-data", "getlayerdata"},
+			optionsHelp: "[options [...]] layerID dataName",
+			usage:       "Get data that is attached to a layer",
+			action:      getLayerBigData,
+			minArgs:     2,
+			addFlags: func(flags *mflag.FlagSet, cmd *command) {
+				flags.StringVar(&paramLayerDataFile, []string{"-file", "f"}, paramLayerDataFile, "Write data to file")
+			},
+		},
+		command{
+			names:       []string{"set-layer-data", "setlayerdata"},
+			optionsHelp: "[options [...]] layerID dataName",
+			usage:       "Set data that is attached to a layer",
+			action:      setLayerBigData,
+			minArgs:     2,
+			addFlags: func(flags *mflag.FlagSet, cmd *command) {
+				flags.StringVar(&paramLayerDataFile, []string{"-file", "f"}, paramLayerDataFile, "Read data from file")
 			},
 		},
 	)
