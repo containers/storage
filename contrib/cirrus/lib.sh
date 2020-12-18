@@ -18,15 +18,11 @@ export HOME="$(getent passwd $USER | cut -d : -f 6)"
 GID=$(getent passwd $USER | cut -d : -f 4)
 
 # During VM Image build, the 'containers/automation' installation
-# was performed.  The final step of that installation sets the
-# installation location in $AUTOMATION_LIB_PATH in /etc/environment
-# or in the default shell profile.
+# was performed.  The final step of installation sets the library
+# location $AUTOMATION_LIB_PATH in /etc/environment or in the
+# default shell profile depending on distribution.
 if [[ -n "$AUTOMATION_LIB_PATH" ]]; then
-    for libname in defaults anchors console_output utils; do
-        # There's no way shellcheck can process this location
-        # shellcheck disable=SC1090
-        source $AUTOMATION_LIB_PATH/${libname}.sh
-    done
+    source $AUTOMATION_LIB_PATH/common_lib.sh
 else
     (
     echo "WARNING: It does not appear that containers/automation was installed."
@@ -75,7 +71,7 @@ SECRET_ENV_RE='(IRCID)|(ACCOUNT)|(^GC[EP]..+)|(SSH)'
 # GCE image-name compatible string representation of distribution name
 OS_RELEASE_ID="$(source /etc/os-release; echo $ID)"
 # GCE image-name compatible string representation of distribution _major_ version
-OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | cut -d '.' -f 1)"
+OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | tr -d '.')"
 # Combined to ease soe usage
 OS_REL_VER="${OS_RELEASE_ID}-${OS_RELEASE_VER}"
 
@@ -102,14 +98,6 @@ DEBS_CONFLICTING=""
 # Upgrading grub-efi-amd64-signed doesn't make sense at test-runtime
 # and has some config. scripts which frequently fail.  Block updates
 DEBS_HOLD="grub-efi-amd64-signed"
-
-# For devicemapper testing, device names need to be passed down for use in tests
-if [[ "$TEST_DRIVER" == "devicemapper" ]]; then
-    DM_LVM_VG_NAME="test_vg"
-    DM_REF_FILEPATH="/root/volume_group_ready"
-else
-    unset DM_LVM_VG_NAME DM_REF_FILEPATH
-fi
 
 bad_os_id_ver() {
     die "Unknown/Unsupported distro. $OS_RELEASE_ID and/or version $OS_RELEASE_VER for $(basename $0)"
@@ -152,27 +140,5 @@ showrun() {
         msg '--------------------------------------------------'
         msg '+ '$(printf " %q" "$@") > /dev/stderr
         "$@"
-    fi
-}
-
-devicemapper_setup() {
-    req_env_vars TEST_DRIVER DM_LVM_VG_NAME DM_REF_FILEPATH
-    # Requires add_second_partition.sh to have already run successfully
-    if [[ -r "/root/second_partition_ready" ]]
-    then
-        device=$(< /root/second_partition_ready)
-        if [[ -n "$device" ]] # LVM setup should only ever happen once
-        then
-            msg "Setting up LVM PV on $device to validate it's functional"
-            showrun pvcreate --force --yes "$device"
-            msg "Wiping LVM signatures from $device to prepare it for testing use"
-            showrun pvremove --force --yes "$device"
-            # Block setup from happening ever again
-            truncate --size=0 /root/second_partition_ready  # mark completion|in-use
-            echo "$device" > "$DM_REF_FILEPATH"
-        fi
-        msg "Test device $(cat $DM_REF_FILEPATH) is ready to go."
-    else
-        warn "Can't read /root/second_partition_ready, created by $(dirname $0)/add_second_partition.sh"
     fi
 }

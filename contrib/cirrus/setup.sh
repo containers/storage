@@ -19,10 +19,6 @@ case "$OS_RELEASE_ID" in
             $SHORT_DNFY erase $RPMS_CONFLICTING
         # Only works on Fedora VM images
         bash "$SCRIPT_BASE/add_second_partition.sh"
-        if [[ "$TEST_DRIVER" == "devicemapper" ]]; then
-            $SHORT_DNFY install lvm2
-            devicemapper_setup
-        fi
         ;;
     ubuntu)
         $SHORT_APTGET update  # Fetch latest package metadata
