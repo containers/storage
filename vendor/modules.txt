@@ -6,8 +6,9 @@ github.com/BurntSushi/toml
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/backuptar
 github.com/Microsoft/go-winio/pkg/guid
+github.com/Microsoft/go-winio/pkg/security
 github.com/Microsoft/go-winio/vhd
-# github.com/Microsoft/hcsshim v0.8.11
+# github.com/Microsoft/hcsshim v0.8.13
 ## explicit
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/computestorage
