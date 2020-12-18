@@ -46,7 +46,7 @@ The `storage` table supports the following options:
   A common use case for this field is to provide a local storage directory when user home directories are NFS-mounted (podman does not support container storage over NFS).
 
 **runroot**=""
-  container storage run dir (default: "/var/run/containers/storage")
+  container storage run dir (default: "/run/containers/storage")
   Default directory to store all temporary writable content created by container storage programs.
   The rootless runroot path supports environment variable substitutions (ie. `$HOME/containers/storage`)
 
