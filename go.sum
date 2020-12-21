@@ -3,8 +3,8 @@ github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Microsoft/go-winio v0.4.16-0.20201130162521-d1ffc52c7331 h1:3YnB7Hpmh1lPecPE8doMOtYCrMdrpedZOvxfuNES/Vk=
 github.com/Microsoft/go-winio v0.4.16-0.20201130162521-d1ffc52c7331/go.mod h1:XB6nPKklQyQ7GC9LdcBEcBl8PF76WugXOPRXwdLnMv0=
-github.com/Microsoft/hcsshim v0.8.11 h1:qs8+XI1mFA1H/zhXT9qVG/lcJO18p1yCsICIrCjVXw8=
-github.com/Microsoft/hcsshim v0.8.11/go.mod h1:NtVKoYxQuTLx6gEq0L96c9Ju4JbRJ4nY2ow3VK6a9Lg=
+github.com/Microsoft/hcsshim v0.8.13 h1:XgIMci3mzVulOJqQncIP0cJSvOb98HgWAGNSFfhGDqU=
+github.com/Microsoft/hcsshim v0.8.13/go.mod h1:NtVKoYxQuTLx6gEq0L96c9Ju4JbRJ4nY2ow3VK6a9Lg=
 github.com/checkpoint-restore/go-criu/v4 v4.0.2 h1:jt+rnBIhFtPw0fhtpYGcUOilh4aO9Hj7r+YLEtf30uA=
 github.com/checkpoint-restore/go-criu/v4 v4.0.2/go.mod h1:xUQBLp4RLc5zJtWY++yjOoMoB5lihDt7fai+75m+rGw=
 github.com/cilium/ebpf v0.0.0-20200110133405-4032b1d8aae3/go.mod h1:MA5e5Lr8slmEg9bt0VpxxWqJlO4iwu3FBdHUzV7wQVg=
