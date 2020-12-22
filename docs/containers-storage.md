@@ -135,7 +135,7 @@ Increases the amount of debugging information which is printed.
 Overrides the root of the storage tree, used for storing layer contents and
 information about layers, images, and containers.
 
-**--run, -R=/var/run/containers/storage**
+**--run, -R=/run/containers/storage**
 
 Overrides the root of the runtime state tree, currently used mainly for noting
 the location where a given layer is mounted (see **containers-storage mount**) so that
