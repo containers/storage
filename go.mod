@@ -5,10 +5,10 @@ module github.com/containers/storage
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Microsoft/go-winio v0.4.16-0.20201130162521-d1ffc52c7331
-	github.com/Microsoft/hcsshim v0.8.13
+	github.com/Microsoft/hcsshim v0.8.14
 	github.com/docker/go-units v0.4.0
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/klauspost/compress v1.11.3
+	github.com/klauspost/compress v1.11.4
 	github.com/klauspost/pgzip v1.2.5
 	github.com/mattn/go-shellwords v1.0.10
 	github.com/mistifyio/go-zfs v2.1.1+incompatible
