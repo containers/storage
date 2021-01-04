@@ -17,6 +17,11 @@ export HOME="$(getent passwd $USER | cut -d : -f 6)"
 [[ -n "$UID" ]] || UID=$(getent passwd $USER | cut -d : -f 3)
 GID=$(getent passwd $USER | cut -d : -f 4)
 
+#####
+##### FIXME. /etc/containers/storage.conf should have a driver name set
+##### Remove when VMs updated
+sed 's/^driver.*=.*""/driver = "overlay"/g' -i /etc/containers/storage.conf
+
 # During VM Image build, the 'containers/automation' installation
 # was performed.  The final step of installation sets the library
 # location $AUTOMATION_LIB_PATH in /etc/environment or in the
