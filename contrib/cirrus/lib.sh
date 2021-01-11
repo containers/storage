@@ -17,11 +17,6 @@ export HOME="$(getent passwd $USER | cut -d : -f 6)"
 [[ -n "$UID" ]] || UID=$(getent passwd $USER | cut -d : -f 3)
 GID=$(getent passwd $USER | cut -d : -f 4)
 
-#####
-##### FIXME. /etc/containers/storage.conf should have a driver name set
-##### Remove when VMs updated
-sed 's/^driver.*=.*""/driver = "overlay"/g' -i /etc/containers/storage.conf
-
 # During VM Image build, the 'containers/automation' installation
 # was performed.  The final step of installation sets the library
 # location $AUTOMATION_LIB_PATH in /etc/environment or in the
@@ -93,16 +88,9 @@ SHORT_APTGET="lilto $SUDOAPTGET"
 # Long list / long-running command
 LONG_APTGET="bigto $SUDOAPTGET"
 
-# Packaging adjustments needed to:
-# https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/fedora_setup.sh
-RPMS_REQUIRED="autoconf automake parallel"
+# Packages in generic VM images that conflict with containers/storage testing
 RPMS_CONFLICTING="gcc-go"
-# https://github.com/containers/libpod/blob/master/contrib/cirrus/packer/ubuntu_setup.sh
-DEBS_REQUIRED="parallel"
 DEBS_CONFLICTING=""
-# Upgrading grub-efi-amd64-signed doesn't make sense at test-runtime
-# and has some config. scripts which frequently fail.  Block updates
-DEBS_HOLD="grub-efi-amd64-signed"
 
 bad_os_id_ver() {
     die "Unknown/Unsupported distro. $OS_RELEASE_ID and/or version $OS_RELEASE_VER for $(basename $0)"
