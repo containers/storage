@@ -65,7 +65,7 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/klauspost/pgzip v1.2.5
 ## explicit
 github.com/klauspost/pgzip
-# github.com/mattn/go-shellwords v1.0.10
+# github.com/mattn/go-shellwords v1.0.11
 ## explicit
 github.com/mattn/go-shellwords
 # github.com/mistifyio/go-zfs v2.1.1+incompatible
