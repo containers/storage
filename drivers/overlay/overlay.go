@@ -521,6 +521,13 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 	return metadata, nil
 }
 
+// ReadWriteDiskUsage returns the disk usage of the writable directory for the ID.
+// For Overlay, it attempts to check the XFS quota for size, and falls back to
+// finding the size of the "diff" directory.
+func (d *Driver) ReadWriteDiskUsage(id string) (*directory.DiskUsage, error) {
+	return directory.Usage(path.Join(d.dir(id), "diff"))
+}
+
 // Cleanup any state created by overlay which should be cleaned when daemon
 // is being shutdown. For now, we just have to unmount the bind mounted
 // we had created.
@@ -1221,6 +1228,7 @@ func (d *Driver) DiffSize(id string, idMappings *idtools.IDMappings, parent stri
 	if d.useNaiveDiff() || !d.isParent(id, parent) {
 		return d.naiveDiff.DiffSize(id, idMappings, parent, parentMappings, mountLabel)
 	}
+
 	return directory.Size(d.getDiffPath(id))
 }
 
