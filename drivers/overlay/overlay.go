@@ -525,6 +525,11 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 // For Overlay, it attempts to check the XFS quota for size, and falls back to
 // finding the size of the "diff" directory.
 func (d *Driver) ReadWriteDiskUsage(id string) (*directory.DiskUsage, error) {
+	usage := &directory.DiskUsage{}
+	if d.quotaCtl != nil {
+		err := d.quotaCtl.GetDiskUsage(d.dir(id), usage)
+		return usage, err
+	}
 	return directory.Usage(path.Join(d.dir(id), "diff"))
 }
 
@@ -619,17 +624,22 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}()
 
-	if opts != nil && len(opts.StorageOpt) > 0 {
-		driver := &Driver{}
-		if err := d.parseStorageOpt(opts.StorageOpt, driver); err != nil {
-			return err
-		}
-
-		if driver.options.quota.Size > 0 {
-			// Set container disk quota limit
-			if err := d.quotaCtl.SetQuota(dir, driver.options.quota); err != nil {
+	if d.quotaCtl != nil {
+		quota := quota.Quota{}
+		if opts != nil && len(opts.StorageOpt) > 0 {
+			driver := &Driver{}
+			if err := d.parseStorageOpt(opts.StorageOpt, driver); err != nil {
 				return err
 			}
+			if driver.options.quota.Size > 0 {
+				quota.Size = driver.options.quota.Size
+			}
+
+		}
+		// Set container disk quota limit
+		// If it is set to 0, we will track the disk usage, but not enforce a limit
+		if err := d.quotaCtl.SetQuota(dir, quota); err != nil {
+			return err
 		}
 	}
 
