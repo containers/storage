@@ -28,6 +28,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -1040,6 +1041,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	if len(optsList) > 0 {
 		opts = fmt.Sprintf("%s,%s", strings.Join(optsList, ","), opts)
 	}
+
+	if d.options.mountProgram == "" && unshare.IsRootless() {
+		opts = fmt.Sprintf("%s,userxattr", opts)
+	}
+
 	mountData := label.FormatMountLabel(opts, options.MountLabel)
 	mountFunc := unix.Mount
 	mountTarget := mergedDir
