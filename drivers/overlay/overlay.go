@@ -879,7 +879,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		// If metacopy=on is present in d.options.mountOptions it must be present in the mount
 		// options otherwise the kernel refuses to follow the metacopy xattr.
 		if hasMetacopyOption(strings.Split(d.options.mountOptions, ",")) && !hasMetacopyOption(options.Options) {
-			optsList = append(optsList, "metacopy=on")
+			if d.usingMetacopy {
+				optsList = append(optsList, "metacopy=on")
+			} else {
+				logrus.Warnf("ignoring metacopy option from storage.conf, not supported with booted kernel")
+			}
 		}
 	}
 	for _, o := range optsList {
