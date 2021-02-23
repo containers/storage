@@ -28,6 +28,11 @@ var (
 	drv *Driver
 )
 
+const (
+	defaultPerms  = os.FileMode(0555)
+	modifiedPerms = os.FileMode(0711)
+)
+
 // Driver conforms to graphdriver.Driver interface and
 // contains information such as root and reference count of the number of clients using it.
 // This helps in testing drivers added into the framework.
@@ -106,7 +111,7 @@ func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...str
 	dir, err := driver.Get("empty", graphdriver.MountOpts{})
 	require.NoError(t, err)
 
-	verifyFile(t, dir, 0755|os.ModeDir, 0, 0)
+	verifyFile(t, dir, defaultPerms|os.ModeDir, 0, 0)
 
 	// Verify that the directory is empty
 	fis, err := readDir(dir)
@@ -125,7 +130,7 @@ func DriverTestCreateBase(t testing.TB, drivername string, driverOptions ...stri
 	defer func() {
 		require.NoError(t, driver.Remove("Base"))
 	}()
-	verifyBase(t, driver, "Base")
+	verifyBase(t, driver, "Base", defaultPerms)
 }
 
 // DriverTestCreateSnap Create a driver and snap and verify.
@@ -144,7 +149,21 @@ func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...stri
 		require.NoError(t, driver.Remove("Snap"))
 	}()
 
-	verifyBase(t, driver, "Snap")
+	verifyBase(t, driver, "Snap", defaultPerms)
+
+	root, err := driver.Get("Snap", graphdriver.MountOpts{})
+	assert.NoError(t, err)
+	err = os.Chmod(root, modifiedPerms)
+	require.NoError(t, err)
+	driver.Put("Snap")
+
+	err = driver.Create("SecondSnap", "Snap", nil)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, driver.Remove("SecondSnap"))
+	}()
+
+	verifyBase(t, driver, "SecondSnap", modifiedPerms)
 }
 
 // DriverTestCreateFromTemplate Create a driver and template of a snap and verifies its
@@ -238,7 +257,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 		t.Fatal(err)
 	}
 
-	verifyBase(t, driver, "Base")
+	verifyBase(t, driver, "Base", defaultPerms)
 }
 
 // DriverTestDeepLayerRead reads a file from a lower layer under a given number of layers
