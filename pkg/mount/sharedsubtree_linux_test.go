@@ -1,6 +1,7 @@
 package mount
 
 import (
+	"errors"
 	"os"
 	"path"
 	"testing"
@@ -324,7 +325,7 @@ func TestSubtreeUnbindable(t *testing.T) {
 	}()
 
 	// then attempt to mount it to target. It should fail
-	if err := Mount(sourceDir, targetDir, "none", "bind,rw"); err != nil && err != unix.EINVAL {
+	if err := Mount(sourceDir, targetDir, "none", "bind,rw"); err != nil && !errors.Is(err, unix.EINVAL) {
 		t.Fatal(err)
 	} else if err == nil {
 		t.Fatalf("%q should not have been bindable", sourceDir)
