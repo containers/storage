@@ -136,7 +136,7 @@ func TestDecompressStreamXz(t *testing.T) {
 func TestCompressStreamXzUnsupported(t *testing.T) {
 	dest, err := os.Create(tmp + "dest")
 	if err != nil {
-		t.Fatalf("Fail to create the destination file")
+		t.Fatalf("Fail to create the destination file: %v", err)
 	}
 	defer dest.Close()
 
@@ -149,7 +149,7 @@ func TestCompressStreamXzUnsupported(t *testing.T) {
 func TestCompressStreamBzip2Unsupported(t *testing.T) {
 	dest, err := os.Create(tmp + "dest")
 	if err != nil {
-		t.Fatalf("Fail to create the destination file")
+		t.Fatalf("Fail to create the destination file: %v", err)
 	}
 	defer dest.Close()
 
@@ -162,7 +162,7 @@ func TestCompressStreamBzip2Unsupported(t *testing.T) {
 func TestCompressStreamInvalid(t *testing.T) {
 	dest, err := os.Create(tmp + "dest")
 	if err != nil {
-		t.Fatalf("Fail to create the destination file")
+		t.Fatalf("Fail to create the destination file: %v", err)
 	}
 	defer dest.Close()
 
