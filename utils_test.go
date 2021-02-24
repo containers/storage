@@ -262,7 +262,7 @@ func TestRootlessRuntimeDirRace(t *testing.T) {
 func TestDefaultStoreOpts(t *testing.T) {
 	storageOpts, err := defaultStoreOptionsIsolated(true, 1000, "./storage_test.conf")
 
-	expectedPath := filepath.Join(os.Getenv("NAME"), "1000", "containers/storage")
+	expectedPath := filepath.Join(os.Getenv("HOME"), "1000", "containers/storage")
 
 	assert.NilError(t, err)
 	assert.Equal(t, storageOpts.RunRoot, expectedPath)
