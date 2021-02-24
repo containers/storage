@@ -103,7 +103,7 @@ func TestChrootUntarWithHugeExcludesList(t *testing.T) {
 	//on most systems when passed via environment or command line arguments
 	excludes := make([]string, 65534)
 	for i := 0; i < 65534; i++ {
-		excludes[i] = strings.Repeat(string(i), 64)
+		excludes[i] = strings.Repeat(fmt.Sprintf("%d", i), 64)
 	}
 	options.ExcludePatterns = excludes
 	if err := Untar(stream, dest, options); err != nil {
