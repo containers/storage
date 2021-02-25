@@ -11,6 +11,7 @@ import (
 	"github.com/containers/storage/internal/opts"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/types"
 	digest "github.com/opencontainers/go-digest"
 )
 
@@ -33,8 +34,8 @@ var (
 	paramReadOnly     = false
 )
 
-func paramIDMapping() (*storage.IDMappingOptions, error) {
-	options := storage.IDMappingOptions{
+func paramIDMapping() (*types.IDMappingOptions, error) {
+	options := types.IDMappingOptions{
 		HostUIDMapping: paramHostUIDMap,
 		HostGIDMapping: paramHostGIDMap,
 	}
