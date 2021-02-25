@@ -53,10 +53,12 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 	require.NoError(t, err)
 }
 
-func verifyBase(t testing.TB, driver graphdriver.Driver, name string) {
+func verifyBase(t testing.TB, driver graphdriver.Driver, name string, defaultPerm os.FileMode) {
 	dir, err := driver.Get(name, graphdriver.MountOpts{})
 	require.NoError(t, err)
 	defer driver.Put(name)
+
+	verifyFile(t, dir, defaultPerm|os.ModeDir, 0, 0)
 
 	subdir := path.Join(dir, "a subdir")
 	verifyFile(t, subdir, 0705|os.ModeDir|os.ModeSticky, 1, 2)

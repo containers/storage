@@ -2,6 +2,7 @@ package storage
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,8 +14,8 @@ import (
 )
 
 type homeRuntimeData struct {
-	dir   string
-	error error
+	dir string
+	err error
 }
 
 type rootlessRuntimeDirEnvironmentTest struct {
@@ -36,7 +37,7 @@ func (env rootlessRuntimeDirEnvironmentTest) getTmpPerUserDir() string {
 	return env.tmpPerUserDir
 }
 func (env rootlessRuntimeDirEnvironmentTest) homeDirGetRuntimeDir() (string, error) {
-	return env.homeRuntime.dir, env.homeRuntime.error
+	return env.homeRuntime.dir, env.homeRuntime.err
 }
 func (env rootlessRuntimeDirEnvironmentTest) systemLstat(path string) (*system.StatT, error) {
 	return system.Lstat(path)
@@ -54,7 +55,7 @@ func TestRootlessRuntimeDir(t *testing.T) {
 	err = os.Mkdir(homeRuntimeDir, 0700)
 	assert.NilError(t, err)
 
-	homeRuntimeDisabled := homeRuntimeData{error: errors.New("homedirGetRuntimeDir is disabled")}
+	homeRuntimeDisabled := homeRuntimeData{err: errors.New("homedirGetRuntimeDir is disabled")}
 
 	systemdCommandFile := filepath.Join(testDir, "systemd-command")
 	err = ioutil.WriteFile(systemdCommandFile, []byte("systemd"), 0644)
@@ -199,12 +200,14 @@ func TestRootlessRuntimeDir(t *testing.T) {
 		},
 	}
 
-	for _, env := range envs {
-		os.Remove(dirToBeCreated)
+	for i, env := range envs {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			os.Remove(dirToBeCreated)
 
-		resultDir, err := getRootlessRuntimeDirIsolated(env)
-		assert.NilError(t, err)
-		assert.Assert(t, resultDir == env.result)
+			resultDir, err := getRootlessRuntimeDirIsolated(env)
+			assert.NilError(t, err)
+			assert.Assert(t, resultDir == env.result)
+		})
 	}
 }
 
@@ -262,7 +265,7 @@ func TestRootlessRuntimeDirRace(t *testing.T) {
 func TestDefaultStoreOpts(t *testing.T) {
 	storageOpts, err := defaultStoreOptionsIsolated(true, 1000, "./storage_test.conf")
 
-	expectedPath := filepath.Join(os.Getenv("NAME"), "1000", "containers/storage")
+	expectedPath := filepath.Join(os.Getenv("HOME"), "1000", "containers/storage")
 
 	assert.NilError(t, err)
 	assert.Equal(t, storageOpts.RunRoot, expectedPath)

@@ -138,7 +138,7 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 			wantedVFS[opt] = struct{}{}
 		}
 	}
-	volunteeredVFS := map[string]struct{}{"seclabel": {}}
+	volunteeredVFS := map[string]struct{}{"seclabel": {}, "inode32": {}, "inode64": {}}
 	volunteeredOPT := map[string]struct{}{"relatime": {}}
 
 	mnts := make(map[int]*Info, len(info))

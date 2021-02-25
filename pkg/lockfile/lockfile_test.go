@@ -349,16 +349,16 @@ func TestLockfileWriteConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			l.Lock()
-			tmp := atomic.AddInt64(&counter, 1)
-			assert.True(t, tmp >= 0, "counter should never be less than zero")
+			workingCounter := atomic.AddInt64(&counter, 1)
+			assert.True(t, workingCounter >= 0, "counter should never be less than zero")
 			highestMutex.Lock()
-			if tmp > highest {
+			if workingCounter > highest {
 				// multiple writers should not be able to hold
 				// this lock at the same time, so there should
 				// be no point at which two goroutines are
 				// between the AddInt64() above and the one
 				// below
-				highest = tmp
+				highest = workingCounter
 			}
 			highestMutex.Unlock()
 			atomic.AddInt64(&counter, -1)
@@ -578,10 +578,10 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 			if testing.Verbose() {
 				fmt.Printf("\tchild %4d acquired the read lock\n", i+1)
 			}
-			atomic.AddInt64(&rcounter, 1)
+			workingRcounter := atomic.AddInt64(&rcounter, 1)
 			highestMutex.Lock()
-			if rcounter > rhighest {
-				rhighest = rcounter
+			if workingRcounter > rhighest {
+				rhighest = workingRcounter
 			}
 			highestMutex.Unlock()
 			time.Sleep(1 * time.Second)
@@ -621,10 +621,10 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 			if testing.Verbose() {
 				fmt.Printf("\tchild %4d acquired the write lock\n", i+1)
 			}
-			atomic.AddInt64(&wcounter, 1)
+			workingWcounter := atomic.AddInt64(&wcounter, 1)
 			highestMutex.Lock()
-			if wcounter > whighest {
-				whighest = wcounter
+			if workingWcounter > whighest {
+				whighest = workingWcounter
 			}
 			highestMutex.Unlock()
 			time.Sleep(1 * time.Second)
@@ -664,10 +664,10 @@ func TestLockfileMultiprocessRecursiveWrite(t *testing.T) {
 			if testing.Verbose() {
 				fmt.Printf("\tchild %4d acquired the recursive write lock\n", i+1)
 			}
-			atomic.AddInt64(&wcounter, 1)
+			workingWcounter := atomic.AddInt64(&wcounter, 1)
 			highestMutex.Lock()
-			if wcounter > whighest {
-				whighest = wcounter
+			if workingWcounter > whighest {
+				whighest = workingWcounter
 			}
 			highestMutex.Unlock()
 			time.Sleep(1 * time.Second)
@@ -725,24 +725,26 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 				if testing.Verbose() {
 					fmt.Printf("\tchild %4d acquired the write lock\n", i+1)
 				}
-				atomic.AddInt64(&wcounter, 1)
+				workingWcounter := atomic.AddInt64(&wcounter, 1)
 				whighestMutex.Lock()
-				if wcounter > whighest {
-					whighest = wcounter
+				if workingWcounter > whighest {
+					whighest = workingWcounter
 				}
-				require.Zero(t, rcounter, "acquired a write lock while we appear to have read locks")
+				workingRcounter := atomic.LoadInt64(&rcounter)
+				require.Zero(t, workingRcounter, "acquired a write lock while we appear to have read locks")
 				whighestMutex.Unlock()
 			} else {
 				// child acquired a read lock
 				if testing.Verbose() {
 					fmt.Printf("\tchild %4d acquired the read lock\n", i+1)
 				}
-				atomic.AddInt64(&rcounter, 1)
+				workingRcounter := atomic.AddInt64(&rcounter, 1)
 				rhighestMutex.Lock()
-				if rcounter > rhighest {
-					rhighest = rcounter
+				if workingRcounter > rhighest {
+					rhighest = workingRcounter
 				}
-				require.Zero(t, wcounter, "acquired a read lock while we appear to have write locks")
+				workingWcounter := atomic.LoadInt64(&wcounter)
+				require.Zero(t, workingWcounter, "acquired a read lock while we appear to have write locks")
 				rhighestMutex.Unlock()
 			}
 			time.Sleep(1 * time.Second)

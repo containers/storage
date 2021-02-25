@@ -229,6 +229,8 @@ func TestParseSubidFileWithNewlinesAndComments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmpDir)
+
 	fnamePath := filepath.Join(tmpDir, "testsubuid")
 	fcontent := `tss:100000:65536
 # empty default subuid/subgid file

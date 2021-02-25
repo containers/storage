@@ -136,7 +136,7 @@ func TestDecompressStreamXz(t *testing.T) {
 func TestCompressStreamXzUnsupported(t *testing.T) {
 	dest, err := os.Create(tmp + "dest")
 	if err != nil {
-		t.Fatalf("Fail to create the destination file")
+		t.Fatalf("Fail to create the destination file: %v", err)
 	}
 	defer dest.Close()
 
@@ -149,7 +149,7 @@ func TestCompressStreamXzUnsupported(t *testing.T) {
 func TestCompressStreamBzip2Unsupported(t *testing.T) {
 	dest, err := os.Create(tmp + "dest")
 	if err != nil {
-		t.Fatalf("Fail to create the destination file")
+		t.Fatalf("Fail to create the destination file: %v", err)
 	}
 	defer dest.Close()
 
@@ -162,7 +162,7 @@ func TestCompressStreamBzip2Unsupported(t *testing.T) {
 func TestCompressStreamInvalid(t *testing.T) {
 	dest, err := os.Create(tmp + "dest")
 	if err != nil {
-		t.Fatalf("Fail to create the destination file")
+		t.Fatalf("Fail to create the destination file: %v", err)
 	}
 	defer dest.Close()
 
@@ -472,15 +472,51 @@ func TestCopyWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ioutil.WriteFile(src, []byte("content"), 0777)
+	err = ioutil.WriteFile(src, []byte("content"), 0777)
+	if err != nil {
+		t.Fatalf("archiver.CopyWithTar couldn't write content, %s.", err)
+	}
+	err = defaultCopyWithTar(src, dest)
+	if err == nil {
+		t.Fatalf("archiver.CopyWithTar should have thrown an overwrite error.")
+	} else if _, isOverwriteError := err.(overwriteError); !isOverwriteError {
+		t.Fatalf("archiver.CopyWithTar shouldn't throw an error other than overwrite, %s.", err)
+	}
+	err = os.Remove(dest)
+	if err != nil {
+		t.Fatalf("archiver.CopyWithTar couldn't remove dest dir, %s.", err)
+	}
 	err = defaultCopyWithTar(src, dest)
 	if err != nil {
-		t.Fatalf("archiver.CopyWithTar shouldn't throw an error, %s.", err)
+		t.Fatalf("archiver.CopyWithTar shouldn't have thrown an error, %s.", err)
 	}
-	_, err = os.Stat(dest)
-	// FIXME Check the content
+	err = ioutil.WriteFile(dest, []byte("modified content"), 0751)
 	if err != nil {
-		t.Fatalf("Destination file should be the same as the source.")
+		t.Fatalf("archiver.CopyWithTar couldn't write modified content, %s.", err)
+	}
+	err = defaultCopyWithTar(src, dest)
+	if err != nil {
+		t.Fatalf("archiver.CopyWithTar shouldn't have thrown an error, %s.", err)
+	}
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		t.Fatalf("archiver.CopyWithTar should be able to stat the source, %s.", err)
+	}
+	destInfo, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("archiver.CopyWithTar should be able to stat the destination, %s.", err)
+	}
+	if srcInfo.IsDir() != destInfo.IsDir() {
+		t.Fatalf("Destination (dir=%t) should be the same as the source (dir=%t).", destInfo.IsDir(), srcInfo.IsDir())
+	}
+	if srcInfo.Mode() != destInfo.Mode() {
+		t.Fatalf("Destination (mode=%0o) should be the same as the source (mode=%0o).", destInfo.Mode(), srcInfo.Mode())
+	}
+	if srcInfo.Size() != destInfo.Size() {
+		t.Fatalf("Destination (size=%d) should be the same as the source (size=%d).", destInfo.Size(), srcInfo.Size())
+	}
+	if !srcInfo.ModTime().Equal(destInfo.ModTime()) {
+		t.Fatalf("Destination (date=%s) should be the same as the source (date=%s).", destInfo.ModTime(), srcInfo.ModTime())
 	}
 }
 
