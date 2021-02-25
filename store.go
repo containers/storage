@@ -2933,6 +2933,7 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		store.RLock()
 		if modified, err := store.Modified(); modified || err != nil {
 			if err = store.Load(); err != nil {
+				store.Unlock()
 				return nil, err
 			}
 		}
