@@ -1159,7 +1159,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 		mountData = label.FormatMountLabel(opts, options.MountLabel)
 		if len(mountData) > pageSize {
-			return "", fmt.Errorf("cannot mount layer, mount label too large %d", len(mountData))
+			return "", fmt.Errorf("cannot mount layer, mount label %q too large %d > page size %d", options.MountLabel, len(mountData), pageSize)
 		}
 		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
 			return mountFrom(d.home, source, target, mType, flags, label)
@@ -1169,7 +1169,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	flags, data := mount.ParseOptions(mountData)
 	logrus.Debugf("overlay: mount_data=%s", mountData)
 	if err := mountFunc("overlay", mountTarget, "overlay", uintptr(flags), data); err != nil {
-		return "", fmt.Errorf("error creating overlay mount to %s: %v", mountTarget, err)
+		return "", fmt.Errorf("error creating overlay mount to %s, mount_data=%q: %v", mountTarget, mountData, err)
 	}
 
 	return mergedDir, nil
