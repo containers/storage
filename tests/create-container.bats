@@ -75,3 +75,35 @@ load helpers
 	[ "${lines[2]}" = "$zerothcontainer" ] || [ "${lines[2]}" = "$firstcontainer" ] || [ "${lines[2]}" = "$secondcontainer" ] || [ "${lines[2]}" = "$thirdcontainer" ]
 	[ "${lines[3]}" = "$zerothcontainer" ] || [ "${lines[3]}" = "$firstcontainer" ] || [ "${lines[3]}" = "$secondcontainer" ] || [ "${lines[3]}" = "$thirdcontainer" ]
 }
+
+@test "create-and-mount-volatile-container" {
+	# Create a container based on no image.
+	run storage --debug=false create-container --volatile ""
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	container=${output%%	*}
+
+	run storage --debug=false mount $container
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	path=${output%%	*}
+
+	echo test > $path/newfile
+
+	run storage --debug=false unmount $container
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+
+	run storage --debug=false mount $container
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	path=${output%%	*}
+
+	run cat $path/newfile
+	[ "$status" -eq 0 ]
+	[ "$output" == "test" ]
+
+	run storage --debug=false unmount $container
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+}
