@@ -32,6 +32,7 @@ var (
 	paramSubUIDMap    = ""
 	paramSubGIDMap    = ""
 	paramReadOnly     = false
+	paramVolatile     = false
 )
 
 func paramIDMapping() (*types.IDMappingOptions, error) {
@@ -192,7 +193,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 1
 	}
-	options := &storage.ContainerOptions{IDMappingOptions: *mappings}
+	options := &storage.ContainerOptions{IDMappingOptions: *mappings, Volatile: paramVolatile}
 	image := args[0]
 	container, err := m.CreateContainer(paramID, paramNames, image, paramLayer, paramMetadata, options)
 	if err != nil {
@@ -277,6 +278,7 @@ func init() {
 		action:      createContainer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "Container name")
+			flags.BoolVar(&paramVolatile, []string{"-volatile"}, false, "Mark as volatile")
 			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Container ID")
 			flags.StringVar(&paramMetadata, []string{"-metadata", "m"}, "", "Metadata")
 			flags.StringVar(&paramMetadataFile, []string{"-metadata-file", "f"}, "", "Metadata File")
