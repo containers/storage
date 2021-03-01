@@ -1094,9 +1094,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}()
 
+	workdir := path.Join(dir, "work")
+
 	var opts string
 	if readWrite {
-		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(absLowers, ":"), diffDir, path.Join(dir, "work"))
+		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(absLowers, ":"), diffDir, workdir)
 	} else {
 		opts = fmt.Sprintf("lowerdir=%s:%s", diffDir, strings.Join(absLowers, ":"))
 	}
@@ -1108,12 +1110,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		opts = fmt.Sprintf("%s,userxattr", opts)
 	}
 
-	// overlay has a check in place to prevent mounting the same file system twice
-	// if volatile was already specified.
-	err = os.RemoveAll(filepath.Join(dir, "work", "incompat/volatile"))
-	if err != nil && !os.IsNotExist(err) {
-		return "", err
-	}
 	// If "volatile" is not supported by the file system, just ignore the request
 	if d.supportsVolatile && options.Volatile && !hasVolatileOption(strings.Split(opts, ",")) {
 		opts = fmt.Sprintf("%s,volatile", opts)
@@ -1150,10 +1146,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			return nil
 		}
 	} else if len(mountData) > pageSize {
+		workdir = path.Join(id, "work")
 		//FIXME: We need to figure out to get this to work with additional stores
 		if readWrite {
 			diffDir := path.Join(id, "diff")
-			opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(relLowers, ":"), diffDir, path.Join(id, "work"))
+			opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(relLowers, ":"), diffDir, workdir)
 		} else {
 			opts = fmt.Sprintf("lowerdir=%s", strings.Join(absLowers, ":"))
 		}
@@ -1166,6 +1163,14 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 		mountTarget = path.Join(id, "merged")
 	}
+
+	// overlay has a check in place to prevent mounting the same file system twice
+	// if volatile was already specified.
+	err = os.RemoveAll(filepath.Join(workdir, "work/incompat/volatile"))
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+
 	flags, data := mount.ParseOptions(mountData)
 	logrus.Debugf("overlay: mount_data=%s", mountData)
 	if err := mountFunc("overlay", mountTarget, "overlay", uintptr(flags), data); err != nil {
