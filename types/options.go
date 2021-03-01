@@ -149,6 +149,17 @@ type StoreOptions struct {
 	AutoNsMaxSize uint32 `json:"auto_userns_max_size,omitempty"`
 }
 
+// isRootlessDriver returns true if the given storage driver is valid for containers running as non root
+func isRootlessDriver(driver string) bool {
+	validDrivers := map[string]bool{
+		"btrfs":    true,
+		"overlay":  true,
+		"overlay2": true,
+		"vfs":      true,
+	}
+	return validDrivers[driver]
+}
+
 // getRootlessStorageOpts returns the storage opts for containers running as non root
 func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOptions, error) {
 	var opts StoreOptions
@@ -163,7 +174,13 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 	} else {
 		opts.GraphRoot = filepath.Join(dataDir, "containers", "storage")
 	}
-	opts.GraphDriverName = os.Getenv("STORAGE_DRIVER")
+
+	if driver := systemOpts.GraphDriverName; isRootlessDriver(driver) {
+		opts.GraphDriverName = driver
+	}
+	if driver := os.Getenv("STORAGE_DRIVER"); driver != "" {
+		opts.GraphDriverName = driver
+	}
 	if opts.GraphDriverName == "" || opts.GraphDriverName == "overlay" {
 		if path, err := exec.LookPath("fuse-overlayfs"); err == nil {
 			opts.GraphDriverName = "overlay"

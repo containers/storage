@@ -29,7 +29,10 @@ The `storage` table supports the following options:
 **driver**=""
   container storage driver
   Default Copy On Write (COW) container storage driver. Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs". Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem.
-  This field is requiered to guarantee proper operation.
+  This field is required to guarantee proper operation.
+  Valid rootless drivers are "btrfs", "overlay", and "vfs".
+  Rootless users default to the driver defined in the system configuration when possible.
+  When the system configuration uses an unsupported rootless driver, rootless users default to "overlay" if available, otherwise "vfs".
 
 **graphroot**=""
   container storage graph dir (default: "/var/lib/containers/storage")
