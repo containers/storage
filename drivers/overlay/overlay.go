@@ -172,6 +172,47 @@ func checkSupportVolatile(home, runhome string) (bool, error) {
 	return usingVolatile, nil
 }
 
+func checkAndRecordOverlaySupport(fsMagic graphdriver.FsMagic, home, runhome string) (bool, error) {
+	var supportsDType bool
+
+	if os.Geteuid() != 0 {
+		return false, nil
+	}
+
+	feature := "overlay"
+	overlayCacheResult, overlayCacheText, err := cachedFeatureCheck(runhome, feature)
+	if err == nil {
+		if overlayCacheResult {
+			logrus.Debugf("cached value indicated that overlay is supported")
+		} else {
+			logrus.Debugf("cached value indicated that overlay is not supported")
+		}
+		supportsDType = overlayCacheResult
+		if !supportsDType {
+			return false, errors.New(overlayCacheText)
+		}
+	} else {
+		supportsDType, err = supportsOverlay(home, fsMagic, 0, 0)
+		if err != nil {
+			os.Remove(filepath.Join(home, linkDir))
+			os.Remove(home)
+			patherr, ok := err.(*os.PathError)
+			if ok && patherr.Err == syscall.ENOSPC {
+				return false, err
+			}
+			err = errors.Wrap(err, "kernel does not support overlay fs")
+			if err2 := cachedFeatureRecord(runhome, feature, false, err.Error()); err2 != nil {
+				return false, errors.Wrapf(err2, "error recording overlay not being supported (%v)", err)
+			}
+			return false, err
+		}
+		if err = cachedFeatureRecord(runhome, feature, supportsDType, ""); err != nil {
+			return false, errors.Wrap(err, "error recording overlay support status")
+		}
+	}
+	return supportsDType, nil
+}
+
 // Init returns the a native diff driver for overlay filesystem.
 // If overlay filesystem is not supported on the host, a wrapped graphdriver.ErrNotSupported is returned as error.
 // If an overlay filesystem is not supported over an existing filesystem then a wrapped graphdriver.ErrIncompatibleFS is returned.
@@ -221,39 +262,11 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		supportsDType = true
 		supportsVolatile = true
 	} else {
-		feature := "overlay"
-		overlayCacheResult, overlayCacheText, err := cachedFeatureCheck(runhome, feature)
-		if err == nil {
-			if overlayCacheResult {
-				logrus.Debugf("cached value indicated that overlay is supported")
-			} else {
-				logrus.Debugf("cached value indicated that overlay is not supported")
-			}
-			supportsDType = overlayCacheResult
-			if !supportsDType {
-				return nil, errors.New(overlayCacheText)
-			}
-		} else {
-			supportsDType, err = supportsOverlay(home, fsMagic, rootUID, rootGID)
-			if err != nil {
-				os.Remove(filepath.Join(home, linkDir))
-				os.Remove(home)
-				patherr, ok := err.(*os.PathError)
-				if ok && patherr.Err == syscall.ENOSPC {
-					return nil, err
-				}
-				err = errors.Wrap(err, "kernel does not support overlay fs")
-				if err2 := cachedFeatureRecord(runhome, feature, false, err.Error()); err2 != nil {
-					return nil, errors.Wrapf(err2, "error recording overlay not being supported (%v)", err)
-				}
-				return nil, err
-			}
-			if err = cachedFeatureRecord(runhome, feature, supportsDType, ""); err != nil {
-				return nil, errors.Wrap(err, "error recording overlay support status")
-			}
+		supportsDType, err = checkAndRecordOverlaySupport(fsMagic, home, runhome)
+		if err != nil {
+			return nil, err
 		}
-
-		feature = fmt.Sprintf("metacopy(%s)", opts.mountOptions)
+		feature := fmt.Sprintf("metacopy(%s)", opts.mountOptions)
 		metacopyCacheResult, _, err := cachedFeatureCheck(runhome, feature)
 		if err == nil {
 			if metacopyCacheResult {
