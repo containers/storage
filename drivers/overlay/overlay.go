@@ -461,6 +461,34 @@ func cachedFeatureRecord(runhome, feature string, supported bool, text string) (
 	return err
 }
 
+func SupportsNativeOverlay(graphroot, rundir string) (bool, error) {
+	if os.Geteuid() != 0 || graphroot == "" || rundir == "" {
+		return false, nil
+	}
+
+	home := filepath.Join(graphroot, "overlay")
+	runhome := filepath.Join(rundir, "overlay")
+
+	if _, err := os.Stat(getMountProgramFlagFile(home)); err == nil {
+		logrus.Debugf("overlay storage already configured with a mount-program")
+		return false, nil
+	}
+
+	for _, dir := range []string{home, runhome} {
+		if _, err := os.Stat(dir); err != nil {
+			_ = idtools.MkdirAllAs(dir, 0700, 0, 0)
+		}
+	}
+
+	fsMagic, err := graphdriver.GetFSMagic(home)
+	if err != nil {
+		return false, err
+	}
+
+	supportsDType, _ := checkAndRecordOverlaySupport(fsMagic, home, runhome)
+	return supportsDType, nil
+}
+
 func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
 	// We can try to modprobe overlay first
 
