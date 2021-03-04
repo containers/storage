@@ -494,6 +494,11 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 
 	exec.Command("modprobe", "overlay").Run()
 
+	logLevel := logrus.ErrorLevel
+	if unshare.IsRootless() {
+		logLevel = logrus.DebugLevel
+	}
+
 	layerDir, err := ioutil.TempDir(home, "compat")
 	if err != nil {
 		patherr, ok := err.(*os.PathError)
@@ -549,11 +554,11 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			}
 			logrus.Debugf("overlay test mount with a single lower failed %v", err)
 		}
-		logrus.Errorf("'overlay' is not supported over %s at %q", backingFs, home)
+		logrus.StandardLogger().Logf(logLevel, "'overlay' is not supported over %s at %q", backingFs, home)
 		return supportsDType, errors.Wrapf(graphdriver.ErrIncompatibleFS, "'overlay' is not supported over %s at %q", backingFs, home)
 	}
 
-	logrus.Error("'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
+	logrus.StandardLogger().Logf(logLevel, "'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
 	return supportsDType, errors.Wrap(graphdriver.ErrNotSupported, "'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.")
 }
 
