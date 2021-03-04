@@ -145,6 +145,10 @@ func hasVolatileOption(opts []string) bool {
 	return false
 }
 
+func getMountProgramFlagFile(path string) string {
+	return filepath.Join(path, ".has-mount-program")
+}
+
 func checkSupportVolatile(home, runhome string) (bool, error) {
 	feature := fmt.Sprintf("volatile")
 	volatileCacheResult, _, err := cachedFeatureCheck(runhome, feature)
@@ -230,8 +234,13 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		backingFs = fsName
 	}
 
-	// check if they are running over btrfs, aufs, zfs, overlay, or ecryptfs
-	if opts.mountProgram == "" {
+	if opts.mountProgram != "" {
+		f, err := os.Create(getMountProgramFlagFile(home))
+		if err == nil {
+			f.Close()
+		}
+	} else {
+		// check if they are running over btrfs, aufs, zfs, overlay, or ecryptfs
 		if opts.forceMask != nil {
 			return nil, errors.New("'force_mask' is supported only with 'mount_program'")
 		}
