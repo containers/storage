@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/containers/storage/drivers/overlay"
 	cfg "github.com/containers/storage/pkg/config"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/sirupsen/logrus"
@@ -163,6 +164,7 @@ func isRootlessDriver(driver string) bool {
 // getRootlessStorageOpts returns the storage opts for containers running as non root
 func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOptions, error) {
 	var opts StoreOptions
+	const overlayDriver = "overlay"
 
 	dataDir, rootlessRuntime, err := getRootlessDirInfo(rootlessUID)
 	if err != nil {
@@ -181,10 +183,20 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 	if driver := os.Getenv("STORAGE_DRIVER"); driver != "" {
 		opts.GraphDriverName = driver
 	}
-	if opts.GraphDriverName == "" || opts.GraphDriverName == "overlay" {
-		if path, err := exec.LookPath("fuse-overlayfs"); err == nil {
-			opts.GraphDriverName = "overlay"
-			opts.GraphDriverOptions = []string{fmt.Sprintf("overlay.mount_program=%s", path)}
+	if opts.GraphDriverName == "" || opts.GraphDriverName == overlayDriver {
+		supported, err := overlay.SupportsNativeOverlay(opts.GraphRoot, rootlessRuntime)
+		if err != nil {
+			return opts, err
+		}
+		if supported {
+			opts.GraphDriverName = overlayDriver
+		} else {
+			if path, err := exec.LookPath("fuse-overlayfs"); err == nil {
+				opts.GraphDriverName = overlayDriver
+				opts.GraphDriverOptions = []string{fmt.Sprintf("overlay.mount_program=%s", path)}
+			}
+		}
+		if opts.GraphDriverName == overlayDriver {
 			for _, o := range systemOpts.GraphDriverOptions {
 				if strings.Contains(o, "ignore_chown_errors") {
 					opts.GraphDriverOptions = append(opts.GraphDriverOptions, o)
