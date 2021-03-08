@@ -8,7 +8,7 @@ require (
 	github.com/Microsoft/hcsshim v0.8.15
 	github.com/docker/go-units v0.4.0
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/klauspost/compress v1.11.9
+	github.com/klauspost/compress v1.11.12
 	github.com/klauspost/pgzip v1.2.5
 	github.com/mattn/go-shellwords v1.0.11
 	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
