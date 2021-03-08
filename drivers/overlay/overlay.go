@@ -397,7 +397,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			if val != "" {
 				_, err := os.Stat(val)
 				if err != nil {
-					return nil, fmt.Errorf("overlay: can't stat program %s: %v", val, err)
+					return nil, errors.Wrapf(err, "overlay: can't stat program %q", val)
 				}
 			}
 			o.mountProgram = val
