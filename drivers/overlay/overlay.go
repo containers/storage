@@ -394,9 +394,11 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			}
 		case "mount_program":
 			logrus.Debugf("overlay: mount_program=%s", val)
-			_, err := os.Stat(val)
-			if err != nil {
-				return nil, fmt.Errorf("overlay: can't stat program %s: %v", val, err)
+			if val != "" {
+				_, err := os.Stat(val)
+				if err != nil {
+					return nil, errors.Wrapf(err, "overlay: can't stat program %q", val)
+				}
 			}
 			o.mountProgram = val
 		case "skip_mount_home":
