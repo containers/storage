@@ -38,19 +38,13 @@ const (
 	Hardlink
 )
 
-func copyRegular(srcPath, dstPath string, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error {
+// CopyRegularToFile copies the content of a file to another
+func CopyRegularToFile(srcPath string, dstFile *os.File, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error { // nolint: golint
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
-
-	// If the destination file already exists, we shouldn't blow it away
-	dstFile, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileinfo.Mode())
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
 
 	if *copyWithFileClone {
 		_, _, err = unix.Syscall(unix.SYS_IOCTL, dstFile.Fd(), C.FICLONE, srcFile.Fd())
@@ -74,6 +68,18 @@ func copyRegular(srcPath, dstPath string, fileinfo os.FileInfo, copyWithFileRang
 		}
 	}
 	return legacyCopy(srcFile, dstFile)
+}
+
+// CopyRegular copies the content of a file to another
+func CopyRegular(srcPath, dstPath string, fileinfo os.FileInfo, copyWithFileRange, copyWithFileClone *bool) error { // nolint: golint
+	// If the destination file already exists, we shouldn't blow it away
+	dstFile, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileinfo.Mode())
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	return CopyRegularToFile(srcPath, dstFile, fileinfo, copyWithFileRange, copyWithFileClone)
 }
 
 func doCopyWithFileRange(srcFile, dstFile *os.File, fileinfo os.FileInfo) error {
@@ -164,7 +170,7 @@ func DirCopy(srcDir, dstDir string, copyMode Mode, copyXattrs bool) error {
 					return err2
 				}
 			} else {
-				if err2 := copyRegular(srcPath, dstPath, f, &copyWithFileRange, &copyWithFileClone); err2 != nil {
+				if err2 := CopyRegular(srcPath, dstPath, f, &copyWithFileRange, &copyWithFileClone); err2 != nil {
 					return err2
 				}
 				copiedFiles[id] = dstPath
