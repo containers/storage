@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -307,6 +308,19 @@ func checkChownErr(err error, name string, uid, gid int) error {
 }
 
 func SafeChown(name string, uid, gid int) error {
+	if runtime.GOOS == "darwin" {
+		var ruid = os.Getuid()
+		if ruid != 0 {
+			if err := system.Lsetxattr(name, "virtiofs.uid", []byte(strconv.Itoa(uid)), 0); err != nil {
+				return err
+			}
+			if err := system.Lsetxattr(name, "virtiofs.gid", []byte(strconv.Itoa(gid)), 0); err != nil {
+				return err
+			}
+			uid = ruid
+			gid = os.Getgid()
+		}
+	}
 	if stat, statErr := system.Stat(name); statErr == nil {
 		if stat.UID() == uint32(uid) && stat.GID() == uint32(gid) {
 			return nil
@@ -316,6 +330,19 @@ func SafeChown(name string, uid, gid int) error {
 }
 
 func SafeLchown(name string, uid, gid int) error {
+	if runtime.GOOS == "darwin" {
+		var ruid = os.Getuid()
+		if ruid != 0 {
+			if err := system.Lsetxattr(name, "virtiofs.uid", []byte(strconv.Itoa(uid)), 0); err != nil {
+				return err
+			}
+			if err := system.Lsetxattr(name, "virtiofs.gid", []byte(strconv.Itoa(gid)), 0); err != nil {
+				return err
+			}
+			uid = ruid
+			gid = os.Getgid()
+		}
+	}
 	if stat, statErr := system.Lstat(name); statErr == nil {
 		if stat.UID() == uint32(uid) && stat.GID() == uint32(gid) {
 			return nil

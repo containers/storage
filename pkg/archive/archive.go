@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -74,6 +75,7 @@ const (
 	tarExt                  = "tar"
 	solaris                 = "solaris"
 	windows                 = "windows"
+	darwin                  = "darwin"
 	containersOverrideXattr = "user.containers.override_stat"
 )
 
@@ -443,6 +445,31 @@ func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	return nil
 }
 
+// ReadUserXattrToTarHeader reads virtiofs.* xattr from filesystem to a tar header
+func ReadVirtiofsXattrToTarHeader(path string, hdr *tar.Header) error {
+	xattrs, err := system.Llistxattr(path)
+	if err != nil && !errors.Is(err, system.EOPNOTSUPP) && err != system.ErrNotSupportedPlatform {
+		return err
+	}
+	for _, key := range xattrs {
+		if strings.HasPrefix(key, "virtiofs.") {
+			value, err := system.Lgetxattr(path, key)
+			if err != nil {
+				if errors.Is(err, system.E2BIG) {
+					logrus.Errorf("archive: Skipping xattr for file %s since value is too big: %s", path, key)
+					continue
+				}
+				return err
+			}
+			if hdr.Xattrs == nil {
+				hdr.Xattrs = make(map[string]string)
+			}
+			hdr.Xattrs[key] = string(value)
+		}
+	}
+	return nil
+}
+
 type tarWhiteoutConverter interface {
 	ConvertWrite(*tar.Header, string, os.FileInfo) (*tar.Header, error)
 	ConvertRead(*tar.Header, string) (bool, error)
@@ -519,6 +546,11 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	}
 	if err := ReadUserXattrToTarHeader(path, hdr); err != nil {
 		return err
+	}
+	if runtime.GOOS == darwin && os.Getuid() != 0 {
+		if err := ReadVirtiofsXattrToTarHeader(path, hdr); err != nil {
+			return err
+		}
 	}
 	if ta.CopyPass {
 		copyPassHeader(hdr)
@@ -621,6 +653,8 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 	mask := hdrInfo.Mode()
 	if forceMask != nil {
 		mask = *forceMask
+	} else if runtime.GOOS == darwin && os.Getuid() != 0 {
+		mask = os.FileMode(0700)
 	}
 
 	switch hdr.Typeflag {
@@ -1296,6 +1330,18 @@ func remapIDs(readIDMappings, writeIDMappings *idtools.IDMappings, chownOpts *id
 			uid, gid, err = readIDMappings.ToContainer(idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid})
 			if err != nil {
 				return err
+			}
+		} else if runtime.GOOS == darwin && os.Getuid() != 0 {
+			uid, gid = hdr.Uid, hdr.Gid
+			if val, ok := hdr.Xattrs["virtiofs.uid"]; ok {
+				if xuid, err := strconv.Atoi(val); err == nil {
+					uid = xuid
+				}
+			}
+			if val, ok := hdr.Xattrs["virtiofs.gid"]; ok {
+				if xgid, err := strconv.Atoi(val); err == nil {
+					gid = xgid
+				}
 			}
 		} else {
 			uid, gid = hdr.Uid, hdr.Gid

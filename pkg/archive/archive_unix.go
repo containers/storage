@@ -7,6 +7,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"syscall"
 
 	"github.com/containers/storage/pkg/idtools"
@@ -111,15 +113,27 @@ func handleLChmod(hdr *tar.Header, path string, hdrInfo os.FileInfo, forceMask *
 	if forceMask != nil {
 		permissionsMask = *forceMask
 	}
-	if hdr.Typeflag == tar.TypeLink {
-		if fi, err := os.Lstat(hdr.Linkname); err == nil && (fi.Mode()&os.ModeSymlink == 0) {
-			if err := os.Chmod(path, permissionsMask); err != nil {
+	if runtime.GOOS == "darwin" && os.Getuid() != 0 {
+		if val, ok := hdr.Xattrs["virtiofs.mode"]; ok {
+			if err := system.Lsetxattr(path, "virtiofs.mode", []byte(val), 0); err != nil {
+				return err
+			}
+		} else {
+			if err := system.Lsetxattr(path, "virtiofs.mode", []byte(strconv.Itoa(int(hdr.Mode)&0777)), 0); err != nil {
 				return err
 			}
 		}
-	} else if hdr.Typeflag != tar.TypeSymlink {
-		if err := os.Chmod(path, permissionsMask); err != nil {
-			return err
+	} else {
+		if hdr.Typeflag == tar.TypeLink {
+			if fi, err := os.Lstat(hdr.Linkname); err == nil && (fi.Mode()&os.ModeSymlink == 0) {
+				if err := os.Chmod(path, permissionsMask); err != nil {
+					return err
+				}
+			}
+		} else if hdr.Typeflag != tar.TypeSymlink {
+			if err := os.Chmod(path, permissionsMask); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
