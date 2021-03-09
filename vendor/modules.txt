@@ -76,7 +76,7 @@ github.com/mattn/go-shellwords
 # github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
 ## explicit
 github.com/mistifyio/go-zfs
-# github.com/moby/sys/mountinfo v0.4.0
+# github.com/moby/sys/mountinfo v0.4.1
 ## explicit
 github.com/moby/sys/mountinfo
 # github.com/opencontainers/go-digest v1.0.0
