@@ -67,9 +67,6 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/klauspost/pgzip v1.2.5
 ## explicit
 github.com/klauspost/pgzip
-# github.com/magefile/mage v1.10.0
-github.com/magefile/mage/mg
-github.com/magefile/mage/sh
 # github.com/mattn/go-shellwords v1.0.11
 ## explicit
 github.com/mattn/go-shellwords
@@ -105,7 +102,7 @@ github.com/pquerna/ffjson/fflib/v1
 github.com/pquerna/ffjson/fflib/v1/internal
 github.com/pquerna/ffjson/inception
 github.com/pquerna/ffjson/shared
-# github.com/sirupsen/logrus v1.8.0
+# github.com/sirupsen/logrus v1.8.1
 ## explicit
 github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.7.0
