@@ -323,24 +323,26 @@ func findAvailableIDRange(size uint32, availableIDs, usedIDs []idtools.IDMap) ([
 	}
 	avail = subtractAll(avail, usedIDs, true)
 
-	currentID := 0
-	remaining := size
-	// We know the size for each intervals, let's adjust the ContainerID for each
-	// of them.
-	for i := 0; i < len(avail); i++ {
-		avail[i].ContainerID = currentID
-		if uint32(avail[i].Size) >= remaining {
-			avail[i].Size = int(remaining)
-			return avail[:i+1], nil
+	if len(avail) > 0 {
+		currentID := avail[0].ContainerID
+		remaining := size
+		// We know the size for each intervals, let's adjust the ContainerID for each
+		// of them.
+		for i := 0; i < len(avail); i++ {
+			avail[i].ContainerID = currentID
+			if uint32(avail[i].Size) >= remaining {
+				avail[i].Size = int(remaining)
+				return avail[:i+1], nil
+			}
+			remaining -= uint32(avail[i].Size)
+			currentID += avail[i].Size
 		}
-		remaining -= uint32(avail[i].Size)
-		currentID += avail[i].Size
 	}
 
 	return nil, errors.New("could not find enough available IDs")
 }
 
-// findAvailableRange returns both the list of UIDs and GIDs ranges that are not
+// findAvailableRange returns both the list of host UIDs and GIDs ranges that are not
 // currently used by other containers.
 // It is a wrapper for findAvailableIDRange.
 func findAvailableRange(sizeUID, sizeGID uint32, availableUIDs, availableGIDs, usedUIDs, usedGIDs []idtools.IDMap) ([]idtools.IDMap, []idtools.IDMap, error) {
@@ -413,7 +415,20 @@ func (s *store) getAutoUserNS(id string, options *types.AutoUserNsOptions, image
 	// mapping
 	usedUIDs = append(usedUIDs, options.AdditionalUIDMappings...)
 	usedGIDs = append(usedGIDs, options.AdditionalGIDMappings...)
-	availableUIDs, availableGIDs, err = findAvailableRange(size, size, availableUIDs, availableGIDs, usedUIDs, usedGIDs)
+
+	// To find available IDs, we must first subtract from the requested size the
+	// combined size of the all used mappings
+	findUIDSize := requestedSize
+	findGIDSize := requestedSize
+
+	for _, u := range usedUIDs {
+		findUIDSize -= uint32(u.Size)
+	}
+	for _, u := range usedGIDs {
+		findGIDSize -= uint32(u.Size)
+	}
+
+	availableUIDs, availableGIDs, err = findAvailableRange(findUIDSize, findGIDSize, availableUIDs, availableGIDs, usedUIDs, usedGIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -426,5 +441,6 @@ func (s *store) getAutoUserNS(id string, options *types.AutoUserNsOptions, image
 	if len(options.AdditionalGIDMappings) > 0 {
 		availableGIDs = subtractAll(availableGIDs, options.AdditionalGIDMappings, false)
 	}
+
 	return append(availableUIDs, options.AdditionalUIDMappings...), append(availableGIDs, options.AdditionalGIDMappings...), nil
 }

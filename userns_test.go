@@ -21,6 +21,7 @@ func TestSubtractHostID(t *testing.T) {
 	ret := subtractHostIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.HostID, ret[0].HostID)
+	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -31,16 +32,7 @@ func TestSubtractHostID(t *testing.T) {
 	ret = subtractHostIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.HostID, ret[0].HostID)
-	assert.Equal(t, avail.Size, ret[0].Size)
-
-	used = idtools.IDMap{
-		ContainerID: 0,
-		HostID:      0,
-		Size:        65536,
-	}
-	ret = subtractHostIDs(avail, used)
-	assert.Equal(t, len(ret), 1)
-	assert.Equal(t, avail.HostID, ret[0].HostID)
+	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -51,6 +43,7 @@ func TestSubtractHostID(t *testing.T) {
 	ret = subtractHostIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, ret[0].HostID, avail.HostID+4096)
+	assert.Equal(t, ret[0].ContainerID, avail.ContainerID+4096)
 	assert.Equal(t, ret[0].Size, avail.Size-4096)
 
 	used = idtools.IDMap{
@@ -61,6 +54,7 @@ func TestSubtractHostID(t *testing.T) {
 	ret = subtractHostIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, ret[0].HostID, avail.HostID)
+	assert.Equal(t, ret[0].ContainerID, avail.ContainerID)
 	assert.Equal(t, ret[0].Size, avail.Size-4096)
 
 	used = idtools.IDMap{
@@ -71,8 +65,10 @@ func TestSubtractHostID(t *testing.T) {
 	ret = subtractHostIDs(avail, used)
 	assert.Equal(t, len(ret), 2)
 	assert.Equal(t, ret[0].HostID, avail.HostID)
+	assert.Equal(t, ret[0].ContainerID, avail.ContainerID)
 	assert.Equal(t, ret[0].Size, 32768)
 	assert.Equal(t, ret[1].HostID, avail.HostID+32768+4096)
+	assert.Equal(t, ret[1].ContainerID, avail.ContainerID+32768+4096)
 	assert.Equal(t, ret[1].Size, 32768-4096)
 
 	used = idtools.IDMap{
@@ -114,7 +110,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret := subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
-	assert.Equal(t, 0, ret[0].HostID)
+	assert.Equal(t, avail.HostID, ret[0].HostID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -125,6 +121,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
+	assert.Equal(t, avail.HostID, ret[0].HostID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -135,7 +132,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, avail.ContainerID, ret[0].ContainerID)
-	assert.Equal(t, 0, ret[0].HostID)
+	assert.Equal(t, avail.HostID, ret[0].HostID)
 	assert.Equal(t, avail.Size, ret[0].Size)
 
 	used = idtools.IDMap{
@@ -146,7 +143,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, ret[0].ContainerID, avail.ContainerID+4096)
-	assert.Equal(t, 4096, ret[0].HostID)
+	assert.Equal(t, ret[0].HostID, avail.HostID+4096)
 	assert.Equal(t, ret[0].Size, avail.Size-4096)
 
 	used = idtools.IDMap{
@@ -157,6 +154,7 @@ func TestSubtractContainerID(t *testing.T) {
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 1)
 	assert.Equal(t, ret[0].ContainerID, avail.ContainerID)
+	assert.Equal(t, ret[0].HostID, avail.HostID)
 	assert.Equal(t, ret[0].Size, avail.Size-4096)
 
 	used = idtools.IDMap{
@@ -167,8 +165,10 @@ func TestSubtractContainerID(t *testing.T) {
 	ret = subtractContainerIDs(avail, used)
 	assert.Equal(t, len(ret), 2)
 	assert.Equal(t, ret[0].ContainerID, avail.ContainerID)
+	assert.Equal(t, ret[0].HostID, avail.HostID)
 	assert.Equal(t, ret[0].Size, 32768)
 	assert.Equal(t, ret[1].ContainerID, 132768+4096)
+	assert.Equal(t, ret[1].HostID, avail.HostID+32768+4096)
 	assert.Equal(t, ret[1].Size, 32768-4096)
 
 	used = idtools.IDMap{
@@ -269,4 +269,18 @@ func TestFindAvailableIDRange(t *testing.T) {
 	assert.Equal(t, len(ret), 2)
 	assert.Equal(t, ret[0].HostID, 100000)
 	assert.Equal(t, ret[1].HostID, 100020)
+
+	used = []idtools.IDMap{
+		{
+			ContainerID: 0,
+			HostID:      100000,
+			Size:        1,
+		},
+	}
+	ret, err = findAvailableIDRange(65535, avail, used)
+	assert.Nil(t, err)
+	assert.Equal(t, len(ret), 1)
+	assert.Equal(t, 100001, ret[0].HostID)
+	assert.Equal(t, 1, ret[0].ContainerID)
+	assert.Equal(t, 65535, ret[0].Size)
 }
