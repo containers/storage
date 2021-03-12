@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -192,12 +193,16 @@ func DirCopy(srcDir, dstDir string, copyMode Mode, copyXattrs bool) error {
 			}
 
 		case mode&os.ModeNamedPipe != 0:
-			fallthrough
-
-		case mode&os.ModeSocket != 0:
 			if err := unix.Mkfifo(dstPath, stat.Mode); err != nil {
 				return err
 			}
+
+		case mode&os.ModeSocket != 0:
+			s, err := net.Listen("unix", dstPath)
+			if err != nil {
+				return err
+			}
+			s.Close()
 
 		case mode&os.ModeDevice != 0:
 			if rsystem.RunningInUserNS() {
