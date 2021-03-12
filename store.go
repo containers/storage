@@ -541,8 +541,8 @@ type store struct {
 	uidMap          []idtools.IDMap
 	gidMap          []idtools.IDMap
 	autoUsernsUser  string
-	autoUIDMap      []idtools.IDMap // Set by getAvailableMappings()
-	autoGIDMap      []idtools.IDMap // Set by getAvailableMappings()
+	additionalUIDs  *idSet // Set by getAvailableIDs()
+	additionalGIDs  *idSet // Set by getAvailableIDs()
 	autoNsMinSize   uint32
 	autoNsMaxSize   uint32
 	graphDriver     drivers.Driver
@@ -648,8 +648,8 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		autoUsernsUser:  options.RootAutoNsUser,
 		autoNsMinSize:   autoNsMinSize,
 		autoNsMaxSize:   autoNsMaxSize,
-		autoUIDMap:      nil,
-		autoGIDMap:      nil,
+		additionalUIDs:  nil,
+		additionalGIDs:  nil,
 		usernsLock:      usernsLock,
 	}
 	if err := s.load(); err != nil {
