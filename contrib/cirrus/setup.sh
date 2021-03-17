@@ -16,10 +16,13 @@ case "$OS_RELEASE_ID" in
         bash "$SCRIPT_BASE/add_second_partition.sh"
         [[ -z "$RPMS_CONFLICTING" ]] || \
             $SHORT_DNFY erase $RPMS_CONFLICTING
+        $SHORT_DNFY install zstd
         ;;
     ubuntu)
         [[ -z "$DEBS_CONFLICTING" ]] || \
             $SHORT_APTGET -q remove $DEBS_CONFLICTING
+        $SHORT_APTGET -q update
+        $SHORT_APTGET -q install zstd
         ;;
     *)
         bad_os_id_ver
