@@ -19,6 +19,7 @@ case "$OS_RELEASE_ID" in
             $SHORT_DNFY erase $RPMS_CONFLICTING
         # Only works on Fedora VM images
         bash "$SCRIPT_BASE/add_second_partition.sh"
+        $SHORT_DNFY install zstd
         ;;
     ubuntu)
         $SHORT_APTGET update  # Fetch latest package metadata
@@ -29,6 +30,8 @@ case "$OS_RELEASE_ID" in
             $SHORT_APTGET -q install $DEBS_REQUIRED
         [[ -z "$DEBS_CONFLICTING" ]] || \
             $SHORT_APTGET -q remove $DEBS_CONFLICTING
+        $SHORT_APTGET -q update
+        $SHORT_APTGET -q install zstd
         ;;
     *)
         bad_os_id_ver

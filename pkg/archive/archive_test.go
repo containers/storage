@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/stretchr/testify/assert"
@@ -206,59 +205,6 @@ func TestExtensionXz(t *testing.T) {
 	output := compression.Extension()
 	if output != "tar.xz" {
 		t.Fatalf("The extension of a bzip2 archive should be 'tar.xz'")
-	}
-}
-
-func TestCmdStreamLargeStderr(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "dd if=/dev/zero bs=1k count=1000 of=/dev/stderr; echo hello")
-	out, _, err := cmdStream(cmd, nil)
-	if err != nil {
-		t.Fatalf("Failed to start command: %s", err)
-	}
-	errCh := make(chan error)
-	go func() {
-		_, err := io.Copy(ioutil.Discard, out)
-		errCh <- err
-	}()
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("Command should not have failed (err=%.100s...)", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatalf("Command did not complete in 5 seconds; probable deadlock")
-	}
-}
-
-func TestCmdStreamBad(t *testing.T) {
-	// TODO Windows: Figure out why this is failing in CI but not locally
-	if runtime.GOOS == windows {
-		t.Skip("Failing on Windows CI machines")
-	}
-	badCmd := exec.Command("sh", "-c", "echo hello; echo >&2 error couldn\\'t reverse the phase pulser; exit 1")
-	out, _, err := cmdStream(badCmd, nil)
-	if err != nil {
-		t.Fatalf("Failed to start command: %s", err)
-	}
-	if output, err := ioutil.ReadAll(out); err == nil {
-		t.Fatalf("Command should have failed")
-	} else if err.Error() != "exit status 1: error couldn't reverse the phase pulser\n" {
-		t.Fatalf("Wrong error value (%s)", err)
-	} else if s := string(output); s != "hello\n" {
-		t.Fatalf("Command output should be '%s', not '%s'", "hello\\n", output)
-	}
-}
-
-func TestCmdStreamGood(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "echo hello; exit 0")
-	out, _, err := cmdStream(cmd, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if output, err := ioutil.ReadAll(out); err != nil {
-		t.Fatalf("Command should not have failed (err=%s)", err)
-	} else if s := string(output); s != "hello\n" {
-		t.Fatalf("Command output should be '%s', not '%s'", "hello\\n", output)
 	}
 }
 
