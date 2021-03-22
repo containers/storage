@@ -345,7 +345,7 @@ func TestLockfileWriteConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	var highestMutex sync.Mutex
 	var counter, highest int64
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < 8000; i++ {
 		wg.Add(1)
 		go func() {
 			l.Lock()
