@@ -12,23 +12,17 @@ cd $GOSRC
 msg "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"
 case "$OS_RELEASE_ID" in
     fedora)
-        $LONG_DNFY update  # install latest packages
-        [[ -z "$RPMS_REQUIRED" ]] || \
-            $SHORT_DNFY install $RPMS_REQUIRED
+        # Required on Fedora VM images
+        bash "$SCRIPT_BASE/add_second_partition.sh"
         [[ -z "$RPMS_CONFLICTING" ]] || \
             $SHORT_DNFY erase $RPMS_CONFLICTING
-        # Only works on Fedora VM images
-        bash "$SCRIPT_BASE/add_second_partition.sh"
+        $SHORT_DNFY install zstd
         ;;
     ubuntu)
-        $SHORT_APTGET update  # Fetch latest package metadata
-        [[ -z "$DEBS_HOLD" ]] || \
-            apt-mark hold $DEBS_HOLD
-        $LONG_APTGET upgrade # install latest packages
-        [[ -z "$DEBS_REQUIRED" ]] || \
-            $SHORT_APTGET -q install $DEBS_REQUIRED
         [[ -z "$DEBS_CONFLICTING" ]] || \
             $SHORT_APTGET -q remove $DEBS_CONFLICTING
+        $SHORT_APTGET -q update
+        $SHORT_APTGET -q install zstd
         ;;
     *)
         bad_os_id_ver
