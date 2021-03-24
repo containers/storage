@@ -32,6 +32,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/hashicorp/go-multierror"
 	rsystem "github.com/opencontainers/runc/libcontainer/system"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -44,7 +45,10 @@ var (
 	untar = chrootarchive.UntarUncompressed
 )
 
-const defaultPerms = os.FileMode(0555)
+const (
+	defaultPerms     = os.FileMode(0555)
+	selinuxLabelTest = "system_u:object_r:container_file_t:s0"
+)
 
 // This backend uses the overlay union filesystem for containers
 // with diff directories for each layer.
@@ -540,6 +544,12 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		_ = idtools.MkdirAs(upperDir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(workDir, 0700, rootUID, rootGID)
 		flags := fmt.Sprintf("lowerdir=%s:%s,upperdir=%s,workdir=%s", lower1Dir, lower2Dir, upperDir, workDir)
+		if selinux.GetEnabled() {
+			// Linux 5.11 introduced unprivileged overlay mounts but it has an issue
+			// when used together with selinux labels.
+			// Check that overlay supports selinux labels as well.
+			flags = label.FormatMountLabel(flags, selinuxLabelTest)
+		}
 		if len(flags) < unix.Getpagesize() {
 			err := unix.Mount("overlay", mergedDir, "overlay", 0, flags)
 			if err == nil {
@@ -549,6 +559,9 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			logrus.Debugf("overlay test mount with multiple lowers failed %v", err)
 		}
 		flags = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lower1Dir, upperDir, workDir)
+		if selinux.GetEnabled() {
+			flags = label.FormatMountLabel(flags, selinuxLabelTest)
+		}
 		if len(flags) < unix.Getpagesize() {
 			err := unix.Mount("overlay", mergedDir, "overlay", 0, flags)
 			if err == nil {
