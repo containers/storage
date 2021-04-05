@@ -7,6 +7,7 @@ require (
 	github.com/Microsoft/go-winio v0.4.17-0.20210211115548-6eac466e5fa3
 	github.com/Microsoft/hcsshim v0.8.15
 	github.com/docker/go-units v0.4.0
+	github.com/google/go-intervals v0.0.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/klauspost/compress v1.11.13
 	github.com/klauspost/pgzip v1.2.5
