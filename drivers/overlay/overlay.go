@@ -550,6 +550,10 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 			// Check that overlay supports selinux labels as well.
 			flags = label.FormatMountLabel(flags, selinuxLabelTest)
 		}
+		if unshare.IsRootless() {
+			flags = fmt.Sprintf("%s,userxattr", flags)
+		}
+
 		if len(flags) < unix.Getpagesize() {
 			err := unix.Mount("overlay", mergedDir, "overlay", 0, flags)
 			if err == nil {
