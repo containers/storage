@@ -26,7 +26,7 @@ func setupOverlayTestDir(t *testing.T, src string) {
 	err := os.Mkdir(filepath.Join(src, "d1"), 0700)
 	require.NoError(t, err)
 
-	err = system.Lsetxattr(filepath.Join(src, "d1"), "trusted.overlay.opaque", []byte("y"), 0)
+	err = system.Lsetxattr(filepath.Join(src, "d1"), getOverlayOpaqueXattrName(), []byte("y"), 0)
 	require.NoError(t, err)
 
 	err = ioutil.WriteFile(filepath.Join(src, "d1", "f1"), []byte{}, 0600)
@@ -36,7 +36,7 @@ func setupOverlayTestDir(t *testing.T, src string) {
 	err = os.Mkdir(filepath.Join(src, "d2"), 0750)
 	require.NoError(t, err)
 
-	err = system.Lsetxattr(filepath.Join(src, "d2"), "trusted.overlay.opaque", []byte("y"), 0)
+	err = system.Lsetxattr(filepath.Join(src, "d2"), getOverlayOpaqueXattrName(), []byte("y"), 0)
 	require.NoError(t, err)
 
 	err = ioutil.WriteFile(filepath.Join(src, "d2", "f1"), []byte{}, 0660)
@@ -60,7 +60,7 @@ func setupOverlayLowerDir(t *testing.T, lower string) {
 }
 
 func checkOpaqueness(t *testing.T, path string, opaque string) {
-	xattrOpaque, err := system.Lgetxattr(path, "trusted.overlay.opaque")
+	xattrOpaque, err := system.Lgetxattr(path, getOverlayOpaqueXattrName())
 	require.NoError(t, err)
 
 	if string(xattrOpaque) != opaque {
