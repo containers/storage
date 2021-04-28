@@ -61,7 +61,7 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit
 github.com/hashicorp/go-multierror
-# github.com/klauspost/compress v1.12.1
+# github.com/klauspost/compress v1.12.2
 ## explicit
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
