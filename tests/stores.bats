@@ -106,6 +106,11 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root add-names -n newimage $lowerimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root delete-image newimage
+	[ "$status" -eq 0 ]
+
 	# Create a container based on the lowerimage.
 	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-container "$lowerimage"
 	[ "$status" -eq 0 ]
