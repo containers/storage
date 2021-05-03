@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"gotest.tools/assert"
@@ -96,4 +97,16 @@ func TestGetRootlessStorageOpts(t *testing.T) {
 	} else {
 		os.Unsetenv("STORAGE_DRIVER")
 	}
+}
+
+func TestGetRootlessStorageOpts2(t *testing.T) {
+	opts := StoreOptions{
+		RootlessStoragePath: "/$HOME/$UID/containers/storage",
+	}
+	storageOpts, err := getRootlessStorageOpts(2000, opts)
+
+	expectedPath := filepath.Join(os.Getenv("HOME"), "2000", "containers/storage")
+
+	assert.NilError(t, err)
+	assert.Equal(t, storageOpts.GraphRoot, expectedPath)
 }
