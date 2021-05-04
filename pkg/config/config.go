@@ -189,6 +189,10 @@ type OptionsConfig struct {
 
 	// MountOpt specifies extra mount options used when mounting
 	MountOpt string `toml:"mountopt"`
+
+	// PullOptions specifies options to be handed to pull managers
+	// This API is experimental and can be changed without bumping the major version number.
+	PullOptions map[string]string `toml:"pull_options"`
 }
 
 // GetGraphDriverOptions returns the driver specific options

@@ -148,6 +148,9 @@ type StoreOptions struct {
 	AutoNsMinSize uint32 `json:"auto_userns_min_size,omitempty"`
 	// AutoNsMaxSize is the maximum size for an automatic user namespace.
 	AutoNsMaxSize uint32 `json:"auto_userns_max_size,omitempty"`
+	// PullOptions specifies options to be handed to pull managers
+	// This API is experimental and can be changed without bumping the major version number.
+	PullOptions map[string]string `toml:"pull_options"`
 }
 
 // isRootlessDriver returns true if the given storage driver is valid for containers running as non root
@@ -361,6 +364,9 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	}
 	if config.Storage.Options.AutoUsernsMaxSize > 0 {
 		storeOptions.AutoNsMaxSize = config.Storage.Options.AutoUsernsMaxSize
+	}
+	if config.Storage.Options.PullOptions != nil {
+		storeOptions.PullOptions = config.Storage.Options.PullOptions
 	}
 
 	storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)...)
