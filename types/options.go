@@ -176,6 +176,10 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 	} else {
 		opts.GraphRoot = filepath.Join(dataDir, "containers", "storage")
 	}
+	opts.GraphRoot, err = expandEnvPath(opts.GraphRoot, rootlessUID)
+	if err != nil {
+		return opts, err
+	}
 
 	if driver := systemOpts.GraphDriverName; isRootlessDriver(driver) {
 		opts.GraphDriverName = driver
