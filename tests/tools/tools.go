@@ -7,6 +7,5 @@ package tools
 
 import (
 	_ "github.com/cpuguy83/go-md2man"
-	_ "github.com/pquerna/ffjson"
 	_ "github.com/vbatts/git-validation"
 )
