@@ -397,17 +397,26 @@ func TestMatches(t *testing.T) {
 		}...)
 	}
 
+	_, err := filepath.Match("[", "")
+	badPatternsCaughtEarly := err == filepath.ErrBadPattern
+
 	for _, test := range tests {
 		desc := fmt.Sprintf("pattern=%q text=%q", test.pattern, test.text)
-		pm, err := NewPatternMatcher([]string{test.pattern})
-		require.NoError(t, err, desc)
-		res, err := pm.MatchesResult(test.text)
-		if test.fail {
-			assert.Equal(t, err, filepath.ErrBadPattern)
-		} else {
-			assert.Nil(t, err)
-			assert.Equal(t, test.match, res.isMatched, desc)
-		}
+		t.Run(desc, func(t *testing.T) {
+			pm, err := NewPatternMatcher([]string{test.pattern})
+			if test.fail && badPatternsCaughtEarly {
+				assert.Equal(t, err, filepath.ErrBadPattern) // pm is nil, we're done
+			} else {
+				require.NoError(t, err, desc)
+				res, err := pm.MatchesResult(test.text)
+				if test.fail {
+					assert.Equal(t, err, filepath.ErrBadPattern)
+				} else {
+					assert.Nil(t, err)
+					assert.Equal(t, test.match, res.isMatched, desc)
+				}
+			}
+		})
 	}
 }
 
