@@ -112,8 +112,6 @@ ubuntu_testing_task: &ubuntu_testing
         - env:
             TEST_DRIVER: "vfs"
         - env:
-            TEST_DRIVER: "aufs"
-        - env:
             TEST_DRIVER: "overlay"
 
 
