@@ -3,26 +3,28 @@
 # Library of common, shared utility functions.  This file is intended
 # to be sourced by other scripts, not called directly.
 
-# Global details persist here
-source /etc/environment  # not always loaded under all circumstances
+# BEGIN Global export of all variables
+set -a
 
 # Due to differences across platforms and runtime execution environments,
 # handling of the (otherwise) default shell setup is non-uniform.  Rather
 # than attempt to workaround differences, simply force-load/set required
 # items every time this library is utilized.
-source /etc/profile
-source /etc/environment
 USER="$(whoami)"
-export HOME="$(getent passwd $USER | cut -d : -f 6)"
-[[ -n "$UID" ]] || UID=$(getent passwd $USER | cut -d : -f 3)
-GID=$(getent passwd $USER | cut -d : -f 4)
+HOME="$(getent passwd $USER | cut -d : -f 6)"
+# Some platforms set and make this read-only
+[[ -n "$UID" ]] || \
+    UID=$(getent passwd $USER | cut -d : -f 3)
 
-# During VM Image build, the 'containers/automation' installation
-# was performed.  The final step of installation sets the library
-# location $AUTOMATION_LIB_PATH in /etc/environment or in the
-# default shell profile depending on distribution.
+# Automation library installed at image-build time,
+# defining $AUTOMATION_LIB_PATH in this file.
+if [[ -r "/etc/automation_environment" ]]; then
+    source /etc/automation_environment
+fi
+# shellcheck disable=SC2154
 if [[ -n "$AUTOMATION_LIB_PATH" ]]; then
-    source $AUTOMATION_LIB_PATH/common_lib.sh
+        # shellcheck source=/usr/share/automation/lib/common_lib.sh
+        source $AUTOMATION_LIB_PATH/common_lib.sh
 else
     (
     echo "WARNING: It does not appear that containers/automation was installed."
@@ -33,37 +35,34 @@ fi
 
 # Essential default paths, many are overridden when executing under Cirrus-CI
 # others are duplicated here, to assist in debugging.
-export GOPATH="${GOPATH:-/var/tmp/go}"
-if type -P go &> /dev/null
-then
-    # required for go 1.12+
-    export GOCACHE="${GOCACHE:-$HOME/.cache/go-build}"
-    eval "$(go env)"
-    # required by make and other tools
-    export $(go env | cut -d '=' -f 1)
-
-    # Ensure compiled tooling is reachable
-    export PATH="$PATH:$GOPATH/bin"
-fi
+GOPATH="${GOPATH:-/var/tmp/go}"
+GOCACHE="${GOCACHE:-$GOPATH/cache/go-build}"
+# called processes like `make` and other tools need these vars.
+eval "$(go env)"
 CIRRUS_WORKING_DIR="${CIRRUS_WORKING_DIR:-$GOPATH/src/github.com/containers/storage}"
-export GOSRC="${GOSRC:-$CIRRUS_WORKING_DIR}"
-export PATH="$HOME/bin:$GOPATH/bin:/usr/local/bin:$PATH"
+GOSRC="${GOSRC:-$CIRRUS_WORKING_DIR}"
+PATH="$HOME/bin:$GOPATH/bin:/usr/local/bin:$PATH"
 SCRIPT_BASE=${GOSRC}/contrib/cirrus
 
-cd $GOSRC
-if type -P git &> /dev/null
-then
-    CIRRUS_CHANGE_IN_REPO=${CIRRUS_CHANGE_IN_REPO:-$(git show-ref --hash=8 HEAD || date +%s)}
-else # pick something unique and obviously not from Cirrus
-    CIRRUS_CHANGE_IN_REPO=${CIRRUS_CHANGE_IN_REPO:-no_git_$(date +%s)}
-fi
-
-export CI="${CI:-false}"
+CI="${CI:-false}"
 CIRRUS_CI="${CIRRUS_CI:-false}"
+DEST_BRANCH="${DEST_BRANCH:-master}"
 CONTINUOUS_INTEGRATION="${CONTINUOUS_INTEGRATION:-false}"
 CIRRUS_REPO_NAME=${CIRRUS_REPO_NAME:-storage}
-CIRRUS_BASE_SHA=${CIRRUS_BASE_SHA:-unknown$(date +%s)}  # difficult to reliably discover
-CIRRUS_BUILD_ID=${CIRRUS_BUILD_ID:-$RANDOM$(date +%s)}  # must be short and unique
+# Cirrus only sets $CIRRUS_BASE_SHA properly for PRs, but $EPOCH_TEST_COMMIT
+# needs to be set from this value in order for `make validate` to run properly.
+# When running get_ci_vm.sh, most $CIRRUS_xyz variables are empty. Attempt
+# to accomidate both branch and get_ci_vm.sh testing by discovering the base
+# branch SHA value.
+if [[ -z "$CIRRUS_BASE_SHA" ]] && [[ -z "$CIRRUS_TAG" ]]
+then  # Operating on a branch, or under `get_ci_vm.sh`
+    CIRRUS_BASE_SHA=$(git rev-parse ${UPSTREAM_REMOTE:-origin}/$DEST_BRANCH)
+elif [[ -z "$CIRRUS_BASE_SHA" ]]
+then  # Operating on a tag
+    CIRRUS_BASE_SHA=$(git rev-parse HEAD)
+fi
+# The starting place for linting and code validation
+EPOCH_TEST_COMMIT="$CIRRUS_BASE_SHA"
 
 # Unsafe env. vars for display
 SECRET_ENV_RE='(IRCID)|(ACCOUNT)|(^GC[EP]..+)|(SSH)'
@@ -76,13 +75,13 @@ OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | tr -d '.')"
 OS_REL_VER="${OS_RELEASE_ID}-${OS_RELEASE_VER}"
 
 # Working with dnf + timeout/retry
-export SHORT_DNFY='lilto dnf -y'
-export LONG_DNFY='bigto dnf -y'
+SHORT_DNFY='lilto dnf -y'
+LONG_DNFY='bigto dnf -y'
 # Working with apt under Debian/Ubuntu automation is a PITA, make it easy
 # Avoid some ways of getting stuck waiting for user input
-export DEBIAN_FRONTEND=noninteractive
+DEBIAN_FRONTEND=noninteractive
 # Short-cut for frequently used base command
-export SUDOAPTGET='sudo -E apt-get -q --yes'
+SUDOAPTGET='sudo -E apt-get -q --yes'
 # Short list of packages or quick-running command
 SHORT_APTGET="lilto $SUDOAPTGET"
 # Long list / long-running command
@@ -91,6 +90,9 @@ LONG_APTGET="bigto $SUDOAPTGET"
 # Packages in generic VM images that conflict with containers/storage testing
 RPMS_CONFLICTING="gcc-go"
 DEBS_CONFLICTING=""
+
+# END Global export of all variables
+set +a
 
 bad_os_id_ver() {
     die "Unknown/Unsupported distro. $OS_RELEASE_ID and/or version $OS_RELEASE_VER for $(basename $0)"
@@ -119,19 +121,4 @@ install_bats_from_git(){
     rm -rf bats-core
     mkdir -p ~/.parallel
     touch ~/.parallel/will-cite
-}
-
-showrun() {
-    if [[ "$1" == "--background" ]]
-    then
-        shift
-        # Properly escape any nested spaces, so command can be copy-pasted
-        msg '+ '$(printf " %q" "$@")' &'
-        "$@" &
-        msg -e "${RED}<backgrounded>${NOR}"
-    else
-        msg '--------------------------------------------------'
-        msg '+ '$(printf " %q" "$@") > /dev/stderr
-        "$@"
-    fi
 }
