@@ -49,6 +49,9 @@ type ROFileBasedStore interface {
 	// Load reloads the contents of the store from disk.  It should be called
 	// with the lock held.
 	Load() error
+
+	// ReloadIfChanged reloads the contents of the store from disk if it is changed.
+	ReloadIfChanged() error
 }
 
 // RWFileBasedStore wraps up the methods of various types of file-based data
