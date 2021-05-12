@@ -2129,10 +2129,6 @@ func (s *store) SetNames(id string, names []string) error {
 			}
 		}
 		if i, err := store.Get(id); err == nil {
-			// Unlock R/O lock and lock with R/W lock
-			// Previous defer.Unlock() will free the new lock.
-			ristore.Unlock()
-			ristore.Lock()
 			if len(deduped) > 1 {
 				// Do not want to create image name in R/W storage
 				deduped = deduped[1:]
