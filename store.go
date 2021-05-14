@@ -319,6 +319,20 @@ type Store interface {
 	//   }
 	ApplyDiff(to string, diff io.Reader) (int64, error)
 
+	// ApplyDiffer applies a diff to a layer.
+	// It is the caller responsibility to clean the staging directory if it is not
+	// successfully applied with ApplyDiffFromStagingDirectory.
+	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
+
+	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
+	ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error
+
+	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
+	CleanupStagingDirectory(stagingDirectory string) error
+
+	// DifferTarget gets the path to the differ target.
+	DifferTarget(id string) (string, error)
+
 	// LayersByCompressedDigest returns a slice of the layers with the
 	// specified compressed digest value recorded for them.
 	LayersByCompressedDigest(d digest.Digest) ([]Layer, error)
@@ -2814,6 +2828,75 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		store.Unlock()
 	}
 	return nil, ErrLayerUnknown
+}
+
+func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error {
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		if err = rlstore.Load(); err != nil {
+			return err
+		}
+	}
+	if !rlstore.Exists(to) {
+		return ErrLayerUnknown
+	}
+	return rlstore.ApplyDiffFromStagingDirectory(to, stagingDirectory, diffOutput, options)
+}
+
+func (s *store) CleanupStagingDirectory(stagingDirectory string) error {
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		if err = rlstore.Load(); err != nil {
+			return err
+		}
+	}
+	return rlstore.CleanupStagingDirectory(stagingDirectory)
+}
+
+func (s *store) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return nil, err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		if err = rlstore.Load(); err != nil {
+			return nil, err
+		}
+	}
+	if to != "" && !rlstore.Exists(to) {
+		return nil, ErrLayerUnknown
+	}
+	return rlstore.ApplyDiffWithDiffer(to, options, differ)
+}
+
+func (s *store) DifferTarget(id string) (string, error) {
+	rlstore, err := s.LayerStore()
+	if err != nil {
+		return "", err
+	}
+	rlstore.Lock()
+	defer rlstore.Unlock()
+	if modified, err := rlstore.Modified(); modified || err != nil {
+		if err = rlstore.Load(); err != nil {
+			return "", err
+		}
+	}
+	if rlstore.Exists(id) {
+		return rlstore.DifferTarget(id)
+	}
+	return "", ErrLayerUnknown
 }
 
 func (s *store) ApplyDiff(to string, diff io.Reader) (int64, error) {
