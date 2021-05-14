@@ -103,3 +103,89 @@ func TestGetRootUIDGID(t *testing.T) {
 		t.Fatalf("Detected root user")
 	}
 }
+
+func TestIsContiguous(t *testing.T) {
+	mappings := []IDMap{
+		{
+			ContainerID: 0,
+			HostID:      0,
+			Size:        100,
+		},
+		{
+			ContainerID: 100,
+			HostID:      100,
+			Size:        100,
+		},
+	}
+	if !IsContiguous(mappings) {
+		t.Errorf("mappings %v expected to be contiguous", mappings)
+	}
+	mappings = []IDMap{
+		{
+			ContainerID: 0,
+			HostID:      10000,
+			Size:        100,
+		},
+		{
+			ContainerID: 100,
+			HostID:      100,
+			Size:        100,
+		},
+	}
+	if IsContiguous(mappings) {
+		t.Errorf("mappings %v expected to not be contiguous", mappings)
+	}
+
+	mappings = []IDMap{
+		{
+			ContainerID: 10000,
+			HostID:      0,
+			Size:        100,
+		},
+		{
+			ContainerID: 100,
+			HostID:      100,
+			Size:        100,
+		},
+	}
+	if IsContiguous(mappings) {
+		t.Errorf("mappings %v expected to not be contiguous", mappings)
+	}
+
+	mappings = []IDMap{
+		{
+			ContainerID: 0,
+			HostID:      10,
+			Size:        10,
+		},
+		{
+			ContainerID: 10,
+			HostID:      20,
+			Size:        10,
+		},
+		{
+			ContainerID: 20,
+			HostID:      30,
+			Size:        10,
+		},
+		{
+			ContainerID: 30,
+			HostID:      40,
+			Size:        10,
+		},
+	}
+	if !IsContiguous(mappings) {
+		t.Errorf("mappings %v expected to be contiguous", mappings)
+	}
+
+	mappings = []IDMap{
+		{
+			ContainerID: 0,
+			HostID:      10,
+			Size:        10,
+		},
+	}
+	if !IsContiguous(mappings) {
+		t.Errorf("mappings %v expected to be contiguous", mappings)
+	}
+}
