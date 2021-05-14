@@ -87,6 +87,9 @@ The `storage.options` table supports the following options:
 **auto-userns-max-size**=65536
   Auto-userns-max-size is the maximum size for a user namespace created automatically.
 
+**disable-volatile**=true
+if disable-volatile is set then the "volatile" mount optimization is disabled for all the containers.
+
 ### STORAGE OPTIONS FOR AUFS TABLE
 
 The `storage.options.aufs` table supports the following options:
