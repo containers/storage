@@ -117,7 +117,7 @@ type Driver struct {
 	options          overlayOptions
 	naiveDiff        graphdriver.DiffDriver
 	supportsDType    bool
-	supportsVolatile bool
+	supportsVolatile *bool
 	usingMetacopy    bool
 	locker           *locker.Locker
 }
@@ -236,6 +236,18 @@ func checkAndRecordOverlaySupport(fsMagic graphdriver.FsMagic, home, runhome str
 	return supportsDType, nil
 }
 
+func (d *Driver) getSupportsVolatile() (bool, error) {
+	if d.supportsVolatile != nil {
+		return *d.supportsVolatile, nil
+	}
+	supportsVolatile, err := checkSupportVolatile(d.home, d.runhome)
+	if err != nil {
+		return false, err
+	}
+	d.supportsVolatile = &supportsVolatile
+	return supportsVolatile, nil
+}
+
 // Init returns the a native diff driver for overlay filesystem.
 // If overlay filesystem is not supported on the host, a wrapped graphdriver.ErrNotSupported is returned as error.
 // If an overlay filesystem is not supported over an existing filesystem then a wrapped graphdriver.ErrIncompatibleFS is returned.
@@ -285,10 +297,11 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	var usingMetacopy bool
 	var supportsDType bool
-	var supportsVolatile bool
+	var supportsVolatile *bool
 	if opts.mountProgram != "" {
 		supportsDType = true
-		supportsVolatile = true
+		t := true
+		supportsVolatile = &t
 	} else {
 		supportsDType, err = checkAndRecordOverlaySupport(fsMagic, home, runhome)
 		if err != nil {
@@ -318,10 +331,6 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 				logrus.Infof("overlay test mount did not indicate whether or not metacopy is being used: %v", err)
 				return nil, err
 			}
-		}
-		supportsVolatile, err = checkSupportVolatile(home, runhome)
-		if err != nil {
-			return nil, err
 		}
 	}
 
@@ -1323,8 +1332,14 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 
 	// If "volatile" is not supported by the file system, just ignore the request
-	if d.supportsVolatile && options.Volatile && !hasVolatileOption(strings.Split(opts, ",")) {
-		opts = fmt.Sprintf("%s,volatile", opts)
+	if options.Volatile && !hasVolatileOption(strings.Split(opts, ",")) {
+		supported, err := d.getSupportsVolatile()
+		if err != nil {
+			return "", err
+		}
+		if supported {
+			opts = fmt.Sprintf("%s,volatile", opts)
+		}
 	}
 
 	mountData := label.FormatMountLabel(opts, options.MountLabel)

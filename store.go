@@ -593,6 +593,7 @@ type store struct {
 	roImageStores   []ROImageStore
 	containerStore  ContainerStore
 	digestLockRoot  string
+	disableVolatile bool
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -692,6 +693,7 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		additionalUIDs:  nil,
 		additionalGIDs:  nil,
 		usernsLock:      usernsLock,
+		disableVolatile: options.DisableVolatile,
 	}
 	if err := s.load(); err != nil {
 		return nil, err
@@ -2699,8 +2701,10 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 		options.UidMaps = container.UIDMap
 		options.GidMaps = container.GIDMap
 		options.Options = container.MountOpts()
-		if v, found := container.Flags["Volatile"]; found {
-			options.Volatile = v.(bool)
+		if !s.disableVolatile {
+			if v, found := container.Flags["Volatile"]; found {
+				options.Volatile = v.(bool)
+			}
 		}
 		options.DisableShifting = true
 	}

@@ -151,6 +151,8 @@ type StoreOptions struct {
 	// PullOptions specifies options to be handed to pull managers
 	// This API is experimental and can be changed without bumping the major version number.
 	PullOptions map[string]string `toml:"pull_options"`
+	// DisableVolatile doesn't allow volatile mounts when it is set.
+	DisableVolatile bool `json:"disable-volatile,omitempty"`
 }
 
 // isRootlessDriver returns true if the given storage driver is valid for containers running as non root
@@ -368,6 +370,8 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	if config.Storage.Options.PullOptions != nil {
 		storeOptions.PullOptions = config.Storage.Options.PullOptions
 	}
+
+	storeOptions.DisableVolatile = config.Storage.Options.DisableVolatile
 
 	storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)...)
 
