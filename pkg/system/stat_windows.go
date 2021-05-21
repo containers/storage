@@ -8,9 +8,27 @@ import (
 // StatT type contains status of a file. It contains metadata
 // like permission, size, etc about a file.
 type StatT struct {
-	mode os.FileMode
-	size int64
-	mtim time.Time
+	mode  os.FileMode
+	size  int64
+	mtim  time.Time
+	dev   uint64
+	ino   uint64
+	nlink uint64
+}
+
+// Dev returns device identifier the file is stored on
+func (s StatT) Dev() uint64 {
+	return s.dev
+}
+
+// Ino returns inode the file is stored on
+func (s StatT) Ino() uint64 {
+	return s.ino
+}
+
+// Nlink returns number of hard links to the file
+func (s StatT) Nlink() uint64 {
+	return s.nlink
 }
 
 // Size returns file's size.
@@ -51,13 +69,13 @@ func Stat(path string) (*StatT, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fromStatT(&fi)
+	return FileInfoToStatT(fi)
 }
 
-// fromStatT converts a os.FileInfo type to a system.StatT type
-func fromStatT(fi *os.FileInfo) (*StatT, error) {
+// FileInfoToStatT converts a os.FileInfo type to a system.StatT type
+func FileInfoToStatT(fi os.FileInfo) (*StatT, error) {
 	return &StatT{
-		size: (*fi).Size(),
-		mode: (*fi).Mode(),
-		mtim: (*fi).ModTime()}, nil
+		size: fi.Size(),
+		mode: fi.Mode(),
+		mtim: fi.ModTime()}, nil
 }

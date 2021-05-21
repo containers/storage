@@ -38,4 +38,13 @@ func TestFromStatT(t *testing.T) {
 	if stat.Mtim != s.Mtim() {
 		t.Fatal("got invalid mtim")
 	}
+	if stat.Dev != s.Dev() {
+		t.Fatal("got invalid dev")
+	}
+	if stat.Nlink != s.Nlink() {
+		t.Fatal("got invalid nlink")
+	}
+	if stat.Ino != s.Ino() {
+		t.Fatal("got invalid inode")
+	}
 }

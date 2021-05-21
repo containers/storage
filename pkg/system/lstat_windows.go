@@ -10,5 +10,5 @@ func Lstat(path string) (*StatT, error) {
 		return nil, err
 	}
 
-	return fromStatT(&fi)
+	return FileInfoToStatT(fi)
 }

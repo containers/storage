@@ -11,12 +11,15 @@ import (
 // StatT type contains status of a file. It contains metadata
 // like permission, owner, group, size, etc about a file.
 type StatT struct {
-	mode uint32
-	uid  uint32
-	gid  uint32
-	rdev uint64
-	size int64
-	mtim syscall.Timespec
+	mode  uint32
+	uid   uint32
+	gid   uint32
+	rdev  uint64
+	size  int64
+	mtim  syscall.Timespec
+	dev   uint64
+	ino   uint64
+	nlink uint64
 }
 
 // Mode returns file's permission mode.
@@ -71,4 +74,24 @@ func Fstat(fd int) (*StatT, error) {
 		return nil, &os.PathError{Op: "Fstat", Path: strconv.Itoa(fd), Err: err}
 	}
 	return fromStatT(s)
+}
+
+// Dev returns device identifier the file is stored on
+func (s StatT) Dev() uint64 {
+	return s.dev
+}
+
+// Ino returns inode the file is stored on
+func (s StatT) Ino() uint64 {
+	return s.ino
+}
+
+// Nlink returns number of hard links to the file
+func (s StatT) Nlink() uint64 {
+	return s.nlink
+}
+
+// StatT converts a syscall.Stat_t type to a system.Stat_t type
+func FileInfoToStatT(fi os.FileInfo) (*StatT, error) {
+	return fromStatT(fi.Sys().(*syscall.Stat_t))
 }
