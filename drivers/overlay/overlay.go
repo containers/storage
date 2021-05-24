@@ -25,6 +25,7 @@ import (
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/fsutils"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/locker"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
@@ -881,7 +882,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	}
 
 	// Write link id to link file
-	if err := ioutil.WriteFile(path.Join(dir, "link"), []byte(lid), 0644); err != nil {
+	if err := ioutils.AtomicWriteFile(path.Join(dir, "link"), []byte(lid), 0644); err != nil {
 		return err
 	}
 
@@ -902,7 +903,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		return err
 	}
 	if lower != "" {
-		if err := ioutil.WriteFile(path.Join(dir, lowerFile), []byte(lower), 0666); err != nil {
+		if err := ioutils.AtomicWriteFile(path.Join(dir, lowerFile), []byte(lower), 0666); err != nil {
 			return err
 		}
 	}
@@ -1147,7 +1148,7 @@ func (d *Driver) recreateSymlinks() error {
 			linkFile := filepath.Join(d.dir(targetID), "link")
 			data, err := ioutil.ReadFile(linkFile)
 			if err != nil || string(data) != link.Name() {
-				if err := ioutil.WriteFile(linkFile, []byte(link.Name()), 0644); err != nil {
+				if err := ioutils.AtomicWriteFile(linkFile, []byte(link.Name()), 0644); err != nil {
 					errs = multierror.Append(errs, errors.Wrapf(err, "error correcting link for layer %q", targetID))
 					continue
 				}
