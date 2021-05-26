@@ -520,6 +520,13 @@ type Store interface {
 	// references in the json files. These can happen in the case of unclean
 	// shutdowns or regular restarts in transient store mode.
 	GarbageCollect() error
+
+	// Check returns a report of things that look wrong in the store.
+	Check(options *CheckOptions) (CheckReport, error)
+	// Repair attempts to remediate problems mentioned in the CheckReport,
+	// usually by deleting layers and images which are damaged.  If the
+	// right options are set, it will remove containers as well.
+	Repair(report CheckReport, options *RepairOptions) []error
 }
 
 // AdditionalLayer represents a layer that is contained in the additional layer store
@@ -1081,7 +1088,7 @@ func (s *store) bothLayerStoreKindsLocked() (rwLayerStore, []roLayerStore, error
 }
 
 // bothLayerStoreKinds returns the primary, and additional read-only, layer store objects used by the store.
-// It must be called with s.graphLock held.
+// It must be called WITHOUT s.graphLock held.
 func (s *store) bothLayerStoreKinds() (rwLayerStore, []roLayerStore, error) {
 	if err := s.startUsingGraphDriver(); err != nil {
 		return nil, nil, err
@@ -1204,7 +1211,7 @@ func (s *store) readAllImageStores(fn func(store roImageStore) (bool, error)) (b
 	return false, nil
 }
 
-// writeToImageStore is a convenience helper for working with store.getImageStore():
+// writeToImageStore is a convenience helper for working with store.imageStore:
 // It locks the store for writing, checks for updates, and calls fn(), which can then access store.imageStore.
 // It returns the return value of fn, or its own error initializing the store.
 func (s *store) writeToImageStore(fn func() error) error {
@@ -1215,7 +1222,18 @@ func (s *store) writeToImageStore(fn func() error) error {
 	return fn()
 }
 
-// writeToContainerStore is a convenience helper for working with store.getContainerStore():
+// readContainerStore is a convenience helper for working with store.containerStore:
+// It locks the store for reading, checks for updates, and calls fn(), which can then access store.containerStore.
+// It returns the return value of fn, or its own error initializing the store.
+func (s *store) readContainerStore(fn func() (bool, error)) (bool, error) {
+	if err := s.containerStore.startReading(); err != nil {
+		return true, err
+	}
+	defer s.containerStore.stopReading()
+	return fn()
+}
+
+// writeToContainerStore is a convenience helper for working with store.containerStore:
 // It locks the store for writing, checks for updates, and calls fn(), which can then access store.containerStore.
 // It returns the return value of fn, or its own error initializing the store.
 func (s *store) writeToContainerStore(fn func() error) error {
@@ -1809,13 +1827,17 @@ func (s *store) Metadata(id string) (string, error) {
 		return res, err
 	}
 
-	if err := s.containerStore.startReading(); err != nil {
-		return "", err
+	if done, err := s.readContainerStore(func() (bool, error) {
+		if s.containerStore.Exists(id) {
+			var err error
+			res, err = s.containerStore.Metadata(id)
+			return true, err
+		}
+		return false, nil
+	}); done {
+		return res, err
 	}
-	defer s.containerStore.stopReading()
-	if s.containerStore.Exists(id) {
-		return s.containerStore.Metadata(id)
-	}
+
 	return "", ErrNotAnID
 }
 
