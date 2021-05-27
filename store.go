@@ -2652,8 +2652,13 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 		return "", err
 	}
 
+	modified, err := s.graphLock.Modified()
+	if err != nil {
+		return "", err
+	}
+
 	/* We need to make sure the home mount is present when the Mount is done.  */
-	if s.graphLock.TouchedSince(s.lastLoaded) {
+	if modified {
 		s.graphDriver = nil
 		s.layerStore = nil
 		s.graphDriver, err = s.getGraphDriver()
