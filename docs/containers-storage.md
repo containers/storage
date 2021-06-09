@@ -155,6 +155,10 @@ Set options which will be passed to the storage driver.  If not set, but
 comma-separated list and used instead.  If the storage tree has previously been
 initialized, these need not be provided.
 
+## ENVIRONMENT OVERRIDES
+**CONTAINERS_STORAGE_CONF** 
+
+If set will use the configuration file path provided in *$CONTAINERS_STORAGE_CONF* instead of the default `/etc/containers/storage.conf`.
 ## EXAMPLES
 **containers-storage layers -t**
 
