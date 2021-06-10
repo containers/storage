@@ -46,7 +46,7 @@ SCRIPT_BASE=${GOSRC}/contrib/cirrus
 
 CI="${CI:-false}"
 CIRRUS_CI="${CIRRUS_CI:-false}"
-DEST_BRANCH="${DEST_BRANCH:-master}"
+DEST_BRANCH="${DEST_BRANCH:-main}"
 CONTINUOUS_INTEGRATION="${CONTINUOUS_INTEGRATION:-false}"
 CIRRUS_REPO_NAME=${CIRRUS_REPO_NAME:-storage}
 # Cirrus only sets $CIRRUS_BASE_SHA properly for PRs, but $EPOCH_TEST_COMMIT
