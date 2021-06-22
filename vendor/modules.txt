@@ -47,7 +47,7 @@ github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/golang/groupcache/lru
 # github.com/golang/snappy v0.0.3
 github.com/golang/snappy
-# github.com/google/go-cmp v0.5.4
+# github.com/google/go-cmp v0.5.5
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
@@ -92,9 +92,8 @@ github.com/modern-go/reflect2
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit
 github.com/opencontainers/go-digest
-# github.com/opencontainers/runc v1.0.0-rc95
+# github.com/opencontainers/runc v1.0.0
 ## explicit
-github.com/opencontainers/runc/libcontainer/system
 github.com/opencontainers/runc/libcontainer/user
 github.com/opencontainers/runc/libcontainer/userns
 # github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
