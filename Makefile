@@ -108,7 +108,7 @@ install.docs: docs
 install: install.docs
 
 lint: install.tools
-	tests/tools/build/golangci-lint run
+	tests/tools/build/golangci-lint run --build-tags="$(AUTOTAGS) $(TAGS)"
 
 help: ## this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-z A-Z_-]+:.*?## / {gsub(" ",",",$$1);gsub("\\\\n",sprintf("\n%22c"," "), $$2);printf "\033[36m%-21s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
