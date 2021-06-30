@@ -160,7 +160,7 @@ func findFileInOtherLayers(file zstdFileMetadata, root string, dirfd int, layers
 			continue
 		}
 
-		srcDirfd, err := unix.Open(root, unix.O_RDONLY, 0)
+		srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 		if err != nil {
 			continue
 		}
