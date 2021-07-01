@@ -1,11 +1,14 @@
 package types
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"gotest.tools/assert"
 )
 
@@ -109,4 +112,15 @@ func TestGetRootlessStorageOpts2(t *testing.T) {
 
 	assert.NilError(t, err)
 	assert.Equal(t, storageOpts.GraphRoot, expectedPath)
+}
+
+func TestReloadConfigurationFile(t *testing.T) {
+	content := bytes.NewBufferString("")
+	logrus.SetOutput(content)
+	var storageOpts StoreOptions
+	ReloadConfigurationFile("./storage_broken.conf", &storageOpts)
+	assert.Equal(t, storageOpts.RunRoot, "/run/containers/test")
+	logrus.SetOutput(os.Stderr)
+
+	assert.Equal(t, strings.Contains(content.String(), "Failed to decode the keys [\\\"foo\\\" \\\"storage.options.graphroot\\\"] from \\\"./storage_broken.conf\\\".\""), true)
 }
