@@ -633,9 +633,11 @@ func TestMatchesAmount(t *testing.T) {
 		{[]string{"1", "2", "2"}, "2", 2, 0, true},
 		{[]string{"1", "2", "2", "2"}, "2", 3, 0, true},
 		{[]string{"/prefix/path", "/prefix/other"}, "/prefix/path", 1, 0, true},
-		{[]string{"/prefix*", "/prefix/path"}, "/prefix/path", 2, 0, true},
 		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/match", 1, 0, true},
-		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/path", 1, 1, false},
+		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/path", 1, 0, true},
+		{[]string{"/prefix*", "!/prefix/path"}, "prefix/path", 0, 1, false},
+		{[]string{"/prefix*", "!./prefix/path"}, "prefix/path", 0, 1, false},
+		{[]string{"/prefix*", "!prefix/path"}, "prefix/path", 0, 1, false},
 	}
 
 	for _, testCase := range testData {
