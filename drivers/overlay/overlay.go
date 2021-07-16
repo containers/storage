@@ -613,6 +613,10 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		if unshare.IsRootless() {
 			flags = fmt.Sprintf("%s,userxattr", flags)
 		}
+		if err := syscall.Mknod(filepath.Join(upperDir, "whiteout"), syscall.S_IFCHR|0600, int(unix.Mkdev(0, 0))); err != nil {
+			logrus.Debugf("unable to create kernel-style whiteout: %v", err)
+			return supportsDType, errors.Wrapf(err, "unable to create kernel-style whiteout")
+		}
 
 		if len(flags) < unix.Getpagesize() {
 			err := unix.Mount("overlay", mergedDir, "overlay", 0, flags)
