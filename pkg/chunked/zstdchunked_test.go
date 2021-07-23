@@ -10,10 +10,12 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+
+	"github.com/containers/storage/pkg/chunked/internal"
 )
 
 func TestIsZstdChunkedFrameMagic(t *testing.T) {
-	b := append(zstdChunkedFrameMagic[:], make([]byte, 200)...)
+	b := append(internal.ZstdChunkedFrameMagic[:], make([]byte, 200)...)
 	if !isZstdChunkedFrameMagic(b) {
 		t.Fatal("Chunked frame magic not found")
 	}
@@ -54,7 +56,7 @@ func (s seekable) GetBlobAt(req []ImageSourceChunk) (chan io.ReadCloser, chan er
 	return m, e, nil
 }
 
-var someFiles = []zstdFileMetadata{
+var someFiles = []internal.ZstdFileMetadata{
 	{
 		Type: "dir",
 		Name: "/foo",
@@ -93,14 +95,14 @@ func TestGenerateAndParseManifest(t *testing.T) {
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	if err := writeZstdChunkedManifest(writer, annotations, offsetManifest, someFiles[:], 9); err != nil {
+	if err := internal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, someFiles[:], 9); err != nil {
 		t.Error(err)
 	}
 	if err := writer.Flush(); err != nil {
 		t.Error(err)
 	}
 
-	offsetMetadata := annotations[manifestInfoKey]
+	offsetMetadata := annotations[internal.ManifestInfoKey]
 	if offsetMetadata == "" {
 		t.Fatal("Annotation not found")
 	}
@@ -113,7 +115,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	if offset != offsetManifest+8 {
 		t.Fatalf("Invalid offset %d", offset)
 	}
-	if manifestType != manifestTypeCRFS {
+	if manifestType != internal.ManifestTypeCRFS {
 		t.Fatalf("Invalid manifest type %d", manifestType)
 	}
 	if b.Len() == 0 {
@@ -133,7 +135,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 		t.Error(err)
 	}
 
-	var toc zstdTOC
+	var toc internal.ZstdTOC
 	if err := json.Unmarshal(manifest, &toc); err != nil {
 		t.Error(err)
 	}
@@ -159,16 +161,16 @@ func TestGetTarType(t *testing.T) {
 	if _, err := typeToTarType("FOO"); err == nil {
 		t.Fatal("Invalid typeToTarType conversion")
 	}
-	for k, v := range tarTypes {
-		r, err := getType(k)
+	for k, v := range internal.TarTypes {
+		r, err := internal.GetType(k)
 		if err != nil {
 			t.Error(err)
 		}
 		if r != v {
-			t.Fatal("Invalid getType conversion")
+			t.Fatal("Invalid GetType conversion")
 		}
 	}
-	if _, err := getType(byte('Z')); err == nil {
-		t.Fatal("Invalid getType conversion")
+	if _, err := internal.GetType(byte('Z')); err == nil {
+		t.Fatal("Invalid GetType conversion")
 	}
 }
