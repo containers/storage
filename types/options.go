@@ -36,6 +36,11 @@ var (
 	defaultStoreOptions StoreOptions
 )
 
+const (
+	overlayDriver = "overlay"
+	overlay2      = "overlay2"
+)
+
 func init() {
 	defaultStoreOptions.RunRoot = "/run/containers/storage"
 	defaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
@@ -176,7 +181,6 @@ func isRootlessDriver(driver string) bool {
 // getRootlessStorageOpts returns the storage opts for containers running as non root
 func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOptions, error) {
 	var opts StoreOptions
-	const overlayDriver = "overlay"
 
 	dataDir, rootlessRuntime, err := getRootlessDirInfo(rootlessUID)
 	if err != nil {
@@ -198,6 +202,11 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 	if driver := os.Getenv("STORAGE_DRIVER"); driver != "" {
 		opts.GraphDriverName = driver
 	}
+	if opts.GraphDriverName == overlay2 {
+		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver.")
+		opts.GraphDriverName = overlayDriver
+	}
+
 	if opts.GraphDriverName == "" || opts.GraphDriverName == overlayDriver {
 		supported, err := overlay.SupportsNativeOverlay(opts.GraphRoot, rootlessRuntime)
 		if err != nil {
@@ -302,6 +311,10 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	if os.Getenv("STORAGE_DRIVER") != "" {
 		config.Storage.Driver = os.Getenv("STORAGE_DRIVER")
 		storeOptions.GraphDriverName = config.Storage.Driver
+	}
+	if storeOptions.GraphDriverName == overlay2 {
+		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver.")
+		storeOptions.GraphDriverName = overlayDriver
 	}
 	if storeOptions.GraphDriverName == "" {
 		logrus.Errorf("The storage 'driver' option must be set in %s, guarantee proper operation.", configFile)
