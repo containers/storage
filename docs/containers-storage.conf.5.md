@@ -223,7 +223,7 @@ based file systems.
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev". Mount options are documented in the mount(8) man page.
 
 **size**=""
-  Maximum size of a read/write layer.   This flag can be used to set quota on the size of a read/write layer of a container image. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
+  Maximum size of a read/write layer.   This flag can be used to set quota on the size of a read/write layer of a container. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
 ### STORAGE OPTIONS FOR VFS TABLE
 
