@@ -364,12 +364,12 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		// Try to enable project quota support over xfs.
 		if d.quotaCtl, err = quota.NewControl(home); err == nil {
 			projectQuotaSupported = true
-		} else if opts.quota.Size > 0 {
-			return nil, fmt.Errorf("Storage option overlay.size not supported. Filesystem does not support Project Quota: %v", err)
+		} else if opts.quota.Size > 0 || opts.quota.Inodes > 0 {
+			return nil, fmt.Errorf("Storage options overlay.size and overlay.inodes not supported. Filesystem does not support Project Quota: %v", err)
 		}
-	} else if opts.quota.Size > 0 {
+	} else if opts.quota.Size > 0 || opts.quota.Inodes > 0 {
 		// if xfs is not the backing fs then error out if the storage-opt overlay.size is used.
-		return nil, fmt.Errorf("Storage option overlay.size only supported for backingFS XFS. Found %v", backingFs)
+		return nil, fmt.Errorf("Storage option overlay.size and overlay.inodes only supported for backingFS XFS. Found %v", backingFs)
 	}
 
 	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v, usingMetacopy=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff(), d.usingMetacopy)
@@ -400,6 +400,13 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				return nil, err
 			}
 			o.quota.Size = uint64(size)
+		case "inodes":
+			logrus.Debugf("overlay: inodes=%s", val)
+			inodes, err := strconv.ParseUint(val, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			o.quota.Inodes = uint64(inodes)
 		case "imagestore", "additionalimagestore":
 			logrus.Debugf("overlay: imagestore=%s", val)
 			// Additional read only image stores to use for lower paths
@@ -788,6 +795,13 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 		opts.StorageOpt["size"] = strconv.FormatUint(d.options.quota.Size, 10)
 	}
 
+	if _, ok := opts.StorageOpt["inodes"]; !ok {
+		if opts.StorageOpt == nil {
+			opts.StorageOpt = map[string]string{}
+		}
+		opts.StorageOpt["inodes"] = strconv.FormatUint(d.options.quota.Inodes, 10)
+	}
+
 	return d.create(id, parent, opts)
 }
 
@@ -797,6 +811,9 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 	if opts != nil && len(opts.StorageOpt) != 0 {
 		if _, ok := opts.StorageOpt["size"]; ok {
 			return fmt.Errorf("--storage-opt size is only supported for ReadWrite Layers")
+		}
+		if _, ok := opts.StorageOpt["inodes"]; ok {
+			return fmt.Errorf("--storage-opt inodes is only supported for ReadWrite Layers")
 		}
 	}
 
@@ -854,7 +871,9 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 			if driver.options.quota.Size > 0 {
 				quota.Size = driver.options.quota.Size
 			}
-
+			if driver.options.quota.Inodes > 0 {
+				quota.Inodes = driver.options.quota.Inodes
+			}
 		}
 		// Set container disk quota limit
 		// If it is set to 0, we will track the disk usage, but not enforce a limit
@@ -926,6 +945,12 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 				return err
 			}
 			driver.options.quota.Size = uint64(size)
+		case "inodes":
+			inodes, err := strconv.ParseUint(val, 10, 64)
+			if err != nil {
+				return err
+			}
+			driver.options.quota.Inodes = uint64(inodes)
 		default:
 			return fmt.Errorf("Unknown option %s", key)
 		}

@@ -174,6 +174,9 @@ The `storage.options.overlay` table supports the following options:
 **ignore_chown_errors** = "false"
   ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: false)
 
+**inodes**=""
+  Maximum inodes in a read/write layer.   This flag can be used to set a quota on the inodes allocated for a read/write layer of a container.
+
 **force_mask** = "0000|shared|private"
   ForceMask specifies the permissions mask that is used for new files and
 directories.
@@ -220,7 +223,7 @@ based file systems.
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev". Mount options are documented in the mount(8) man page.
 
 **size**=""
-  Maximum size of a container image.   This flag can be used to set quota on the size of container images. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
+  Maximum size of a read/write layer.   This flag can be used to set quota on the size of a read/write layer of a container. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
 ### STORAGE OPTIONS FOR VFS TABLE
 
