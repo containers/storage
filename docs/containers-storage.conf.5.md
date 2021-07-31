@@ -263,12 +263,44 @@ The semanage command above tells SELinux to setup the default labeling of `NEWST
 
 Now all new content created in these directories will automatically be created with the correct label.
 
-## SEE ALSO
-`semanage(8)`, `restorecon(8)`, `mount(8)`, `fuse-overlayfs(1)`
+## QUOTAS
+
+Container storage implements `XFS project quota controls` for overlay storage
+containers and volumes. The directory used to store the containers must be an
+`XFS` file system and be mounted with the `pquota` option.
+
+Example /etc/fstab entry:
+```
+/dev/podman/podman-var /var xfs defaults,x-systemd.device-timeout=0,pquota 1 2
+```
+
+Container storage generates project ids for each container and builtin volume, but these project ids need to be unique for the XFS file system.
+
+The xfs_quota tool can be used to assign a project id to the storage driver directory, e.g.:
+
+```
+echo 100000:/var/lib/containers/storage/overlay >> /etc/projects
+echo 200000:/var/lib/containers/storage/volumes >> /etc/projects
+echo storage:100000 >> /etc/projid
+echo volumes:200000 >> /etc/projid
+xfs_quota -x -c 'project -s storage volumes' /<xfs mount point>
+```
+
+In the example above, the storage directory project id will be used as a "start offset"
+and all containers will be assigned larger project ids (e.g. >= 100000).
+Then the volumes directory project id will be used as a "start offset"
+and all volumes will be assigned larger project ids (e.g. >= 200000).
+This is a way to prevent xfs_quota management from conflicting with containers/storage.
 
 ## FILES
 
 Distributions often provide a `/usr/share/containers/storage.conf` file to define default storage configuration. Administrators can override this file by creating `/etc/containers/storage.conf` to specify their own configuration. The storage.conf file for rootless users is stored in the `$XDG_CONFIG_HOME/containers/storage.conf` file.  If `$XDG_CONFIG_HOME` is not set then the file `$HOME/.config/containers/storage.conf` is used.
+
+/etc/projects - XFS persistent project root definition
+/etc/projid -  XFS project name mapping file
+
+## SEE ALSO
+`semanage(8)`, `restorecon(8)`, `mount(8)`, `fuse-overlayfs(1)`, `xfs_quota(8)`, `projects(5)`, `projid(5)`
 
 ## HISTORY
 May 2017, Originally compiled by Dan Walsh <dwalsh@redhat.com>
