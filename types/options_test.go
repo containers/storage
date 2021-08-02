@@ -106,10 +106,8 @@ func TestGetRootlessStorageOpts2(t *testing.T) {
 	opts := StoreOptions{
 		RootlessStoragePath: "/$HOME/$UID/containers/storage",
 	}
-	storageOpts, err := getRootlessStorageOpts(2000, opts)
-
 	expectedPath := filepath.Join(os.Getenv("HOME"), "2000", "containers/storage")
-
+	storageOpts, err := getRootlessStorageOpts(2000, opts)
 	assert.NilError(t, err)
 	assert.Equal(t, storageOpts.GraphRoot, expectedPath)
 }
