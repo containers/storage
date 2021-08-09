@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 if test $(${GO:-go} env GOOS) != "linux" ; then
-	echo no_libsubid
 	exit 0
 fi
 tmpdir="$PWD/tmp.$RANDOM"
@@ -15,6 +14,6 @@ int main() {
 	return 0;
 }
 EOF
-if test $? -ne 0 ; then
-	echo no_libsubid
+if test $? -eq 0 ; then
+	echo libsubid
 fi

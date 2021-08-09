@@ -1,4 +1,4 @@
-// +build linux,cgo,!no_libsubid
+// +build linux,cgo,libsubid
 
 package idtools
 
