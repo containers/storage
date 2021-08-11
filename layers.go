@@ -1407,7 +1407,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 
 	if ad, ok := r.driver.(drivers.AdditionalLayerStoreDriver); ok {
 		if aLayer, err := ad.LookupAdditionalLayerByID(to); err == nil {
-			// This is an additional layer. We leverage blob API for aquiring the reproduced raw blob.
+			// This is an additional layer. We leverage blob API for acquiring the reproduced raw blob.
 			info, err := aLayer.Info()
 			if err != nil {
 				aLayer.Release()
