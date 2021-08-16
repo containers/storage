@@ -32,7 +32,7 @@ import (
 
 const (
 	maxNumberMissingChunks  = 1024
-	newFileFlags            = (unix.O_CREAT | unix.O_TRUNC | unix.O_WRONLY | unix.O_EXCL)
+	newFileFlags            = (unix.O_CREAT | unix.O_TRUNC | unix.O_EXCL | unix.O_WRONLY)
 	containersOverrideXattr = "user.containers.override_stat"
 	bigDataKey              = "zstd-chunked-manifest"
 )
@@ -54,13 +54,38 @@ func timeToTimespec(time time.Time) (ts unix.Timespec) {
 	return unix.NsecToTimespec(time.UnixNano())
 }
 
-func copyFileContent(src, destFile, root string, dirfd int, missingDirsMode, mode os.FileMode) (*os.File, int64, error) {
+func copyFileContent(srcFd int, destFile, root string, dirfd int, missingDirsMode, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
+	src := fmt.Sprintf("/proc/self/fd/%d", srcFd)
 	st, err := os.Stat(src)
 	if err != nil {
 		return nil, -1, err
 	}
 
 	copyWithFileRange, copyWithFileClone := true, true
+
+	if useHardLinks {
+		destDirPath := filepath.Dir(destFile)
+		destBase := filepath.Base(destFile)
+		destDir, err := openFileUnderRoot(destDirPath, root, dirfd, 0, mode)
+		if err == nil {
+			defer destDir.Close()
+
+			doLink := func() error {
+				return unix.Linkat(srcFd, "", int(destDir.Fd()), destBase, unix.AT_EMPTY_PATH)
+			}
+
+			err := doLink()
+
+			// if the destination exists, unlink it first and try again
+			if err != nil && os.IsExist(err) {
+				unix.Unlinkat(int(destDir.Fd()), destBase, 0)
+				err = doLink()
+			}
+			if err == nil {
+				return nil, st.Size(), nil
+			}
+		}
+	}
 
 	// If the destination file already exists, we shouldn't blow it away
 	dstFile, err := openFileUnderRoot(destFile, root, dirfd, newFileFlags, mode)
@@ -148,7 +173,30 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	}, nil
 }
 
-func findFileInOtherLayers(file internal.ZstdFileMetadata, root string, dirfd int, layersMetadata map[string]map[string]*internal.ZstdFileMetadata, layersTarget map[string]string, missingDirsMode os.FileMode) (*os.File, int64, error) {
+func copyFileFromOtherLayer(file internal.ZstdFileMetadata, source string, otherFile *internal.ZstdFileMetadata, root string, dirfd int, missingDirsMode os.FileMode, useHardLinks bool) (bool, *os.File, int64, error) {
+	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
+	if err != nil {
+		return false, nil, 0, err
+	}
+	defer unix.Close(srcDirfd)
+
+	srcFile, err := openFileUnderRoot(otherFile.Name, source, srcDirfd, unix.O_RDONLY, 0)
+	if err != nil {
+		return false, nil, 0, err
+	}
+	defer srcFile.Close()
+
+	srcPath := fmt.Sprintf("/proc/self/fd/%d", srcFile.Fd())
+
+	dstFile, written, err := copyFileContent(srcPath, file.Name, root, dirfd, missingDirsMode, 0, useHardLinks)
+	if err != nil {
+		return false, nil, 0, err
+	}
+
+	return true, dstFile, written, nil
+}
+
+func findFileInOtherLayers(file internal.ZstdFileMetadata, root string, dirfd int, layersMetadata map[string]map[string]*internal.ZstdFileMetadata, layersTarget map[string]string, missingDirsMode os.FileMode, useHardLinks bool) (bool, *os.File, int64, error) {
 	// this is ugly, needs to be indexed
 	for layerID, checksums := range layersMetadata {
 		m, found := checksums[file.Digest]
@@ -161,27 +209,12 @@ func findFileInOtherLayers(file internal.ZstdFileMetadata, root string, dirfd in
 			continue
 		}
 
-		srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
-		if err != nil {
-			continue
+		found, dstFile, written, err := copyFileFromOtherLayer(file, source, m, root, dirfd, missingDirsMode, useHardLinks)
+		if found && err == nil {
+			return found, dstFile, written, err
 		}
-		defer unix.Close(srcDirfd)
-
-		srcFile, err := openFileUnderRoot(m.Name, source, srcDirfd, unix.O_RDONLY, 0)
-		if err != nil {
-			continue
-		}
-		defer srcFile.Close()
-
-		srcPath := fmt.Sprintf("/proc/self/fd/%d", srcFile.Fd())
-
-		dstFile, written, err := copyFileContent(srcPath, file.Name, root, dirfd, missingDirsMode, 0)
-		if err != nil {
-			continue
-		}
-		return dstFile, written, nil
 	}
-	return nil, 0, nil
+	return false, nil, 0, nil
 }
 
 func getFileDigest(f *os.File) (digest.Digest, error) {
@@ -195,25 +228,25 @@ func getFileDigest(f *os.File) (digest.Digest, error) {
 // findFileOnTheHost checks whether the requested file already exist on the host and copies the file content from there if possible.
 // It is currently implemented to look only at the file with the same path.  Ideally it can detect the same content also at different
 // paths.
-func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, missingDirsMode os.FileMode) (*os.File, int64, error) {
+func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, missingDirsMode os.FileMode, useHardLinks bool) (bool, *os.File, int64, error) {
 	sourceFile := filepath.Clean(filepath.Join("/", file.Name))
 	if !strings.HasPrefix(sourceFile, "/usr/") {
 		// limit host deduplication to files under /usr.
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
 
 	st, err := os.Stat(sourceFile)
 	if err != nil || !st.Mode().IsRegular() {
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
 
 	if st.Size() != file.Size {
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
 
 	fd, err := unix.Open(sourceFile, unix.O_RDONLY|unix.O_NONBLOCK, 0)
 	if err != nil {
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
 
 	f := os.NewFile(uintptr(fd), "fd")
@@ -221,35 +254,35 @@ func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, m
 
 	manifestChecksum, err := digest.Parse(file.Digest)
 	if err != nil {
-		return nil, 0, err
+		return false, nil, 0, err
 	}
 
 	checksum, err := getFileDigest(f)
 	if err != nil {
-		return nil, 0, err
+		return false, nil, 0, err
 	}
 
 	if checksum != manifestChecksum {
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
 
-	dstFile, written, err := copyFileContent(fmt.Sprintf("/proc/self/fd/%d", fd), file.Name, root, dirfd, missingDirsMode, 0)
+	dstFile, written, err := copyFileContent(fmt.Sprintf("/proc/self/fd/%d", fd), file.Name, root, dirfd, missingDirsMode, 0, useHardLinks)
 	if err != nil {
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
 
 	// calculate the checksum again to make sure the file wasn't modified while it was copied
 	if _, err := f.Seek(0, 0); err != nil {
-		return nil, 0, err
+		return false, nil, 0, err
 	}
 	checksum, err = getFileDigest(f)
 	if err != nil {
-		return nil, 0, err
+		return false, nil, 0, err
 	}
 	if checksum != manifestChecksum {
-		return nil, 0, nil
+		return false, nil, 0, nil
 	}
-	return dstFile, written, nil
+	return true, dstFile, written, nil
 }
 
 func maybeDoIDRemap(manifest []internal.ZstdFileMetadata, options *archive.TarOptions) error {
@@ -640,6 +673,13 @@ type hardLinkToCreate struct {
 	metadata *internal.ZstdFileMetadata
 }
 
+func parseBooleanPullOption(storeOpts *storage.StoreOptions, name string, def bool) bool {
+	if value, ok := storeOpts.PullOptions[name]; ok {
+		return strings.ToLower(value) == "true"
+	}
+	return def
+}
+
 func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) (graphdriver.DriverWithDifferOutput, error) {
 	bigData := map[string][]byte{
 		bigDataKey: d.manifest,
@@ -654,16 +694,15 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 		return output, err
 	}
 
-	const trueVal = "true"
-
-	if value := storeOpts.PullOptions["enable_partial_images"]; strings.ToLower(value) != trueVal {
+	if !parseBooleanPullOption(&storeOpts, "enable_partial_images", false) {
 		return output, errors.New("enable_partial_images not configured")
 	}
 
-	enableHostDedup := false
-	if value := storeOpts.PullOptions["enable_host_deduplication"]; strings.ToLower(value) == trueVal {
-		enableHostDedup = true
-	}
+	enableHostDedup := parseBooleanPullOption(&storeOpts, "enable_host_deduplication", false)
+
+	// When the hard links deduplication is used, file attributes are ignored because setting them
+	// modifies the source file as well.
+	useHardLinks := parseBooleanPullOption(&storeOpts, "use_hard_links", false)
 
 	// Generate the manifest
 	var toc internal.ZstdTOC
@@ -815,7 +854,7 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 
 		totalChunksSize += r.Size
 
-		dstFile, _, err := findFileInOtherLayers(r, dest, dirfd, otherLayersCache, d.layersTarget, missingDirsMode)
+		found, dstFile, _, err := findFileInOtherLayers(r, dest, dirfd, otherLayersCache, d.layersTarget, missingDirsMode, useHardLinks)
 		if err != nil {
 			return output, err
 		}
@@ -825,11 +864,13 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 				return output, err
 			}
 			dstFile.Close()
+		}
+		if found {
 			continue
 		}
 
 		if enableHostDedup {
-			dstFile, _, err = findFileOnTheHost(r, dest, dirfd, missingDirsMode)
+			found, dstFile, _, err = findFileOnTheHost(r, dest, dirfd, missingDirsMode, useHardLinks)
 			if err != nil {
 				return output, err
 			}
@@ -839,6 +880,8 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 					return output, err
 				}
 				dstFile.Close()
+			}
+			if found {
 				continue
 			}
 		}
