@@ -270,13 +270,16 @@ func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, u
 
 	// calculate the checksum again to make sure the file wasn't modified while it was copied
 	if _, err := f.Seek(0, 0); err != nil {
+		dstFile.Close()
 		return false, nil, 0, err
 	}
 	checksum, err = getFileDigest(f)
 	if err != nil {
+		dstFile.Close()
 		return false, nil, 0, err
 	}
 	if checksum != manifestChecksum {
+		dstFile.Close()
 		return false, nil, 0, nil
 	}
 	return true, dstFile, written, nil
