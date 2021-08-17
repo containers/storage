@@ -54,7 +54,7 @@ func timeToTimespec(time time.Time) (ts unix.Timespec) {
 	return unix.NsecToTimespec(time.UnixNano())
 }
 
-func copyFileContent(srcFd int, destFile, root string, dirfd int, missingDirsMode, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
+func copyFileContent(srcFd int, destFile, root string, dirfd int, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
 	src := fmt.Sprintf("/proc/self/fd/%d", srcFd)
 	st, err := os.Stat(src)
 	if err != nil {
@@ -173,7 +173,7 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	}, nil
 }
 
-func copyFileFromOtherLayer(file internal.ZstdFileMetadata, source string, otherFile *internal.ZstdFileMetadata, root string, dirfd int, missingDirsMode os.FileMode, useHardLinks bool) (bool, *os.File, int64, error) {
+func copyFileFromOtherLayer(file internal.ZstdFileMetadata, source string, otherFile *internal.ZstdFileMetadata, root string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 	if err != nil {
 		return false, nil, 0, err
@@ -186,17 +186,14 @@ func copyFileFromOtherLayer(file internal.ZstdFileMetadata, source string, other
 	}
 	defer srcFile.Close()
 
-	srcPath := fmt.Sprintf("/proc/self/fd/%d", srcFile.Fd())
-
-	dstFile, written, err := copyFileContent(srcPath, file.Name, root, dirfd, missingDirsMode, 0, useHardLinks)
+	dstFile, written, err := copyFileContent(int(srcFile.Fd()), file.Name, root, dirfd, 0, useHardLinks)
 	if err != nil {
 		return false, nil, 0, err
 	}
-
-	return true, dstFile, written, nil
+	return true, dstFile, written, err
 }
 
-func findFileInOtherLayers(file internal.ZstdFileMetadata, root string, dirfd int, layersMetadata map[string]map[string]*internal.ZstdFileMetadata, layersTarget map[string]string, missingDirsMode os.FileMode, useHardLinks bool) (bool, *os.File, int64, error) {
+func findFileInOtherLayers(file internal.ZstdFileMetadata, root string, dirfd int, layersMetadata map[string]map[string]*internal.ZstdFileMetadata, layersTarget map[string]string, useHardLinks bool) (bool, *os.File, int64, error) {
 	// this is ugly, needs to be indexed
 	for layerID, checksums := range layersMetadata {
 		m, found := checksums[file.Digest]
@@ -209,7 +206,7 @@ func findFileInOtherLayers(file internal.ZstdFileMetadata, root string, dirfd in
 			continue
 		}
 
-		found, dstFile, written, err := copyFileFromOtherLayer(file, source, m, root, dirfd, missingDirsMode, useHardLinks)
+		found, dstFile, written, err := copyFileFromOtherLayer(file, source, m, root, dirfd, useHardLinks)
 		if found && err == nil {
 			return found, dstFile, written, err
 		}
@@ -228,7 +225,7 @@ func getFileDigest(f *os.File) (digest.Digest, error) {
 // findFileOnTheHost checks whether the requested file already exist on the host and copies the file content from there if possible.
 // It is currently implemented to look only at the file with the same path.  Ideally it can detect the same content also at different
 // paths.
-func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, missingDirsMode os.FileMode, useHardLinks bool) (bool, *os.File, int64, error) {
+func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	sourceFile := filepath.Clean(filepath.Join("/", file.Name))
 	if !strings.HasPrefix(sourceFile, "/usr/") {
 		// limit host deduplication to files under /usr.
@@ -266,7 +263,7 @@ func findFileOnTheHost(file internal.ZstdFileMetadata, root string, dirfd int, m
 		return false, nil, 0, nil
 	}
 
-	dstFile, written, err := copyFileContent(fmt.Sprintf("/proc/self/fd/%d", fd), file.Name, root, dirfd, missingDirsMode, 0, useHardLinks)
+	dstFile, written, err := copyFileContent(fd, file.Name, root, dirfd, 0, useHardLinks)
 	if err != nil {
 		return false, nil, 0, nil
 	}
@@ -380,7 +377,7 @@ func openFileUnderRoot(name, root string, dirfd int, flags uint64, mode os.FileM
 	return os.NewFile(uintptr(fd), name), nil
 }
 
-func createFileFromZstdStream(dest string, dirfd int, reader io.Reader, missingDirsMode, mode os.FileMode, metadata *internal.ZstdFileMetadata, options *archive.TarOptions) (err error) {
+func createFileFromZstdStream(dest string, dirfd int, reader io.Reader, mode os.FileMode, metadata *internal.ZstdFileMetadata, options *archive.TarOptions) (err error) {
 	file, err := openFileUnderRoot(metadata.Name, dest, dirfd, newFileFlags, 0)
 	if err != nil {
 		return err
@@ -414,7 +411,7 @@ func createFileFromZstdStream(dest string, dirfd int, reader io.Reader, missingD
 	return setFileAttrs(file, mode, metadata, options)
 }
 
-func storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingChunks []missingChunk, missingDirsMode os.FileMode, options *archive.TarOptions) error {
+func storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingChunks []missingChunk, options *archive.TarOptions) error {
 	for mc := 0; ; mc++ {
 		var part io.ReadCloser
 		select {
@@ -445,7 +442,7 @@ func storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string,
 
 			limitReader := io.LimitReader(part, mf.Length())
 
-			if err := createFileFromZstdStream(dest, dirfd, limitReader, missingDirsMode, os.FileMode(mf.File.Mode), mf.File, options); err != nil {
+			if err := createFileFromZstdStream(dest, dirfd, limitReader, os.FileMode(mf.File.Mode), mf.File, options); err != nil {
 				part.Close()
 				return err
 			}
@@ -495,7 +492,7 @@ func mergeMissingChunks(missingChunks []missingChunk, target int) []missingChunk
 	return newMissingChunks
 }
 
-func retrieveMissingFiles(input *chunkedZstdDiffer, dest string, dirfd int, missingChunks []missingChunk, missingDirsMode os.FileMode, options *archive.TarOptions) error {
+func retrieveMissingFiles(input *chunkedZstdDiffer, dest string, dirfd int, missingChunks []missingChunk, options *archive.TarOptions) error {
 	var chunksToRequest []ImageSourceChunk
 	for _, c := range missingChunks {
 		chunksToRequest = append(chunksToRequest, c.RawChunk)
@@ -525,7 +522,7 @@ func retrieveMissingFiles(input *chunkedZstdDiffer, dest string, dirfd int, miss
 		return err
 	}
 
-	if err := storeMissingFiles(streams, errs, dest, dirfd, missingChunks, missingDirsMode, options); err != nil {
+	if err := storeMissingFiles(streams, errs, dest, dirfd, missingChunks, options); err != nil {
 		return err
 	}
 	return nil
@@ -749,11 +746,6 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 
 	otherLayersCache := prepareOtherLayersCache(d.layersMetadata)
 
-	missingDirsMode := os.FileMode(0700)
-	if options.ForceMask != nil {
-		missingDirsMode = *options.ForceMask
-	}
-
 	// hardlinks can point to missing files.  So create them after all files
 	// are retrieved
 	var hardLinks []hardLinkToCreate
@@ -854,7 +846,7 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 
 		totalChunksSize += r.Size
 
-		found, dstFile, _, err := findFileInOtherLayers(r, dest, dirfd, otherLayersCache, d.layersTarget, missingDirsMode, useHardLinks)
+		found, dstFile, _, err := findFileInOtherLayers(r, dest, dirfd, otherLayersCache, d.layersTarget, useHardLinks)
 		if err != nil {
 			return output, err
 		}
@@ -870,7 +862,7 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 		}
 
 		if enableHostDedup {
-			found, dstFile, _, err = findFileOnTheHost(r, dest, dirfd, missingDirsMode, useHardLinks)
+			found, dstFile, _, err = findFileOnTheHost(r, dest, dirfd, useHardLinks)
 			if err != nil {
 				return output, err
 			}
@@ -906,7 +898,7 @@ func (d *chunkedZstdDiffer) ApplyDiff(dest string, options *archive.TarOptions) 
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
 	if len(missingChunks) > 0 {
 		missingChunks = mergeMissingChunks(missingChunks, maxNumberMissingChunks)
-		if err := retrieveMissingFiles(d, dest, dirfd, missingChunks, missingDirsMode, options); err != nil {
+		if err := retrieveMissingFiles(d, dest, dirfd, missingChunks, options); err != nil {
 			return output, err
 		}
 	}
