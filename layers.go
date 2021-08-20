@@ -803,7 +803,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 				r.driver.Remove(id)
 				return nil, -1, err
 			}
-			size, err = r.ApplyDiff(layer.ID, diff)
+			size, err = r.applyDiffWithOptions(layer.ID, moreOptions, diff)
 			if err != nil {
 				if r.Delete(layer.ID) != nil {
 					// Either a driver error or an error saving.
@@ -1505,6 +1505,10 @@ func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 }
 
 func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error) {
+	return r.applyDiffWithOptions(to, nil, diff)
+}
+
+func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions, diff io.Reader) (size int64, err error) {
 	if !r.IsReadWrite() {
 		return -1, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to modify layer contents at %q", r.layerspath())
 	}
@@ -1522,8 +1526,29 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	compression := archive.DetectCompression(header[:n])
 	defragmented := io.MultiReader(bytes.NewBuffer(header[:n]), diff)
 
-	compressedDigester := digest.Canonical.Digester()
-	compressedCounter := ioutils.NewWriteCounter(compressedDigester.Hash())
+	// Decide if we need to compute digests
+	var compressedDigest, uncompressedDigest digest.Digest       // = ""
+	var compressedDigester, uncompressedDigester digest.Digester // = nil
+	if layerOptions != nil && layerOptions.OriginalDigest != "" &&
+		layerOptions.OriginalDigest.Algorithm() == digest.Canonical {
+		compressedDigest = layerOptions.OriginalDigest
+	} else {
+		compressedDigester = digest.Canonical.Digester()
+	}
+	if layerOptions != nil && layerOptions.UncompressedDigest != "" &&
+		layerOptions.UncompressedDigest.Algorithm() == digest.Canonical {
+		uncompressedDigest = layerOptions.UncompressedDigest
+	} else {
+		uncompressedDigester = digest.Canonical.Digester()
+	}
+
+	var compressedWriter io.Writer
+	if compressedDigester != nil {
+		compressedWriter = compressedDigester.Hash()
+	} else {
+		compressedWriter = ioutil.Discard
+	}
+	compressedCounter := ioutils.NewWriteCounter(compressedWriter)
 	defragmented = io.TeeReader(defragmented, compressedCounter)
 
 	tsdata := bytes.Buffer{}
@@ -1540,7 +1565,6 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 		return -1, err
 	}
 	defer uncompressed.Close()
-	uncompressedDigester := digest.Canonical.Digester()
 	uidLog := make(map[uint32]struct{})
 	gidLog := make(map[uint32]struct{})
 	idLogger, err := tarlog.NewLogger(func(h *tar.Header) {
@@ -1555,7 +1579,9 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	defer idLogger.Close()
 	uncompressedCounter := ioutils.NewWriteCounter(idLogger)
 	uncompressedWriter := (io.Writer)(uncompressedCounter)
-	uncompressedWriter = io.MultiWriter(uncompressedWriter, uncompressedDigester.Hash())
+	if uncompressedDigester != nil {
+		uncompressedWriter = io.MultiWriter(uncompressedWriter, uncompressedDigester.Hash())
+	}
 	payload, err := asm.NewInputTarStream(io.TeeReader(uncompressed, uncompressedWriter), metadata, storage.NewDiscardFilePutter())
 	if err != nil {
 		return -1, err
@@ -1578,8 +1604,12 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 			return -1, err
 		}
 	}
-	compressedDigest := compressedDigester.Digest()
-	uncompressedDigest := uncompressedDigester.Digest()
+	if compressedDigester != nil {
+		compressedDigest = compressedDigester.Digest()
+	}
+	if uncompressedDigester != nil {
+		uncompressedDigest = uncompressedDigester.Digest()
+	}
 
 	updateDigestMap := func(m *map[digest.Digest][]string, oldvalue, newvalue digest.Digest, id string) {
 		var newList []string
