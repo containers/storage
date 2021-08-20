@@ -1576,6 +1576,8 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 			return -1, err
 		}
 	}
+	compressedDigest := compressedDigester.Digest()
+	uncompressedDigest := uncompressedDigester.Digest()
 
 	updateDigestMap := func(m *map[digest.Digest][]string, oldvalue, newvalue digest.Digest, id string) {
 		var newList []string
@@ -1595,11 +1597,11 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 			(*m)[newvalue] = append((*m)[newvalue], id)
 		}
 	}
-	updateDigestMap(&r.bycompressedsum, layer.CompressedDigest, compressedDigester.Digest(), layer.ID)
-	layer.CompressedDigest = compressedDigester.Digest()
+	updateDigestMap(&r.bycompressedsum, layer.CompressedDigest, compressedDigest, layer.ID)
+	layer.CompressedDigest = compressedDigest
 	layer.CompressedSize = compressedCounter.Count
-	updateDigestMap(&r.byuncompressedsum, layer.UncompressedDigest, uncompressedDigester.Digest(), layer.ID)
-	layer.UncompressedDigest = uncompressedDigester.Digest()
+	updateDigestMap(&r.byuncompressedsum, layer.UncompressedDigest, uncompressedDigest, layer.ID)
+	layer.UncompressedDigest = uncompressedDigest
 	layer.UncompressedSize = uncompressedCounter.Count
 	layer.CompressionType = compression
 	layer.UIDs = make([]uint32, 0, len(uidLog))
