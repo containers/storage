@@ -1541,7 +1541,6 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	}
 	defer uncompressed.Close()
 	uncompressedDigester := digest.Canonical.Digester()
-	uncompressedCounter := ioutils.NewWriteCounter(uncompressedDigester.Hash())
 	uidLog := make(map[uint32]struct{})
 	gidLog := make(map[uint32]struct{})
 	idLogger, err := tarlog.NewLogger(func(h *tar.Header) {
@@ -1554,7 +1553,10 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 		return -1, err
 	}
 	defer idLogger.Close()
-	payload, err := asm.NewInputTarStream(io.TeeReader(uncompressed, io.MultiWriter(uncompressedCounter, idLogger)), metadata, storage.NewDiscardFilePutter())
+	uncompressedCounter := ioutils.NewWriteCounter(idLogger)
+	uncompressedWriter := (io.Writer)(uncompressedCounter)
+	uncompressedWriter = io.MultiWriter(uncompressedWriter, uncompressedDigester.Hash())
+	payload, err := asm.NewInputTarStream(io.TeeReader(uncompressed, uncompressedWriter), metadata, storage.NewDiscardFilePutter())
 	if err != nil {
 		return -1, err
 	}
