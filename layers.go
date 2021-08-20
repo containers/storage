@@ -1521,8 +1521,8 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	}
 
 	compression := archive.DetectCompression(header[:n])
-	compressedDigest := digest.Canonical.Digester()
-	compressedCounter := ioutils.NewWriteCounter(compressedDigest.Hash())
+	compressedDigester := digest.Canonical.Digester()
+	compressedCounter := ioutils.NewWriteCounter(compressedDigester.Hash())
 	defragmented := io.TeeReader(io.MultiReader(bytes.NewBuffer(header[:n]), diff), compressedCounter)
 
 	tsdata := bytes.Buffer{}
@@ -1539,8 +1539,8 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 		return -1, err
 	}
 	defer uncompressed.Close()
-	uncompressedDigest := digest.Canonical.Digester()
-	uncompressedCounter := ioutils.NewWriteCounter(uncompressedDigest.Hash())
+	uncompressedDigester := digest.Canonical.Digester()
+	uncompressedCounter := ioutils.NewWriteCounter(uncompressedDigester.Hash())
 	uidLog := make(map[uint32]struct{})
 	gidLog := make(map[uint32]struct{})
 	idLogger, err := tarlog.NewLogger(func(h *tar.Header) {
@@ -1594,11 +1594,11 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 			(*m)[newvalue] = append((*m)[newvalue], id)
 		}
 	}
-	updateDigestMap(&r.bycompressedsum, layer.CompressedDigest, compressedDigest.Digest(), layer.ID)
-	layer.CompressedDigest = compressedDigest.Digest()
+	updateDigestMap(&r.bycompressedsum, layer.CompressedDigest, compressedDigester.Digest(), layer.ID)
+	layer.CompressedDigest = compressedDigester.Digest()
 	layer.CompressedSize = compressedCounter.Count
-	updateDigestMap(&r.byuncompressedsum, layer.UncompressedDigest, uncompressedDigest.Digest(), layer.ID)
-	layer.UncompressedDigest = uncompressedDigest.Digest()
+	updateDigestMap(&r.byuncompressedsum, layer.UncompressedDigest, uncompressedDigester.Digest(), layer.ID)
+	layer.UncompressedDigest = uncompressedDigester.Digest()
 	layer.UncompressedSize = uncompressedCounter.Count
 	layer.CompressionType = compression
 	layer.UIDs = make([]uint32, 0, len(uidLog))
