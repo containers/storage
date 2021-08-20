@@ -1519,11 +1519,12 @@ func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error
 	if err != nil && err != io.EOF {
 		return -1, err
 	}
-
 	compression := archive.DetectCompression(header[:n])
+	defragmented := io.MultiReader(bytes.NewBuffer(header[:n]), diff)
+
 	compressedDigester := digest.Canonical.Digester()
 	compressedCounter := ioutils.NewWriteCounter(compressedDigester.Hash())
-	defragmented := io.TeeReader(io.MultiReader(bytes.NewBuffer(header[:n]), diff), compressedCounter)
+	defragmented = io.TeeReader(defragmented, compressedCounter)
 
 	tsdata := bytes.Buffer{}
 	compressor, err := pgzip.NewWriterLevel(&tsdata, pgzip.BestSpeed)
