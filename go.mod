@@ -25,7 +25,7 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	github.com/tchap/go-patricia v2.3.0+incompatible
 	github.com/ulikunitz/xz v0.5.10
-	github.com/vbatts/tar-split v0.11.1
+	github.com/vbatts/tar-split v0.11.2
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sys v0.0.0-20210820121016-41cdb8703e55
 	gotest.tools v2.2.0+incompatible
