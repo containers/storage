@@ -56,7 +56,7 @@ func (s seekable) GetBlobAt(req []ImageSourceChunk) (chan io.ReadCloser, chan er
 	return m, e, nil
 }
 
-var someFiles = []internal.ZstdFileMetadata{
+var someFiles = []internal.FileMetadata{
 	{
 		Type: "dir",
 		Name: "/foo",
@@ -130,12 +130,12 @@ func TestGenerateAndParseManifest(t *testing.T) {
 		t:      t,
 	}
 
-	manifest, err := readZstdChunkedManifest(s, 8192, annotations)
+	manifest, _, err := readZstdChunkedManifest(s, 8192, annotations)
 	if err != nil {
 		t.Error(err)
 	}
 
-	var toc internal.ZstdTOC
+	var toc internal.TOC
 	if err := json.Unmarshal(manifest, &toc); err != nil {
 		t.Error(err)
 	}

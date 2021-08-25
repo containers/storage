@@ -35,6 +35,10 @@ github.com/Microsoft/hcsshim/osversion
 github.com/bits-and-blooms/bitset
 # github.com/containerd/cgroups v1.0.1
 github.com/containerd/cgroups/stats/v1
+# github.com/containerd/stargz-snapshotter/estargz v0.7.0
+## explicit
+github.com/containerd/stargz-snapshotter/estargz
+github.com/containerd/stargz-snapshotter/estargz/errorutil
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/docker/go-units v0.4.0
@@ -145,6 +149,8 @@ go.opencensus.io/trace/tracestate
 # golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 ## explicit
 golang.org/x/net/context
+# golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+golang.org/x/sync/errgroup
 # golang.org/x/sys v0.0.0-20210820121016-41cdb8703e55
 ## explicit
 golang.org/x/sys/internal/unsafeheader
