@@ -118,7 +118,9 @@ func prepareOtherLayersCache(layersMetadata map[string][]internal.FileMetadata) 
 	for layerID, v := range layersMetadata {
 		r := make(map[string]*internal.FileMetadata)
 		for i := range v {
-			r[v[i].Digest] = &v[i]
+			if v[i].Digest != "" {
+				r[v[i].Digest] = &v[i]
+			}
 		}
 		maps[layerID] = r
 	}
