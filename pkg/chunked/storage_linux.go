@@ -112,14 +112,14 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 	return dstFile, st.Size(), err
 }
 
-func prepareOtherLayersCache(layersMetadata map[string][]internal.FileMetadata) map[string]map[string]*internal.FileMetadata {
-	maps := make(map[string]map[string]*internal.FileMetadata)
+func prepareOtherLayersCache(layersMetadata map[string][]internal.FileMetadata) map[string]map[string][]*internal.FileMetadata {
+	maps := make(map[string]map[string][]*internal.FileMetadata)
 
 	for layerID, v := range layersMetadata {
-		r := make(map[string]*internal.FileMetadata)
+		r := make(map[string][]*internal.FileMetadata)
 		for i := range v {
 			if v[i].Digest != "" {
-				r[v[i].Digest] = &v[i]
+				r[v[i].Digest] = append(r[v[i].Digest], &v[i])
 			}
 		}
 		maps[layerID] = r
@@ -243,20 +243,21 @@ func copyFileFromOtherLayer(file internal.FileMetadata, source string, otherFile
 // layersMetadata contains the metadata for each layer in the storage.
 // layersTarget maps each layer to its checkout on disk.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func findFileInOtherLayers(file internal.FileMetadata, dirfd int, layersMetadata map[string]map[string]*internal.FileMetadata, layersTarget map[string]string, useHardLinks bool) (bool, *os.File, int64, error) {
+func findFileInOtherLayers(file internal.FileMetadata, dirfd int, layersMetadata map[string]map[string][]*internal.FileMetadata, layersTarget map[string]string, useHardLinks bool) (bool, *os.File, int64, error) {
 	// this is ugly, needs to be indexed
 	for layerID, checksums := range layersMetadata {
 		m, found := checksums[file.Digest]
 		if !found {
 			continue
 		}
-
 		source, ok := layersTarget[layerID]
-		if !ok {
+		if !ok || len(source) == 0 {
 			continue
 		}
 
-		found, dstFile, written, err := copyFileFromOtherLayer(file, source, m, dirfd, useHardLinks)
+		otherFile := m[0]
+
+		found, dstFile, written, err := copyFileFromOtherLayer(file, source, otherFile, dirfd, useHardLinks)
 		if found && err == nil {
 			return found, dstFile, written, err
 		}
