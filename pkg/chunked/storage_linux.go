@@ -84,7 +84,10 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 			defer destDir.Close()
 
 			doLink := func() error {
-				return unix.Linkat(srcFd, "", int(destDir.Fd()), destBase, unix.AT_EMPTY_PATH)
+				// Using unix.AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH while this variant that uses
+				// /proc/self/fd doesn't and can be used with rootless.
+				srcPath := fmt.Sprintf("/proc/self/fd/%d", srcFd)
+				return unix.Linkat(unix.AT_FDCWD, srcPath, int(destDir.Fd()), destBase, unix.AT_SYMLINK_FOLLOW)
 			}
 
 			err := doLink()
