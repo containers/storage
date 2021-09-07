@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"syscall"
@@ -22,6 +23,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chunked/internal"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/types"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
@@ -82,7 +84,10 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 			defer destDir.Close()
 
 			doLink := func() error {
-				return unix.Linkat(srcFd, "", int(destDir.Fd()), destBase, unix.AT_EMPTY_PATH)
+				// Using unix.AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH while this variant that uses
+				// /proc/self/fd doesn't and can be used with rootless.
+				srcPath := fmt.Sprintf("/proc/self/fd/%d", srcFd)
+				return unix.Linkat(unix.AT_FDCWD, srcPath, int(destDir.Fd()), destBase, unix.AT_SYMLINK_FOLLOW)
 			}
 
 			err := doLink()
@@ -112,13 +117,15 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 	return dstFile, st.Size(), err
 }
 
-func prepareOtherLayersCache(layersMetadata map[string][]internal.FileMetadata) map[string]map[string]*internal.FileMetadata {
-	maps := make(map[string]map[string]*internal.FileMetadata)
+func prepareOtherLayersCache(layersMetadata map[string][]internal.FileMetadata) map[string]map[string][]*internal.FileMetadata {
+	maps := make(map[string]map[string][]*internal.FileMetadata)
 
 	for layerID, v := range layersMetadata {
-		r := make(map[string]*internal.FileMetadata)
+		r := make(map[string][]*internal.FileMetadata)
 		for i := range v {
-			r[v[i].Digest] = &v[i]
+			if v[i].Digest != "" {
+				r[v[i].Digest] = append(r[v[i].Digest], &v[i])
+			}
 		}
 		maps[layerID] = r
 	}
@@ -215,7 +222,7 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 // otherFile contains the metadata for the file.
 // dirfd is an open file descriptor to the destination root directory.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func copyFileFromOtherLayer(file internal.FileMetadata, source string, otherFile *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+func copyFileFromOtherLayer(file *internal.FileMetadata, source string, otherFile *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 	if err != nil {
 		return false, nil, 0, err
@@ -235,29 +242,97 @@ func copyFileFromOtherLayer(file internal.FileMetadata, source string, otherFile
 	return true, dstFile, written, err
 }
 
+// canDedupMetadataWithHardLink says whether it is possible to deduplicate file with otherFile.
+// It checks that the two files have the same UID, GID, file mode and xattrs.
+func canDedupMetadataWithHardLink(file *internal.FileMetadata, otherFile *internal.FileMetadata) bool {
+	if file.UID != otherFile.UID {
+		return false
+	}
+	if file.GID != otherFile.GID {
+		return false
+	}
+	if file.Mode != otherFile.Mode {
+		return false
+	}
+	if !reflect.DeepEqual(file.Xattrs, otherFile.Xattrs) {
+		return false
+	}
+	return true
+}
+
+// canDedupFileWithHardLink checks if the specified file can be deduplicated by an
+// open file, given its descriptor and stat data.
+func canDedupFileWithHardLink(file *internal.FileMetadata, fd int, s os.FileInfo) bool {
+	st, ok := s.Sys().(*syscall.Stat_t)
+	if !ok {
+		return false
+	}
+
+	path := fmt.Sprintf("/proc/self/fd/%d", fd)
+
+	listXattrs, err := system.Llistxattr(path)
+	if err != nil {
+		return false
+	}
+
+	xattrsToIgnore := map[string]interface{}{
+		"security.selinux": true,
+	}
+
+	xattrs := make(map[string]string)
+	for _, x := range listXattrs {
+		v, err := system.Lgetxattr(path, x)
+		if err != nil {
+			return false
+		}
+
+		if _, found := xattrsToIgnore[x]; found {
+			continue
+		}
+		xattrs[x] = string(v)
+	}
+	// fill only the attributes used by canDedupMetadataWithHardLink.
+	otherFile := internal.FileMetadata{
+		UID:    int(st.Uid),
+		GID:    int(st.Gid),
+		Mode:   int64(st.Mode),
+		Xattrs: xattrs,
+	}
+	return canDedupMetadataWithHardLink(file, &otherFile)
+}
+
 // findFileInOtherLayers finds the specified file in other layers.
 // file is the file to look for.
 // dirfd is an open file descriptor to the checkout root directory.
 // layersMetadata contains the metadata for each layer in the storage.
 // layersTarget maps each layer to its checkout on disk.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func findFileInOtherLayers(file internal.FileMetadata, dirfd int, layersMetadata map[string]map[string]*internal.FileMetadata, layersTarget map[string]string, useHardLinks bool) (bool, *os.File, int64, error) {
+func findFileInOtherLayers(file *internal.FileMetadata, dirfd int, layersMetadata map[string]map[string][]*internal.FileMetadata, layersTarget map[string]string, useHardLinks bool) (bool, *os.File, int64, error) {
 	// this is ugly, needs to be indexed
 	for layerID, checksums := range layersMetadata {
-		m, found := checksums[file.Digest]
-		if !found {
-			continue
-		}
-
 		source, ok := layersTarget[layerID]
 		if !ok {
 			continue
 		}
-
-		found, dstFile, written, err := copyFileFromOtherLayer(file, source, m, dirfd, useHardLinks)
-		if found && err == nil {
-			return found, dstFile, written, err
+		files, found := checksums[file.Digest]
+		if !found {
+			continue
 		}
+		for _, candidate := range files {
+			// check if it is a valid candidate to dedup file
+			if useHardLinks && !canDedupMetadataWithHardLink(file, candidate) {
+				continue
+			}
+
+			found, dstFile, written, err := copyFileFromOtherLayer(file, source, candidate, dirfd, useHardLinks)
+			if found && err == nil {
+				return found, dstFile, written, err
+			}
+		}
+	}
+	// If hard links deduplication was used and it has failed, try again without hard links.
+	if useHardLinks {
+		return findFileInOtherLayers(file, dirfd, layersMetadata, layersTarget, false)
 	}
 	return false, nil, 0, nil
 }
@@ -276,7 +351,7 @@ func getFileDigest(f *os.File) (digest.Digest, error) {
 // file is the file to look for.
 // dirfd is an open fd to the destination checkout.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func findFileOnTheHost(file internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	sourceFile := filepath.Clean(filepath.Join("/", file.Name))
 	if !strings.HasPrefix(sourceFile, "/usr/") {
 		// limit host deduplication to files under /usr.
@@ -313,6 +388,9 @@ func findFileOnTheHost(file internal.FileMetadata, dirfd int, useHardLinks bool)
 	if checksum != manifestChecksum {
 		return false, nil, 0, nil
 	}
+
+	// check if the open file can be deduplicated with hard links
+	useHardLinks = useHardLinks && canDedupFileWithHardLink(file, fd, st)
 
 	dstFile, written, err := copyFileContent(fd, file.Name, dirfd, 0, useHardLinks)
 	if err != nil {
@@ -931,7 +1009,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 
 		totalChunksSize += r.Size
 
-		found, dstFile, _, err := findFileInOtherLayers(r, dirfd, otherLayersCache, c.layersTarget, useHardLinks)
+		found, dstFile, _, err := findFileInOtherLayers(&r, dirfd, otherLayersCache, c.layersTarget, useHardLinks)
 		if err != nil {
 			return output, err
 		}
@@ -947,7 +1025,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		}
 
 		if enableHostDedup {
-			found, dstFile, _, err = findFileOnTheHost(r, dirfd, useHardLinks)
+			found, dstFile, _, err = findFileOnTheHost(&r, dirfd, useHardLinks)
 			if err != nil {
 				return output, err
 			}
