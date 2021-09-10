@@ -313,7 +313,7 @@ load helpers
 	for i in $(seq $n) ; do
 		run stat -c %u:%g "$defmapmount"/file$i
 		[ "$status" -eq 0 ]
-		[ "$output" = ${uidrange[$n]}:${gidrange[$n]} ]
+		[ "$output" = "0:0" ]
 	done
 }
 
@@ -372,15 +372,11 @@ load helpers
 	[ "$status" -eq 0 ]
 	# Check who owns the parent directories.
 	run storage --debug=false container-parent-owners $container
-	echo "$output"
 	[ "$status" -eq 0 ]
-	# Assume that except for root and maybe us, there are no other owners of parent directories of our container's layer.
-	if ! fgrep -q 'UIDs: [0]' <<< "$output" ; then
-		fgrep -q 'UIDs: [0, '$(id -u)']' <<< "$output"
-	fi
-	if ! fgrep -q 'GIDs: [0]' <<< "$output" ; then
-		fgrep -q 'GIDs: [0, '$(id -g)']' <<< "$output"
-	fi
+        cat <<< "$output" | tr '\n' '_'
+	# Check there are no unmapped IDs
+	fgrep -q 'UIDs: []' <<< "$output"
+	fgrep -q 'GIDs: []' <<< "$output"
 }
 
 @test "idmaps-copy" {
