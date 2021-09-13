@@ -68,7 +68,7 @@ github.com/hashicorp/errwrap
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit
 github.com/hashicorp/go-multierror
-# github.com/json-iterator/go v1.1.11
+# github.com/json-iterator/go v1.1.12
 ## explicit
 github.com/json-iterator/go
 # github.com/klauspost/compress v1.13.5
@@ -95,8 +95,7 @@ github.com/moby/sys/mountinfo
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
-# github.com/modern-go/reflect2 v1.0.1
-## explicit
+# github.com/modern-go/reflect2 v1.0.2
 github.com/modern-go/reflect2
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit
