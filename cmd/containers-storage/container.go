@@ -211,12 +211,8 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 			json.NewEncoder(os.Stdout).Encode(mappings)
 		} else {
 			fmt.Printf("ID: %s\n", container.ID)
-			if len(uids) > 0 {
-				fmt.Printf("UIDs: %v\n", uids)
-			}
-			if len(gids) > 0 {
-				fmt.Printf("GIDs: %v\n", gids)
-			}
+			fmt.Printf("UIDs: %v\n", uids)
+			fmt.Printf("GIDs: %v\n", gids)
 		}
 	}
 	if len(matched) != len(args) {
