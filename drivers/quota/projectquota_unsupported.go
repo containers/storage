@@ -31,3 +31,8 @@ func (q *Control) SetQuota(targetPath string, quota Quota) error {
 func (q *Control) GetQuota(targetPath string, quota *Quota) error {
 	return errors.New("filesystem does not support, or has not enabled quotas")
 }
+
+// CopyProjectID copies the project id from sourcePath to targetPath
+func CopyProjectID(sourcePath, targetPath string) error {
+	return errors.New("filesystem does not support, or has not enabled quotas")
+}

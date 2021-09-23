@@ -289,6 +289,15 @@ func (q *Control) fsDiskQuotaFromPath(targetPath string) (C.fs_disk_quota_t, err
 	return d, nil
 }
 
+// CopyProjectID copies the project id from sourcePath to targetPath
+func CopyProjectID(sourcePath, targetPath string) error {
+	q, err := getProjectID(sourcePath)
+	if err != nil {
+		return err
+	}
+	return setProjectID(targetPath, q)
+}
+
 // getProjectID - get the project id of path on xfs
 func getProjectID(targetPath string) (uint32, error) {
 	dir, err := openDir(targetPath)
