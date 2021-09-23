@@ -1631,6 +1631,13 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		}
 	}
 
+	if d.quotaCtl != nil {
+		quota := quota.Quota{}
+		if err := d.quotaCtl.SetQuota(applyDir, quota); err != nil {
+			return graphdriver.DriverWithDifferOutput{}, err
+		}
+	}
+
 	logrus.Debugf("Applying differ in %s", applyDir)
 
 	out, err := differ.ApplyDiff(applyDir, &archive.TarOptions{
@@ -1657,7 +1664,16 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 	if err := os.RemoveAll(diff); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	return os.Rename(stagingDirectory, diff)
+
+	err = os.Rename(stagingDirectory, diff)
+	if err != nil && errors.Is(err, unix.EXDEV) {
+		// If we got EXDEV it might mean the two directories have a different quota projectid.  Copy
+		// the project ID from the staging directory to the destination and try again.
+		if errQuota := quota.CopyProjectID(stagingDirectory, filepath.Dir(diff)); errQuota == nil {
+			err = os.Rename(stagingDirectory, diff)
+		}
+	}
+	return err
 }
 
 // DifferTarget gets the location where files are stored for the layer.
