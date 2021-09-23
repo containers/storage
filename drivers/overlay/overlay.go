@@ -821,7 +821,7 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 		opts.StorageOpt["inodes"] = strconv.FormatUint(d.options.quota.Inodes, 10)
 	}
 
-	return d.create(id, parent, opts)
+	return d.create(id, parent, opts, false)
 }
 
 // Create is used to create the upper, lower, and merge directories required for overlay fs for a given id.
@@ -831,15 +831,16 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		if _, ok := opts.StorageOpt["size"]; ok {
 			return fmt.Errorf("--storage-opt size is only supported for ReadWrite Layers")
 		}
+
 		if _, ok := opts.StorageOpt["inodes"]; ok {
 			return fmt.Errorf("--storage-opt inodes is only supported for ReadWrite Layers")
 		}
 	}
 
-	return d.create(id, parent, opts)
+	return d.create(id, parent, opts, true)
 }
 
-func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr error) {
+func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disableQuota bool) (retErr error) {
 	dir := d.dir(id)
 
 	uidMaps := d.uidMaps
@@ -880,7 +881,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 		}
 	}()
 
-	if d.quotaCtl != nil {
+	if d.quotaCtl != nil && !disableQuota {
 		quota := quota.Quota{}
 		if opts != nil && len(opts.StorageOpt) > 0 {
 			driver := &Driver{}
