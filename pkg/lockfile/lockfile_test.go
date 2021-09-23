@@ -64,7 +64,7 @@ func subTouch(l *namedLocker) (io.WriteCloser, io.ReadCloser, io.ReadCloser, err
 	}
 	go func() {
 		if err = cmd.Run(); err != nil {
-			logrus.Errorf("error running subTouch: %v", err)
+			logrus.Errorf("Running subTouch: %v", err)
 		}
 	}()
 	return wc, rc, ec, nil
@@ -103,7 +103,7 @@ func subLock(l *namedLocker) (io.WriteCloser, io.ReadCloser, error) {
 	}
 	go func() {
 		if err = cmd.Run(); err != nil {
-			logrus.Errorf("error running subLock: %v", err)
+			logrus.Errorf("Running subLock: %v", err)
 		}
 	}()
 	return wc, rc, nil
@@ -142,7 +142,7 @@ func subRecursiveLock(l *namedLocker) (io.WriteCloser, io.ReadCloser, error) {
 	}
 	go func() {
 		if err = cmd.Run(); err != nil {
-			logrus.Errorf("error running subLock: %v", err)
+			logrus.Errorf("Running subLock: %v", err)
 		}
 	}()
 	return wc, rc, nil
@@ -181,7 +181,7 @@ func subRLock(l *namedLocker) (io.WriteCloser, io.ReadCloser, error) {
 	}
 	go func() {
 		if err = cmd.Run(); err != nil {
-			logrus.Errorf("error running subRLock: %v", err)
+			logrus.Errorf("Running subRLock: %v", err)
 		}
 	}()
 	return wc, rc, nil

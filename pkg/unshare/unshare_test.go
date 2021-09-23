@@ -55,7 +55,7 @@ func report() {
 	for name := range CloneFlags {
 		linkTarget, err := os.Readlink("/proc/self/ns/" + name)
 		if err != nil {
-			logrus.Errorf("error reading link /proc/self/ns/%s: %v", name, err)
+			logrus.Errorf("Reading link /proc/self/ns/%s: %v", name, err)
 			os.Exit(1)
 		}
 		report.Namespaces[name] = linkTarget
@@ -65,31 +65,31 @@ func report() {
 
 	sid, err := unix.Getsid(unix.Getpid())
 	if err != nil {
-		logrus.Errorf("error reading current session ID: %v", err)
+		logrus.Errorf("Reading current session ID: %v", err)
 		os.Exit(1)
 	}
 	report.Sid = sid
 
 	oomBytes, err := ioutil.ReadFile("/proc/self/oom_score_adj")
 	if err != nil {
-		logrus.Errorf("error reading current oom_score_adj: %v", err)
+		logrus.Errorf("Reading current oom_score_adj: %v", err)
 		os.Exit(1)
 	}
 	oomFields := strings.Fields(string(oomBytes))
 	if len(oomFields) != 1 {
-		logrus.Errorf("error parsing current oom_score_adj %q: wrong number of fields", string(oomBytes))
+		logrus.Errorf("Parsing current oom_score_adj %q: wrong number of fields", string(oomBytes))
 		os.Exit(1)
 	}
 	oom, err := strconv.Atoi(oomFields[0])
 	if err != nil {
-		logrus.Errorf("error parsing current oom_score_adj %q: %v", oomFields[0], err)
+		logrus.Errorf("Parsing current oom_score_adj %q: %v", oomFields[0], err)
 		os.Exit(1)
 	}
 	report.OOMScoreAdj = oom
 
 	uidmap, gidmap, err := GetHostIDMappings("")
 	if err != nil {
-		logrus.Errorf("error reading current ID mappings: %v", err)
+		logrus.Errorf("Reading current ID mappings: %v", err)
 		os.Exit(1)
 	}
 	report.UIDMappings = append(report.UIDMappings, uidmap...)
@@ -123,7 +123,7 @@ func TestUnshareNamespaces(t *testing.T) {
 		for ns := range CloneFlags {
 			linkTarget, err := os.Readlink("/proc/self/ns/" + ns)
 			if err != nil {
-				t.Fatalf("error reading link /proc/self/ns/%s: %v", ns, err)
+				t.Fatalf("Reading link /proc/self/ns/%s: %v", ns, err)
 				os.Exit(1)
 			}
 			if ns == name || ns == "user" { // we always create a new user namespace
@@ -167,7 +167,7 @@ func TestUnsharePgrp(t *testing.T) {
 func TestUnshareSid(t *testing.T) {
 	sid, err := unix.Getsid(unix.Getpid())
 	if err != nil {
-		t.Fatalf("error reading current session ID: %v", err)
+		t.Fatalf("Reading current session ID: %v", err)
 	}
 	for _, same := range []bool{false, true} {
 		var report Report
