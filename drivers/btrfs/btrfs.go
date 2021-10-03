@@ -133,6 +133,12 @@ type Driver struct {
 	once         sync.Once
 }
 
+func (d *Driver) FileLock() {
+}
+
+func (d *Driver) FileUnlock() {
+}
+
 // String prints the name of the driver (btrfs).
 func (d *Driver) String() string {
 	return "btrfs"

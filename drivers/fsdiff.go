@@ -44,6 +44,11 @@ func NewNaiveDiffDriver(driver ProtoDriver, updater LayerIDMapUpdater) Driver {
 func (gdw *NaiveDiffDriver) Diff(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (arch io.ReadCloser, err error) {
 	startTime := time.Now()
 	driver := gdw.ProtoDriver
+	// since we are going to remove layers
+	// lock so other parallel instances can
+	// wait while parent layer can be restored.
+	driver.FileLock()
+	defer driver.FileUnlock()
 
 	if idMappings == nil {
 		idMappings = &idtools.IDMappings{}

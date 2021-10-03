@@ -86,6 +86,12 @@ type Driver struct {
 	updater           graphdriver.LayerIDMapUpdater
 }
 
+func (d *Driver) FileLock() {
+}
+
+func (d *Driver) FileUnlock() {
+}
+
 func (d *Driver) String() string {
 	return "vfs"
 }

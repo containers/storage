@@ -217,6 +217,12 @@ func supportsAufs() error {
 	return ErrAufsNotSupported
 }
 
+func (a *Driver) FileLock() {
+}
+
+func (a *Driver) FileUnlock() {
+}
+
 func (a *Driver) rootPath() string {
 	return a.root
 }

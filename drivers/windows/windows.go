@@ -148,6 +148,12 @@ func getFileSystemType(drive string) (fsType string, hr error) {
 	return
 }
 
+func (d *Driver) FileLock() {
+}
+
+func (d *Driver) FileUnlock() {
+}
+
 // String returns the string representation of a driver. This should match
 // the name the graph driver has been registered with.
 func (d *Driver) String() string {

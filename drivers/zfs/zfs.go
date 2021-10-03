@@ -182,6 +182,12 @@ type Driver struct {
 	ctr              *graphdriver.RefCounter
 }
 
+func (d *Driver) FileLock() {
+}
+
+func (d *Driver) FileUnlock() {
+}
+
 func (d *Driver) String() string {
 	return "zfs"
 }

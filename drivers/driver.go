@@ -110,6 +110,11 @@ type ProtoDriver interface {
 	// Exists returns whether a filesystem layer with the specified
 	// ID exists on this driver.
 	Exists(id string) bool
+	// Use convention FileLock()/FileUnlock() since Lock() is already reserved by drivers
+	// Acquire file based lock for current driver session.
+	FileLock()
+	// Unlock file based lock for current driver session.
+	FileUnlock()
 	// Status returns a set of key-value pairs which give low
 	// level diagnostic status about this driver.
 	Status() [][2]string

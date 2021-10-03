@@ -26,6 +26,7 @@ import (
 	"github.com/containers/storage/pkg/fsutils"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/locker"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
@@ -120,6 +121,7 @@ type Driver struct {
 	supportsVolatile *bool
 	usingMetacopy    bool
 	locker           *locker.Locker
+	lockerFile       lockfile.Locker
 }
 
 type additionalLayerStore struct {
@@ -370,6 +372,11 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		fileSystemType = graphdriver.FsMagicFUSE
 	}
 
+	lockerFile, err := lockfile.GetLockfile(filepath.Join(options.RunRoot, "overlay-locks", "overlay.lock"))
+	if err != nil {
+		return nil, err
+	}
+
 	d := &Driver{
 		name:             "overlay",
 		home:             home,
@@ -381,6 +388,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		usingMetacopy:    usingMetacopy,
 		supportsVolatile: supportsVolatile,
 		locker:           locker.New(),
+		lockerFile:       lockerFile,
 		options:          *opts,
 	}
 
@@ -400,6 +408,14 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v, usingMetacopy=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff(), d.usingMetacopy)
 
 	return d, nil
+}
+
+func (d *Driver) FileLock() {
+	d.lockerFile.Lock()
+}
+
+func (d *Driver) FileUnlock() {
+	d.lockerFile.Unlock()
 }
 
 func parseOptions(options []string) (*overlayOptions, error) {

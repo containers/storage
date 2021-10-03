@@ -59,6 +59,12 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	return graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d)), nil
 }
 
+func (d *Driver) FileLock() {
+}
+
+func (d *Driver) FileUnlock() {
+}
+
 func (d *Driver) String() string {
 	return "devicemapper"
 }
