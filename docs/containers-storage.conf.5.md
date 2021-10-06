@@ -38,6 +38,12 @@ The `storage` table supports the following options:
   container storage graph dir (default: "/var/lib/containers/storage")
   Default directory to store all writable content created by container storage programs.
   The rootless graphroot path supports environment variable substitutions (ie. `$HOME/containers/storage`)
+  When changing the graphroot location on an SELINUX system, ensure
+  the labeling matches the default locations labels with the
+  following commands:
+  
+  # semanage fcontext -a -e /var/lib/containers/storage /NEWSTORAGEPATH
+  # restorecon -R -v /NEWSTORAGEPATH
 
 **rootless_storage_path**="$HOME/.local/share/containers/storage"
   Storage path for rootless users. By default the graphroot for rootless users
