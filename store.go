@@ -2857,6 +2857,7 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		store := s
 		store.RLock()
 		if err := store.ReloadIfChanged(); err != nil {
+			store.Unlock()
 			return nil, err
 		}
 		if store.Exists(to) {
