@@ -4,7 +4,7 @@ module github.com/containers/storage
 
 require (
 	github.com/BurntSushi/toml v0.4.1
-	github.com/Microsoft/go-winio v0.5.0
+	github.com/Microsoft/go-winio v0.5.1
 	github.com/Microsoft/hcsshim v0.9.0
 	github.com/containerd/stargz-snapshotter/estargz v0.9.0
 	github.com/docker/go-units v0.4.0
