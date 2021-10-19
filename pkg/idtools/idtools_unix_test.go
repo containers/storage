@@ -76,6 +76,11 @@ func TestMkdirAllAs(t *testing.T) {
 	if err := compareTrees(testTree, verifyTree); err != nil {
 		t.Fatal(err)
 	}
+
+	// relative path will return an error
+	if err := MkdirAllAs("test", 0755, 102, 102); err == nil || err.Error() != "path: test should be absolute" {
+		t.Fatalf("Expect path error, but got:%v", err)
+	}
 }
 
 func TestMkdirAllAndChownNew(t *testing.T) {
