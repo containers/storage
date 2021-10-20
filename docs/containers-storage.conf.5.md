@@ -42,9 +42,17 @@ The `storage` table supports the following options:
   the labeling matches the default locations labels with the
   following commands:
   
-  # semanage fcontext -a -e /var/lib/containers/storage /NEWSTORAGEPATH
-  # restorecon -R -v /NEWSTORAGEPATH
+```
+# semanage fcontext -a -e /var/lib/containers/storage /NEWSTORAGEPATH
+# restorecon -R -v /NEWSTORAGEPATH
+```
 
+  In Rootless Mode you would set
+
+```
+# semanage fcontext -a -e $HOME/.local/share/containers NEWSTORAGEPATH
+$ restorecon -R -v /NEWSTORAGEPATH
+```
 **rootless_storage_path**="$HOME/.local/share/containers/storage"
   Storage path for rootless users. By default the graphroot for rootless users
   is set to `$XDG_DATA_HOME/containers/storage`, if XDG_DATA_HOME is set.
@@ -262,6 +270,13 @@ Tell SELinux about the new containers storage by setting up an equivalence recor
 
 ```
 semanage fcontext -a -e /var/lib/containers NEWSTORAGEPATH
+restorecon -R -v NEWSTORAGEPATH
+```
+
+In rootless mode, you would set
+
+```
+semanage fcontext -a -e $HOME/.local/share/containers NEWSTORAGEPATH
 restorecon -R -v NEWSTORAGEPATH
 ```
 
