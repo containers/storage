@@ -155,6 +155,15 @@ func hasMetacopyOption(opts []string) bool {
 	return false
 }
 
+func stripOption(opts []string, option string) []string {
+	for i, s := range opts {
+		if s == option {
+			return stripOption(append(opts[:i], opts[i+1:]...), option)
+		}
+	}
+	return opts
+}
+
 func hasVolatileOption(opts []string) bool {
 	for _, s := range opts {
 		if s == "volatile" {
@@ -1254,6 +1263,10 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		disableShifting = true
 	}
 
+	logLevel := logrus.WarnLevel
+	if unshare.IsRootless() {
+		logLevel = logrus.DebugLevel
+	}
 	optsList := options.Options
 	if len(optsList) == 0 {
 		optsList = strings.Split(d.options.mountOptions, ",")
@@ -1262,16 +1275,18 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		// options otherwise the kernel refuses to follow the metacopy xattr.
 		if hasMetacopyOption(strings.Split(d.options.mountOptions, ",")) && !hasMetacopyOption(options.Options) {
 			if d.usingMetacopy {
+				logrus.StandardLogger().Logf(logLevel, "Adding metacopy option, configured globally")
 				optsList = append(optsList, "metacopy=on")
-			} else {
-				logLevel := logrus.WarnLevel
-				if unshare.IsRootless() {
-					logLevel = logrus.DebugLevel
-				}
-				logrus.StandardLogger().Logf(logLevel, "Ignoring metacopy option from storage.conf, not supported with booted kernel")
 			}
 		}
 	}
+	if !d.usingMetacopy {
+		if hasMetacopyOption(optsList) {
+			logrus.StandardLogger().Logf(logLevel, "Ignoring global metacopy option, not supported with booted kernel")
+		}
+		optsList = stripOption(optsList, "metacopy=on")
+	}
+
 	for _, o := range optsList {
 		if o == "ro" {
 			readWrite = false
