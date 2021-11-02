@@ -12,12 +12,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
 const shortLen = 12
 
 var (
+	randLock     sync.Mutex // No math/rand method should ever be called concurrently
 	validShortID = regexp.MustCompile("^[a-f0-9]{12}$")
 	validHex     = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
@@ -67,7 +70,10 @@ func GenerateRandomID() string {
 // secure sources of random.
 // It helps you to save entropy.
 func GenerateNonCryptoID() string {
-	return generateID(readerFunc(rand.Read))
+	randLock.Lock()
+	id := generateID(readerFunc(rand.Read))
+	randLock.Unlock()
+	return id
 }
 
 // ValidateID checks whether an ID string is a valid image ID.
@@ -80,16 +86,20 @@ func ValidateID(id string) error {
 
 func init() {
 	// safely set the seed globally so we generate random ids. Tries to use a
-	// crypto seed before falling back to time.
+	// crypto seed (concurrent-safe) before falling back to time (concurrent-unsafe).
 	var seed int64
 	if cryptoseed, err := cryptorand.Int(cryptorand.Reader, big.NewInt(math.MaxInt64)); err != nil {
 		// This should not happen, but worst-case fallback to time-based seed.
-		seed = time.Now().UnixNano()
+		// Attempt to mitigate clashes slightly by including the current process ID.
+		// This is slow and imperfect, but preferable to hanging (indefinately)
+		// for the entropy pool to fill.
+		seed = time.Now().UnixNano() + int64(syscall.Getpid())
 	} else {
 		seed = cryptoseed.Int64()
 	}
-
+	randLock.Lock()
 	rand.Seed(seed)
+	randLock.Unlock()
 }
 
 type readerFunc func(p []byte) (int, error)
