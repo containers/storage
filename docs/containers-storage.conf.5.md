@@ -315,7 +315,11 @@ This is a way to prevent xfs_quota management from conflicting with containers/s
 
 ## FILES
 
-Distributions often provide a `/usr/share/containers/storage.conf` file to define default storage configuration. Administrators can override this file by creating `/etc/containers/storage.conf` to specify their own configuration. The storage.conf file for rootless users is stored in the `$XDG_CONFIG_HOME/containers/storage.conf` file.  If `$XDG_CONFIG_HOME` is not set then the file `$HOME/.config/containers/storage.conf` is used.
+Distributions often provide a `/usr/share/containers/storage.conf` file to define default storage configuration. Administrators can override this file by creating `/etc/containers/storage.conf` to specify their own configuration. Likewise rootless users can create a storage.conf file to override the system storage.conf files. Files should be stored in the `$XDG_CONFIG_HOME/containers/storage.conf` file.  If `$XDG_CONFIG_HOME` is not set then the file `$HOME/.config/containers/storage.conf` is used.
+
+Note: The storage.conf file overrides all other strorage.conf files. Container
+engines run by users with a storage.conf file in their home directory do not
+use options in the system storage.conf files.
 
 /etc/projects - XFS persistent project root definition
 /etc/projid -  XFS project name mapping file
