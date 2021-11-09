@@ -4,6 +4,48 @@ import (
 	"testing"
 )
 
+func TestToHost(t *testing.T) {
+	idMappings := []IDMap{
+		{
+			ContainerID: 0,
+			HostID:      1000,
+			Size:        1,
+		},
+		{
+			ContainerID: 1,
+			HostID:      100000,
+			Size:        65536,
+		},
+	}
+
+	mappings := IDMappings{
+		uids: idMappings,
+		gids: idMappings,
+	}
+
+	pair, err := mappings.ToHost(IDPair{UID: 0, GID: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pair.UID != 1000 {
+		t.Fatalf("Converted to the wrong UID")
+	}
+	if pair.GID != 1000 {
+		t.Fatalf("Converted to the wrong GID")
+	}
+
+	pair, err = mappings.ToHost(IDPair{UID: 1000, GID: 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pair.UID != 100999 {
+		t.Fatalf("Converted to the wrong UID")
+	}
+	if pair.GID != 100999 {
+		t.Fatalf("Converted to the wrong GID")
+	}
+}
+
 func TestGetRootUIDGID(t *testing.T) {
 	mappingsUIDs := []IDMap{
 		{
