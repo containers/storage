@@ -1321,7 +1321,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			}
 		}
 		if cimage == nil {
-			return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
+			return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", image)
 		}
 		imageID = cimage.ID
 	}
