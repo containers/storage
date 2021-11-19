@@ -21,7 +21,6 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/parsers"
-	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/stringutils"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/types"
@@ -1016,9 +1015,6 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 	if err := rcstore.ReloadIfChanged(); err != nil {
 		return nil, -1, err
 	}
-	if id == "" {
-		id = stringid.GenerateRandomID()
-	}
 	if options == nil {
 		options = &LayerOptions{}
 	}
@@ -1097,10 +1093,6 @@ func (s *store) CreateLayer(id, parent string, names []string, mountLabel string
 }
 
 func (s *store) CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error) {
-	if id == "" {
-		id = stringid.GenerateRandomID()
-	}
-
 	if layer != "" {
 		lstore, err := s.LayerStore()
 		if err != nil {
@@ -1278,9 +1270,6 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	rlstore, err := s.LayerStore()
 	if err != nil {
 		return nil, err
-	}
-	if id == "" {
-		id = stringid.GenerateRandomID()
 	}
 
 	var imageTopLayer *Layer
