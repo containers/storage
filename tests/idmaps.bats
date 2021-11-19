@@ -570,8 +570,14 @@ load helpers
 		uidrange[$i]=$((($RANDOM+32767)*65536))
 		gidrange[$i]=$((($RANDOM+32767)*65536))
 	done
-	# Create a layer using the host's mappings.
+	# Create a base layer using the host's mappings.
 	run storage --debug=false create-layer --hostuidmap --hostgidmap
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	baselayer="$output"
+	# Create a layer using the host's mappings.
+	run storage --debug=false create-layer --hostuidmap --hostgidmap $baselayer
 	echo "$output"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
@@ -682,6 +688,16 @@ load helpers
 	ntops=$(for p in $tops; do echo $p ; done | sort -u | wc -l)
 	echo ntops:$ntops
 	[ $ntops -eq $n ]
+
+	# Remove the containers and image and check that all of the layers we used got removed.
+	for container in "${containers[@]}" ; do
+		run storage --debug=false delete-container $container
+	done
+	run storage --debug=false delete-image $image
+	run storage --debug=false layers
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" == "" ]
 }
 
 @test "idmaps-create-mapped-container" {
@@ -709,8 +725,14 @@ load helpers
 		uidrange[$i]=$((($RANDOM+32767)*65536))
 		gidrange[$i]=$((($RANDOM+32767)*65536))
 	done
-	# Create a layer using the host's mappings.
+	# Create a base layer using the host's mappings.
 	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-layer --hostuidmap --hostgidmap
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	baselayer="$output"
+	# Create a layer using the host's mappings.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-layer --hostuidmap --hostgidmap $baselayer
 	echo "$output"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
@@ -826,6 +848,17 @@ load helpers
 	ntops=$(for p in $tops; do echo $p ; done | sort -u | wc -l)
 	echo ntops:$ntops
 	[ $ntops -eq 1 ]
+
+	# Remove the containers and image and check that all of the layers we used got removed.
+	for container in "${containers[@]}" ; do
+		run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root delete-container $container
+	done
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot delete-image $image
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
+	run storage --debug=false --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root layers
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" == "" ]
 }
 
 @test "idmaps-create-mapped-container-shifting" {
@@ -842,21 +875,28 @@ load helpers
 		;;
 	esac
 
+	# Create a base layer.
 	run storage --debug=false create-layer
+	echo "$output"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
-	layer="$output"
+	baselayer="$output"
+	# Create the lower layer.
+	run storage --debug=false create-layer $baselayer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	lowerlayer="$output"
 	# Mount the layer.
-	run storage --debug=false mount $layer
+	run storage --debug=false mount $lowerlayer
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	lowermount="$output"
 	# Put a file in the layer.
 	createrandom "$lowermount"/file
-	storage unmount $layer
+	storage unmount $lowerlayer
 
 	imagename=idmappedimage-shifting
-	storage create-image --name=$imagename $layer
+	storage create-image --name=$imagename $lowerlayer
 
 	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false create-container --uidmap 0:1000:1000 --gidmap 0:1000:1000 $imagename
 	echo "$output"
@@ -873,4 +913,12 @@ load helpers
 	test "$(stat -c%u:%g $dir/file)" == "0:0"
 	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false unmount "$container"
 	[ "$status" -eq 0 ]
+
+	# Remove the container and image and check that all of the layers we used got removed.
+	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false delete-container $container
+	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false delete-image $imagename
+	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false layers
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" == "" ]
 }
