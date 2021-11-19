@@ -890,11 +890,18 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 	if err != nil {
 		return err
 	}
+
+	idPair := idtools.IDPair{
+		UID: rootUID,
+		GID: rootGID,
+	}
+
 	// Make the link directory if it does not exist
-	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAllAndChownNew(path.Join(d.home, linkDir), 0700, idPair); err != nil {
 		return err
 	}
-	if err := idtools.MkdirAllAs(path.Dir(dir), 0700, rootUID, rootGID); err != nil {
+
+	if err := idtools.MkdirAllAndChownNew(path.Dir(dir), 0700, idPair); err != nil {
 		return err
 	}
 	if parent != "" {
@@ -905,7 +912,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 		rootUID = int(st.UID())
 		rootGID = int(st.GID())
 	}
-	if err := idtools.MkdirAs(dir, 0700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAllAndChownNew(dir, 0700, idPair); err != nil {
 		return err
 	}
 
