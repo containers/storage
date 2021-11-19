@@ -15,15 +15,12 @@ import (
 )
 
 func randomContent(size int, seed int64) []byte {
-	s := rand.NewSource(seed)
 	content := make([]byte, size)
 
-	for i := 0; i < len(content); i += 7 {
-		val := s.Int63()
-		for j := 0; i+j < len(content) && j < 7; j++ {
-			content[i+j] = byte(val)
-			val >>= 8
-		}
+	rng := rand.New(rand.NewSource(seed))
+	read, err := rng.Read(content)
+	if err != nil || read != size {
+		panic("Unexpected failure of math/rand.Rand.Read")
 	}
 
 	return content
