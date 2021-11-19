@@ -1,3 +1,4 @@
+//go:build linux || freebsd || solaris
 // +build linux freebsd solaris
 
 package graphtest
@@ -10,9 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"testing"
-	"unsafe"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
@@ -415,18 +414,12 @@ func DriverTestChanges(t testing.TB, drivername string, driverOptions ...string)
 }
 
 func writeRandomFile(path string, size uint64) error {
-	buf := make([]int64, size/8)
+	data := make([]byte, size)
 
-	r := rand.NewSource(0)
-	for i := range buf {
-		buf[i] = r.Int63()
+	rng := rand.New(rand.NewSource(0))
+	if _, err := rng.Read(data); err != nil {
+		return err
 	}
-
-	// Cast to []byte
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&buf))
-	header.Len *= 8
-	header.Cap *= 8
-	data := *(*[]byte)(unsafe.Pointer(&header))
 
 	return ioutil.WriteFile(path, data, 0700)
 }
