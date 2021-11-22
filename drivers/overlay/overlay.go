@@ -1282,7 +1282,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		// options otherwise the kernel refuses to follow the metacopy xattr.
 		if hasMetacopyOption(strings.Split(d.options.mountOptions, ",")) && !hasMetacopyOption(options.Options) {
 			if d.usingMetacopy {
-				logrus.StandardLogger().Logf(logLevel, "Adding metacopy option, configured globally")
+				logrus.StandardLogger().Logf(logrus.DebugLevel, "Adding metacopy option, configured globally")
 				optsList = append(optsList, "metacopy=on")
 			}
 		}
