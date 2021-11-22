@@ -554,7 +554,7 @@ func setFileAttrs(file *os.File, mode os.FileMode, metadata *internal.FileMetada
 // openFileUnderRoot safely opens a file under the specified root directory using openat2
 // name is the path to open relative to dirfd.
 // dirfd is an open file descriptor to the target checkout directory.
-// flags are the flags top pass to the open syscall.
+// flags are the flags to pass to the open syscall.
 // mode specifies the mode to use for newly created files.
 func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (*os.File, error) {
 	how := unix.OpenHow{
@@ -564,10 +564,66 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 	}
 
 	fd, err := unix.Openat2(dirfd, name, &how)
-	if err != nil {
-		return nil, fmt.Errorf("open %q under the rootfs: %v", name, err)
+	if err == nil {
+		return os.NewFile(uintptr(fd), name), nil
 	}
-	return os.NewFile(uintptr(fd), name), nil
+
+	hasCreate := (flags & unix.O_CREAT) != 0
+	if errors.Is(err, unix.ENOENT) && hasCreate {
+		parent := filepath.Dir(name)
+		if parent != "" {
+			newDirfd, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
+			if err2 == nil {
+				defer newDirfd.Close()
+				fd, err = unix.Openat2(int(newDirfd.Fd()), filepath.Base(name), &how)
+				if err == nil {
+					return os.NewFile(uintptr(fd), name), nil
+				}
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("open %q under the rootfs: %v", name, err)
+}
+
+// openOrCreateDirUnderRoot safely opens a directory or create it if it is missing.
+// name is the path to open relative to dirfd.
+// dirfd is an open file descriptor to the target checkout directory.
+// mode specifies the mode to use for newly created files.
+func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.File, error) {
+	how := unix.OpenHow{
+		Flags:   unix.O_DIRECTORY | unix.O_RDONLY,
+		Mode:    uint64(mode & 07777),
+		Resolve: unix.RESOLVE_IN_ROOT,
+	}
+
+	fd, err := unix.Openat2(dirfd, name, &how)
+	if err == nil {
+		return os.NewFile(uintptr(fd), name), nil
+	}
+
+	if errors.Is(err, unix.ENOENT) {
+		parent := filepath.Dir(name)
+		if parent != "" {
+			pDir, err2 := openOrCreateDirUnderRoot(parent, dirfd, mode)
+			if err2 != nil {
+				return nil, err
+			}
+			defer pDir.Close()
+
+			baseName := filepath.Base(name)
+
+			if err2 := unix.Mkdirat(int(pDir.Fd()), baseName, 0755); err2 != nil {
+				return nil, err
+			}
+
+			fd, err = unix.Openat2(int(pDir.Fd()), baseName, &how)
+			if err == nil {
+				return os.NewFile(uintptr(fd), name), nil
+			}
+		}
+	}
+	return nil, err
 }
 
 func (c *chunkedDiffer) createFileFromCompressedStream(dest string, dirfd int, reader io.Reader, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) (err error) {
@@ -755,13 +811,13 @@ func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingChun
 	return nil
 }
 
-func safeMkdir(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) error {
-	parent := filepath.Dir(metadata.Name)
-	base := filepath.Base(metadata.Name)
+func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *internal.FileMetadata, options *archive.TarOptions) error {
+	parent := filepath.Dir(name)
+	base := filepath.Base(name)
 
 	parentFd := dirfd
 	if parent != "." {
-		parentFile, err := openFileUnderRoot(parent, dirfd, unix.O_DIRECTORY|unix.O_PATH|unix.O_RDONLY, 0)
+		parentFile, err := openOrCreateDirUnderRoot(parent, dirfd, 0)
 		if err != nil {
 			return err
 		}
@@ -771,11 +827,11 @@ func safeMkdir(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, opt
 
 	if err := unix.Mkdirat(parentFd, base, uint32(mode)); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir %q: %v", metadata.Name, err)
+			return fmt.Errorf("mkdir %q: %v", name, err)
 		}
 	}
 
-	file, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_RDONLY, 0)
+	file, err := openFileUnderRoot(name, dirfd, unix.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
@@ -794,7 +850,7 @@ func safeLink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, opti
 	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "." {
-		f, err := openFileUnderRoot(destDir, dirfd, unix.O_RDONLY, 0)
+		f, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
 		if err != nil {
 			return err
 		}
@@ -820,7 +876,7 @@ func safeSymlink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, o
 	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "." {
-		f, err := openFileUnderRoot(destDir, dirfd, unix.O_RDONLY, 0)
+		f, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
 		if err != nil {
 			return err
 		}
@@ -840,7 +896,7 @@ type whiteoutHandler struct {
 }
 
 func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
-	file, err := openFileUnderRoot(path, d.Dirfd, unix.O_RDONLY, 0)
+	file, err := openOrCreateDirUnderRoot(path, d.Dirfd, 0)
 	if err != nil {
 		return err
 	}
@@ -858,7 +914,7 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 
 	dirfd := d.Dirfd
 	if dir != "" {
-		dir, err := openFileUnderRoot(dir, d.Dirfd, unix.O_RDONLY, 0)
+		dir, err := openOrCreateDirUnderRoot(dir, d.Dirfd, 0)
 		if err != nil {
 			return err
 		}
@@ -1043,7 +1099,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 			}
 
 		case tar.TypeDir:
-			if err := safeMkdir(dirfd, mode, &r, options); err != nil {
+			if err := safeMkdir(dirfd, mode, r.Name, &r, options); err != nil {
 				return output, err
 			}
 			continue
