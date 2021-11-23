@@ -510,7 +510,7 @@ type missingChunk struct {
 }
 
 // setFileAttrs sets the file attributes for file given metadata
-func setFileAttrs(file *os.File, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) error {
+func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions, usePath bool) error {
 	if file == nil || file.Fd() < 0 {
 		return errors.Errorf("invalid file")
 	}
@@ -520,14 +520,61 @@ func setFileAttrs(file *os.File, mode os.FileMode, metadata *internal.FileMetada
 	if err != nil {
 		return err
 	}
+
+	// If it is a symlink, force to use the path
 	if t == tar.TypeSymlink {
-		return nil
+		usePath = true
 	}
 
-	if err := unix.Fchown(fd, metadata.UID, metadata.GID); err != nil {
+	baseName := ""
+	if usePath {
+		dirName := filepath.Dir(metadata.Name)
+		if dirName != "" {
+			parentFd, err := openFileUnderRoot(dirName, dirfd, unix.O_PATH|unix.O_DIRECTORY, 0)
+			if err != nil {
+				return err
+			}
+			defer parentFd.Close()
+
+			dirfd = int(parentFd.Fd())
+		}
+		baseName = filepath.Base(metadata.Name)
+	}
+
+	doChown := func() error {
+		if usePath {
+			return unix.Fchownat(dirfd, baseName, metadata.UID, metadata.GID, unix.AT_SYMLINK_NOFOLLOW)
+		}
+		return unix.Fchown(fd, metadata.UID, metadata.GID)
+	}
+
+	doSetXattr := func(k string, v []byte) error {
+		return unix.Fsetxattr(fd, k, v, 0)
+	}
+
+	doUtimes := func() error {
+		ts := []unix.Timespec{timeToTimespec(metadata.AccessTime), timeToTimespec(metadata.ModTime)}
+		if usePath {
+			return unix.UtimesNanoAt(dirfd, baseName, ts, unix.AT_SYMLINK_NOFOLLOW)
+		}
+		return unix.UtimesNanoAt(unix.AT_FDCWD, fmt.Sprintf("/proc/self/fd/%d", fd), ts, 0)
+	}
+
+	doChmod := func() error {
+		if usePath {
+			return unix.Fchmodat(dirfd, baseName, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
+		}
+		return unix.Fchmod(fd, uint32(mode))
+	}
+
+	if err := doChown(); err != nil {
 		if !options.IgnoreChownErrors {
 			return fmt.Errorf("chown %q to %d:%d: %v", metadata.Name, metadata.UID, metadata.GID, err)
 		}
+	}
+
+	canIgnore := func(err error) bool {
+		return err == nil || errors.Is(err, unix.ENOSYS) || errors.Is(err, unix.ENOTSUP)
 	}
 
 	for k, v := range metadata.Xattrs {
@@ -535,17 +582,16 @@ func setFileAttrs(file *os.File, mode os.FileMode, metadata *internal.FileMetada
 		if err != nil {
 			return fmt.Errorf("decode xattr %q: %v", v, err)
 		}
-		if err := unix.Fsetxattr(fd, k, data, 0); err != nil {
-			return fmt.Errorf("set xattr %q=%q for %q: %v", k, data, metadata.Name, err)
+		if err := doSetXattr(k, data); !canIgnore(err) {
+			return fmt.Errorf("set xattr %s=%q for %q: %v", k, data, metadata.Name, err)
 		}
 	}
 
-	ts := []unix.Timespec{timeToTimespec(metadata.AccessTime), timeToTimespec(metadata.ModTime)}
-	if err := unix.UtimesNanoAt(fd, "", ts, 0); err != nil && errors.Is(err, unix.ENOSYS) {
+	if err := doUtimes(); !canIgnore(err) {
 		return fmt.Errorf("set utimes for %q: %v", metadata.Name, err)
 	}
 
-	if err := unix.Fchmod(fd, uint32(mode)); err != nil {
+	if err := doChmod(); !canIgnore(err) {
 		return fmt.Errorf("chmod %q: %v", metadata.Name, err)
 	}
 	return nil
@@ -687,7 +733,7 @@ func (c *chunkedDiffer) createFileFromCompressedStream(dest string, dirfd int, r
 	if digester.Digest() != manifestChecksum {
 		return fmt.Errorf("checksum mismatch for %q", dest)
 	}
-	return setFileAttrs(file, mode, metadata, options)
+	return setFileAttrs(dirfd, file, mode, metadata, options, false)
 }
 
 func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingChunks []missingChunk, options *archive.TarOptions) error {
@@ -831,17 +877,17 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *internal.File
 		}
 	}
 
-	file, err := openFileUnderRoot(name, dirfd, unix.O_RDONLY, 0)
+	file, err := openFileUnderRoot(name, dirfd, unix.O_DIRECTORY|unix.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	return setFileAttrs(file, mode, metadata, options)
+	return setFileAttrs(dirfd, file, mode, metadata, options, false)
 }
 
 func safeLink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) error {
-	sourceFile, err := openFileUnderRoot(metadata.Linkname, dirfd, unix.O_RDONLY, 0)
+	sourceFile, err := openFileUnderRoot(metadata.Linkname, dirfd, unix.O_PATH|unix.O_RDONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return err
 	}
@@ -863,13 +909,23 @@ func safeLink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, opti
 		return fmt.Errorf("create hardlink %q pointing to %q: %v", metadata.Name, metadata.Linkname, err)
 	}
 
-	newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_WRONLY, 0)
+	newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
+		// If the target is a symlink, open the file with O_PATH.
+		if errors.Is(err, unix.ELOOP) {
+			newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_PATH|unix.O_NOFOLLOW, 0)
+			if err != nil {
+				return err
+			}
+			defer newFile.Close()
+
+			return setFileAttrs(dirfd, newFile, mode, metadata, options, true)
+		}
 		return err
 	}
 	defer newFile.Close()
 
-	return setFileAttrs(newFile, mode, metadata, options)
+	return setFileAttrs(dirfd, newFile, mode, metadata, options, false)
 }
 
 func safeSymlink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) error {
@@ -1087,7 +1143,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 						return err
 					}
 					defer file.Close()
-					if err := setFileAttrs(file, mode, &r, options); err != nil {
+					if err := setFileAttrs(dirfd, file, mode, &r, options, false); err != nil {
 						return err
 					}
 					return nil
@@ -1136,7 +1192,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		finalizeFile := func(dstFile *os.File) error {
 			if dstFile != nil {
 				defer dstFile.Close()
-				if err := setFileAttrs(dstFile, mode, &r, options); err != nil {
+				if err := setFileAttrs(dirfd, dstFile, mode, &r, options, false); err != nil {
 					return err
 				}
 			}
