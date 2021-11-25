@@ -37,6 +37,9 @@ github.com/containerd/cgroups/stats/v1
 ## explicit
 github.com/containerd/stargz-snapshotter/estargz
 github.com/containerd/stargz-snapshotter/estargz/errorutil
+# github.com/cyphar/filepath-securejoin v0.2.3
+## explicit
+github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
 # github.com/docker/go-units v0.4.0
