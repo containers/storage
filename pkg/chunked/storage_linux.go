@@ -597,19 +597,22 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal
 	return nil
 }
 
+func openFileUnderRootOpenat2(dirfd int, name string, flags uint64, mode os.FileMode) (int, error) {
+	how := unix.OpenHow{
+		Flags:   flags,
+		Mode:    uint64(mode & 07777),
+		Resolve: unix.RESOLVE_IN_ROOT,
+	}
+	return unix.Openat2(dirfd, name, &how)
+}
+
 // openFileUnderRoot safely opens a file under the specified root directory using openat2
 // name is the path to open relative to dirfd.
 // dirfd is an open file descriptor to the target checkout directory.
 // flags are the flags to pass to the open syscall.
 // mode specifies the mode to use for newly created files.
 func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (*os.File, error) {
-	how := unix.OpenHow{
-		Flags:   flags,
-		Mode:    uint64(mode & 07777),
-		Resolve: unix.RESOLVE_IN_ROOT,
-	}
-
-	fd, err := unix.Openat2(dirfd, name, &how)
+	fd, err := openFileUnderRootOpenat2(dirfd, name, flags, mode)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
 	}
@@ -621,7 +624,7 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 			newDirfd, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
 			if err2 == nil {
 				defer newDirfd.Close()
-				fd, err = unix.Openat2(int(newDirfd.Fd()), filepath.Base(name), &how)
+				fd, err = openFileUnderRootOpenat2(int(newDirfd.Fd()), filepath.Base(name), flags, mode)
 				if err == nil {
 					return os.NewFile(uintptr(fd), name), nil
 				}
@@ -637,13 +640,7 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 // dirfd is an open file descriptor to the target checkout directory.
 // mode specifies the mode to use for newly created files.
 func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.File, error) {
-	how := unix.OpenHow{
-		Flags:   unix.O_DIRECTORY | unix.O_RDONLY,
-		Mode:    uint64(mode & 07777),
-		Resolve: unix.RESOLVE_IN_ROOT,
-	}
-
-	fd, err := unix.Openat2(dirfd, name, &how)
+	fd, err := openFileUnderRootOpenat2(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
 	}
@@ -663,7 +660,7 @@ func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.Fil
 				return nil, err
 			}
 
-			fd, err = unix.Openat2(int(pDir.Fd()), baseName, &how)
+			fd, err = openFileUnderRootOpenat2(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 			if err == nil {
 				return os.NewFile(uintptr(fd), name), nil
 			}
