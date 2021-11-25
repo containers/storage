@@ -89,7 +89,7 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 	src := fmt.Sprintf("/proc/self/fd/%d", srcFd)
 	st, err := os.Stat(src)
 	if err != nil {
-		return nil, -1, fmt.Errorf("copy file content for %q: %v", destFile, err)
+		return nil, -1, fmt.Errorf("copy file content for %q: %w", destFile, err)
 	}
 
 	copyWithFileRange, copyWithFileClone := true, true
@@ -111,13 +111,13 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 	// If the destination file already exists, we shouldn't blow it away
 	dstFile, err := openFileUnderRoot(destFile, dirfd, newFileFlags, mode)
 	if err != nil {
-		return nil, -1, fmt.Errorf("open file %q under rootfs for copy: %v", destFile, err)
+		return nil, -1, fmt.Errorf("open file %q under rootfs for copy: %w", destFile, err)
 	}
 
 	err = driversCopy.CopyRegularToFile(src, dstFile, st, &copyWithFileRange, &copyWithFileClone)
 	if err != nil {
 		dstFile.Close()
-		return nil, -1, fmt.Errorf("copy to file %q under rootfs: %v", destFile, err)
+		return nil, -1, fmt.Errorf("copy to file %q under rootfs: %w", destFile, err)
 	}
 	return dstFile, st.Size(), nil
 }
@@ -153,7 +153,7 @@ func getLayersCache(store storage.Store) (map[string][]internal.FileMetadata, ma
 		defer manifestReader.Close()
 		manifest, err := ioutil.ReadAll(manifestReader)
 		if err != nil {
-			return nil, nil, fmt.Errorf("open manifest file for layer %q: %v", r.ID, err)
+			return nil, nil, fmt.Errorf("open manifest file for layer %q: %w", r.ID, err)
 		}
 		var toc internal.TOC
 		if err := json.Unmarshal(manifest, &toc); err != nil {
@@ -162,7 +162,7 @@ func getLayersCache(store storage.Store) (map[string][]internal.FileMetadata, ma
 		layersMetadata[r.ID] = toc.Entries
 		target, err := store.DifferTarget(r.ID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("get checkout directory layer %q: %v", r.ID, err)
+			return nil, nil, fmt.Errorf("get checkout directory layer %q: %w", r.ID, err)
 		}
 		layersTarget[r.ID] = target
 	}
@@ -184,7 +184,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobSize int64, annotat
 func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (*chunkedDiffer, error) {
 	manifest, tocOffset, err := readZstdChunkedManifest(iss, blobSize, annotations)
 	if err != nil {
-		return nil, fmt.Errorf("read zstd:chunked manifest: %v", err)
+		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	layersMetadata, layersTarget, err := getLayersCache(store)
 	if err != nil {
@@ -204,7 +204,7 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (*chunkedDiffer, error) {
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, annotations)
 	if err != nil {
-		return nil, fmt.Errorf("read zstd:chunked manifest: %v", err)
+		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	layersMetadata, layersTarget, err := getLayersCache(store)
 	if err != nil {
@@ -230,19 +230,19 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 func copyFileFromOtherLayer(file *internal.FileMetadata, source string, otherFile *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file %q: %v", source, err)
+		return false, nil, 0, fmt.Errorf("open source file %q: %w", source, err)
 	}
 	defer unix.Close(srcDirfd)
 
 	srcFile, err := openFileUnderRoot(otherFile.Name, srcDirfd, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file %q under target rootfs: %v", otherFile.Name, err)
+		return false, nil, 0, fmt.Errorf("open source file %q under target rootfs: %w", otherFile.Name, err)
 	}
 	defer srcFile.Close()
 
 	dstFile, written, err := copyFileContent(int(srcFile.Fd()), file.Name, dirfd, 0, useHardLinks)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("copy content to %q: %v", file.Name, err)
+		return false, nil, 0, fmt.Errorf("copy content to %q: %w", file.Name, err)
 	}
 	return true, dstFile, written, nil
 }
@@ -569,7 +569,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal
 
 	if err := doChown(); err != nil {
 		if !options.IgnoreChownErrors {
-			return fmt.Errorf("chown %q to %d:%d: %v", metadata.Name, metadata.UID, metadata.GID, err)
+			return fmt.Errorf("chown %q to %d:%d: %w", metadata.Name, metadata.UID, metadata.GID, err)
 		}
 	}
 
@@ -580,19 +580,19 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal
 	for k, v := range metadata.Xattrs {
 		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			return fmt.Errorf("decode xattr %q: %v", v, err)
+			return fmt.Errorf("decode xattr %q: %w", v, err)
 		}
 		if err := doSetXattr(k, data); !canIgnore(err) {
-			return fmt.Errorf("set xattr %s=%q for %q: %v", k, data, metadata.Name, err)
+			return fmt.Errorf("set xattr %s=%q for %q: %w", k, data, metadata.Name, err)
 		}
 	}
 
 	if err := doUtimes(); !canIgnore(err) {
-		return fmt.Errorf("set utimes for %q: %v", metadata.Name, err)
+		return fmt.Errorf("set utimes for %q: %w", metadata.Name, err)
 	}
 
 	if err := doChmod(); !canIgnore(err) {
-		return fmt.Errorf("chmod %q: %v", metadata.Name, err)
+		return fmt.Errorf("chmod %q: %w", metadata.Name, err)
 	}
 	return nil
 }
@@ -629,7 +629,7 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 		}
 	}
 
-	return nil, fmt.Errorf("open %q under the rootfs: %v", name, err)
+	return nil, fmt.Errorf("open %q under the rootfs: %w", name, err)
 }
 
 // openOrCreateDirUnderRoot safely opens a directory or create it if it is missing.
@@ -873,7 +873,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *internal.File
 
 	if err := unix.Mkdirat(parentFd, base, uint32(mode)); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir %q: %v", name, err)
+			return fmt.Errorf("mkdir %q: %w", name, err)
 		}
 	}
 
@@ -906,7 +906,7 @@ func safeLink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, opti
 
 	err = doHardLink(int(sourceFile.Fd()), destDirFd, destBase)
 	if err != nil {
-		return fmt.Errorf("create hardlink %q pointing to %q: %v", metadata.Name, metadata.Linkname, err)
+		return fmt.Errorf("create hardlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
 	}
 
 	newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
@@ -941,7 +941,7 @@ func safeSymlink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, o
 	}
 
 	if err := unix.Symlinkat(metadata.Linkname, destDirFd, destBase); err != nil {
-		return fmt.Errorf("create symlink %q pointing to %q: %v", metadata.Name, metadata.Linkname, err)
+		return fmt.Errorf("create symlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
 	}
 	return nil
 }
@@ -959,7 +959,7 @@ func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
 	defer file.Close()
 
 	if err := unix.Fsetxattr(int(file.Fd()), name, value, 0); err != nil {
-		return fmt.Errorf("set xattr %s=%q for %q: %v", name, value, path, err)
+		return fmt.Errorf("set xattr %s=%q for %q: %w", name, value, path, err)
 	}
 	return nil
 }
@@ -980,7 +980,7 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 	}
 
 	if err := unix.Mknodat(dirfd, base, mode, dev); err != nil {
-		return fmt.Errorf("mknod %q: %v", path, err)
+		return fmt.Errorf("mknod %q: %w", path, err)
 	}
 
 	return nil
@@ -988,7 +988,7 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 
 func checkChownErr(err error, name string, uid, gid int) error {
 	if errors.Is(err, syscall.EINVAL) {
-		return fmt.Errorf("potentially insufficient UIDs or GIDs available in user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally: %v", uid, gid, name, err)
+		return fmt.Errorf("potentially insufficient UIDs or GIDs available in user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally: %w", uid, gid, name, err)
 	}
 	return err
 }
