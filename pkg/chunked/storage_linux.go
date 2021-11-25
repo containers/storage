@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/types"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -597,6 +599,65 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal
 	return nil
 }
 
+func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.FileMode) (int, error) {
+	root := fmt.Sprintf("/proc/self/fd/%d", dirfd)
+
+	targetRoot, err := os.Readlink(root)
+	if err != nil {
+		return -1, err
+	}
+
+	hasNoFollow := (flags & unix.O_NOFOLLOW) != 0
+
+	fd := -1
+	// If O_NOFOLLOW is specified in the flags, then resolve only the parent directory and use the
+	// last component as the path to openat().
+	if hasNoFollow {
+		dirName := filepath.Dir(name)
+		if dirName != "" {
+			newRoot, err := securejoin.SecureJoin(root, filepath.Dir(name))
+			if err != nil {
+				return -1, err
+			}
+			root = newRoot
+		}
+
+		parentDirfd, err := unix.Open(root, unix.O_PATH, 0)
+		if err != nil {
+			return -1, err
+		}
+		defer unix.Close(parentDirfd)
+
+		fd, err = unix.Openat(parentDirfd, filepath.Base(name), int(flags), uint32(mode))
+		if err != nil {
+			return -1, err
+		}
+	} else {
+		newPath, err := securejoin.SecureJoin(root, name)
+		if err != nil {
+			return -1, err
+		}
+		fd, err = unix.Openat(dirfd, newPath, int(flags), uint32(mode))
+		if err != nil {
+			return -1, err
+		}
+	}
+
+	target, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", fd))
+	if err != nil {
+		unix.Close(fd)
+		return -1, err
+	}
+
+	// Add an additional check to make sure the opened fd is inside the rootfs
+	if !strings.HasPrefix(target, targetRoot) {
+		unix.Close(fd)
+		return -1, fmt.Errorf("error while resolving %q.  It resolves outside the root directory", name)
+	}
+
+	return fd, err
+}
+
 func openFileUnderRootOpenat2(dirfd int, name string, flags uint64, mode os.FileMode) (int, error) {
 	how := unix.OpenHow{
 		Flags:   flags,
@@ -606,13 +667,36 @@ func openFileUnderRootOpenat2(dirfd int, name string, flags uint64, mode os.File
 	return unix.Openat2(dirfd, name, &how)
 }
 
+// skipOpenat2 is set when openat2 is not supported by the underlying kernel and avoid
+// using it again.
+var skipOpenat2 int32
+
+// openFileUnderRootRaw tries to open a file using openat2 and if it is not supported fallbacks to a
+// userspace lookup.
+func openFileUnderRootRaw(dirfd int, name string, flags uint64, mode os.FileMode) (int, error) {
+	var fd int
+	var err error
+	if atomic.LoadInt32(&skipOpenat2) > 0 {
+		fd, err = openFileUnderRootFallback(dirfd, name, flags, mode)
+	} else {
+		fd, err = openFileUnderRootOpenat2(dirfd, name, flags, mode)
+		// If the function failed with ENOSYS, switch off the support for openat2
+		// and fallback to using safejoin.
+		if err != nil && errors.Is(err, unix.ENOSYS) {
+			atomic.StoreInt32(&skipOpenat2, 1)
+			fd, err = openFileUnderRootFallback(dirfd, name, flags, mode)
+		}
+	}
+	return fd, err
+}
+
 // openFileUnderRoot safely opens a file under the specified root directory using openat2
 // name is the path to open relative to dirfd.
 // dirfd is an open file descriptor to the target checkout directory.
 // flags are the flags to pass to the open syscall.
 // mode specifies the mode to use for newly created files.
 func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (*os.File, error) {
-	fd, err := openFileUnderRootOpenat2(dirfd, name, flags, mode)
+	fd, err := openFileUnderRootRaw(dirfd, name, flags, mode)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
 	}
@@ -624,14 +708,13 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 			newDirfd, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
 			if err2 == nil {
 				defer newDirfd.Close()
-				fd, err = openFileUnderRootOpenat2(int(newDirfd.Fd()), filepath.Base(name), flags, mode)
+				fd, err := openFileUnderRootRaw(dirfd, name, flags, mode)
 				if err == nil {
 					return os.NewFile(uintptr(fd), name), nil
 				}
 			}
 		}
 	}
-
 	return nil, fmt.Errorf("open %q under the rootfs: %w", name, err)
 }
 
@@ -640,7 +723,7 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 // dirfd is an open file descriptor to the target checkout directory.
 // mode specifies the mode to use for newly created files.
 func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.File, error) {
-	fd, err := openFileUnderRootOpenat2(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, mode)
+	fd, err := openFileUnderRootRaw(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
 	}
@@ -660,7 +743,7 @@ func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.Fil
 				return nil, err
 			}
 
-			fd, err = openFileUnderRootOpenat2(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, mode)
+			fd, err = openFileUnderRootRaw(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 			if err == nil {
 				return os.NewFile(uintptr(fd), name), nil
 			}
@@ -1080,7 +1163,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 
 	dirfd, err := unix.Open(dest, unix.O_RDONLY|unix.O_PATH, 0)
 	if err != nil {
-		return output, err
+		return output, fmt.Errorf("cannot open %q: %w", dest, err)
 	}
 	defer unix.Close(dirfd)
 
