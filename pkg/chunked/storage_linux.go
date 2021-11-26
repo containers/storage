@@ -57,6 +57,10 @@ type chunkedDiffer struct {
 	gzipReader *pgzip.Reader
 }
 
+var xattrsToIgnore = map[string]interface{}{
+	"security.selinux": true,
+}
+
 func timeToTimespec(time time.Time) (ts unix.Timespec) {
 	if time.IsZero() {
 		// Return UTIME_OMIT special value
@@ -278,10 +282,6 @@ func canDedupFileWithHardLink(file *internal.FileMetadata, fd int, s os.FileInfo
 	listXattrs, err := system.Llistxattr(path)
 	if err != nil {
 		return false
-	}
-
-	xattrsToIgnore := map[string]interface{}{
-		"security.selinux": true,
 	}
 
 	xattrs := make(map[string]string)
@@ -578,6 +578,9 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal
 	}
 
 	for k, v := range metadata.Xattrs {
+		if _, found := xattrsToIgnore[k]; found {
+			continue
+		}
 		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
 			return fmt.Errorf("decode xattr %q: %v", v, err)
