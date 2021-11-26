@@ -921,6 +921,26 @@ func BenchmarkTarUntarWithLinks(b *testing.B) {
 	}
 }
 
+func TestUntarSelinuxLabel(t *testing.T) {
+	xattrs := map[string]string{
+		"SCHILY.xattr.security.selinux": "invalid-label",
+	}
+	for i, headers := range [][]*tar.Header{
+		{
+			{
+				Name:       "foo",
+				Typeflag:   tar.TypeReg,
+				Mode:       0644,
+				PAXRecords: xattrs,
+			},
+		},
+	} {
+		if err := testBreakout("untar", "storage-TestUntarInvalidFilenames", headers); err != nil {
+			t.Fatalf("i=%d. %v", i, err)
+		}
+	}
+}
+
 func TestUntarInvalidFilenames(t *testing.T) {
 	// TODO Windows: Figure out how to fix this test.
 	if runtime.GOOS == windows {
