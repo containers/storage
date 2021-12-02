@@ -53,6 +53,13 @@ func init() {
 		}
 		ReloadConfigurationFileIfNeeded(defaultConfigFile, &defaultStoreOptions)
 	}
+	// reload could set values to empty for run and graph root if config does not contains anything
+	if defaultStoreOptions.RunRoot == "" {
+		defaultStoreOptions.RunRoot = "/run/containers/storage"
+	}
+	if defaultStoreOptions.GraphRoot == "" {
+		defaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
+	}
 }
 
 // defaultStoreOptionsIsolated is an internal implementation detail of DefaultStoreOptions to allow testing.
