@@ -2,24 +2,46 @@
 
 load helpers
 
-@test "applyjunk" {
+function applyjunk_main() {
 	# Create and try to populate layers with... garbage.  It should be
 	# rejected cleanly.
-	for compressed in cat gzip bzip2 xz zstd ; do
-		storage create-layer --id layer-${compressed}
+	compressed="$1"
 
-		echo [[${compressed} /etc/os-release]]
-		${compressed} < /etc/os-release > junkfile
-		run storage apply-diff --file junkfile layer-${compressed}
-		echo "$output"
-		[[ "$status" -ne 0 ]]
-		[[ "$output" =~ "invalid tar header" ]] || [[ "$output" =~ "unexpected EOF" ]]
+	storage create-layer --id layer-${compressed}
 
-		echo [[${compressed}]]
-		echo "sorry, not even enough info for a tar header here" | ${compressed} > junkfile
-		run storage apply-diff --file junkfile layer-${compressed}
-		echo "$output"
-		[[ "$status" -ne 0 ]]
-		[[ "$output" =~ "unexpected EOF" ]]
-	done
+	echo [[${compressed} /etc/os-release]]
+	if ! ${compressed} < /etc/os-release > junkfile ; then
+		skip "error running ${compressed}"
+	fi
+	run storage apply-diff --file junkfile layer-${compressed}
+	echo "$output"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" =~ "invalid tar header" ]] || [[ "$output" =~ "unexpected EOF" ]]
+
+	echo [[${compressed}]]
+	echo "sorry, not even enough info for a tar header here" | ${compressed} > junkfile
+	run storage apply-diff --file junkfile layer-${compressed}
+	echo "$output"
+	[[ "$status" -ne 0 ]]
+	[[ "$output" =~ "unexpected EOF" ]]
+}
+
+@test "applyjunk-uncompressed" {
+	applyjunk_main cat
+}
+
+@test "applyjunk-gzip" {
+	applyjunk_main gzip
+}
+
+@test "applyjunk-bzip2" {
+	applyjunk_main bzip2
+}
+
+@test "applyjunk-xz" {
+	applyjunk_main xz
+}
+
+@test "applyjunk-zstd" {
+	applyjunk_main zstd
 }

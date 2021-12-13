@@ -27,6 +27,13 @@ type tomlConfig struct {
 	} `toml:"storage"`
 }
 
+const (
+	// these are default path for run and graph root for rootful users
+	// for rootless path is constructed via getRootlessStorageOpts
+	defaultRunRoot   string = "/run/containers/storage"
+	defaultGraphRoot string = "/var/lib/containers/storage"
+)
+
 // defaultConfigFile path to the system wide storage.conf file
 var (
 	defaultConfigFile         = "/usr/share/containers/storage.conf"
@@ -42,17 +49,28 @@ const (
 )
 
 func init() {
-	defaultStoreOptions.RunRoot = "/run/containers/storage"
-	defaultStoreOptions.GraphRoot = "/var/lib/containers/storage"
+	defaultStoreOptions.RunRoot = defaultRunRoot
+	defaultStoreOptions.GraphRoot = defaultGraphRoot
 	defaultStoreOptions.GraphDriverName = ""
 
 	if _, err := os.Stat(defaultOverrideConfigFile); err == nil {
+		// The DefaultConfigFile(rootless) function returns the path
+		// of the used storage.conf file, by returning defaultConfigFile
+		// If override exists containers/storage uses it by default.
+		defaultConfigFile = defaultOverrideConfigFile
 		ReloadConfigurationFileIfNeeded(defaultOverrideConfigFile, &defaultStoreOptions)
 	} else {
 		if !os.IsNotExist(err) {
 			logrus.Warningf("Attempting to use %s, %v", defaultConfigFile, err)
 		}
 		ReloadConfigurationFileIfNeeded(defaultConfigFile, &defaultStoreOptions)
+	}
+	// reload could set values to empty for run and graph root if config does not contains anything
+	if defaultStoreOptions.RunRoot == "" {
+		defaultStoreOptions.RunRoot = defaultRunRoot
+	}
+	if defaultStoreOptions.GraphRoot == "" {
+		defaultStoreOptions.GraphRoot = defaultGraphRoot
 	}
 }
 

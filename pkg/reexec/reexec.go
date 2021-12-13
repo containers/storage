@@ -25,12 +25,12 @@ func Register(name string, initializer func()) {
 // initialization function was called.
 func Init() bool {
 	initializer, exists := registeredInitializers[os.Args[0]]
+	initWasCalled = true
 	if exists {
 		initializer()
 
 		return true
 	}
-	initWasCalled = true
 	return false
 }
 
