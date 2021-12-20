@@ -498,6 +498,13 @@ func maybeDoIDRemap(manifest []internal.FileMetadata, options *archive.TarOption
 	return nil
 }
 
+type originFile struct {
+	Root string
+	Path string
+
+	Offset int64
+}
+
 type missingFileChunk struct {
 	Gap int64
 
@@ -509,7 +516,27 @@ type missingFileChunk struct {
 
 type missingPart struct {
 	SourceChunk *ImageSourceChunk
+	OriginFile  *originFile
 	Chunks      []missingFileChunk
+}
+
+func (o *originFile) OpenFile() (io.ReadCloser, error) {
+	srcDirfd, err := unix.Open(o.Root, unix.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("open source file %q: %w", o.Root, err)
+	}
+	defer unix.Close(srcDirfd)
+
+	srcFile, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("open source file %q under target rootfs: %w", o.Path, err)
+	}
+
+	if _, err := srcFile.Seek(o.Offset, 0); err != nil {
+		srcFile.Close()
+		return nil, err
+	}
+	return srcFile, nil
 }
 
 // setFileAttrs sets the file attributes for file given metadata
@@ -840,26 +867,30 @@ func (d *destinationFile) Close() error {
 
 func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	var destFile *destinationFile
-	for mc := 0; ; mc++ {
+	for _, missingPart := range missingParts {
 		var part io.ReadCloser
-		select {
-		case p := <-streams:
-			part = p
-		case err := <-errs:
-			return err
-		}
-		if part == nil {
-			if mc == len(missingParts) {
-				break
+		switch {
+		case missingPart.SourceChunk != nil:
+			select {
+			case p := <-streams:
+				part = p
+			case err := <-errs:
+				return err
 			}
-			return errors.Errorf("invalid stream returned")
-		}
-		if mc == len(missingParts) {
-			part.Close()
-			return errors.Errorf("too many chunks returned")
+			if part == nil {
+				return errors.Errorf("invalid stream returned")
+			}
+		case missingPart.OriginFile != nil:
+			var err error
+			part, err = missingPart.OriginFile.OpenFile()
+			if err != nil {
+				return err
+			}
+		default:
+			return errors.Errorf("internal error: missing part misses both local and remote data stream")
 		}
 
-		for _, mf := range missingParts[mc].Chunks {
+		for _, mf := range missingPart.Chunks {
 			if mf.Gap > 0 {
 				limitReader := io.LimitReader(part, mf.Gap)
 				_, err := io.Copy(ioutil.Discard, limitReader)
@@ -1372,23 +1403,32 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 
 		missingPartsSize += r.Size
 		if t == tar.TypeReg {
-			rawChunk := ImageSourceChunk{
-				Offset: uint64(r.Offset),
-				Length: uint64(r.EndOffset - r.Offset),
-			}
+			remainingSize := r.Size
+			for _, c := range r.Chunks {
+				compressedSize := int64(c.EndOffset - c.Offset)
+				rawChunk := ImageSourceChunk{
+					Offset: uint64(c.Offset),
+					Length: uint64(compressedSize),
+				}
 
-			file := missingFileChunk{
-				File:             &mergedEntries[i],
-				CompressedSize:   mergedEntries[i].EndOffset - mergedEntries[i].Offset,
-				UncompressedSize: r.Size,
-			}
+				size := remainingSize
+				if c.ChunkSize > 0 {
+					size = c.ChunkSize
+				}
+				remainingSize = remainingSize - size
 
-			missingParts = append(missingParts, missingPart{
-				SourceChunk: &rawChunk,
-				Chunks: []missingFileChunk{
-					file,
-				},
-			})
+				file := missingFileChunk{
+					File:             &mergedEntries[i],
+					CompressedSize:   compressedSize,
+					UncompressedSize: size,
+				}
+				missingParts = append(missingParts, missingPart{
+					SourceChunk: &rawChunk,
+					Chunks: []missingFileChunk{
+						file,
+					},
+				})
+			}
 		}
 	}
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
@@ -1427,7 +1467,7 @@ func mustSkipFile(fileType compressedFileType, e internal.FileMetadata) bool {
 func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []internal.FileMetadata) ([]internal.FileMetadata, error) {
 	var mergedEntries []internal.FileMetadata
 	var prevEntry *internal.FileMetadata
-	for _, entry := range entries {
+	for i, entry := range entries {
 		e := entry
 
 		if mustSkipFile(fileType, e) {
@@ -1439,10 +1479,13 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 				return nil, errors.New("chunk type without a regular file")
 			}
 			prevEntry.EndOffset = e.EndOffset
+			prevEntry.Chunks = append(prevEntry.Chunks, &e)
 			continue
 		}
+		e.Chunks = append(e.Chunks, &entries[i])
+
 		mergedEntries = append(mergedEntries, e)
-		prevEntry = &e
+		prevEntry = &mergedEntries[len(mergedEntries)-1]
 	}
 	// stargz/estargz doesn't store EndOffset so let's calculate it here
 	lastOffset := c.tocOffset
@@ -1452,6 +1495,12 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 		}
 		if mergedEntries[i].Offset != 0 {
 			lastOffset = mergedEntries[i].Offset
+		}
+
+		lastChunkOffset := mergedEntries[i].EndOffset
+		for j := len(mergedEntries[i].Chunks) - 1; j >= 0; j-- {
+			mergedEntries[i].Chunks[j].EndOffset = lastChunkOffset
+			lastChunkOffset = mergedEntries[i].Chunks[j].Offset
 		}
 	}
 	return mergedEntries, nil
