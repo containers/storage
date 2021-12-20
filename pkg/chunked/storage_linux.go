@@ -1356,14 +1356,26 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	return output, nil
 }
 
+func mustSkipFile(fileType compressedFileType, e internal.FileMetadata) bool {
+	// ignore the metadata files for the estargz format.
+	if fileType != fileTypeEstargz {
+		return false
+	}
+	switch e.Name {
+	// ignore the metadata files for the estargz format.
+	case estargz.PrefetchLandmark, estargz.NoPrefetchLandmark, estargz.TOCTarName:
+		return true
+	}
+	return false
+}
+
 func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []internal.FileMetadata) ([]internal.FileMetadata, error) {
 	var mergedEntries []internal.FileMetadata
 	var prevEntry *internal.FileMetadata
 	for _, entry := range entries {
 		e := entry
 
-		// ignore the metadata files for the estargz format.
-		if fileType == fileTypeEstargz && (e.Name == estargz.PrefetchLandmark || e.Name == estargz.NoPrefetchLandmark || e.Name == estargz.TOCTarName) {
+		if mustSkipFile(fileType, e) {
 			continue
 		}
 
