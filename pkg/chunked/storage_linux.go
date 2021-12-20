@@ -755,7 +755,8 @@ func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.Fil
 	return nil, err
 }
 
-func (c *chunkedDiffer) createFileFromCompressedStream(dest string, dirfd int, reader io.Reader, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) (err error) {
+func (c *chunkedDiffer) createFileFromCompressedStream(dest string, dirfd int, reader io.Reader, metadata *internal.FileMetadata, options *archive.TarOptions) (err error) {
+	mode := os.FileMode(metadata.Mode)
 	file, err := openFileUnderRoot(metadata.Name, dirfd, newFileFlags, 0)
 	if err != nil {
 		return err
@@ -852,7 +853,7 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 
 			limitReader := io.LimitReader(part, mf.Length())
 
-			if err := c.createFileFromCompressedStream(dest, dirfd, limitReader, os.FileMode(mf.File.Mode), mf.File, options); err != nil {
+			if err := c.createFileFromCompressedStream(dest, dirfd, limitReader, mf.File, options); err != nil {
 				part.Close()
 				return err
 			}
