@@ -497,18 +497,17 @@ func maybeDoIDRemap(manifest []internal.FileMetadata, options *archive.TarOption
 	return nil
 }
 
-type missingFile struct {
+type missingFileChunk struct {
 	File *internal.FileMetadata
 	Gap  int64
+
+	Offset int64
+	Size   int64
 }
 
-func (m missingFile) Length() int64 {
-	return m.File.EndOffset - m.File.Offset
-}
-
-type missingChunk struct {
-	RawChunk ImageSourceChunk
-	Files    []missingFile
+type missingPart struct {
+	SourceChunk ImageSourceChunk
+	Chunks      []missingFileChunk
 }
 
 // setFileAttrs sets the file attributes for file given metadata
@@ -820,7 +819,7 @@ func (c *chunkedDiffer) createFileFromCompressedStream(dest string, dirfd int, r
 	return setFileAttrs(dirfd, file, mode, metadata, options, false)
 }
 
-func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingChunks []missingChunk, options *archive.TarOptions) error {
+func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	for mc := 0; ; mc++ {
 		var part io.ReadCloser
 		select {
@@ -830,17 +829,17 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 			return err
 		}
 		if part == nil {
-			if mc == len(missingChunks) {
+			if mc == len(missingParts) {
 				break
 			}
 			return errors.Errorf("invalid stream returned")
 		}
-		if mc == len(missingChunks) {
+		if mc == len(missingParts) {
 			part.Close()
 			return errors.Errorf("too many chunks returned")
 		}
 
-		for _, mf := range missingChunks[mc].Files {
+		for _, mf := range missingParts[mc].Chunks {
 			if mf.Gap > 0 {
 				limitReader := io.LimitReader(part, mf.Gap)
 				_, err := io.Copy(ioutil.Discard, limitReader)
@@ -851,7 +850,7 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				continue
 			}
 
-			limitReader := io.LimitReader(part, mf.Length())
+			limitReader := io.LimitReader(part, mf.Size)
 
 			if err := c.createFileFromCompressedStream(dest, dirfd, limitReader, mf.File, options); err != nil {
 				part.Close()
@@ -863,52 +862,52 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 	return nil
 }
 
-func mergeMissingChunks(missingChunks []missingChunk, target int) []missingChunk {
-	if len(missingChunks) <= target {
-		return missingChunks
+func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
+	if len(missingParts) <= target {
+		return missingParts
 	}
 
-	getGap := func(missingChunks []missingChunk, i int) int {
-		prev := missingChunks[i-1].RawChunk.Offset + missingChunks[i-1].RawChunk.Length
-		return int(missingChunks[i].RawChunk.Offset - prev)
+	getGap := func(missingParts []missingPart, i int) int {
+		prev := missingParts[i-1].SourceChunk.Offset + missingParts[i-1].SourceChunk.Length
+		return int(missingParts[i].SourceChunk.Offset - prev)
 	}
 
 	// this implementation doesn't account for duplicates, so it could merge
 	// more than necessary to reach the specified target.  Since target itself
 	// is a heuristic value, it doesn't matter.
 	var gaps []int
-	for i := 1; i < len(missingChunks); i++ {
-		gaps = append(gaps, getGap(missingChunks, i))
+	for i := 1; i < len(missingParts); i++ {
+		gaps = append(gaps, getGap(missingParts, i))
 	}
 	sort.Ints(gaps)
 
-	toShrink := len(missingChunks) - target
+	toShrink := len(missingParts) - target
 	targetValue := gaps[toShrink-1]
 
-	newMissingChunks := missingChunks[0:1]
-	for i := 1; i < len(missingChunks); i++ {
-		gap := getGap(missingChunks, i)
+	newMissingChunks := missingParts[0:1]
+	for i := 1; i < len(missingParts); i++ {
+		gap := getGap(missingParts, i)
 		if gap > targetValue {
-			newMissingChunks = append(newMissingChunks, missingChunks[i])
+			newMissingChunks = append(newMissingChunks, missingParts[i])
 		} else {
 			prev := &newMissingChunks[len(newMissingChunks)-1]
-			prev.RawChunk.Length += uint64(gap) + missingChunks[i].RawChunk.Length
+			prev.SourceChunk.Length += uint64(gap) + missingParts[i].SourceChunk.Length
 			if gap > 0 {
-				gapFile := missingFile{
+				gapFile := missingFileChunk{
 					Gap: int64(gap),
 				}
-				prev.Files = append(prev.Files, gapFile)
+				prev.Chunks = append(prev.Chunks, gapFile)
 			}
-			prev.Files = append(prev.Files, missingChunks[i].Files...)
+			prev.Chunks = append(prev.Chunks, missingParts[i].Chunks...)
 		}
 	}
 	return newMissingChunks
 }
 
-func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingChunks []missingChunk, options *archive.TarOptions) error {
+func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	var chunksToRequest []ImageSourceChunk
-	for _, c := range missingChunks {
-		chunksToRequest = append(chunksToRequest, c.RawChunk)
+	for _, c := range missingParts {
+		chunksToRequest = append(chunksToRequest, c.SourceChunk)
 	}
 
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
@@ -922,20 +921,20 @@ func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingChun
 		}
 
 		if _, ok := err.(ErrBadRequest); ok {
-			requested := len(missingChunks)
+			requested := len(missingParts)
 			// If the server cannot handle at least 64 chunks in a single request, just give up.
 			if requested < 64 {
 				return err
 			}
 
 			// Merge more chunks to request
-			missingChunks = mergeMissingChunks(missingChunks, requested/2)
+			missingParts = mergeMissingChunks(missingParts, requested/2)
 			continue
 		}
 		return err
 	}
 
-	if err := c.storeMissingFiles(streams, errs, dest, dirfd, missingChunks, options); err != nil {
+	if err := c.storeMissingFiles(streams, errs, dest, dirfd, missingParts, options); err != nil {
 		return err
 	}
 	return nil
@@ -1145,7 +1144,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 
 	whiteoutConverter := archive.GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 
-	var missingChunks []missingChunk
+	var missingParts []missingPart
 
 	mergedEntries, err := c.mergeTocEntries(c.fileType, toc.Entries)
 	if err != nil {
@@ -1177,7 +1176,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	// are retrieved
 	var hardLinks []hardLinkToCreate
 
-	missingChunksSize, totalChunksSize := int64(0), int64(0)
+	missingPartsSize, totalChunksSize := int64(0), int64(0)
 	for i, r := range mergedEntries {
 		if options.ForceMask != nil {
 			value := fmt.Sprintf("%d:%d:0%o", r.UID, r.GID, r.Mode&07777)
@@ -1318,29 +1317,31 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 			}
 		}
 
-		missingChunksSize += r.Size
+		missingPartsSize += r.Size
 		if t == tar.TypeReg {
 			rawChunk := ImageSourceChunk{
 				Offset: uint64(r.Offset),
 				Length: uint64(r.EndOffset - r.Offset),
 			}
 
-			file := missingFile{
-				File: &mergedEntries[i],
+			file := missingFileChunk{
+				File:   &mergedEntries[i],
+				Offset: 0,
+				Size:   mergedEntries[i].EndOffset - mergedEntries[i].Offset,
 			}
 
-			missingChunks = append(missingChunks, missingChunk{
-				RawChunk: rawChunk,
-				Files: []missingFile{
+			missingParts = append(missingParts, missingPart{
+				SourceChunk: rawChunk,
+				Chunks: []missingFileChunk{
 					file,
 				},
 			})
 		}
 	}
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
-	if len(missingChunks) > 0 {
-		missingChunks = mergeMissingChunks(missingChunks, maxNumberMissingChunks)
-		if err := c.retrieveMissingFiles(dest, dirfd, missingChunks, options); err != nil {
+	if len(missingParts) > 0 {
+		missingParts = mergeMissingChunks(missingParts, maxNumberMissingChunks)
+		if err := c.retrieveMissingFiles(dest, dirfd, missingParts, options); err != nil {
 			return output, err
 		}
 	}
@@ -1352,7 +1353,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	}
 
 	if totalChunksSize > 0 {
-		logrus.Debugf("Missing %d bytes out of %d (%.2f %%)", missingChunksSize, totalChunksSize, float32(missingChunksSize*100.0)/float32(totalChunksSize))
+		logrus.Debugf("Missing %d bytes out of %d (%.2f %%)", missingPartsSize, totalChunksSize, float32(missingPartsSize*100.0)/float32(totalChunksSize))
 	}
 	return output, nil
 }
