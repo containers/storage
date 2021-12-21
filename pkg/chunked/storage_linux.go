@@ -63,8 +63,8 @@ var xattrsToIgnore = map[string]interface{}{
 	"security.selinux": true,
 }
 
-func timeToTimespec(time time.Time) (ts unix.Timespec) {
-	if time.IsZero() {
+func timeToTimespec(time *time.Time) (ts unix.Timespec) {
+	if time == nil || time.IsZero() {
 		// Return UTIME_OMIT special value
 		ts.Sec = 0
 		ts.Nsec = ((1 << 30) - 2)

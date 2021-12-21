@@ -27,14 +27,14 @@ type FileMetadata struct {
 	Name       string            `json:"name"`
 	Linkname   string            `json:"linkName,omitempty"`
 	Mode       int64             `json:"mode,omitempty"`
-	Size       int64             `json:"size"`
-	UID        int               `json:"uid"`
-	GID        int               `json:"gid"`
-	ModTime    time.Time         `json:"modtime"`
-	AccessTime time.Time         `json:"accesstime"`
-	ChangeTime time.Time         `json:"changetime"`
-	Devmajor   int64             `json:"devMajor"`
-	Devminor   int64             `json:"devMinor"`
+	Size       int64             `json:"size,omitempty"`
+	UID        int               `json:"uid,omitempty"`
+	GID        int               `json:"gid,omitempty"`
+	ModTime    *time.Time        `json:"modtime,omitempty"`
+	AccessTime *time.Time        `json:"accesstime,omitempty"`
+	ChangeTime *time.Time        `json:"changetime,omitempty"`
+	Devmajor   int64             `json:"devMajor,omitempty"`
+	Devminor   int64             `json:"devMinor,omitempty"`
 	Xattrs     map[string]string `json:"xattrs,omitempty"`
 	Digest     string            `json:"digest,omitempty"`
 	Offset     int64             `json:"offset,omitempty"`
