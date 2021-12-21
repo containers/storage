@@ -40,7 +40,6 @@ type FileMetadata struct {
 	Offset     int64             `json:"offset,omitempty"`
 	EndOffset  int64             `json:"endOffset,omitempty"`
 
-	// Currently chunking is not supported.
 	ChunkSize   int64  `json:"chunkSize,omitempty"`
 	ChunkOffset int64  `json:"chunkOffset,omitempty"`
 	ChunkDigest string `json:"chunkDigest,omitempty"`

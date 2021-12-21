@@ -786,6 +786,13 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 		var part io.ReadCloser
 		compression := c.fileType
 		switch {
+		case missingPart.OriginFile != nil:
+			var err error
+			part, err = missingPart.OriginFile.OpenFile()
+			if err != nil {
+				return err
+			}
+			compression = fileTypeNoCompression
 		case missingPart.SourceChunk != nil:
 			select {
 			case p := <-streams:
@@ -796,13 +803,6 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 			if part == nil {
 				return errors.Errorf("invalid stream returned")
 			}
-		case missingPart.OriginFile != nil:
-			var err error
-			part, err = missingPart.OriginFile.OpenFile()
-			if err != nil {
-				return err
-			}
-			compression = fileTypeNoCompression
 		default:
 			return errors.Errorf("internal error: missing part misses both local and remote data stream")
 		}
@@ -840,7 +840,11 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				}
 			}
 
-			limitReader := io.LimitReader(part, mf.CompressedSize)
+			streamLength := mf.CompressedSize
+			if compression == fileTypeNoCompression {
+				streamLength = mf.UncompressedSize
+			}
+			limitReader := io.LimitReader(part, streamLength)
 
 			if err := c.appendCompressedStreamToFile(compression, destFile, limitReader, mf.UncompressedSize); err != nil {
 				part.Close()
@@ -861,10 +865,6 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 }
 
 func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
-	if len(missingParts) <= target {
-		return missingParts
-	}
-
 	getGap := func(missingParts []missingPart, i int) int {
 		prev := missingParts[i-1].SourceChunk.Offset + missingParts[i-1].SourceChunk.Length
 		return int(missingParts[i].SourceChunk.Offset - prev)
@@ -880,6 +880,29 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 		return cost
 	}
 
+	// simple case: merge chunks from the same file.
+	newMissingParts := missingParts[0:1]
+	prevIndex := 0
+	for i := 1; i < len(missingParts); i++ {
+		gap := getGap(missingParts, i)
+		if gap == 0 && missingParts[prevIndex].OriginFile == nil &&
+			missingParts[i].OriginFile == nil &&
+			len(missingParts[prevIndex].Chunks) == 1 && len(missingParts[i].Chunks) == 1 &&
+			missingParts[prevIndex].Chunks[0].File.Name == missingParts[i].Chunks[0].File.Name {
+			missingParts[prevIndex].SourceChunk.Length += uint64(gap) + missingParts[i].SourceChunk.Length
+			missingParts[prevIndex].Chunks[0].CompressedSize += missingParts[i].Chunks[0].CompressedSize
+			missingParts[prevIndex].Chunks[0].UncompressedSize += missingParts[i].Chunks[0].UncompressedSize
+		} else {
+			newMissingParts = append(newMissingParts, missingParts[i])
+			prevIndex++
+		}
+	}
+	missingParts = newMissingParts
+
+	if len(missingParts) <= target {
+		return missingParts
+	}
+
 	// this implementation doesn't account for duplicates, so it could merge
 	// more than necessary to reach the specified target.  Since target itself
 	// is a heuristic value, it doesn't matter.
@@ -892,13 +915,13 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 	toShrink := len(missingParts) - target
 	targetValue := costs[toShrink]
 
-	newMissingChunks := missingParts[0:1]
+	newMissingParts = missingParts[0:1]
 	for i := 1; i < len(missingParts); i++ {
 		if getCost(missingParts, i) > targetValue {
-			newMissingChunks = append(newMissingChunks, missingParts[i])
+			newMissingParts = append(newMissingParts, missingParts[i])
 		} else {
 			gap := getGap(missingParts, i)
-			prev := &newMissingChunks[len(newMissingChunks)-1]
+			prev := &newMissingParts[len(newMissingParts)-1]
 			prev.SourceChunk.Length += uint64(gap) + missingParts[i].SourceChunk.Length
 			prev.OriginFile = nil
 			if gap > 0 {
@@ -910,13 +933,13 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 			prev.Chunks = append(prev.Chunks, missingParts[i].Chunks...)
 		}
 	}
-	return newMissingChunks
+	return newMissingParts
 }
 
 func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	var chunksToRequest []ImageSourceChunk
 	for _, c := range missingParts {
-		if c.SourceChunk != nil {
+		if c.OriginFile == nil {
 			chunksToRequest = append(chunksToRequest, *c.SourceChunk)
 		}
 	}
@@ -1331,30 +1354,50 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		missingPartsSize += r.Size
 		if t == tar.TypeReg {
 			remainingSize := r.Size
-			for _, c := range r.Chunks {
-				compressedSize := int64(c.EndOffset - c.Offset)
-				rawChunk := ImageSourceChunk{
-					Offset: uint64(c.Offset),
-					Length: uint64(compressedSize),
-				}
-
+			for _, chunk := range r.Chunks {
+				compressedSize := int64(chunk.EndOffset - chunk.Offset)
 				size := remainingSize
-				if c.ChunkSize > 0 {
-					size = c.ChunkSize
+				if chunk.ChunkSize > 0 {
+					size = chunk.ChunkSize
 				}
 				remainingSize = remainingSize - size
 
-				file := missingFileChunk{
-					File:             &mergedEntries[i],
-					CompressedSize:   compressedSize,
-					UncompressedSize: size,
+				root, path, offset := findChunkInOtherLayers(chunk, otherLayersCache, c.layersTarget)
+				if offset >= 0 {
+					missingPartsSize -= size
+					file := missingFileChunk{
+						File:             &mergedEntries[i],
+						CompressedSize:   size,
+						UncompressedSize: size,
+					}
+					oFile := originFile{
+						Root:   root,
+						Path:   path,
+						Offset: offset,
+					}
+					missingParts = append(missingParts, missingPart{
+						OriginFile: &oFile,
+						Chunks: []missingFileChunk{
+							file,
+						},
+					})
+				} else {
+					rawChunk := ImageSourceChunk{
+						Offset: uint64(chunk.Offset),
+						Length: uint64(compressedSize),
+					}
+					file := missingFileChunk{
+						File:             &mergedEntries[i],
+						CompressedSize:   compressedSize,
+						UncompressedSize: size,
+					}
+					missingParts = append(missingParts, missingPart{
+						SourceChunk: &rawChunk,
+						Chunks: []missingFileChunk{
+							file,
+						},
+					})
 				}
-				missingParts = append(missingParts, missingPart{
-					SourceChunk: &rawChunk,
-					Chunks: []missingFileChunk{
-						file,
-					},
-				})
 			}
 		}
 	}
@@ -1427,6 +1470,7 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 		lastChunkOffset := mergedEntries[i].EndOffset
 		for j := len(mergedEntries[i].Chunks) - 1; j >= 0; j-- {
 			mergedEntries[i].Chunks[j].EndOffset = lastChunkOffset
+			mergedEntries[i].Chunks[j].Size = mergedEntries[i].Chunks[j].EndOffset - mergedEntries[i].Chunks[j].Offset
 			lastChunkOffset = mergedEntries[i].Chunks[j].Offset
 		}
 	}

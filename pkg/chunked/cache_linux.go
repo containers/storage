@@ -20,6 +20,10 @@ func prepareOtherLayersCache(layersMetadata map[string][]internal.FileMetadata) 
 				r[v[i].Digest] = append(r[v[i].Digest], &v[i])
 			}
 
+			// chunks do not use hard link dedup so keeping just one candidate is enough
+			if v[i].ChunkDigest != "" && len(r[v[i].ChunkDigest]) == 0{
+				r[v[i].ChunkDigest] = append(r[v[i].ChunkDigest], &v[i])
+			}
 		}
 		maps[layerID] = r
 	}
@@ -96,4 +100,23 @@ func findFileInOtherLayers(file *internal.FileMetadata, dirfd int, layersMetadat
 		return findFileInOtherLayers(file, dirfd, layersMetadata, layersTarget, false)
 	}
 	return false, nil, 0, nil
+}
+
+func findChunkInOtherLayers(chunk *internal.FileMetadata, layersMetadata map[string]map[string][]*internal.FileMetadata, layersTarget map[string]string) (string, string, int64) {
+	for layerID, checksums := range layersMetadata {
+		source, ok := layersTarget[layerID]
+		if !ok {
+			continue
+		}
+		chunks := checksums[file.ChunkDigest]
+		for _, candidate := range chunks {
+			if candidate.Type == internal.TypeChunk {
+				return source, candidate.Name, candidate.ChunkOffset
+			}
+			if candidate.Type == internal.TypeReg {
+				return source, candidate.Name, 0
+			}
+		}
+	}
+	return "", "", -1
 }
