@@ -50,12 +50,11 @@ const (
 type compressedFileType int
 
 type chunkedDiffer struct {
-	stream         ImageSourceSeekable
-	manifest       []byte
-	layersMetadata map[string][]internal.FileMetadata
-	layersTarget   map[string]string
-	tocOffset      int64
-	fileType       compressedFileType
+	stream      ImageSourceSeekable
+	manifest    []byte
+	layersCache *layersCache
+	tocOffset   int64
+	fileType    compressedFileType
 
 	gzipReader *pgzip.Reader
 }
@@ -145,18 +144,17 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
-	layersMetadata, layersTarget, err := getLayersCache(store)
+	layersCache, err := getLayersCache(store)
 	if err != nil {
 		return nil, err
 	}
 
 	return &chunkedDiffer{
-		stream:         iss,
-		manifest:       manifest,
-		layersMetadata: layersMetadata,
-		layersTarget:   layersTarget,
-		tocOffset:      tocOffset,
-		fileType:       fileTypeZstdChunked,
+		stream:      iss,
+		manifest:    manifest,
+		layersCache: layersCache,
+		tocOffset:   tocOffset,
+		fileType:    fileTypeZstdChunked,
 	}, nil
 }
 
@@ -165,18 +163,17 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
-	layersMetadata, layersTarget, err := getLayersCache(store)
+	layersCache, err := getLayersCache(store)
 	if err != nil {
 		return nil, err
 	}
 
 	return &chunkedDiffer{
-		stream:         iss,
-		manifest:       manifest,
-		layersMetadata: layersMetadata,
-		layersTarget:   layersTarget,
-		tocOffset:      tocOffset,
-		fileType:       fileTypeEstargz,
+		stream:      iss,
+		manifest:    manifest,
+		layersCache: layersCache,
+		tocOffset:   tocOffset,
+		fileType:    fileTypeEstargz,
 	}, nil
 }
 
@@ -386,6 +383,49 @@ func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool
 		return false, nil, 0, nil
 	}
 	return true, dstFile, written, nil
+}
+
+type findFileState struct {
+	file         *internal.FileMetadata
+	useHardLinks bool
+	dirfd        int
+
+	found    bool
+	dstFile  *os.File
+	written  int64
+	retError error
+}
+
+func (v *findFileState) VisitFile(candidate *internal.FileMetadata, target string) (bool, error) {
+	if v.useHardLinks && !canDedupMetadataWithHardLink(v.file, candidate) {
+		return true, nil
+	}
+	found, dstFile, written, err := copyFileFromOtherLayer(v.file, target, candidate, v.dirfd, v.useHardLinks)
+	if found && err == nil {
+		v.found = found
+		v.dstFile = dstFile
+		v.written = written
+		v.retError = err
+		return false, nil
+	}
+	return true, nil
+}
+
+// findFileInOtherLayers finds the specified file in other layers.
+// cache is the layers cache to use.
+// file is the file to look for.
+// dirfd is an open file descriptor to the checkout root directory.
+// useHardLinks defines whether the deduplication can be performed using hard links.
+func findFileInOtherLayers(cache *layersCache, file *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+	visitor := &findFileState{
+		file:         file,
+		useHardLinks: useHardLinks,
+		dirfd:        dirfd,
+	}
+	if err := cache.findFileInOtherLayers(file, visitor); err != nil {
+		return false, nil, 0, err
+	}
+	return visitor.found, visitor.dstFile, visitor.written, visitor.retError
 }
 
 func maybeDoIDRemap(manifest []internal.FileMetadata, options *archive.TarOptions) error {
@@ -1204,8 +1244,6 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	}
 	defer unix.Close(dirfd)
 
-	otherLayersCache := prepareOtherLayersCache(c.layersMetadata)
-
 	// hardlinks can point to missing files.  So create them after all files
 	// are retrieved
 	var hardLinks []hardLinkToCreate
@@ -1316,7 +1354,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 			return nil
 		}
 
-		found, dstFile, _, err := findFileInOtherLayers(&r, dirfd, otherLayersCache, c.layersTarget, useHardLinks)
+		found, dstFile, _, err := findFileInOtherLayers(c.layersCache, &r, dirfd, useHardLinks)
 		if err != nil {
 			return output, err
 		}
@@ -1362,42 +1400,32 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 				}
 				remainingSize = remainingSize - size
 
-				root, path, offset := findChunkInOtherLayers(chunk, otherLayersCache, c.layersTarget)
+				rawChunk := ImageSourceChunk{
+					Offset: uint64(chunk.Offset),
+					Length: uint64(compressedSize),
+				}
+				file := missingFileChunk{
+					File:             &mergedEntries[i],
+					CompressedSize:   compressedSize,
+					UncompressedSize: size,
+				}
+				mp := missingPart{
+					SourceChunk: &rawChunk,
+					Chunks: []missingFileChunk{
+						file,
+					},
+				}
+
+				root, path, offset := c.layersCache.findChunkInOtherLayers(chunk)
 				if offset >= 0 {
 					missingPartsSize -= size
-					file := missingFileChunk{
-						File:             &mergedEntries[i],
-						CompressedSize:   size,
-						UncompressedSize: size,
-					}
-					oFile := originFile{
+					mp.OriginFile = &originFile{
 						Root:   root,
 						Path:   path,
 						Offset: offset,
 					}
-					missingParts = append(missingParts, missingPart{
-						OriginFile: &oFile,
-						Chunks: []missingFileChunk{
-							file,
-						},
-					})
-				} else {
-					rawChunk := ImageSourceChunk{
-						Offset: uint64(chunk.Offset),
-						Length: uint64(compressedSize),
-					}
-					file := missingFileChunk{
-						File:             &mergedEntries[i],
-						CompressedSize:   compressedSize,
-						UncompressedSize: size,
-					}
-					missingParts = append(missingParts, missingPart{
-						SourceChunk: &rawChunk,
-						Chunks: []missingFileChunk{
-							file,
-						},
-					})
 				}
+				missingParts = append(missingParts, mp)
 			}
 		}
 	}
