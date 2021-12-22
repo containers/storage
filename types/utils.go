@@ -124,8 +124,12 @@ func getRootlessDirInfo(rootlessUID int) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-
-	dataDir, err := homedir.GetDataHome()
+	var dataDir string
+	if rootlessUID != os.Getuid() && os.Getuid() == 0 { // this means getRootlessDirInfo was called as root
+		dataDir, err = homedir.GetDataHomeByUID(rootlessUID)
+	} else { // else just get the home dir of the current user
+		dataDir, err = homedir.GetDataHome()
+	}
 	if err == nil {
 		return dataDir, rootlessRuntime, nil
 	}

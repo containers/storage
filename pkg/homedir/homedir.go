@@ -2,8 +2,12 @@ package homedir
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
+	"os/user"
 	"path/filepath"
+	"strings"
 )
 
 // GetConfigHome returns XDG_CONFIG_HOME.
@@ -34,6 +38,31 @@ func GetDataHome() (string, error) {
 		return "", errors.New("could not get either XDG_DATA_HOME or HOME")
 	}
 	return filepath.Join(home, ".local", "share"), nil
+
+}
+
+// GetDataHomeByUID finds the home directory for the given uid, only works with sudo permissions
+func GetDataHomeByUID(uid int) (string, error) {
+	var home string
+	u, err := user.LookupId(fmt.Sprint(uid))
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.Command("sudo", "-Hiu", u.Username, "env")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	env := strings.Split(string(out), "\n")
+	for _, val := range env {
+		if strings.Contains(val, "XDG_DATA_HOME") || strings.Contains(val, "HOME") {
+			home = strings.Split(val, "=")[1]
+		}
+	}
+	if len(home) == 0 {
+		return "", errors.New("called function as root, could not find given user's home directory")
+	}
+	return home, nil
 }
 
 // GetCacheHome returns XDG_CACHE_HOME.
