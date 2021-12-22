@@ -795,9 +795,6 @@ func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileT
 		if _, err := io.Copy(destFile.to, io.LimitReader(z, size)); err != nil {
 			return err
 		}
-		if _, err := io.Copy(ioutil.Discard, reader); err != nil {
-			return err
-		}
 	case fileTypeEstargz:
 		if c.gzipReader == nil {
 			r, err := pgzip.NewReader(reader)
@@ -815,15 +812,9 @@ func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileT
 		if _, err := io.Copy(destFile.to, io.LimitReader(c.gzipReader, size)); err != nil {
 			return err
 		}
-		if _, err := io.Copy(ioutil.Discard, reader); err != nil {
-			return err
-		}
 	case fileTypeNoCompression:
 		_, err := io.Copy(destFile.to, io.LimitReader(reader, size))
 		if err != nil {
-			return err
-		}
-		if _, err := io.Copy(ioutil.Discard, reader); err != nil {
 			return err
 		}
 	default:
@@ -937,6 +928,9 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 
 			if err := c.appendCompressedStreamToFile(compression, destFile, limitReader, mf.UncompressedSize); err != nil {
 				part.Close()
+				return err
+			}
+			if _, err := io.Copy(ioutil.Discard, limitReader); err != nil {
 				return err
 			}
 		}
