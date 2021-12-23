@@ -27,11 +27,11 @@ import (
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/types"
 	securejoin "github.com/cyphar/filepath-securejoin"
-	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	zstd "github.com/valyala/gozstd"
 	"github.com/vbatts/tar-split/archive/tar"
 	"golang.org/x/sys/unix"
 )
@@ -61,7 +61,8 @@ type chunkedDiffer struct {
 	copyBuffer []byte
 
 	gzipReader *pgzip.Reader
-	zstdReader *zstd.Decoder
+
+	zstdReader *zstd.Reader
 	rawReader  io.Reader
 }
 
@@ -726,17 +727,11 @@ func (c *chunkedDiffer) prepareCompressedStreamToFile(compression compressedFile
 	case fileTypeZstdChunked:
 		c.rawReader = io.LimitReader(from, mf.CompressedSize)
 		if c.zstdReader == nil {
-			r, err := zstd.NewReader(c.rawReader)
-			if err != nil {
-				return err
-			}
+			r := zstd.NewReader(c.rawReader)
 			c.zstdReader = r
 		} else {
-			if err := c.zstdReader.Reset(c.rawReader); err != nil {
-				return err
-			}
+			c.zstdReader.Reset(c.rawReader, nil)
 		}
-
 	case fileTypeEstargz:
 		c.rawReader = io.LimitReader(from, mf.CompressedSize)
 		if c.gzipReader == nil {
@@ -762,7 +757,7 @@ func (c *chunkedDiffer) prepareCompressedStreamToFile(compression compressedFile
 func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileType, to io.Writer, size int64) error {
 	switch compression {
 	case fileTypeZstdChunked:
-		defer c.zstdReader.Reset(nil)
+		defer c.zstdReader.Reset(nil, nil)
 		if _, err := io.CopyBuffer(to, io.LimitReader(c.zstdReader, size), c.copyBuffer); err != nil {
 			return err
 		}
@@ -1277,7 +1272,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	defer c.layersCache.release()
 	defer func() {
 		if c.zstdReader != nil {
-			c.zstdReader.Close()
+			c.zstdReader.Release()
 		}
 	}()
 
