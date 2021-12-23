@@ -1184,6 +1184,8 @@ func parseBooleanPullOption(storeOpts *storage.StoreOptions, name string, def bo
 }
 
 func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (graphdriver.DriverWithDifferOutput, error) {
+	defer c.layersCache.release()
+
 	bigData := map[string][]byte{
 		bigDataKey: c.manifest,
 	}
