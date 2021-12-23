@@ -71,7 +71,6 @@ github.com/hashicorp/go-multierror
 ## explicit
 github.com/json-iterator/go
 # github.com/klauspost/compress v1.13.6
-## explicit
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
