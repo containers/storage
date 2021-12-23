@@ -212,7 +212,7 @@ func zstdChunkedWriterWithLevel(out io.Writer, metadata map[string]string, level
 // ZstdCompressor is a CompressorFunc for the zstd compression algorithm.
 func ZstdCompressor(r io.Writer, metadata map[string]string, level *int) (io.WriteCloser, error) {
 	if level == nil {
-		l := 3
+		l := 10
 		level = &l
 	}
 
