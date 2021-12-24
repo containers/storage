@@ -1520,27 +1520,50 @@ func mustSkipFile(fileType compressedFileType, e internal.FileMetadata) bool {
 }
 
 func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []internal.FileMetadata) ([]internal.FileMetadata, error) {
-	var mergedEntries []internal.FileMetadata
-	var prevEntry *internal.FileMetadata
-	for i, entry := range entries {
-		e := entry
+	countNextChunks := func(start int) int {
+		count := 0
+		for _, e := range entries[start:] {
+			if e.Type != TypeChunk {
+				return count
+			}
+			count++
+		}
+		return count
+	}
 
+	size := 0
+	for _, entry := range entries {
+		if mustSkipFile(fileType, entry) {
+			continue
+		}
+		if entry.Type != TypeChunk {
+			size++
+		}
+	}
+
+	mergedEntries := make([]internal.FileMetadata, size)
+	m := 0
+	for i := 0; i < len(entries); i++ {
+		e := entries[i]
 		if mustSkipFile(fileType, e) {
 			continue
 		}
-
 		if e.Type == TypeChunk {
-			if prevEntry == nil || prevEntry.Type != TypeReg {
-				return nil, errors.New("chunk type without a regular file")
-			}
-			prevEntry.EndOffset = e.EndOffset
-			prevEntry.Chunks = append(prevEntry.Chunks, &e)
-			continue
+			return nil, fmt.Errorf("chunk type without a regular file")
 		}
-		e.Chunks = append(e.Chunks, &entries[i])
 
-		mergedEntries = append(mergedEntries, e)
-		prevEntry = &mergedEntries[len(mergedEntries)-1]
+		if e.Type == TypeReg {
+			nChunks := countNextChunks(i + 1)
+
+			e.Chunks = make([]*internal.FileMetadata, nChunks+1)
+			for j := 0; j <= nChunks; j++ {
+				e.Chunks[j] = &entries[i+j]
+				e.EndOffset = entries[i+j].EndOffset
+			}
+			i += nChunks
+		}
+		mergedEntries[m] = e
+		m++
 	}
 	// stargz/estargz doesn't store EndOffset so let's calculate it here
 	lastOffset := c.tocOffset
