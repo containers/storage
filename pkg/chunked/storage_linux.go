@@ -56,8 +56,10 @@ type chunkedDiffer struct {
 	tocOffset   int64
 	fileType    compressedFileType
 
-	gzipReader  *pgzip.Reader
-	zstdReader  *zstd.Decoder
+	copyBuffer []byte
+
+	gzipReader *pgzip.Reader
+	zstdReader *zstd.Decoder
 }
 
 var xattrsToIgnore = map[string]interface{}{
@@ -151,6 +153,7 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	}
 
 	return &chunkedDiffer{
+		copyBuffer:  makeCopyBuffer(),
 		stream:      iss,
 		manifest:    manifest,
 		layersCache: layersCache,
@@ -170,12 +173,17 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 	}
 
 	return &chunkedDiffer{
+		copyBuffer:  makeCopyBuffer(),
 		stream:      iss,
 		manifest:    manifest,
 		layersCache: layersCache,
 		tocOffset:   tocOffset,
 		fileType:    fileTypeEstargz,
 	}, nil
+}
+
+func makeCopyBuffer() []byte {
+	return make([]byte, 2<<20)
 }
 
 // copyFileFromOtherLayer copies a file from another layer
@@ -259,9 +267,9 @@ func canDedupFileWithHardLink(file *internal.FileMetadata, fd int, s os.FileInfo
 	return canDedupMetadataWithHardLink(file, &otherFile)
 }
 
-func getFileDigest(f *os.File) (digest.Digest, error) {
+func getFileDigest(f *os.File, buf []byte) (digest.Digest, error) {
 	digester := digest.Canonical.Digester()
-	if _, err := io.Copy(digester.Hash(), f); err != nil {
+	if _, err := io.CopyBuffer(digester.Hash(), f, buf); err != nil {
 		return "", err
 	}
 	return digester.Digest(), nil
@@ -323,7 +331,7 @@ func findFileInOSTreeRepos(file *internal.FileMetadata, ostreeRepos []string, di
 // file is the file to look for.
 // dirfd is an open fd to the destination checkout.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool, buf []byte) (bool, *os.File, int64, error) {
 	sourceFile := filepath.Clean(filepath.Join("/", file.Name))
 	if !strings.HasPrefix(sourceFile, "/usr/") {
 		// limit host deduplication to files under /usr.
@@ -352,7 +360,7 @@ func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool
 		return false, nil, 0, err
 	}
 
-	checksum, err := getFileDigest(f)
+	checksum, err := getFileDigest(f, buf)
 	if err != nil {
 		return false, nil, 0, err
 	}
@@ -374,7 +382,7 @@ func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool
 		dstFile.Close()
 		return false, nil, 0, err
 	}
-	checksum, err = getFileDigest(f)
+	checksum, err = getFileDigest(f, buf)
 	if err != nil {
 		dstFile.Close()
 		return false, nil, 0, err
@@ -756,7 +764,7 @@ func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileT
 		}
 		defer c.zstdReader.Reset(nil)
 
-		if _, err := io.Copy(destFile.to, io.LimitReader(c.zstdReader, size)); err != nil {
+		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.zstdReader, size), c.copyBuffer); err != nil {
 			return err
 		}
 	case fileTypeEstargz:
@@ -773,11 +781,11 @@ func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileT
 		}
 		defer c.gzipReader.Close()
 
-		if _, err := io.Copy(destFile.to, io.LimitReader(c.gzipReader, size)); err != nil {
+		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.gzipReader, size), c.copyBuffer); err != nil {
 			return err
 		}
 	case fileTypeNoCompression:
-		_, err := io.Copy(destFile.to, io.LimitReader(reader, size))
+		_, err := io.CopyBuffer(destFile.to, io.LimitReader(reader, size), c.copyBuffer)
 		if err != nil {
 			return err
 		}
@@ -858,7 +866,7 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 		for _, mf := range missingPart.Chunks {
 			if mf.Gap > 0 {
 				limitReader := io.LimitReader(part, mf.Gap)
-				_, err := io.Copy(ioutil.Discard, limitReader)
+				_, err := io.CopyBuffer(ioutil.Discard, limitReader, c.copyBuffer)
 				if err != nil {
 					part.Close()
 					return err
@@ -898,7 +906,8 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				part.Close()
 				return err
 			}
-			if _, err := io.Copy(ioutil.Discard, limitReader); err != nil {
+			if _, err := io.CopyBuffer(ioutil.Discard, limitReader, c.copyBuffer); err != nil {
+				part.Close()
 				return err
 			}
 		}
@@ -1392,7 +1401,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		}
 
 		if enableHostDedup {
-			found, dstFile, _, err = findFileOnTheHost(&r, dirfd, useHardLinks)
+			found, dstFile, _, err = findFileOnTheHost(&r, dirfd, useHardLinks, c.copyBuffer)
 			if err != nil {
 				return output, err
 			}
