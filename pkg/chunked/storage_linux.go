@@ -833,11 +833,31 @@ func (d *destinationFile) Close() error {
 	}
 
 	return setFileAttrs(d.dirfd, d.file, os.FileMode(d.metadata.Mode), d.metadata, d.options, false)
-
 }
 
-func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
+func closeDestinationFiles(files chan *destinationFile, errors chan error) {
+	for f := range files {
+		errors <- f.Close()
+	}
+	close(errors)
+}
+
+func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) (Err error) {
 	var destFile *destinationFile
+
+	filesToClose := make(chan *destinationFile, 3)
+	closeFilesErrors := make(chan error, 2)
+
+	go closeDestinationFiles(filesToClose, closeFilesErrors)
+	defer func() {
+		close(filesToClose)
+		for e := range closeFilesErrors {
+			if e != nil && Err == nil {
+				Err = e
+			}
+		}
+	}()
+
 	for _, missingPart := range missingParts {
 		var part io.ReadCloser
 		compression := c.fileType
@@ -868,31 +888,40 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				limitReader := io.LimitReader(part, mf.Gap)
 				_, err := io.CopyBuffer(ioutil.Discard, limitReader, c.copyBuffer)
 				if err != nil {
-					part.Close()
-					return err
+					Err = err
+					goto exit
 				}
 				continue
 			}
 
 			if mf.File.Name == "" {
-				part.Close()
-				return errors.Errorf("file name empty")
+				Err = errors.Errorf("file name empty")
+				goto exit
 			}
 
 			// Open the new file if it is different that what is already
 			// opened
 			if destFile == nil || destFile.metadata.Name != mf.File.Name {
-				if destFile != nil {
-					if err := destFile.Close(); err != nil {
-						part.Close()
-						return err
-					}
-				}
 				var err error
+				if destFile != nil {
+				cleanup:
+					for {
+						select {
+						case err = <-closeFilesErrors:
+							if err != nil {
+								Err = err
+								goto exit
+							}
+						default:
+							break cleanup
+						}
+					}
+					filesToClose <- destFile
+				}
 				destFile, err = openDestinationFile(dirfd, mf.File, options)
 				if err != nil {
-					part.Close()
-					return err
+					Err = err
+					goto exit
 				}
 			}
 
@@ -903,15 +932,19 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 			limitReader := io.LimitReader(part, streamLength)
 
 			if err := c.appendCompressedStreamToFile(compression, destFile, limitReader, mf.UncompressedSize); err != nil {
-				part.Close()
-				return err
+				Err = err
+				goto exit
 			}
 			if _, err := io.CopyBuffer(ioutil.Discard, limitReader, c.copyBuffer); err != nil {
-				part.Close()
-				return err
+				Err = err
+				goto exit
 			}
 		}
+	exit:
 		part.Close()
+		if Err != nil {
+			break
+		}
 	}
 
 	if destFile != nil {
