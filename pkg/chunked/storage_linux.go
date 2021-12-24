@@ -56,7 +56,8 @@ type chunkedDiffer struct {
 	tocOffset   int64
 	fileType    compressedFileType
 
-	gzipReader *pgzip.Reader
+	gzipReader  *pgzip.Reader
+	zstdReader  *zstd.Decoder
 }
 
 var xattrsToIgnore = map[string]interface{}{
@@ -742,13 +743,20 @@ func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.Fil
 func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileType, destFile *destinationFile, reader io.Reader, size int64) (err error) {
 	switch compression {
 	case fileTypeZstdChunked:
-		z, err := zstd.NewReader(reader)
-		if err != nil {
-			return err
+		if c.zstdReader == nil {
+			r, err := zstd.NewReader(reader)
+			if err != nil {
+				return err
+			}
+			c.zstdReader = r
+		} else {
+			if err := c.zstdReader.Reset(reader); err != nil {
+				return err
+			}
 		}
-		defer z.Close()
+		defer c.zstdReader.Reset(nil)
 
-		if _, err := io.Copy(destFile.to, io.LimitReader(z, size)); err != nil {
+		if _, err := io.Copy(destFile.to, io.LimitReader(c.zstdReader, size)); err != nil {
 			return err
 		}
 	case fileTypeEstargz:
