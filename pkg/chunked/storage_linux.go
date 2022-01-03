@@ -1215,6 +1215,54 @@ func parseBooleanPullOption(storeOpts *storage.StoreOptions, name string, def bo
 	return def
 }
 
+func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *internal.FileMetadata, useHardLinks, enableHostDedup bool, ostreeRepos []string, options *archive.TarOptions, mode os.FileMode) (bool, error) {
+	finalizeFile := func(dstFile *os.File) error {
+		if dstFile != nil {
+			defer dstFile.Close()
+			if err := setFileAttrs(dirfd, dstFile, mode, r, options, false); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	found, dstFile, _, err := findFileInOtherLayers(c.layersCache, r, dirfd, useHardLinks)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		if err := finalizeFile(dstFile); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	found, dstFile, _, err = findFileInOSTreeRepos(r, ostreeRepos, dirfd, useHardLinks)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		if err := finalizeFile(dstFile); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	if enableHostDedup {
+		found, dstFile, _, err = findFileOnTheHost(r, dirfd, useHardLinks, c.copyBuffer)
+		if err != nil {
+			return false, err
+		}
+		if found {
+			if err := finalizeFile(dstFile); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (graphdriver.DriverWithDifferOutput, error) {
 	defer c.layersCache.release()
 	defer func() {
@@ -1383,49 +1431,12 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 
 		totalChunksSize += r.Size
 
-		finalizeFile := func(dstFile *os.File) error {
-			if dstFile != nil {
-				defer dstFile.Close()
-				if err := setFileAttrs(dirfd, dstFile, mode, &r, options, false); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-
-		found, dstFile, _, err := findFileInOtherLayers(c.layersCache, &r, dirfd, useHardLinks)
+		found, err := c.findAndCopyFile(dirfd, &r, useHardLinks, enableHostDedup, ostreeRepos, options, mode)
 		if err != nil {
 			return output, err
 		}
 		if found {
-			if err := finalizeFile(dstFile); err != nil {
-				return output, err
-			}
 			continue
-		}
-
-		found, dstFile, _, err = findFileInOSTreeRepos(&r, ostreeRepos, dirfd, useHardLinks)
-		if err != nil {
-			return output, err
-		}
-		if found {
-			if err := finalizeFile(dstFile); err != nil {
-				return output, err
-			}
-			continue
-		}
-
-		if enableHostDedup {
-			found, dstFile, _, err = findFileOnTheHost(&r, dirfd, useHardLinks, c.copyBuffer)
-			if err != nil {
-				return output, err
-			}
-			if found {
-				if err := finalizeFile(dstFile); err != nil {
-					return output, err
-				}
-				continue
-			}
 		}
 
 		missingPartsSize += r.Size
