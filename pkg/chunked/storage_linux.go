@@ -190,19 +190,19 @@ func makeCopyBuffer() []byte {
 // copyFileFromOtherLayer copies a file from another layer
 // file is the file to look for.
 // source is the path to the source layer checkout.
-// otherFile contains the metadata for the file.
+// name is the path to the file to copy in source.
 // dirfd is an open file descriptor to the destination root directory.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func copyFileFromOtherLayer(file *internal.FileMetadata, source string, otherFile *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+func copyFileFromOtherLayer(file *internal.FileMetadata, source string, name string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 	if err != nil {
 		return false, nil, 0, fmt.Errorf("open source file %q: %w", source, err)
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(otherFile.Name, srcDirfd, unix.O_RDONLY, 0)
+	srcFile, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file %q under target rootfs: %w", otherFile.Name, err)
+		return false, nil, 0, fmt.Errorf("open source file %q under target rootfs: %w", name, err)
 	}
 	defer srcFile.Close()
 
@@ -395,47 +395,17 @@ func findFileOnTheHost(file *internal.FileMetadata, dirfd int, useHardLinks bool
 	return true, dstFile, written, nil
 }
 
-type findFileState struct {
-	file         *internal.FileMetadata
-	useHardLinks bool
-	dirfd        int
-
-	found    bool
-	dstFile  *os.File
-	written  int64
-	retError error
-}
-
-func (v *findFileState) VisitFile(candidate *internal.FileMetadata, target string) (bool, error) {
-	if v.useHardLinks && !canDedupMetadataWithHardLink(v.file, candidate) {
-		return true, nil
-	}
-	found, dstFile, written, err := copyFileFromOtherLayer(v.file, target, candidate, v.dirfd, v.useHardLinks)
-	if found && err == nil {
-		v.found = found
-		v.dstFile = dstFile
-		v.written = written
-		v.retError = err
-		return false, nil
-	}
-	return true, nil
-}
-
 // findFileInOtherLayers finds the specified file in other layers.
 // cache is the layers cache to use.
 // file is the file to look for.
 // dirfd is an open file descriptor to the checkout root directory.
 // useHardLinks defines whether the deduplication can be performed using hard links.
 func findFileInOtherLayers(cache *layersCache, file *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
-	visitor := &findFileState{
-		file:         file,
-		useHardLinks: useHardLinks,
-		dirfd:        dirfd,
-	}
-	if err := cache.findFileInOtherLayers(file, visitor); err != nil {
+	target, name, err := cache.findFileInOtherLayers(file, useHardLinks)
+	if err != nil || name == "" {
 		return false, nil, 0, err
 	}
-	return visitor.found, visitor.dstFile, visitor.written, visitor.retError
+	return copyFileFromOtherLayer(file, target, name, dirfd, useHardLinks)
 }
 
 func maybeDoIDRemap(manifest []internal.FileMetadata, options *archive.TarOptions) error {
@@ -1486,7 +1456,10 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 					},
 				}
 
-				root, path, offset := c.layersCache.findChunkInOtherLayers(chunk)
+				root, path, offset, err := c.layersCache.findChunkInOtherLayers(chunk)
+				if err != nil {
+					return output, err
+				}
 				if offset >= 0 {
 					missingPartsSize -= size
 					mp.OriginFile = &originFile{
