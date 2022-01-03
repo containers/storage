@@ -1066,7 +1066,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *internal.File
 		}
 	}
 
-	file, err := openFileUnderRoot(name, dirfd, unix.O_DIRECTORY|unix.O_RDONLY, 0)
+	file, err := openFileUnderRoot(base, parentFd, unix.O_DIRECTORY|unix.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
