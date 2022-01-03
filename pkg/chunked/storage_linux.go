@@ -705,7 +705,7 @@ func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (
 			newDirfd, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
 			if err2 == nil {
 				defer newDirfd.Close()
-				fd, err := openFileUnderRootRaw(dirfd, name, flags, mode)
+				fd, err := openFileUnderRootRaw(int(newDirfd.Fd()), filepath.Base(name), flags, mode)
 				if err == nil {
 					return os.NewFile(uintptr(fd), name), nil
 				}
