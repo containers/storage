@@ -1551,7 +1551,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 			if err != nil {
 				return output, err
 			}
-			if offset >= 0 {
+			if offset >= 0 && validateChunkChecksum(chunk, root, path, offset, c.copyBuffer) {
 				missingPartsSize -= size
 				mp.OriginFile = &originFile{
 					Root:   root,
@@ -1659,4 +1659,38 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 		}
 	}
 	return mergedEntries, nil
+}
+
+// validateChunkChecksum checks if the file at $root/$path[offset:chunk.ChunkSize] has the
+// same digest as chunk.ChunkDigest
+func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offset int64, copyBuffer []byte) bool {
+	parentDirfd, err := unix.Open(root, unix.O_PATH, 0)
+	if err != nil {
+		return false
+	}
+	defer unix.Close(parentDirfd)
+
+	fd, err := openFileUnderRoot(path, parentDirfd, unix.O_RDONLY, 0)
+	if err != nil {
+		return false
+	}
+	defer fd.Close()
+
+	if _, err := unix.Seek(int(fd.Fd()), offset, 0); err != nil {
+		return false
+	}
+
+	r := io.LimitReader(fd, chunk.ChunkSize)
+	digester := digest.Canonical.Digester()
+
+	if _, err := io.CopyBuffer(digester.Hash(), r, copyBuffer); err != nil {
+		return false
+	}
+
+	digest, err := digest.Parse(chunk.ChunkDigest)
+	if err != nil {
+		return false
+	}
+
+	return digester.Digest() == digest
 }
