@@ -45,7 +45,7 @@ type layersCache struct {
 	layers  []layer
 	refs    int
 	store   storage.Store
-	mutex   sync.Mutex
+	mutex   sync.RWMutex
 	created time.Time
 }
 
@@ -465,8 +465,8 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 		return "", "", -1, nil
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	for _, layer := range c.layers {
 		digest, off, len := findTag(digest, layer.metadata)
