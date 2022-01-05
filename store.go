@@ -647,17 +647,21 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	storesLock.Lock()
 	defer storesLock.Unlock()
 
+	// return if BOTH run and graph root are matched, otherwise our run-root can be overriden if the graph is found first
 	for _, s := range stores {
-		if s.graphRoot == options.GraphRoot && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
+		if (s.graphRoot == options.GraphRoot) && (s.runRoot == options.RunRoot) && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
 			return s, nil
 		}
 	}
 
-	if options.GraphRoot == "" {
-		return nil, errors.Wrap(ErrIncompleteOptions, "no storage root specified")
-	}
-	if options.RunRoot == "" {
-		return nil, errors.Wrap(ErrIncompleteOptions, "no storage runroot specified")
+	// if passed a run-root or graph-root alone, the other should be defaulted only error if we have neither.
+	switch {
+	case options.RunRoot == "" && options.GraphRoot == "":
+		return nil, errors.Wrap(ErrIncompleteOptions, "no storage runroot or graphroot specified")
+	case options.GraphRoot == "":
+		options.GraphRoot = types.Options().GraphRoot
+	case options.RunRoot == "":
+		options.RunRoot = types.Options().RunRoot
 	}
 
 	if err := os.MkdirAll(options.RunRoot, 0700); err != nil {
