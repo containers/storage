@@ -195,13 +195,13 @@ func makeCopyBuffer() []byte {
 func copyFileFromOtherLayer(file *internal.FileMetadata, source string, name string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file %q: %w", source, err)
+		return false, nil, 0, fmt.Errorf("open source file: %w", err)
 	}
 	defer unix.Close(srcDirfd)
 
 	srcFile, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file %q under target rootfs: %w", name, err)
+		return false, nil, 0, fmt.Errorf("open source file under target rootfs: %w", err)
 	}
 	defer srcFile.Close()
 
@@ -458,13 +458,13 @@ type missingPart struct {
 func (o *originFile) OpenFile() (io.ReadCloser, error) {
 	srcDirfd, err := unix.Open(o.Root, unix.O_RDONLY, 0)
 	if err != nil {
-		return nil, fmt.Errorf("open source file %q: %w", o.Root, err)
+		return nil, fmt.Errorf("open source file: %w", err)
 	}
 	defer unix.Close(srcDirfd)
 
 	srcFile, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY, 0)
 	if err != nil {
-		return nil, fmt.Errorf("open source file %q under target rootfs: %w", o.Path, err)
+		return nil, fmt.Errorf("open source file under target rootfs: %w", err)
 	}
 
 	if _, err := srcFile.Seek(o.Offset, 0); err != nil {
