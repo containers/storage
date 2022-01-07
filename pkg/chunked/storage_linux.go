@@ -26,7 +26,6 @@ import (
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/types"
 	securejoin "github.com/cyphar/filepath-securejoin"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -1251,10 +1250,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	ostreeRepos := strings.Split(storeOpts.PullOptions["ostree_repos"], ":")
 
 	// Generate the manifest
-	var toc internal.TOC
-
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-	if err := json.Unmarshal(c.manifest, &toc); err != nil {
+	toc, err := unmarshalToc(c.manifest)
+	if err != nil {
 		return output, err
 	}
 

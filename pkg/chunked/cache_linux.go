@@ -14,10 +14,10 @@ import (
 	"time"
 	"unsafe"
 
-	jsoniter "github.com/json-iterator/go"
 	storage "github.com/containers/storage"
 	"github.com/containers/storage/pkg/chunked/internal"
 	"github.com/containers/storage/pkg/ioutils"
+	jsoniter "github.com/json-iterator/go"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -392,9 +392,9 @@ func (c *layersCache) prepareMetadata(id string) ([]*internal.FileMetadata, erro
 	if err != nil {
 		return nil, fmt.Errorf("open manifest file for layer %q: %w", id, err)
 	}
-	var toc internal.TOC
-	var json = jsoniter.ConfigCompatibleWithStandardLibrary
-	if err := json.Unmarshal(manifest, &toc); err != nil {
+
+	toc, err := unmarshalToc(manifest)
+	if err != nil {
 		// ignore errors here.  They might be caused by a different manifest format.
 		return nil, nil
 	}
@@ -501,4 +501,121 @@ func (c *layersCache) findFileInOtherLayers(file *internal.FileMetadata, useHard
 
 func (c *layersCache) findChunkInOtherLayers(chunk *internal.FileMetadata) (string, string, int64, error) {
 	return c.findDigestInternal(chunk.ChunkDigest)
+}
+
+func unmarshalToc(manifest []byte) (*internal.TOC, error) {
+	var buf bytes.Buffer
+	count := 0
+	var toc internal.TOC
+
+	iter := jsoniter.ParseBytes(jsoniter.ConfigFastest, manifest)
+	for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
+		if field != "entries" {
+			iter.Skip()
+			continue
+		}
+		for iter.ReadArray() {
+			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
+				switch field {
+				case "type", "name", "linkName", "digest", "chunkDigest":
+					count += len(iter.ReadStringAsSlice())
+				case "xattrs":
+					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
+						count += len(iter.ReadStringAsSlice())
+					}
+				default:
+					iter.Skip()
+				}
+			}
+		}
+		break
+	}
+
+	buf.Grow(count)
+
+	getString := func(b []byte) string {
+		from := buf.Len()
+		buf.Write(b)
+		to := buf.Len()
+		return byteSliceAsString(buf.Bytes()[from:to])
+	}
+
+	iter = jsoniter.ParseBytes(jsoniter.ConfigFastest, manifest)
+	for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
+		if field == "version" {
+			toc.Version = iter.ReadInt()
+			continue
+		}
+		if field != "entries" {
+			iter.Skip()
+			continue
+		}
+		for iter.ReadArray() {
+			var m internal.FileMetadata
+			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
+				switch field {
+				case "type":
+					m.Type = getString(iter.ReadStringAsSlice())
+				case "name":
+					m.Name = getString(iter.ReadStringAsSlice())
+				case "linkName":
+					m.Linkname = getString(iter.ReadStringAsSlice())
+				case "mode":
+					m.Mode = iter.ReadInt64()
+				case "size":
+					m.Size = iter.ReadInt64()
+				case "UID":
+					m.UID = iter.ReadInt()
+				case "GID":
+					m.GID = iter.ReadInt()
+				case "ModTime":
+					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
+					if err != nil {
+						return nil, err
+					}
+					m.ModTime = &time
+				case "accesstime":
+					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
+					if err != nil {
+						return nil, err
+					}
+					m.AccessTime = &time
+				case "changetime":
+					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
+					if err != nil {
+						return nil, err
+					}
+					m.ChangeTime = &time
+				case "devMajor":
+					m.Devmajor = iter.ReadInt64()
+				case "devMinor":
+					m.Devminor = iter.ReadInt64()
+				case "digest":
+					m.Digest = getString(iter.ReadStringAsSlice())
+				case "offset":
+					m.Offset = iter.ReadInt64()
+				case "endOffset":
+					m.EndOffset = iter.ReadInt64()
+				case "chunkSize":
+					m.ChunkSize = iter.ReadInt64()
+				case "chunkOffset":
+					m.ChunkOffset = iter.ReadInt64()
+				case "chunkDigest":
+					m.ChunkDigest = getString(iter.ReadStringAsSlice())
+				case "xattrs":
+					m.Xattrs = make(map[string]string)
+					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
+						value := iter.ReadStringAsSlice()
+						m.Xattrs[key] = getString(value)
+					}
+				default:
+					iter.Skip()
+				}
+			}
+			toc.Entries = append(toc.Entries, m)
+		}
+		break
+	}
+	toc.StringsBuf = buf
+	return &toc, nil
 }
