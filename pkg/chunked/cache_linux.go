@@ -3,7 +3,6 @@ package chunked
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"time"
 	"unsafe"
 
+	jsoniter "github.com/json-iterator/go"
 	storage "github.com/containers/storage"
 	"github.com/containers/storage/pkg/chunked/internal"
 	"github.com/containers/storage/pkg/ioutils"
@@ -393,6 +393,7 @@ func (c *layersCache) prepareMetadata(id string) ([]*internal.FileMetadata, erro
 		return nil, fmt.Errorf("open manifest file for layer %q: %w", id, err)
 	}
 	var toc internal.TOC
+	var json = jsoniter.ConfigCompatibleWithStandardLibrary
 	if err := json.Unmarshal(manifest, &toc); err != nil {
 		// ignore errors here.  They might be caused by a different manifest format.
 		return nil, nil
