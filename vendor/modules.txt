@@ -71,7 +71,6 @@ github.com/hashicorp/go-multierror
 ## explicit
 github.com/json-iterator/go
 # github.com/klauspost/compress v1.13.6
-## explicit
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
@@ -135,6 +134,9 @@ github.com/ulikunitz/xz
 github.com/ulikunitz/xz/internal/hash
 github.com/ulikunitz/xz/internal/xlog
 github.com/ulikunitz/xz/lzma
+# github.com/valyala/gozstd v1.14.2
+## explicit
+github.com/valyala/gozstd
 # github.com/vbatts/tar-split v0.11.2
 ## explicit
 github.com/vbatts/tar-split/archive/tar

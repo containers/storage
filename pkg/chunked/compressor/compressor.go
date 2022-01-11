@@ -5,6 +5,7 @@ package compressor
 // larger software like the graph drivers.
 
 import (
+	"bufio"
 	"encoding/base64"
 	"io"
 	"io/ioutil"
@@ -14,6 +15,50 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/vbatts/tar-split/archive/tar"
 )
+
+const RollsumBits = 16
+
+type rollingChecksumReader struct {
+	reader  *bufio.Reader
+	closed  bool
+	rollsum *RollSum
+
+	WrittenOut int64
+}
+
+func (rc *rollingChecksumReader) Read(b []byte) (bool, int, error) {
+	if rc.closed {
+		return false, 0, io.EOF
+	}
+	for i := 0; i < len(b); i++ {
+		n, err := rc.reader.ReadByte()
+		if err != nil {
+			if err == io.EOF {
+				rc.closed = true
+				if i == 0 {
+					return false, 0, err
+				}
+				return false, i, nil
+			}
+			// Report any other error type
+			return false, -1, err
+		}
+		b[i] = n
+		rc.WrittenOut++
+		rc.rollsum.Roll(n)
+		if rc.rollsum.OnSplitWithBits(RollsumBits) {
+			return true, i + 1, nil
+		}
+	}
+	return false, len(b), nil
+}
+
+type chunk struct {
+	ChunkOffset int64
+	Offset      int64
+	Checksum    string
+	ChunkSize   int64
+}
 
 func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, reader io.Reader, level int) error {
 	// total written so far.  Used to retrieve partial offsets in the file
@@ -31,7 +76,7 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 	defer func() {
 		if zstdWriter != nil {
 			zstdWriter.Close()
-			zstdWriter.Flush()
+			zstdWriter.Release()
 		}
 	}()
 
@@ -41,11 +86,8 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 			if err := zstdWriter.Close(); err != nil {
 				return 0, err
 			}
-			if err := zstdWriter.Flush(); err != nil {
-				return 0, err
-			}
 			offset = dest.Count
-			zstdWriter.Reset(dest)
+			zstdWriter.Reset(dest, nil, level)
 		}
 		return offset, nil
 	}
@@ -64,40 +106,64 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 		if _, err := zstdWriter.Write(rawBytes); err != nil {
 			return err
 		}
-		payloadDigester := digest.Canonical.Digester()
-		payloadChecksum := payloadDigester.Hash()
 
-		payloadDest := io.MultiWriter(payloadChecksum, zstdWriter)
+		payloadDigester := digest.Canonical.Digester()
+		chunkDigester := digest.Canonical.Digester()
 
 		// Now handle the payload, if any
-		var startOffset, endOffset int64
+		startOffset := int64(0)
+		lastOffset := int64(0)
+		lastChunkOffset := int64(0)
+
 		checksum := ""
+
+		chunks := []chunk{}
+
+		rcReader := &rollingChecksumReader{
+			reader:  bufio.NewReader(tr),
+			rollsum: NewRollSum(),
+		}
+
+		payloadDest := io.MultiWriter(payloadDigester.Hash(), chunkDigester.Hash(), zstdWriter)
 		for {
-			read, errRead := tr.Read(buf)
+			mustSplit, read, errRead := rcReader.Read(buf)
 			if errRead != nil && errRead != io.EOF {
 				return err
 			}
-
-			// restart the compression only if there is
-			// a payload.
+			// restart the compression only if there is a payload.
 			if read > 0 {
 				if startOffset == 0 {
 					startOffset, err = restartCompression()
 					if err != nil {
 						return err
 					}
+					lastOffset = startOffset
 				}
-				_, err := payloadDest.Write(buf[:read])
-				if err != nil {
+
+				if _, err := payloadDest.Write(buf[:read]); err != nil {
 					return err
 				}
 			}
+			if (mustSplit || errRead == io.EOF) && startOffset > 0 {
+				off, err := restartCompression()
+				if err != nil {
+					return err
+				}
+
+				chunks = append(chunks, chunk{
+					ChunkOffset: lastChunkOffset,
+					Offset:      lastOffset,
+					Checksum:    chunkDigester.Digest().String(),
+					ChunkSize:   rcReader.WrittenOut - lastChunkOffset,
+				})
+
+				lastOffset = off
+				lastChunkOffset = rcReader.WrittenOut
+				chunkDigester = digest.Canonical.Digester()
+				payloadDest = io.MultiWriter(payloadDigester.Hash(), chunkDigester.Hash(), zstdWriter)
+			}
 			if errRead == io.EOF {
 				if startOffset > 0 {
-					endOffset, err = restartCompression()
-					if err != nil {
-						return err
-					}
 					checksum = payloadDigester.Digest().String()
 				}
 				break
@@ -112,30 +178,41 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 		for k, v := range hdr.Xattrs {
 			xattrs[k] = base64.StdEncoding.EncodeToString([]byte(v))
 		}
-		m := internal.FileMetadata{
-			Type:       typ,
-			Name:       hdr.Name,
-			Linkname:   hdr.Linkname,
-			Mode:       hdr.Mode,
-			Size:       hdr.Size,
-			UID:        hdr.Uid,
-			GID:        hdr.Gid,
-			ModTime:    hdr.ModTime,
-			AccessTime: hdr.AccessTime,
-			ChangeTime: hdr.ChangeTime,
-			Devmajor:   hdr.Devmajor,
-			Devminor:   hdr.Devminor,
-			Xattrs:     xattrs,
-			Digest:     checksum,
-			Offset:     startOffset,
-			EndOffset:  endOffset,
-
-			// ChunkSize is 0 for the last chunk
-			ChunkSize:   0,
-			ChunkOffset: 0,
-			ChunkDigest: checksum,
+		entries := []internal.FileMetadata{
+			{
+				Type:       typ,
+				Name:       hdr.Name,
+				Linkname:   hdr.Linkname,
+				Mode:       hdr.Mode,
+				Size:       hdr.Size,
+				UID:        hdr.Uid,
+				GID:        hdr.Gid,
+				ModTime:    &hdr.ModTime,
+				AccessTime: &hdr.AccessTime,
+				ChangeTime: &hdr.ChangeTime,
+				Devmajor:   hdr.Devmajor,
+				Devminor:   hdr.Devminor,
+				Xattrs:     xattrs,
+				Digest:     checksum,
+				Offset:     startOffset,
+				EndOffset:  lastOffset,
+			},
 		}
-		metadata = append(metadata, m)
+		for i := 1; i < len(chunks); i++ {
+			entries = append(entries, internal.FileMetadata{
+				Type:        internal.TypeChunk,
+				Name:        hdr.Name,
+				ChunkOffset: chunks[i].ChunkOffset,
+			})
+		}
+		if len(chunks) > 1 {
+			for i := range chunks {
+				entries[i].ChunkSize = chunks[i].ChunkSize
+				entries[i].Offset = chunks[i].Offset
+				entries[i].ChunkDigest = chunks[i].Checksum
+			}
+		}
+		metadata = append(metadata, entries...)
 	}
 
 	rawBytes := tr.RawBytes()
@@ -212,7 +289,7 @@ func zstdChunkedWriterWithLevel(out io.Writer, metadata map[string]string, level
 // ZstdCompressor is a CompressorFunc for the zstd compression algorithm.
 func ZstdCompressor(r io.Writer, metadata map[string]string, level *int) (io.WriteCloser, error) {
 	if level == nil {
-		l := 3
+		l := 10
 		level = &l
 	}
 
