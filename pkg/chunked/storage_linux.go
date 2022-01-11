@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"os"
@@ -42,9 +43,10 @@ const (
 	containersOverrideXattr = "user.containers.override_stat"
 	bigDataKey              = "zstd-chunked-manifest"
 
-	fileTypeZstdChunked   = iota
-	fileTypeEstargz       = iota
-	fileTypeNoCompression = iota
+	fileTypeZstdChunked = iota
+	fileTypeEstargz
+	fileTypeNoCompression
+	fileTypeHole
 
 	copyGoRoutines = 32
 )
@@ -438,14 +440,14 @@ func maybeDoIDRemap(manifest []internal.FileMetadata, options *archive.TarOption
 }
 
 type originFile struct {
-	Root string
-	Path string
-
+	Root   string
+	Path   string
 	Offset int64
 }
 
 type missingFileChunk struct {
-	Gap int64
+	Gap  int64
+	Hole bool
 
 	File *internal.FileMetadata
 
@@ -454,6 +456,7 @@ type missingFileChunk struct {
 }
 
 type missingPart struct {
+	Hole        bool
 	SourceChunk *ImageSourceChunk
 	OriginFile  *originFile
 	Chunks      []missingFileChunk
@@ -722,9 +725,19 @@ func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.Fil
 	return nil, err
 }
 
-func (c *chunkedDiffer) prepareCompressedStreamToFile(compression compressedFileType, from io.Reader, mf *missingFileChunk) error {
-	switch compression {
-	case fileTypeZstdChunked:
+func (c *chunkedDiffer) prepareCompressedStreamToFile(partCompression compressedFileType, from io.Reader, mf *missingFileChunk) (compressedFileType, error) {
+	switch {
+	case partCompression == fileTypeHole:
+		// The entire part is a hole.  Do not need to read from a file.
+		c.rawReader = nil
+		return fileTypeHole, nil
+	case mf.Hole:
+		// Only the missing chunk in the requested part refers to a hole.
+		// The received data must be discarded.
+		limitReader := io.LimitReader(from, mf.CompressedSize)
+		_, err := io.CopyBuffer(ioutil.Discard, limitReader, c.copyBuffer)
+		return fileTypeHole, err
+	case partCompression == fileTypeZstdChunked:
 		c.rawReader = io.LimitReader(from, mf.CompressedSize)
 		if c.zstdReader == nil {
 			r := zstd.NewReader(c.rawReader)
@@ -732,42 +745,83 @@ func (c *chunkedDiffer) prepareCompressedStreamToFile(compression compressedFile
 		} else {
 			c.zstdReader.Reset(c.rawReader, nil)
 		}
-	case fileTypeEstargz:
+	case partCompression == fileTypeEstargz:
 		c.rawReader = io.LimitReader(from, mf.CompressedSize)
 		if c.gzipReader == nil {
 			r, err := pgzip.NewReader(c.rawReader)
 			if err != nil {
-				return err
+				return partCompression, err
 			}
 			c.gzipReader = r
 		} else {
 			if err := c.gzipReader.Reset(c.rawReader); err != nil {
-				return err
+				return partCompression, err
 			}
 		}
-
-	case fileTypeNoCompression:
+	case partCompression == fileTypeNoCompression:
 		c.rawReader = io.LimitReader(from, mf.UncompressedSize)
 	default:
-		return fmt.Errorf("unknown file type %q", c.fileType)
+		return partCompression, fmt.Errorf("unknown file type %q", c.fileType)
+	}
+	return partCompression, nil
+}
+
+// hashHole writes SIZE zeros to the specified hasher
+func hashHole(h hash.Hash, size int64, copyBuffer []byte) error {
+	count := int64(len(copyBuffer))
+	if size < count {
+		count = size
+	}
+	for i := int64(0); i < count; i++ {
+		copyBuffer[i] = 0
+	}
+	for size > 0 {
+		count = int64(len(copyBuffer))
+		if size < count {
+			count = size
+		}
+		if _, err := h.Write(copyBuffer[:count]); err != nil {
+			return err
+		}
+		size -= count
 	}
 	return nil
 }
 
-func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileType, to io.Writer, size int64) error {
+// appendHole creates a hole with the specified size at the open fd.
+func appendHole(fd int, size int64) error {
+	off, err := unix.Seek(fd, size, unix.SEEK_CUR)
+	if err != nil {
+		return err
+	}
+	// Make sure the file size is changed.  It might be the last hole and no other data written afterwards.
+	if err := unix.Ftruncate(fd, off); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileType, destFile *destinationFile, size int64) error {
 	switch compression {
 	case fileTypeZstdChunked:
 		defer c.zstdReader.Reset(nil, nil)
-		if _, err := io.CopyBuffer(to, io.LimitReader(c.zstdReader, size), c.copyBuffer); err != nil {
+		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.zstdReader, size), c.copyBuffer); err != nil {
 			return err
 		}
 	case fileTypeEstargz:
 		defer c.gzipReader.Close()
-		if _, err := io.CopyBuffer(to, io.LimitReader(c.gzipReader, size), c.copyBuffer); err != nil {
+		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.gzipReader, size), c.copyBuffer); err != nil {
 			return err
 		}
 	case fileTypeNoCompression:
-		if _, err := io.CopyBuffer(to, io.LimitReader(c.rawReader, size), c.copyBuffer); err != nil {
+		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.rawReader, size), c.copyBuffer); err != nil {
+			return err
+		}
+	case fileTypeHole:
+		if err := appendHole(int(destFile.file.Fd()), size); err != nil {
+			return err
+		}
+		if err := hashHole(destFile.hash, size, c.copyBuffer); err != nil {
 			return err
 		}
 	default:
@@ -780,6 +834,7 @@ type destinationFile struct {
 	dirfd    int
 	file     *os.File
 	digester digest.Digester
+	hash     hash.Hash
 	to       io.Writer
 	metadata *internal.FileMetadata
 	options  *archive.TarOptions
@@ -792,11 +847,13 @@ func openDestinationFile(dirfd int, metadata *internal.FileMetadata, options *ar
 	}
 
 	digester := digest.Canonical.Digester()
-	to := io.MultiWriter(file, digester.Hash())
+	hash := digester.Hash()
+	to := io.MultiWriter(file, hash)
 
 	return &destinationFile{
 		file:     file,
 		digester: digester,
+		hash:     hash,
 		to:       to,
 		metadata: metadata,
 		options:  options,
@@ -841,15 +898,17 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 
 	for _, missingPart := range missingParts {
 		var part io.ReadCloser
-		compression := c.fileType
+		partCompression := c.fileType
 		switch {
+		case missingPart.Hole:
+			partCompression = fileTypeHole
 		case missingPart.OriginFile != nil:
 			var err error
 			part, err = missingPart.OriginFile.OpenFile()
 			if err != nil {
 				return err
 			}
-			compression = fileTypeNoCompression
+			partCompression = fileTypeNoCompression
 		case missingPart.SourceChunk != nil:
 			select {
 			case p := <-streams:
@@ -880,7 +939,8 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				goto exit
 			}
 
-			if err := c.prepareCompressedStreamToFile(compression, part, &mf); err != nil {
+			compression, err := c.prepareCompressedStreamToFile(partCompression, part, &mf)
+			if err != nil {
 				Err = err
 				goto exit
 			}
@@ -911,19 +971,23 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				}
 			}
 
-			if err := c.appendCompressedStreamToFile(compression, destFile.to, mf.UncompressedSize); err != nil {
+			if err := c.appendCompressedStreamToFile(compression, destFile, mf.UncompressedSize); err != nil {
 				Err = err
 				goto exit
 			}
-			if _, err := io.CopyBuffer(ioutil.Discard, c.rawReader, c.copyBuffer); err != nil {
-				Err = err
-				goto exit
+			if c.rawReader != nil {
+				if _, err := io.CopyBuffer(ioutil.Discard, c.rawReader, c.copyBuffer); err != nil {
+					Err = err
+					goto exit
+				}
 			}
 		}
 	exit:
-		part.Close()
-		if Err != nil {
-			break
+		if part != nil {
+			part.Close()
+			if Err != nil {
+				break
+			}
 		}
 	}
 
@@ -957,6 +1021,7 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 		gap := getGap(missingParts, i)
 		if gap == 0 && missingParts[prevIndex].OriginFile == nil &&
 			missingParts[i].OriginFile == nil &&
+			!missingParts[prevIndex].Hole && !missingParts[i].Hole &&
 			len(missingParts[prevIndex].Chunks) == 1 && len(missingParts[i].Chunks) == 1 &&
 			missingParts[prevIndex].Chunks[0].File.Name == missingParts[i].Chunks[0].File.Name {
 			missingParts[prevIndex].SourceChunk.Length += uint64(gap) + missingParts[i].SourceChunk.Length
@@ -983,6 +1048,9 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 	sort.Ints(costs)
 
 	toShrink := len(missingParts) - target
+	if toShrink >= len(costs) {
+		toShrink = len(costs) - 1
+	}
 	targetValue := costs[toShrink]
 
 	newMissingParts = missingParts[0:1]
@@ -993,6 +1061,7 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 			gap := getGap(missingParts, i)
 			prev := &newMissingParts[len(newMissingParts)-1]
 			prev.SourceChunk.Length += uint64(gap) + missingParts[i].SourceChunk.Length
+			prev.Hole = false
 			prev.OriginFile = nil
 			if gap > 0 {
 				gapFile := missingFileChunk{
@@ -1009,7 +1078,7 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	var chunksToRequest []ImageSourceChunk
 	for _, c := range missingParts {
-		if c.OriginFile == nil {
+		if c.OriginFile == nil && !c.Hole {
 			chunksToRequest = append(chunksToRequest, *c.SourceChunk)
 		}
 	}
@@ -1542,16 +1611,26 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 				},
 			}
 
-			root, path, offset, err := c.layersCache.findChunkInOtherLayers(chunk)
-			if err != nil {
-				return output, err
-			}
-			if offset >= 0 && validateChunkChecksum(chunk, root, path, offset, c.copyBuffer) {
+			switch chunk.ChunkType {
+			case internal.ChunkTypeData:
+				root, path, offset, err := c.layersCache.findChunkInOtherLayers(chunk)
+				if err != nil {
+					return output, err
+				}
+				if offset >= 0 && validateChunkChecksum(chunk, root, path, offset, c.copyBuffer) {
+					missingPartsSize -= size
+					mp.OriginFile = &originFile{
+						Root:   root,
+						Path:   path,
+						Offset: offset,
+					}
+				}
+			case internal.ChunkTypeZeros:
 				missingPartsSize -= size
-				mp.OriginFile = &originFile{
-					Root:   root,
-					Path:   path,
-					Offset: offset,
+				mp.Hole = true
+				// Mark all chunks belonging to the missing part as holes
+				for i := range mp.Chunks {
+					mp.Chunks[i].Hole = true
 				}
 			}
 			missingParts = append(missingParts, mp)

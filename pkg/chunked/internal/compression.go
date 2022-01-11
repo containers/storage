@@ -46,10 +46,16 @@ type FileMetadata struct {
 	ChunkSize   int64  `json:"chunkSize,omitempty"`
 	ChunkOffset int64  `json:"chunkOffset,omitempty"`
 	ChunkDigest string `json:"chunkDigest,omitempty"`
+	ChunkType   string `json:"chunkType,omitempty"`
 
 	// internal: computed by mergeTOCEntries.
 	Chunks []*FileMetadata `json:"-"`
 }
+
+const (
+	ChunkTypeData  = ""
+	ChunkTypeZeros = "zeros"
+)
 
 const (
 	TypeReg     = "reg"

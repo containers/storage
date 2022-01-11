@@ -524,7 +524,7 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 		for iter.ReadArray() {
 			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
 				switch field {
-				case "type", "name", "linkName", "digest", "chunkDigest":
+				case "type", "name", "linkName", "digest", "chunkDigest", "chunkType":
 					count += len(iter.ReadStringAsSlice())
 				case "xattrs":
 					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
@@ -609,6 +609,8 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 					m.ChunkOffset = iter.ReadInt64()
 				case "chunkDigest":
 					m.ChunkDigest = getString(iter.ReadStringAsSlice())
+				case "chunkType":
+					m.ChunkType = getString(iter.ReadStringAsSlice())
 				case "xattrs":
 					m.Xattrs = make(map[string]string)
 					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
