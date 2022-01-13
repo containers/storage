@@ -328,9 +328,10 @@ func (c *layersCache) writeCache(id string) (*metadata, error) {
 	logrus.Debugf("Written lookaside cache for layer %q with length %v", id, counter.Count)
 
 	return &metadata{
-		tagLen: tagLen,
-		tags:   tagsBuffer.Bytes(),
-		vdata:  vdata.Bytes(),
+		digestLen: digestLen,
+		tagLen:    tagLen,
+		tags:      tagsBuffer.Bytes(),
+		vdata:     vdata.Bytes(),
 	}, nil
 }
 
