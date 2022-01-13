@@ -474,7 +474,7 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 		if digest != "" {
 			position := string(layer.metadata.vdata[off : off+len])
 			parts := strings.SplitN(position, "@", 2)
-			offFile, _ := strconv.ParseInt(parts[1], 10, 64)
+			offFile, _ := strconv.ParseInt(parts[0], 10, 64)
 			return layer.target, parts[1], offFile, nil
 		}
 	}
