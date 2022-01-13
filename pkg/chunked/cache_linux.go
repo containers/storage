@@ -107,7 +107,16 @@ func (c *layersCache) load() error {
 			continue
 		}
 
-		metadata, err := c.readMetadataFromCache(r.ID)
+		bigData, err := c.store.LayerBigData(r.ID, cacheKey)
+		if err != nil {
+			if errors.Cause(err) == os.ErrNotExist {
+				continue
+			}
+			return err
+		}
+		defer bigData.Close()
+
+		metadata, err := readMetadataFromCache(bigData)
 		if err != nil {
 			logrus.Warningf("Error reading cache file for layer %q: %v", r.ID, err)
 		}
@@ -117,7 +126,17 @@ func (c *layersCache) load() error {
 			continue
 		}
 
-		metadata, err = c.writeCache(r.ID)
+		manifestReader, err := c.store.LayerBigData(r.ID, bigDataKey)
+		if err != nil {
+			continue
+		}
+		defer manifestReader.Close()
+		manifest, err := ioutil.ReadAll(manifestReader)
+		if err != nil {
+			return fmt.Errorf("open manifest file for layer %q: %w", r.ID, err)
+		}
+
+		metadata, err = writeCache(manifest, r.ID, c.store)
 		if err == nil {
 			c.addLayer(r.ID, metadata)
 		}
@@ -182,6 +201,11 @@ func generateTag(digest string, offset, len uint64) string {
 	return fmt.Sprintf("%s%.20d@%.20d", digest, offset, len)
 }
 
+type setBigData interface {
+	// SetLayerBigData stores a (possibly large) chunk of named data
+	SetLayerBigData(id, key string, data io.Reader) error
+}
+
 // writeCache write a cache for the layer ID.
 // It generates a sorted list of digests with their offset to the path location and offset.
 // The same cache is used to lookup files, chunks and candidates for deduplication with hard links.
@@ -189,13 +213,13 @@ func generateTag(digest string, offset, len uint64) string {
 // - digest(file.payload))
 // - digest(digest(file.payload) + file.UID + file.GID + file.mode + file.xattrs)
 // - digest(i) for each i in chunks(file payload)
-func (c *layersCache) writeCache(id string) (*metadata, error) {
+func writeCache(manifest []byte, id string, dest setBigData) (*metadata, error) {
 	var vdata bytes.Buffer
 	tagLen := 0
 	digestLen := 0
 	var tagsBuffer bytes.Buffer
 
-	toc, err := c.prepareMetadata(id)
+	toc, err := prepareMetadata(manifest)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +341,7 @@ func (c *layersCache) writeCache(id string) (*metadata, error) {
 
 	r := io.TeeReader(pipeReader, counter)
 
-	if err := c.store.SetLayerBigData(id, cacheKey, r); err != nil {
+	if err := dest.SetLayerBigData(id, cacheKey, r); err != nil {
 		return nil, err
 	}
 
@@ -328,22 +352,14 @@ func (c *layersCache) writeCache(id string) (*metadata, error) {
 	logrus.Debugf("Written lookaside cache for layer %q with length %v", id, counter.Count)
 
 	return &metadata{
-		tagLen: tagLen,
-		tags:   tagsBuffer.Bytes(),
-		vdata:  vdata.Bytes(),
+		digestLen: digestLen,
+		tagLen:    tagLen,
+		tags:      tagsBuffer.Bytes(),
+		vdata:     vdata.Bytes(),
 	}, nil
 }
 
-func (c *layersCache) readMetadataFromCache(id string) (*metadata, error) {
-	bigData, err := c.store.LayerBigData(id, cacheKey)
-	if err != nil {
-		if errors.Cause(err) == os.ErrNotExist {
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer bigData.Close()
-
+func readMetadataFromCache(bigData io.Reader) (*metadata, error) {
 	var version, tagLen, digestLen, tagsLen, vdataLen uint64
 	if err := binary.Read(bigData, binary.LittleEndian, &version); err != nil {
 		return nil, err
@@ -370,7 +386,7 @@ func (c *layersCache) readMetadataFromCache(id string) (*metadata, error) {
 	}
 
 	vdata := make([]byte, vdataLen)
-	if _, err = bigData.Read(vdata); err != nil {
+	if _, err := bigData.Read(vdata); err != nil {
 		return nil, err
 	}
 
@@ -382,17 +398,7 @@ func (c *layersCache) readMetadataFromCache(id string) (*metadata, error) {
 	}, nil
 }
 
-func (c *layersCache) prepareMetadata(id string) ([]*internal.FileMetadata, error) {
-	manifestReader, err := c.store.LayerBigData(id, bigDataKey)
-	if err != nil {
-		return nil, nil
-	}
-	defer manifestReader.Close()
-	manifest, err := ioutil.ReadAll(manifestReader)
-	if err != nil {
-		return nil, fmt.Errorf("open manifest file for layer %q: %w", id, err)
-	}
-
+func prepareMetadata(manifest []byte) ([]*internal.FileMetadata, error) {
 	toc, err := unmarshalToc(manifest)
 	if err != nil {
 		// ignore errors here.  They might be caused by a different manifest format.
@@ -405,6 +411,7 @@ func (c *layersCache) prepareMetadata(id string) ([]*internal.FileMetadata, erro
 		d := toc.Entries[i].Digest
 		if d != "" {
 			r = append(r, &toc.Entries[i])
+			continue
 		}
 
 		// chunks do not use hard link dedup so keeping just one candidate is enough
@@ -473,7 +480,7 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 		if digest != "" {
 			position := string(layer.metadata.vdata[off : off+len])
 			parts := strings.SplitN(position, "@", 2)
-			offFile, _ := strconv.ParseInt(parts[1], 10, 64)
+			offFile, _ := strconv.ParseInt(parts[0], 10, 64)
 			return layer.target, parts[1], offFile, nil
 		}
 	}
@@ -517,7 +524,7 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 		for iter.ReadArray() {
 			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
 				switch field {
-				case "type", "name", "linkName", "digest", "chunkDigest":
+				case "type", "name", "linkName", "digest", "chunkDigest", "chunkType":
 					count += len(iter.ReadStringAsSlice())
 				case "xattrs":
 					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
@@ -602,6 +609,8 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 					m.ChunkOffset = iter.ReadInt64()
 				case "chunkDigest":
 					m.ChunkDigest = getString(iter.ReadStringAsSlice())
+				case "chunkType":
+					m.ChunkType = getString(iter.ReadStringAsSlice())
 				case "xattrs":
 					m.Xattrs = make(map[string]string)
 					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
