@@ -2501,23 +2501,29 @@ func (s *store) DeleteContainer(id string) error {
 			gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
 			wg.Add(1)
 			go func() {
-				var err error
-				for attempts := 0; attempts < 50; attempts++ {
-					err = os.RemoveAll(gcpath)
-					if err == nil || !system.IsEBUSY(err) {
-						break
-					}
-					time.Sleep(time.Millisecond * 100)
+				defer wg.Done()
+				// attempt a simple rm -rf first
+				err := os.RemoveAll(gcpath)
+				if err == nil {
+					errChan <- nil
+					return
 				}
-				errChan <- err
-				wg.Done()
+				// and if it fails get to the more complicated cleanup
+				errChan <- system.EnsureRemoveAll(gcpath)
 			}()
 
 			rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
 			wg.Add(1)
 			go func() {
-				errChan <- os.RemoveAll(rcpath)
-				wg.Done()
+				defer wg.Done()
+				// attempt a simple rm -rf first
+				err := os.RemoveAll(rcpath)
+				if err == nil {
+					errChan <- nil
+					return
+				}
+				// and if it fails get to the more complicated cleanup
+				errChan <- system.EnsureRemoveAll(rcpath)
 			}()
 
 			go func() {
