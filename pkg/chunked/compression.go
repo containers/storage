@@ -11,10 +11,10 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/containers/storage/pkg/chunked/compressor"
 	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
-	zstd "github.com/valyala/gozstd"
 	"github.com/vbatts/tar-split/archive/tar"
 )
 
@@ -256,8 +256,14 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, ann
 		return nil, 0, errors.New("invalid manifest checksum")
 	}
 
+	decoder, err := zstd.NewReader(nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer decoder.Close()
+
 	b := make([]byte, 0, lengthUncompressed)
-	if decoded, err := zstd.Decompress(b, manifest); err == nil {
+	if decoded, err := decoder.DecodeAll(manifest, b); err == nil {
 		return decoded, int64(offset), nil
 	}
 
