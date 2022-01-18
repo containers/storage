@@ -215,7 +215,7 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 	defer func() {
 		if zstdWriter != nil {
 			zstdWriter.Close()
-			zstdWriter.Release()
+			zstdWriter.Flush()
 		}
 	}()
 
@@ -225,8 +225,11 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 			if err := zstdWriter.Close(); err != nil {
 				return 0, err
 			}
+			if err := zstdWriter.Flush(); err != nil {
+				return 0, err
+			}
 			offset = dest.Count
-			zstdWriter.Reset(dest, nil, level)
+			zstdWriter.Reset(dest)
 		}
 		return offset, nil
 	}

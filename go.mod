@@ -12,6 +12,7 @@ require (
 	github.com/google/go-intervals v0.0.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/json-iterator/go v1.1.12
+	github.com/klauspost/compress v1.13.6
 	github.com/klauspost/pgzip v1.2.5
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
@@ -26,7 +27,6 @@ require (
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	github.com/tchap/go-patricia v2.3.0+incompatible
 	github.com/ulikunitz/xz v0.5.10
-	github.com/valyala/gozstd v1.15.1
 	github.com/vbatts/tar-split v0.11.2
 	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
 	golang.org/x/sys v0.0.0-20211025201205-69cdffdb9359
