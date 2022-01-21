@@ -1613,7 +1613,7 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 		}
 	}
 	if foundImage {
-		return nil, errors.Wrapf(os.ErrNotExist, "error locating item named %q for image with ID %q", key, id)
+		return nil, errors.Wrapf(os.ErrNotExist, "error locating item named %q for image with ID %q (consider removing the image to resolve the issue)", key, id)
 	}
 	return nil, errors.Wrapf(ErrImageUnknown, "error locating image with ID %q", id)
 }
