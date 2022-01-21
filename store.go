@@ -647,7 +647,7 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	storesLock.Lock()
 	defer storesLock.Unlock()
 
-	// return if BOTH run and graph root are matched, otherwise our run-root can be overriden if the graph is found first
+	// return if BOTH run and graph root are matched, otherwise our run-root can be overridden if the graph is found first
 	for _, s := range stores {
 		if (s.graphRoot == options.GraphRoot) && (s.runRoot == options.RunRoot) && (options.GraphDriverName == "" || s.graphDriverName == options.GraphDriverName) {
 			return s, nil
