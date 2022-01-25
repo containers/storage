@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -571,6 +572,39 @@ func TestCopyFileWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	err = os.MkdirAll(dest, 0740)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ioutil.WriteFile(src, []byte("content"), 0777)
+	err = defaultCopyWithTar(src, dest+"/")
+	if err != nil {
+		t.Fatalf("archiver.CopyFileWithTar shouldn't throw an error, %s.", err)
+	}
+	_, err = os.Stat(dest)
+	if err != nil {
+		t.Fatalf("Destination folder should contain the source file but did not.")
+	}
+}
+
+func TestCopySocket(t *testing.T) {
+	folder, err := ioutil.TempDir("", "storage-archive-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(folder)
+	dest := filepath.Join(folder, "dest")
+	src := filepath.Join(folder, "src")
+	err = os.MkdirAll(src, 0740)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = net.Listen("unix", filepath.Join(src, "unix-socket"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = os.MkdirAll(dest, 0740)
 	if err != nil {
 		t.Fatal(err)
