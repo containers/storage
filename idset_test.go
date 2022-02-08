@@ -922,3 +922,35 @@ func TestIntervalEncompass(t *testing.T) {
 		})
 	}
 }
+
+func TestOverlappingMappings(t *testing.T) {
+	mappings := []idtools.IDMap{{ContainerID: 0, HostID: 1000, Size: 65536}, {ContainerID: 0, HostID: 1000, Size: 65536}}
+	if err := hasOverlappingRanges(mappings); err == nil {
+		t.Errorf("mappings = %v, expected to be overlapping", mappings)
+	}
+
+	mappings = []idtools.IDMap{{ContainerID: 0, HostID: 1000, Size: 65536}, {ContainerID: 65536, HostID: 5000, Size: 65536}}
+	if err := hasOverlappingRanges(mappings); err == nil {
+		t.Errorf("mappings = %v, expected to be overlapping", mappings)
+	}
+
+	mappings = []idtools.IDMap{{ContainerID: 0, HostID: 1000, Size: 65536}, {ContainerID: 0, HostID: 5000 + 65536, Size: 65536}}
+	if err := hasOverlappingRanges(mappings); err == nil {
+		t.Errorf("mappings = %v, expected to be overlapping", mappings)
+	}
+
+	mappings = []idtools.IDMap{{ContainerID: 0, HostID: 1000, Size: 65536}, {ContainerID: 0, HostID: 1000 + 65536, Size: 65536}}
+	if err := hasOverlappingRanges(mappings); err == nil {
+		t.Errorf("mappings = %v, expected to be overlapping", mappings)
+	}
+
+	mappings = []idtools.IDMap{{ContainerID: 0, HostID: 0, Size: 65536}, {ContainerID: 65536, HostID: 65536, Size: 65536}}
+	if err := hasOverlappingRanges(mappings); err != nil {
+		t.Errorf("mappings = %v, expected to not be overlapping", mappings)
+	}
+
+	mappings = []idtools.IDMap{{ContainerID: 0, HostID: 0, Size: 65536}, {ContainerID: 1 * 65536, HostID: 1 * 65536, Size: 65536}, {ContainerID: 2 * 65536, HostID: 2 * 65536, Size: 65536}}
+	if err := hasOverlappingRanges(mappings); err != nil {
+		t.Errorf("mappings = %v, expected to not be overlapping", mappings)
+	}
+}
