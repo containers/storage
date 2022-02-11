@@ -1167,6 +1167,9 @@ func (d *Driver) Remove(id string) error {
 // under each layer has a symlink created for it under the linkDir. If the symlink does not
 // exist, it creates them
 func (d *Driver) recreateSymlinks() error {
+	// We have at most 3 corrective actions per layer, so 10 iterations is plenty.
+	const maxIterations = 10
+
 	// List all the directories under the home directory
 	dirs, err := ioutil.ReadDir(d.home)
 	if err != nil {
@@ -1184,6 +1187,7 @@ func (d *Driver) recreateSymlinks() error {
 	// Keep looping as long as we take some corrective action in each iteration
 	var errs *multierror.Error
 	madeProgress := true
+	iterations := 0
 	for madeProgress {
 		errs = nil
 		madeProgress = false
@@ -1255,6 +1259,11 @@ func (d *Driver) recreateSymlinks() error {
 				}
 				madeProgress = true
 			}
+		}
+		iterations++
+		if iterations >= maxIterations {
+			errs = multierror.Append(errs, fmt.Errorf("Reached %d iterations in overlay graph driver’s recreateSymlink, giving up", iterations))
+			break
 		}
 	}
 	if errs != nil {
