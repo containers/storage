@@ -399,14 +399,12 @@ func (r *layerStore) Load() error {
 				if layer.Flags == nil {
 					layer.Flags = make(map[string]interface{})
 				}
-				if cleanup, ok := layer.Flags[incompleteFlag]; ok {
-					if b, ok := cleanup.(bool); ok && b {
-						err = r.deleteInternal(layer.ID)
-						if err != nil {
-							break
-						}
-						shouldSave = true
+				if layerHasIncompleteFlag(layer) {
+					err = r.deleteInternal(layer.ID)
+					if err != nil {
+						break
 					}
+					shouldSave = true
 				}
 			}
 		}
@@ -1147,6 +1145,17 @@ func (r *layerStore) SetMetadata(id, metadata string) error {
 
 func (r *layerStore) tspath(id string) string {
 	return filepath.Join(r.layerdir, id+tarSplitSuffix)
+}
+
+// layerHasIncompleteFlag returns true if layer.Flags contains an incompleteFlag set to true
+func layerHasIncompleteFlag(layer *Layer) bool {
+	// layer.Flags[…] is defined to succeed and return ok == false if Flags == nil
+	if flagValue, ok := layer.Flags[incompleteFlag]; ok {
+		if b, ok := flagValue.(bool); ok && b {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *layerStore) deleteInternal(id string) error {
