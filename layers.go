@@ -1166,6 +1166,18 @@ func (r *layerStore) deleteInternal(id string) error {
 	if !ok {
 		return ErrLayerUnknown
 	}
+	// Ensure that if we are interrupted, the layer will be cleaned up.
+	if !layerHasIncompleteFlag(layer) {
+		if layer.Flags == nil {
+			layer.Flags = make(map[string]interface{})
+		}
+		layer.Flags[incompleteFlag] = true
+		if err := r.Save(); err != nil {
+			return err
+		}
+	}
+	// We never unset incompleteFlag; below, we remove the entire object from r.layers.
+
 	id = layer.ID
 	err := r.driver.Remove(id)
 	if err != nil {
