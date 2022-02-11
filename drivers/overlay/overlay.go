@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package overlay
@@ -1233,7 +1234,12 @@ func (d *Driver) recreateSymlinks() error {
 			if len(targetComponents) != 3 || targetComponents[0] != ".." || targetComponents[2] != "diff" {
 				errs = multierror.Append(errs, errors.Errorf("link target of %q looks weird: %q", link, target))
 				// force the link to be recreated on the next pass
-				os.Remove(filepath.Join(linksDir, link.Name()))
+				if err := os.Remove(filepath.Join(linksDir, link.Name())); err != nil {
+					if !os.IsNotExist(err) {
+						errs = multierror.Append(errs, errors.Wrapf(err, "removing link %q", link))
+					} // else don’t report any error, but also don’t set madeProgress.
+					continue
+				}
 				madeProgress = true
 				continue
 			}
