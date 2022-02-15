@@ -37,6 +37,13 @@ const (
 	removeNames
 )
 
+const (
+	volatileFlag     = "Volatile"
+	mountLabelFlag   = "MountLabel"
+	processLabelFlag = "ProcessLabel"
+	mountOptsFlag    = "MountOpts"
+)
+
 var (
 	stores     []*store
 	storesLock sync.Mutex
@@ -1399,11 +1406,10 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	if options.Flags == nil {
 		options.Flags = make(map[string]interface{})
 	}
-	plabel, _ := options.Flags["ProcessLabel"].(string)
-	mlabel, _ := options.Flags["MountLabel"].(string)
-	if (plabel == "" && mlabel != "") ||
-		(plabel != "" && mlabel == "") {
-		return nil, errors.New("processLabel and Mountlabel must either not be specified or both specified")
+	plabel, _ := options.Flags[processLabelFlag].(string)
+	mlabel, _ := options.Flags[mountLabelFlag].(string)
+	if (plabel == "" && mlabel != "") || (plabel != "" && mlabel == "") {
+		return nil, errors.New("ProcessLabel and Mountlabel must either not be specified or both specified")
 	}
 
 	if plabel == "" {
@@ -1411,11 +1417,12 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		if err != nil {
 			return nil, err
 		}
-		options.Flags["ProcessLabel"] = processLabel
-		options.Flags["MountLabel"] = mountLabel
+		mlabel = mountLabel
+		options.Flags[processLabelFlag] = processLabel
+		options.Flags[mountLabelFlag] = mountLabel
 	}
 
-	clayer, err := rlstore.Create(layer, imageTopLayer, nil, options.Flags["MountLabel"].(string), options.StorageOpt, layerOptions, true)
+	clayer, err := rlstore.Create(layer, imageTopLayer, nil, mlabel, options.StorageOpt, layerOptions, true)
 	if err != nil {
 		return nil, err
 	}
@@ -2790,8 +2797,10 @@ func (s *store) Mount(id, mountLabel string) (string, error) {
 		options.GidMaps = container.GIDMap
 		options.Options = container.MountOpts()
 		if !s.disableVolatile {
-			if v, found := container.Flags["Volatile"]; found {
-				options.Volatile = v.(bool)
+			if v, found := container.Flags[volatileFlag]; found {
+				if b, ok := v.(bool); ok {
+					options.Volatile = b
+				}
 			}
 		}
 	}
