@@ -920,7 +920,9 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 	defer func() {
 		// Clean up on failure
 		if retErr != nil {
-			os.RemoveAll(dir)
+			if err2 := os.RemoveAll(dir); err2 != nil {
+				logrus.Errorf("While recovering from a failure creating a layer, error deleting %#v: %v", dir, err2)
+			}
 		}
 	}()
 

@@ -768,7 +768,9 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		if err = r.driver.UpdateLayerIDMap(id, oldMappings, idMappings, mountLabel); err != nil {
 			// We don't have a record of this layer, but at least
 			// try to clean it up underneath us.
-			r.driver.Remove(id)
+			if err2 := r.driver.Remove(id); err2 != nil {
+				logrus.Errorf("While recovering from a failure creating in UpdateLayerIDMap, error deleting layer %#v: %v", id, err2)
+			}
 			return nil, -1, err
 		}
 	}
@@ -793,21 +795,26 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		for flag, value := range flags {
 			layer.Flags[flag] = value
 		}
+		savedIncompleteLayer := false
 		if diff != nil {
 			layer.Flags[incompleteFlag] = true
 			err = r.Save()
 			if err != nil {
 				// We don't have a record of this layer, but at least
 				// try to clean it up underneath us.
-				r.driver.Remove(id)
+				if err2 := r.driver.Remove(id); err2 != nil {
+					logrus.Errorf("While recovering from a failure saving incomplete layer metadata, error deleting layer %#v: %v", id, err2)
+				}
 				return nil, -1, err
 			}
+			savedIncompleteLayer = true
 			size, err = r.applyDiffWithOptions(layer.ID, moreOptions, diff)
 			if err != nil {
-				if r.Delete(layer.ID) != nil {
+				if err2 := r.Delete(layer.ID); err2 != nil {
 					// Either a driver error or an error saving.
 					// We now have a layer that's been marked for
 					// deletion but which we failed to remove.
+					logrus.Errorf("While recovering from a failure applying layer diff, error deleting layer %#v: %v", layer.ID, err2)
 				}
 				return nil, -1, err
 			}
@@ -815,9 +822,20 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		}
 		err = r.Save()
 		if err != nil {
-			// We don't have a record of this layer, but at least
-			// try to clean it up underneath us.
-			r.driver.Remove(id)
+			if savedIncompleteLayer {
+				if err2 := r.Delete(layer.ID); err2 != nil {
+					// Either a driver error or an error saving.
+					// We now have a layer that's been marked for
+					// deletion but which we failed to remove.
+					logrus.Errorf("While recovering from a failure applying layer diff, error deleting layer %#v: %v", layer.ID, err2)
+				}
+			} else {
+				// We don't have a record of this layer, but at least
+				// try to clean it up underneath us.
+				if err2 := r.driver.Remove(id); err2 != nil {
+					logrus.Errorf("While recovering from a failure saving finished layer metadata, error deleting layer %#v in graph driver: %v", id, err2)
+				}
+			}
 			return nil, -1, err
 		}
 		layer = copyLayer(layer)
