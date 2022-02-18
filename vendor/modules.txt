@@ -2,7 +2,7 @@
 ## explicit
 github.com/BurntSushi/toml
 github.com/BurntSushi/toml/internal
-# github.com/Microsoft/go-winio v0.5.1
+# github.com/Microsoft/go-winio v0.5.2
 ## explicit
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/backuptar
