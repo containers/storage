@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package graphdriver
@@ -12,7 +13,15 @@ import (
 	"github.com/containers/storage/pkg/system"
 )
 
-func platformLChown(path string, info os.FileInfo, toHost, toContainer *idtools.IDMappings) error {
+
+type platformChowner struct {
+}
+
+func newLChowner() *platformChowner {
+	return &platformChowner{}
+}
+
+func (c *platformChowner) LChown(path string, info os.FileInfo, toHost, toContainer *idtools.IDMappings) error {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return nil
