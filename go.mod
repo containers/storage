@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.0.0
 	github.com/Microsoft/go-winio v0.5.2
 	github.com/Microsoft/hcsshim v0.9.2
-	github.com/containerd/stargz-snapshotter/estargz v0.11.0
+	github.com/containerd/stargz-snapshotter/estargz v0.11.1
 	github.com/cyphar/filepath-securejoin v0.2.3
 	github.com/docker/go-units v0.4.0
 	github.com/google/go-intervals v0.0.2
