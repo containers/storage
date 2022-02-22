@@ -740,26 +740,17 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	}
 	if moreOptions.TemplateLayer != "" {
 		if err = r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
-			if id != "" {
-				return nil, -1, errors.Wrapf(err, "error creating copy of template layer %q with ID %q", moreOptions.TemplateLayer, id)
-			}
-			return nil, -1, errors.Wrapf(err, "error creating copy of template layer %q", moreOptions.TemplateLayer)
+			return nil, -1, errors.Wrapf(err, "error creating copy of template layer %q with ID %q", moreOptions.TemplateLayer, id)
 		}
 		oldMappings = templateIDMappings
 	} else {
 		if writeable {
 			if err = r.driver.CreateReadWrite(id, parent, &opts); err != nil {
-				if id != "" {
-					return nil, -1, errors.Wrapf(err, "error creating read-write layer with ID %q", id)
-				}
-				return nil, -1, errors.Wrapf(err, "error creating read-write layer")
+				return nil, -1, errors.Wrapf(err, "error creating read-write layer with ID %q", id)
 			}
 		} else {
 			if err = r.driver.Create(id, parent, &opts); err != nil {
-				if id != "" {
-					return nil, -1, errors.Wrapf(err, "error creating layer with ID %q", id)
-				}
-				return nil, -1, errors.Wrapf(err, "error creating layer")
+				return nil, -1, errors.Wrapf(err, "error creating layer with ID %q", id)
 			}
 		}
 		oldMappings = parentMappings
