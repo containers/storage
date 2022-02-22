@@ -692,11 +692,10 @@ func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []s
 	return copyLayer(layer), nil
 }
 
-func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}, diff io.Reader) (layer *Layer, size int64, err error) {
+func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}, diff io.Reader) (*Layer, int64, error) {
 	if !r.IsReadWrite() {
 		return nil, -1, errors.Wrapf(ErrStoreIsReadOnly, "not allowed to create new layers at %q", r.layerspath())
 	}
-	size = -1
 	if err := os.MkdirAll(r.rundir, 0700); err != nil {
 		return nil, -1, err
 	}
@@ -769,24 +768,24 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		IDMappings: idMappings,
 	}
 	if moreOptions.TemplateLayer != "" {
-		if err = r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
+		if err := r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
 			return nil, -1, errors.Wrapf(err, "error creating copy of template layer %q with ID %q", moreOptions.TemplateLayer, id)
 		}
 		oldMappings = templateIDMappings
 	} else {
 		if writeable {
-			if err = r.driver.CreateReadWrite(id, parent, &opts); err != nil {
+			if err := r.driver.CreateReadWrite(id, parent, &opts); err != nil {
 				return nil, -1, errors.Wrapf(err, "error creating read-write layer with ID %q", id)
 			}
 		} else {
-			if err = r.driver.Create(id, parent, &opts); err != nil {
+			if err := r.driver.Create(id, parent, &opts); err != nil {
 				return nil, -1, errors.Wrapf(err, "error creating layer with ID %q", id)
 			}
 		}
 		oldMappings = parentMappings
 	}
 	if !reflect.DeepEqual(oldMappings.UIDs(), idMappings.UIDs()) || !reflect.DeepEqual(oldMappings.GIDs(), idMappings.GIDs()) {
-		if err = r.driver.UpdateLayerIDMap(id, oldMappings, idMappings, mountLabel); err != nil {
+		if err := r.driver.UpdateLayerIDMap(id, oldMappings, idMappings, mountLabel); err != nil {
 			// We don't have a record of this layer, but at least
 			// try to clean it up underneath us.
 			if err2 := r.driver.Remove(id); err2 != nil {
@@ -804,7 +803,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 			}
 			return nil, -1, err
 		}
-		if err = ioutils.AtomicWriteFile(r.tspath(id), templateTSdata, 0o600); err != nil {
+		if err := ioutils.AtomicWriteFile(r.tspath(id), templateTSdata, 0o600); err != nil {
 			// We don't have a record of this layer, but at least
 			// try to clean it up underneath us.
 			if err2 := r.driver.Remove(id); err2 != nil {
@@ -813,7 +812,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 			return nil, -1, err
 		}
 	}
-	layer = &Layer{
+	layer := &Layer{
 		ID:                 id,
 		Parent:             parent,
 		Names:              names,
@@ -842,7 +841,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		layer.Flags[flag] = value
 	}
 	layer.Flags[incompleteFlag] = true
-	err = r.Save()
+	err := r.Save()
 	if err != nil {
 		// We don't have a presistent record of this layer, but
 		// try to remove both the driver’s data as well as
@@ -852,6 +851,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		}
 		return nil, -1, err
 	}
+	var size int64 = -1
 	if diff != nil {
 		size, err = r.applyDiffWithOptions(layer.ID, moreOptions, diff)
 		if err != nil {
