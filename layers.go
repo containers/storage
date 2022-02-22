@@ -844,9 +844,10 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	layer.Flags[incompleteFlag] = true
 	err = r.Save()
 	if err != nil {
-		// We don't have a record of this layer, but at least
-		// try to clean it up underneath us.
-		if err2 := r.driver.Remove(id); err2 != nil {
+		// We don't have a presistent record of this layer, but
+		// try to remove both the driver’s data as well as
+		// the in-memory layer record.
+		if err2 := r.Delete(layer.ID); err2 != nil {
 			logrus.Errorf("While recovering from a failure saving incomplete layer metadata, error deleting layer %#v: %v", id, err2)
 		}
 		return nil, -1, err
