@@ -761,57 +761,9 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	if mountLabel != "" {
 		label.ReserveLabel(mountLabel)
 	}
-	idMappings := idtools.NewIDMappingsFromMaps(moreOptions.UIDMap, moreOptions.GIDMap)
-	opts := drivers.CreateOpts{
-		MountLabel: mountLabel,
-		StorageOpt: options,
-		IDMappings: idMappings,
-	}
-	if moreOptions.TemplateLayer != "" {
-		if err := r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
-			return nil, -1, errors.Wrapf(err, "error creating copy of template layer %q with ID %q", moreOptions.TemplateLayer, id)
-		}
-		oldMappings = templateIDMappings
-	} else {
-		if writeable {
-			if err := r.driver.CreateReadWrite(id, parent, &opts); err != nil {
-				return nil, -1, errors.Wrapf(err, "error creating read-write layer with ID %q", id)
-			}
-		} else {
-			if err := r.driver.Create(id, parent, &opts); err != nil {
-				return nil, -1, errors.Wrapf(err, "error creating layer with ID %q", id)
-			}
-		}
-		oldMappings = parentMappings
-	}
-	if !reflect.DeepEqual(oldMappings.UIDs(), idMappings.UIDs()) || !reflect.DeepEqual(oldMappings.GIDs(), idMappings.GIDs()) {
-		if err := r.driver.UpdateLayerIDMap(id, oldMappings, idMappings, mountLabel); err != nil {
-			// We don't have a record of this layer, but at least
-			// try to clean it up underneath us.
-			if err2 := r.driver.Remove(id); err2 != nil {
-				logrus.Errorf("While recovering from a failure creating in UpdateLayerIDMap, error deleting layer %#v: %v", id, err2)
-			}
-			return nil, -1, err
-		}
-	}
-	if len(templateTSdata) > 0 {
-		if err := os.MkdirAll(filepath.Dir(r.tspath(id)), 0o700); err != nil {
-			// We don't have a record of this layer, but at least
-			// try to clean it up underneath us.
-			if err2 := r.driver.Remove(id); err2 != nil {
-				logrus.Errorf("While recovering from a failure creating in UpdateLayerIDMap, error deleting layer %#v: %v", id, err2)
-			}
-			return nil, -1, err
-		}
-		if err := ioutils.AtomicWriteFile(r.tspath(id), templateTSdata, 0o600); err != nil {
-			// We don't have a record of this layer, but at least
-			// try to clean it up underneath us.
-			if err2 := r.driver.Remove(id); err2 != nil {
-				logrus.Errorf("While recovering from a failure creating in UpdateLayerIDMap, error deleting layer %#v: %v", id, err2)
-			}
-			return nil, -1, err
-		}
-	}
+
+	// Before actually creating the layer, make a persistent record of it with incompleteFlag,
+	// so that future processes have a chance to delete it.
 	layer := &Layer{
 		ID:                 id,
 		Parent:             parent,
@@ -862,6 +814,50 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		cleanupFailureContext = "saving incomplete layer metadata"
 		return nil, -1, err
 	}
+
+	idMappings := idtools.NewIDMappingsFromMaps(moreOptions.UIDMap, moreOptions.GIDMap)
+	opts := drivers.CreateOpts{
+		MountLabel: mountLabel,
+		StorageOpt: options,
+		IDMappings: idMappings,
+	}
+	if moreOptions.TemplateLayer != "" {
+		if err := r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
+			cleanupFailureContext = "creating a layer from template"
+			return nil, -1, errors.Wrapf(err, "error creating copy of template layer %q with ID %q", moreOptions.TemplateLayer, id)
+		}
+		oldMappings = templateIDMappings
+	} else {
+		if writeable {
+			if err := r.driver.CreateReadWrite(id, parent, &opts); err != nil {
+				cleanupFailureContext = "creating a read-write layer"
+				return nil, -1, errors.Wrapf(err, "error creating read-write layer with ID %q", id)
+			}
+		} else {
+			if err := r.driver.Create(id, parent, &opts); err != nil {
+				cleanupFailureContext = "creating a read-only layer"
+				return nil, -1, errors.Wrapf(err, "error creating layer with ID %q", id)
+			}
+		}
+		oldMappings = parentMappings
+	}
+	if !reflect.DeepEqual(oldMappings.UIDs(), idMappings.UIDs()) || !reflect.DeepEqual(oldMappings.GIDs(), idMappings.GIDs()) {
+		if err := r.driver.UpdateLayerIDMap(id, oldMappings, idMappings, mountLabel); err != nil {
+			cleanupFailureContext = "in UpdateLayerIDMap"
+			return nil, -1, err
+		}
+	}
+	if len(templateTSdata) > 0 {
+		if err := os.MkdirAll(filepath.Dir(r.tspath(id)), 0o700); err != nil {
+			cleanupFailureContext = "creating tar-split parent directory for a copy from template"
+			return nil, -1, err
+		}
+		if err := ioutils.AtomicWriteFile(r.tspath(id), templateTSdata, 0o600); err != nil {
+			cleanupFailureContext = "creating a tar-split copy from template"
+			return nil, -1, err
+		}
+	}
+
 	var size int64 = -1
 	if diff != nil {
 		size, err = r.applyDiffWithOptions(layer.ID, moreOptions, diff)
