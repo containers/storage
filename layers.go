@@ -841,26 +841,32 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		layer.Flags[flag] = value
 	}
 	layer.Flags[incompleteFlag] = true
+
+	succeeded := false
+	cleanupFailureContext := ""
+	defer func() {
+		if !succeeded {
+			// On any error, try both removing the driver's data as well
+			// as the in-memory layer record.
+			if err2 := r.Delete(layer.ID); err2 != nil {
+				if cleanupFailureContext == "" {
+					cleanupFailureContext = "unknown: cleanupFailureContext not set at the failure site"
+				}
+				logrus.Errorf("While recovering from a failure (%s), error deleting layer %#v: %v", cleanupFailureContext, layer.ID, err2)
+			}
+		}
+	}()
+
 	err := r.Save()
 	if err != nil {
-		// We don't have a presistent record of this layer, but
-		// try to remove both the driver’s data as well as
-		// the in-memory layer record.
-		if err2 := r.Delete(layer.ID); err2 != nil {
-			logrus.Errorf("While recovering from a failure saving incomplete layer metadata, error deleting layer %#v: %v", id, err2)
-		}
+		cleanupFailureContext = "saving incomplete layer metadata"
 		return nil, -1, err
 	}
 	var size int64 = -1
 	if diff != nil {
 		size, err = r.applyDiffWithOptions(layer.ID, moreOptions, diff)
 		if err != nil {
-			if err2 := r.Delete(layer.ID); err2 != nil {
-				// Either a driver error or an error saving.
-				// We now have a layer that's been marked for
-				// deletion but which we failed to remove.
-				logrus.Errorf("While recovering from a failure applying layer diff, error deleting layer %#v: %v", layer.ID, err2)
-			}
+			cleanupFailureContext = "applying layer diff"
 			return nil, -1, err
 		}
 	} else {
@@ -875,15 +881,12 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	delete(layer.Flags, incompleteFlag)
 	err = r.Save()
 	if err != nil {
-		if err2 := r.Delete(layer.ID); err2 != nil {
-			// Either a driver error or an error saving.
-			// We now have a layer that's been marked for
-			// deletion but which we failed to remove.
-			logrus.Errorf("While recovering from a failure saving finished layer metadata, error deleting layer %#v: %v", layer.ID, err2)
-		}
+		cleanupFailureContext = "saving finished layer metadata"
 		return nil, -1, err
 	}
+
 	layer = copyLayer(layer)
+	succeeded = true
 	return layer, size, err
 }
 
