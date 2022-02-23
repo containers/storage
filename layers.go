@@ -400,6 +400,7 @@ func (r *layerStore) Load() error {
 					layer.Flags = make(map[string]interface{})
 				}
 				if layerHasIncompleteFlag(layer) {
+					logrus.Warnf("Found incomplete layer %#v, deleting it", layer.ID)
 					err = r.deleteInternal(layer.ID)
 					if err != nil {
 						break
