@@ -509,11 +509,11 @@ func (r *imageStore) SetNames(id string, names []string) error {
 	if !r.IsReadWrite() {
 		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to change image name assignments at %q", r.imagespath())
 	}
-	names = dedupeNames(names)
 	if image, ok := r.lookup(id); ok {
 		for _, name := range image.Names {
-			delete(r.byname, name)
+			names = append(names, name)
 		}
+		names = dedupeNames(names)
 		for _, name := range names {
 			if otherImage, ok := r.byname[name]; ok {
 				r.removeName(otherImage, name)

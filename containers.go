@@ -378,11 +378,11 @@ func (r *containerStore) removeName(container *Container, name string) {
 }
 
 func (r *containerStore) SetNames(id string, names []string) error {
-	names = dedupeNames(names)
 	if container, ok := r.lookup(id); ok {
 		for _, name := range container.Names {
-			delete(r.byname, name)
+			names = append(names, name)
 		}
+		names = dedupeNames(names)
 		for _, name := range names {
 			if otherContainer, ok := r.byname[name]; ok {
 				r.removeName(otherContainer, name)

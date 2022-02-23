@@ -1043,11 +1043,11 @@ func (r *layerStore) SetNames(id string, names []string) error {
 	if !r.IsReadWrite() {
 		return errors.Wrapf(ErrStoreIsReadOnly, "not allowed to change layer name assignments at %q", r.layerspath())
 	}
-	names = dedupeNames(names)
 	if layer, ok := r.lookup(id); ok {
 		for _, name := range layer.Names {
-			delete(r.byname, name)
+			names = append(names, name)
 		}
+		names = dedupeNames(names)
 		for _, name := range names {
 			if otherLayer, ok := r.byname[name]; ok {
 				r.removeName(otherLayer, name)
