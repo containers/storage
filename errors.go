@@ -53,4 +53,9 @@ var (
 	ErrDigestUnknown = errors.New("could not compute digest of item")
 	// ErrLayerNotMounted is returned when the requested information can only be computed for a mounted layer, and the layer is not mounted.
 	ErrLayerNotMounted = errors.New("layer is not mounted")
+	// ErrNotSupported is returned when the requested functionality is not supported.
+	ErrNotSupported = errors.New("not supported")
+	// ErrInvalidNameOperation is returned when updateName is called with invalid operation.
+	// Internal error
+	errInvalidUpdateNameOperation = errors.New("invalid update name operation")
 )
