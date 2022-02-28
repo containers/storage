@@ -1462,6 +1462,21 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	workdir := path.Join(dir, "work")
 
+	if d.options.mountProgram == "" && unshare.IsRootless() {
+		optsList = append(optsList, "userxattr")
+	}
+
+	if options.Volatile && !hasVolatileOption(optsList) {
+		supported, err := d.getSupportsVolatile()
+		if err != nil {
+			return "", err
+		}
+		// If "volatile" is not supported by the file system, just ignore the request
+		if supported {
+			optsList = append(optsList, "volatile")
+		}
+	}
+
 	var opts string
 	if readWrite {
 		opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(absLowers, ":"), diffDir, workdir)
@@ -1469,22 +1484,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		opts = fmt.Sprintf("lowerdir=%s:%s", diffDir, strings.Join(absLowers, ":"))
 	}
 	if len(optsList) > 0 {
-		opts = fmt.Sprintf("%s,%s", strings.Join(optsList, ","), opts)
-	}
-
-	if d.options.mountProgram == "" && unshare.IsRootless() {
-		opts = fmt.Sprintf("%s,userxattr", opts)
-	}
-
-	// If "volatile" is not supported by the file system, just ignore the request
-	if options.Volatile && !hasVolatileOption(strings.Split(opts, ",")) {
-		supported, err := d.getSupportsVolatile()
-		if err != nil {
-			return "", err
-		}
-		if supported {
-			opts = fmt.Sprintf("%s,volatile", opts)
-		}
+		opts = fmt.Sprintf("%s,%s", opts, strings.Join(optsList, ","))
 	}
 
 	mountData := label.FormatMountLabel(opts, options.MountLabel)
@@ -1493,10 +1493,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	pageSize := unix.Getpagesize()
 
-	// Use relative paths and mountFrom when the mount data has exceeded
-	// the page size. The mount syscall fails if the mount data cannot
-	// fit within a page and relative links make the mount data much
-	// smaller at the expense of requiring a fork exec to chroot.
 	if d.options.mountProgram != "" {
 		mountFunc = func(source string, target string, mType string, flags uintptr, label string) error {
 			if !disableShifting {
@@ -1523,6 +1519,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			return nil
 		}
 	} else if len(mountData) > pageSize {
+		// Use relative paths and mountFrom when the mount data has exceeded
+		// the page size. The mount syscall fails if the mount data cannot
+		// fit within a page and relative links make the mount data much
+		// smaller at the expense of requiring a fork exec to chroot.
+
 		workdir = path.Join(id, "work")
 		//FIXME: We need to figure out to get this to work with additional stores
 		if readWrite {
@@ -1530,6 +1531,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			opts = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", strings.Join(relLowers, ":"), diffDir, workdir)
 		} else {
 			opts = fmt.Sprintf("lowerdir=%s", strings.Join(absLowers, ":"))
+		}
+		if len(optsList) > 0 {
+			opts = fmt.Sprintf("%s,%s", opts, strings.Join(optsList, ","))
 		}
 		mountData = label.FormatMountLabel(opts, options.MountLabel)
 		if len(mountData) > pageSize {
