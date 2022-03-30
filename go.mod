@@ -1,4 +1,4 @@
-go 1.14
+go 1.16
 
 module github.com/containers/storage
 
