@@ -67,13 +67,6 @@ EPOCH_TEST_COMMIT="$CIRRUS_BASE_SHA"
 # Unsafe env. vars for display
 SECRET_ENV_RE='(IRCID)|(ACCOUNT)|(^GC[EP]..+)|(SSH)'
 
-# GCE image-name compatible string representation of distribution name
-OS_RELEASE_ID="$(source /etc/os-release; echo $ID)"
-# GCE image-name compatible string representation of distribution _major_ version
-OS_RELEASE_VER="$(source /etc/os-release; echo $VERSION_ID | tr -d '.')"
-# Combined to ease soe usage
-OS_REL_VER="${OS_RELEASE_ID}-${OS_RELEASE_VER}"
-
 # Working with dnf + timeout/retry
 SHORT_DNFY='lilto dnf -y'
 LONG_DNFY='bigto dnf -y'
