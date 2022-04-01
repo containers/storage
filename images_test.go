@@ -91,4 +91,16 @@ func TestHistoryNames(t *testing.T) {
 	require.Len(t, secondImage.NamesHistory, 2)
 	require.Equal(t, secondImage.NamesHistory[0], "3")
 	require.Equal(t, secondImage.NamesHistory[1], "2")
+
+	// test independent add and remove operations
+	require.Nil(t, store.AddNames(firstImageID, []string{"5"}))
+	firstImage, err = store.Get(firstImageID)
+	require.Nil(t, err)
+	require.Equal(t, firstImage.NamesHistory, []string{"4", "3", "2", "1", "5"})
+
+	// history should still contain old values
+	require.Nil(t, store.RemoveNames(firstImageID, []string{"5"}))
+	firstImage, err = store.Get(firstImageID)
+	require.Nil(t, err)
+	require.Equal(t, firstImage.NamesHistory, []string{"4", "3", "2", "1", "5"})
 }
