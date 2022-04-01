@@ -541,7 +541,12 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 		mountLabel = opts.MountLabel
 	}
 
-	return label.Relabel(path.Join(subvolumes, id), mountLabel, false)
+	err = label.Relabel(path.Join(subvolumes, id), mountLabel, false)
+	if err != nil && err != unix.ENOTSUP {
+		logrus.Debugf("Attempted to relabel %s failed: %v", path.Join(subvolumes, id), err)
+		return err
+	}
+	return nil
 }
 
 // Parse btrfs storage options
