@@ -3,6 +3,7 @@ package archive
 import (
 	"archive/tar"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -362,7 +363,7 @@ func makeTestLayer(paths []string) (rc io.ReadCloser, err error) {
 
 func readDirContents(root string) ([]string, error) {
 	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -373,7 +374,7 @@ func readDirContents(root string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
+		if d.IsDir() {
 			rel = rel + "/"
 		}
 		files = append(files, rel)
