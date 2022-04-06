@@ -77,7 +77,9 @@ func getRootlessGID() int {
 	return os.Getegid()
 }
 
-func isSetID(path string, modeid os.FileMode, capid capability.Cap) (bool, error) {
+// IsSetID checks if specified path has correct FileMode (Setuid|SETGID) or the
+// matching file capabilitiy
+func IsSetID(path string, modeid os.FileMode, capid capability.Cap) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return false, err
@@ -248,7 +250,7 @@ func (c *Cmd) Start() error {
 					gidmapSet = true
 				} else {
 					logrus.Warnf("Error running newgidmap: %v: %s", err, g.String())
-					isSetgid, err := isSetID(path, os.ModeSetgid, capability.CAP_SETGID)
+					isSetgid, err := IsSetID(path, os.ModeSetgid, capability.CAP_SETGID)
 					if err != nil {
 						logrus.Warnf("Failed to check for setgid on %s: %v", path, err)
 					} else {
@@ -308,7 +310,7 @@ func (c *Cmd) Start() error {
 					uidmapSet = true
 				} else {
 					logrus.Warnf("Error running newuidmap: %v: %s", err, u.String())
-					isSetuid, err := isSetID(path, os.ModeSetuid, capability.CAP_SETUID)
+					isSetuid, err := IsSetID(path, os.ModeSetuid, capability.CAP_SETUID)
 					if err != nil {
 						logrus.Warnf("Failed to check for setuid on %s: %v", path, err)
 					} else {
