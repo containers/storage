@@ -22,7 +22,7 @@ import (
 // ├── d2     # opaque, 0750
 // │   └── f1 # empty file, 0660
 // └── d3     # 0700
-//     └── f1 # whiteout, 0644
+//     └── f1 # whiteout, 0000
 func setupOverlayTestDir(t *testing.T, src string) {
 	// Create opaque directory containing single file and permission 0700
 	err := os.Mkdir(filepath.Join(src, "d1"), 0700)
@@ -180,7 +180,7 @@ func TestOverlayTarAUFSUntar(t *testing.T) {
 	checkFileMode(t, filepath.Join(dst, "d3"), 0700|os.ModeDir)
 	checkFileMode(t, filepath.Join(dst, "d1", "f1"), 0600)
 	checkFileMode(t, filepath.Join(dst, "d2", "f1"), 0660)
-	checkFileMode(t, filepath.Join(dst, "d3", WhiteoutPrefix+"f1"), 0600)
+	checkFileMode(t, filepath.Join(dst, "d3", WhiteoutPrefix+"f1"), 0)
 }
 
 func TestNestedOverlayWhiteouts(t *testing.T) {
