@@ -560,10 +560,12 @@ load helpers
 	esac
 	n=5
 	host=2
+	filelist=
 	# Create some temporary files.
 	for i in $(seq $n) ; do
 		createrandom "$TESTDIR"/file$i
 		chown ${i}:${i} "$TESTDIR"/file$i
+		filelist="$filelist file$i"
 	done
 	# Select some ID ranges.
 	for i in $(seq $n) ; do
@@ -576,24 +578,18 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	baselayer="$output"
+	# Create an empty layer blob and apply it to the layer.
+	dd if=/dev/zero bs=1k count=1 of="$TESTDIR"/layer.empty
+	run storage --debug=false applydiff -f "$TESTDIR"/layer.empty $baselayer
 	# Create a layer using the host's mappings.
 	run storage --debug=false create-layer --hostuidmap --hostgidmap $baselayer
 	echo "$output"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	lowerlayer="$output"
-	# Mount the layer.
-	run storage --debug=false mount $lowerlayer
-	echo "$output"
-	[ "$status" -eq 0 ]
-	[ "$output" != "" ]
-	lowermount="$output"
-	# Copy the files in (host mapping, so it's fine), and set ownerships on them.
-	cp -p "$TESTDIR"/file1 ${lowermount}
-	cp -p "$TESTDIR"/file2 ${lowermount}
-	cp -p "$TESTDIR"/file3 ${lowermount}
-	cp -p "$TESTDIR"/file4 ${lowermount}
-	cp -p "$TESTDIR"/file5 ${lowermount}
+	# Create a layer blob containing the files and apply it to the layer.
+	tar --directory "$TESTDIR" -cvf "$TESTDIR"/layer.tar $filelist
+	run storage --debug=false applydiff -f "$TESTDIR"/layer.tar $lowerlayer
 	# Create an image record for this layer.
 	run storage --debug=false create-image $lowerlayer
 	echo "$output"
@@ -679,15 +675,30 @@ load helpers
 	echo nparents:$nparents
 	[ $nparents -eq $n ]
 
-	# The image should have five top layers at this point.
+	# The image should have five top layers at this point, they should all
+	# have known sizes, and we should be able to diff them all.
 	run storage --debug=false image $image
 	echo "$output"
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	tops=$(grep '^Top Layer:' <<< "$output" | sed 's,^Top Layer: ,,g')
+	echo tops: "$tops"
 	ntops=$(for p in $tops; do echo $p ; done | sort -u | wc -l)
 	echo ntops:$ntops
 	[ $ntops -eq $n ]
+	for p in $tops; do
+		rm -f "$TESTDIR"/diff.tar
+		storage --debug=false diff -u -f "$TESTDIR"/diff.tar "$p"
+		test -s "$TESTDIR"/diff.tar
+		expected=$(storage --debug=false layer --json $p | sed -r -e 's|.*"diff-size":([^",]*).*|\1|g')
+		actual=$(stat -c %s "$TESTDIR"/diff.tar)
+		echo expected diff size "$expected", got "$actual"
+		test $actual = $expected
+		expected=$(storage --debug=false layer --json $p | sed -r -e 's|.*"diff-digest":"?([^",]*).*|\1|g')
+		actual=sha256:$(sha256sum "$TESTDIR"/diff.tar | sed -e 's, .*,,g')
+		echo expected diff digest "$expected", got "$actual"
+		test $actual = $expected
+	done
 
 	# Remove the containers and image and check that all of the layers we used got removed.
 	for container in "${containers[@]}" ; do
@@ -702,10 +713,10 @@ load helpers
 
 @test "idmaps-create-mapped-container" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	overlay*|vfs)
 		;;
 	*)
-		skip "not supported by driver $STORAGE_DRIVER"
+		skip "${STORAGE_DRIVER}.imagestore option not supported by driver ${STORAGE_DRIVER}"
 		;;
 	esac
 	case "$STORAGE_OPTION" in
