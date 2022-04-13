@@ -39,7 +39,6 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/vbatts/tar-split/tar/storage"
 	"golang.org/x/sys/unix"
 )
 
@@ -1743,11 +1742,24 @@ func (d *Driver) getWhiteoutFormat() archive.WhiteoutFormat {
 	return whiteoutFormat
 }
 
-type fileGetNilCloser struct {
-	storage.FileGetter
+type overlayFileGetter struct {
+	diffDirs []string
 }
 
-func (f fileGetNilCloser) Close() error {
+func (g *overlayFileGetter) Get(path string) (io.ReadCloser, error) {
+	for _, d := range g.diffDirs {
+		f, err := os.Open(filepath.Join(d, path))
+		if err == nil {
+			return f, nil
+		}
+	}
+	if len(g.diffDirs) > 0 {
+		return os.Open(filepath.Join(g.diffDirs[0], path))
+	}
+	return nil, fmt.Errorf("%s: %w", path, os.ErrNotExist)
+}
+
+func (g *overlayFileGetter) Close() error {
 	return nil
 }
 
@@ -1756,13 +1768,18 @@ func (d *Driver) getStagingDir() string {
 }
 
 // DiffGetter returns a FileGetCloser that can read files from the directory that
-// contains files for the layer differences. Used for direct access for tar-split.
+// contains files for the layer differences, either for this layer, or one of our
+// lowers if we're just a template directory. Used for direct access for tar-split.
 func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 	p, err := d.getDiffPath(id)
 	if err != nil {
 		return nil, err
 	}
-	return fileGetNilCloser{storage.NewPathFileGetter(p)}, nil
+	paths, err := d.getLowerDiffPaths(id)
+	if err != nil {
+		return nil, err
+	}
+	return &overlayFileGetter{diffDirs: append([]string{p}, paths...)}, nil
 }
 
 // CleanupStagingDirectory cleanups the staging directory.
