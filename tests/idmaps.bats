@@ -700,11 +700,27 @@ load helpers
 		test $actual = $expected
 	done
 
-	# Remove the containers and image and check that all of the layers we used got removed.
+	# Create a new layer based on the image.
+	run storage --debug=false create-layer --hostuidmap --hostgidmap $lowerlayer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	upperlayer="$output"
+	run storage --debug=false applydiff -f "$TESTDIR"/layer.empty $upperlayer
+	# Create an image record for the new layer.
+	run storage --debug=false create-image $upperlayer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	upperimage="$output"
+	echo upperimage:$upperimage
+
+	# Remove the containers and images and check that all of the layers we used got removed.
 	for container in "${containers[@]}" ; do
 		run storage --debug=false delete-container $container
 	done
 	run storage --debug=false delete-image $image
+	run storage --debug=false delete-image $upperimage
 	run storage --debug=false layers
 	echo "$output"
 	[ "$status" -eq 0 ]
