@@ -683,7 +683,7 @@ func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []s
 		r.bycompressedsum[layer.CompressedDigest] = append(r.bycompressedsum[layer.CompressedDigest], layer.ID)
 	}
 	if layer.UncompressedDigest != "" {
-		r.byuncompressedsum[layer.CompressedDigest] = append(r.byuncompressedsum[layer.CompressedDigest], layer.ID)
+		r.byuncompressedsum[layer.UncompressedDigest] = append(r.byuncompressedsum[layer.UncompressedDigest], layer.ID)
 	}
 	if err := r.Save(); err != nil {
 		r.driver.Remove(id)
