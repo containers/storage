@@ -27,6 +27,8 @@ const (
 	// NOATIME will not update the file access time when reading from a file.
 	NOATIME = unix.MNT_NOATIME
 
+	mntDetach = unix.MNT_FORCE
+
 	NODIRATIME  = 0
 	NODEV       = 0
 	DIRSYNC     = 0
@@ -43,5 +45,4 @@ const (
 	RSHARED     = 0
 	RELATIME    = 0
 	STRICTATIME = 0
-	mntDetach   = 0
 )
