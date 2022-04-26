@@ -1389,7 +1389,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 	for err == nil {
 		absLowers = append(absLowers, filepath.Join(dir, nameWithSuffix("diff", diffN)))
-		relLowers = append(relLowers, dumbJoin(string(link), "..", nameWithSuffix("diff", diffN)))
+		relLowers = append(relLowers, dumbJoin(linkDir, string(link), "..", nameWithSuffix("diff", diffN)))
 		diffN++
 		st, err = os.Stat(filepath.Join(dir, nameWithSuffix("diff", diffN)))
 		if err == nil && !permsKnown {
