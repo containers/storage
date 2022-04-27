@@ -46,6 +46,48 @@ func TestToHost(t *testing.T) {
 	}
 }
 
+func TestToHostOverflow(t *testing.T) {
+	idMappings := []IDMap{
+		{
+			ContainerID: 0,
+			HostID:      1000,
+			Size:        1,
+		},
+		{
+			ContainerID: 1,
+			HostID:      100000,
+			Size:        65536,
+		},
+	}
+
+	mappings := IDMappings{
+		uids: idMappings,
+		gids: idMappings,
+	}
+
+	pair, err := mappings.ToHostOverflow(IDPair{UID: 65538, GID: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pair.UID != getOverflowUID() {
+		t.Fatalf("Converted to the wrong UID")
+	}
+	if pair.GID != 1000 {
+		t.Fatalf("Converted to the wrong GID")
+	}
+
+	pair, err = mappings.ToHostOverflow(IDPair{UID: 10, GID: 65539})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pair.UID != 100009 {
+		t.Fatalf("Converted to the wrong UID")
+	}
+	if pair.GID != getOverflowGID() {
+		t.Fatalf("Converted to the wrong GID")
+	}
+}
+
 func TestGetRootUIDGID(t *testing.T) {
 	mappingsUIDs := []IDMap{
 		{
