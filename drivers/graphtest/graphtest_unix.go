@@ -125,11 +125,11 @@ func DriverTestCreateBase(t testing.TB, drivername string, driverOptions ...stri
 	driver := GetDriver(t, drivername, driverOptions...)
 	defer PutDriver(t)
 
-	createBase(t, driver, "Base")
+	createBase(t, driver, "Base1")
 	defer func() {
-		require.NoError(t, driver.Remove("Base"))
+		require.NoError(t, driver.Remove("Base1"))
 	}()
-	verifyBase(t, driver, "Base", defaultPerms)
+	verifyBase(t, driver, "Base1", defaultPerms)
 }
 
 // DriverTestCreateSnap Create a driver and snap and verify.
@@ -137,26 +137,26 @@ func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...stri
 	driver := GetDriver(t, drivername, driverOptions...)
 	defer PutDriver(t)
 
-	createBase(t, driver, "Base")
+	createBase(t, driver, "Base2")
 	defer func() {
-		require.NoError(t, driver.Remove("Base"))
+		require.NoError(t, driver.Remove("Base2"))
 	}()
 
-	err := driver.Create("Snap", "Base", nil)
+	err := driver.Create("Snap2", "Base2", nil)
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, driver.Remove("Snap"))
+		require.NoError(t, driver.Remove("Snap2"))
 	}()
 
-	verifyBase(t, driver, "Snap", defaultPerms)
+	verifyBase(t, driver, "Snap2", defaultPerms)
 
-	root, err := driver.Get("Snap", graphdriver.MountOpts{})
+	root, err := driver.Get("Snap2", graphdriver.MountOpts{})
 	assert.NoError(t, err)
 	err = os.Chmod(root, modifiedPerms)
 	require.NoError(t, err)
-	driver.Put("Snap")
+	driver.Put("Snap2")
 
-	err = driver.Create("SecondSnap", "Snap", nil)
+	err = driver.Create("SecondSnap", "Snap2", nil)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, driver.Remove("SecondSnap"))
@@ -171,29 +171,29 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 	driver := GetDriver(t, drivername, driverOptions...)
 	defer PutDriver(t)
 
-	createBase(t, driver, "Base")
+	createBase(t, driver, "Base3")
 	defer func() {
-		require.NoError(t, driver.Remove("Base"))
+		require.NoError(t, driver.Remove("Base3"))
 	}()
 
-	err := driver.Create("Snap", "Base", nil)
+	err := driver.Create("Snap3", "Base3", nil)
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, driver.Remove("Snap"))
+		require.NoError(t, driver.Remove("Snap3"))
 	}()
 
 	content := []byte("test content")
-	if err := addFile(driver, "Snap", "testfile.txt", content); err != nil {
+	if err := addFile(driver, "Snap3", "testfile.txt", content); err != nil {
 		t.Fatal(err)
 	}
 
-	err = driver.CreateFromTemplate("FromTemplate", "Snap", nil, "Base", nil, nil, true)
+	err = driver.CreateFromTemplate("FromTemplate", "Snap3", nil, "Base3", nil, nil, true)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, driver.Remove("FromTemplate"))
 	}()
 
-	err = driver.CreateFromTemplate("ROFromTemplate", "Snap", nil, "Base", nil, nil, false)
+	err = driver.CreateFromTemplate("ROFromTemplate", "Snap3", nil, "Base3", nil, nil, false)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, driver.Remove("ROFromTemplate"))
@@ -201,7 +201,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 
 	noChanges := []archive.Change{}
 
-	changes, err := driver.Changes("FromTemplate", nil, "Snap", nil, "")
+	changes, err := driver.Changes("FromTemplate", nil, "Snap3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +209,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 		t.Fatal(err)
 	}
 
-	changes, err = driver.Changes("ROFromTemplate", nil, "Snap", nil, "")
+	changes, err = driver.Changes("ROFromTemplate", nil, "Snap3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 	if err := checkFile(driver, "ROFromTemplate", "testfile.txt", content); err != nil {
 		t.Fatal(err)
 	}
-	if err := checkFile(driver, "Snap", "testfile.txt", content); err != nil {
+	if err := checkFile(driver, "Snap3", "testfile.txt", content); err != nil {
 		t.Fatal(err)
 	}
 
@@ -232,7 +232,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 		Kind: archive.ChangeAdd,
 	}}
 
-	changes, err = driver.Changes("Snap", nil, "Base", nil, "")
+	changes, err = driver.Changes("Snap3", nil, "Base3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +240,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 		t.Fatal(err)
 	}
 
-	changes, err = driver.Changes("FromTemplate", nil, "Base", nil, "")
+	changes, err = driver.Changes("FromTemplate", nil, "Base3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +248,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 		t.Fatal(err)
 	}
 
-	changes, err = driver.Changes("ROFromTemplate", nil, "Base", nil, "")
+	changes, err = driver.Changes("ROFromTemplate", nil, "Base3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 		t.Fatal(err)
 	}
 
-	verifyBase(t, driver, "Base", defaultPerms)
+	verifyBase(t, driver, "Base3", defaultPerms)
 }
 
 // DriverTestDeepLayerRead reads a file from a lower layer under a given number of layers
@@ -429,11 +429,11 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 	driver := GetDriver(t, drivername)
 	defer PutDriver(t)
 
-	createBase(t, driver, "Base")
+	createBase(t, driver, "Base4")
 	createOpts := &graphdriver.CreateOpts{}
 	createOpts.StorageOpt = make(map[string]string, 1)
 	createOpts.StorageOpt["size"] = "50M"
-	if err := driver.Create("zfsTest", "Base", createOpts); err != nil {
+	if err := driver.Create("zfsTest", "Base4", createOpts); err != nil {
 		t.Fatal(err)
 	}
 
