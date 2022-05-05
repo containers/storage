@@ -204,7 +204,7 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 		opts.GraphDriverName = driver
 	}
 	if opts.GraphDriverName == overlay2 {
-		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver.")
+		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver")
 		opts.GraphDriverName = overlayDriver
 	}
 
@@ -281,7 +281,7 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 	if err == nil {
 		keys := meta.Undecoded()
 		if len(keys) > 0 {
-			logrus.Warningf("Failed to decode the keys %q from %q.", keys, configFile)
+			logrus.Warningf("Failed to decode the keys %q from %q", keys, configFile)
 		}
 	} else {
 		if !os.IsNotExist(err) {
@@ -300,11 +300,11 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) {
 		storeOptions.GraphDriverName = config.Storage.Driver
 	}
 	if storeOptions.GraphDriverName == overlay2 {
-		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver.")
+		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver")
 		storeOptions.GraphDriverName = overlayDriver
 	}
 	if storeOptions.GraphDriverName == "" {
-		logrus.Errorf("The storage 'driver' option must be set in %s to guarantee proper operation.", configFile)
+		logrus.Errorf("The storage 'driver' option must be set in %s to guarantee proper operation", configFile)
 	}
 	if config.Storage.RunRoot != "" {
 		storeOptions.RunRoot = config.Storage.RunRoot

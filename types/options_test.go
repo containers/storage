@@ -119,5 +119,5 @@ func TestReloadConfigurationFile(t *testing.T) {
 	assert.Equal(t, storageOpts.RunRoot, "/run/containers/test")
 	logrus.SetOutput(os.Stderr)
 
-	assert.Equal(t, strings.Contains(content.String(), "Failed to decode the keys [\\\"foo\\\" \\\"storage.options.graphroot\\\"] from \\\"./storage_broken.conf\\\".\""), true)
+	assert.Equal(t, strings.Contains(content.String(), "Failed to decode the keys [\\\"foo\\\" \\\"storage.options.graphroot\\\"] from \\\"./storage_broken.conf\\\"\""), true)
 }
