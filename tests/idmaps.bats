@@ -949,3 +949,62 @@ load helpers
 	[ "$status" -eq 0 ]
 	[ "$output" == "" ]
 }
+
+@test "idmaps-create-layer-from-another-image-store" {
+	case "$STORAGE_DRIVER" in
+	btrfs|devicemapper|overlay*|vfs|zfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+	case "$STORAGE_OPTION" in
+	*mount_program*)
+		skip "test not supported when using mount_program"
+		;;
+	esac
+
+	n=5
+	host=2
+	# Create some temporary files.
+	for i in $(seq $n) ; do
+		createrandom "$TESTDIR"/file$i
+		chown ${i}:${i} "$TESTDIR"/file$i
+		ln -s . $TESTDIR/subdir$i
+	done
+	# Use them to create some diffs.
+	pushd $TESTDIR > /dev/null
+	for i in $(seq $n) ; do
+		tar cf diff${i}.tar subdir$i/
+	done
+	popd > /dev/null
+
+	# Create a layer using the host's mappings.
+	run storage --graph=$TESTDIR/imagestore --debug=false create-layer --hostuidmap --hostgidmap
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	layer="$output"
+
+	run storage --graph=$TESTDIR/imagestore --debug=false create-image $layer
+	echo "$output"
+	[ "$status" -eq 0 ]
+
+	run storage --graph=$TESTDIR/newstore --storage-opt=.imagestore=$TESTDIR/imagestore --debug=false create-image $layer
+	echo "$output"
+	[ "$status" -eq 0 ]
+	image="$output"
+
+	for i in 0 $(seq $n) ; do
+		uidrange[$i]=$((($RANDOM+32767)*65536))
+		gidrange[$i]=$((($RANDOM+32767)*65536))
+	done
+
+	run storage --graph=$TESTDIR/newstore --storage-opt=.imagestore=$TESTDIR/imagestore --debug=false create-container --uidmap 0:${uidrange[0]}:$(($n+1)) --gidmap 0:${gidrange[0]}:$(($n+1)) $image
+	echo "$output"
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+
+	storage --graph ${TESTDIR}/imagestore shutdown
+	storage --graph ${TESTDIR}/newstore shutdown
+}
