@@ -1084,11 +1084,17 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 
 func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	var chunksToRequest []ImageSourceChunk
-	for _, c := range missingParts {
-		if c.OriginFile == nil && !c.Hole {
-			chunksToRequest = append(chunksToRequest, *c.SourceChunk)
+
+	calculateChunksToRequest := func() {
+		chunksToRequest = []ImageSourceChunk{}
+		for _, c := range missingParts {
+			if c.OriginFile == nil && !c.Hole {
+				chunksToRequest = append(chunksToRequest, *c.SourceChunk)
+			}
 		}
 	}
+
+	calculateChunksToRequest()
 
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
 	var streams chan io.ReadCloser
@@ -1109,6 +1115,7 @@ func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingPart
 
 			// Merge more chunks to request
 			missingParts = mergeMissingChunks(missingParts, requested/2)
+			calculateChunksToRequest()
 			continue
 		}
 		return err
