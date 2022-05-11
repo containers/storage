@@ -918,6 +918,9 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 			case p := <-streams:
 				part = p
 			case err := <-errs:
+				if err == nil {
+					return errors.New("not enough data returned from the server")
+				}
 				return err
 			}
 			if part == nil {
@@ -1575,6 +1578,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	wg.Wait()
 
 	for _, res := range copyResults[:filesToWaitFor] {
+		r := &mergedEntries[res.index]
+
 		if res.err != nil {
 			return output, res.err
 		}
@@ -1583,8 +1588,6 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		if res.found {
 			continue
 		}
-
-		r := &mergedEntries[res.index]
 
 		missingPartsSize += r.Size
 
