@@ -41,7 +41,7 @@ The `storage` table supports the following options:
   When changing the graphroot location on an SELINUX system, ensure
   the labeling matches the default locations labels with the
   following commands:
-  
+
 ```
 # semanage fcontext -a -e /var/lib/containers/storage /NEWSTORAGEPATH
 # restorecon -R -v /NEWSTORAGEPATH
@@ -73,6 +73,33 @@ The `storage.options` table supports the following options:
 
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
+
+**pull_options** = {enable_partial_images = "false", enable_host_deduplication = "false", use_hard_links = "false", ostree_repos=""}
+
+Allows specification of how storage is populated when pulling images. This
+option can speed the pulling process of images compressed with format zstd:chunked. Containers/storage looks
+for files within images that are being pulled from a container registry that
+were previously pulled to the host.  It can copy or create
+a hard link to the existing file when it finds them, eliminating the need to pull them from the
+container registry. These options can deduplicate pulling of content, disk
+storage of content and can allow the kernel to use less memory when running
+containers.
+
+containers/storage supports four keys
+  * enable_partial_images="true" | "false"
+    Tells containers/storage to look for files previously pulled in storage
+    rather then always pulling them from the container registry.
+  * use_hard_links = "false" | "true"
+    Tells containers/storage to use hard links rather then create new files in
+    the image, if an identical file already existed in storage.
+  * enable_host_deduplication = "false" | "true"
+    Tells containers/storage to search for files under `/usr` in addition to
+    files in other images when attempting to avoid pulling files from the
+    container registry.
+  * ostree_repos = ""
+    Tells containers/storage where an ostree repository exists that might have
+    previously pulled content which can be used when attempting to avoid
+    pulling content from the container registry
 
 **remap-uids=**""
 **remap-gids=**""
