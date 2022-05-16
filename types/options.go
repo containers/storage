@@ -187,6 +187,7 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 		return opts, err
 	}
 	opts.RunRoot = rootlessRuntime
+	opts.PullOptions = systemOpts.PullOptions
 	if systemOpts.RootlessStoragePath != "" {
 		opts.GraphRoot, err = expandEnvPath(systemOpts.RootlessStoragePath, rootlessUID)
 		if err != nil {

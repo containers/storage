@@ -18,6 +18,7 @@ func TestStore(t *testing.T) {
 	err = os.MkdirAll(wd, 0700)
 	require.NoError(t, err)
 
+	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
 	store, err := GetStore(StoreOptions{
 		RunRoot:            filepath.Join(wd, "run"),
 		GraphRoot:          filepath.Join(wd, "root"),
@@ -33,6 +34,7 @@ func TestStore(t *testing.T) {
 			HostID:      os.Getgid(),
 			Size:        1,
 		}},
+		PullOptions: pullOpts,
 	})
 	require.NoError(t, err)
 
@@ -45,9 +47,14 @@ func TestStore(t *testing.T) {
 	root = store.GraphDriverName()
 	require.NotNil(t, root)
 
-	store.GraphOptions()
+	gopts := store.GraphOptions()
+	assert.Equal(t, []string{}, gopts)
+
 	store.UIDMap()
 	store.GIDMap()
+
+	opts := store.PullOptions()
+	assert.Equal(t, pullOpts, opts)
 
 	_, err = store.GraphDriver()
 	require.Nil(t, err)
