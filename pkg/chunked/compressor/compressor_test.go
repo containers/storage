@@ -17,7 +17,7 @@ func TestHole(t *testing.T) {
 
 	hole, _, err := hf.ReadByte()
 	if err != nil {
-		t.Errorf("got error: %w", err)
+		t.Errorf("got error: %v", err)
 	}
 	if hole != 5 {
 		t.Error("expected hole not found")
@@ -34,7 +34,7 @@ func TestHole(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		hole, byte, err := hf.ReadByte()
 		if err != nil {
-			t.Errorf("got error: %w", err)
+			t.Errorf("got error: %v", err)
 		}
 		if hole != 0 {
 			t.Error("hole found")
@@ -58,7 +58,7 @@ func TestTwoHoles(t *testing.T) {
 
 	hole, _, err := hf.ReadByte()
 	if err != nil {
-		t.Errorf("got error: %w", err)
+		t.Errorf("got error: %v", err)
 	}
 	if hole != 5 {
 		t.Error("hole not found")
@@ -67,7 +67,7 @@ func TestTwoHoles(t *testing.T) {
 	for _, e := range []byte("FOO") {
 		hole, c, err := hf.ReadByte()
 		if err != nil {
-			t.Errorf("got error: %w", err)
+			t.Errorf("got error: %v", err)
 		}
 		if hole != 0 {
 			t.Error("hole found")
@@ -78,7 +78,7 @@ func TestTwoHoles(t *testing.T) {
 	}
 	hole, _, err = hf.ReadByte()
 	if err != nil {
-		t.Errorf("got error: %w", err)
+		t.Errorf("got error: %v", err)
 	}
 	if hole != 5 {
 		t.Error("expected hole not found")
