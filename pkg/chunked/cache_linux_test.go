@@ -57,7 +57,7 @@ const jsonTOC = `
 func TestPrepareMetadata(t *testing.T) {
 	toc, err := prepareMetadata([]byte(jsonTOC))
 	if err != nil {
-		t.Errorf("got error from prepareMetadata: %w", err)
+		t.Errorf("got error from prepareMetadata: %v", err)
 	}
 	if len(toc) != 2 {
 		t.Error("prepareMetadata returns the wrong length")
@@ -85,7 +85,7 @@ func (b *bigDataToBuffer) SetLayerBigData(id, key string, data io.Reader) error 
 func TestWriteCache(t *testing.T) {
 	toc, err := prepareMetadata([]byte(jsonTOC))
 	if err != nil {
-		t.Errorf("got error from prepareMetadata: %w", err)
+		t.Errorf("got error from prepareMetadata: %v", err)
 	}
 
 	dest := bigDataToBuffer{
@@ -93,7 +93,7 @@ func TestWriteCache(t *testing.T) {
 	}
 	cache, err := writeCache([]byte(jsonTOC), "foobar", &dest)
 	if err != nil {
-		t.Errorf("got error from writeCache: %w", err)
+		t.Errorf("got error from writeCache: %v", err)
 	}
 	if digest, _, _ := findTag("foobar", cache); digest != "" {
 		t.Error("found invalid tag")
@@ -117,7 +117,7 @@ func TestWriteCache(t *testing.T) {
 
 			fingerprint, err := calculateHardLinkFingerprint(r)
 			if err != nil {
-				t.Errorf("got error from writeCache: %w", err)
+				t.Errorf("got error from writeCache: %v", err)
 			}
 
 			// find the element in the cache by the hardlink fingerprint
@@ -158,12 +158,12 @@ func TestReadCache(t *testing.T) {
 	}
 	cache, err := writeCache([]byte(jsonTOC), "foobar", &dest)
 	if err != nil {
-		t.Errorf("got error from writeCache: %w", err)
+		t.Errorf("got error from writeCache: %v", err)
 	}
 
 	cacheRead, err := readMetadataFromCache(dest.buf)
 	if err != nil {
-		t.Errorf("got error from readMetadataFromCache: %w", err)
+		t.Errorf("got error from readMetadataFromCache: %v", err)
 	}
 	if !reflect.DeepEqual(cache, cacheRead) {
 		t.Errorf("read a different struct than what was written")
