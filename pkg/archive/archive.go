@@ -72,10 +72,9 @@ type (
 )
 
 const (
-	tarExt                  = "tar"
-	solaris                 = "solaris"
-	windows                 = "windows"
-	containersOverrideXattr = "user.containers.override_stat"
+	tarExt  = "tar"
+	solaris = "solaris"
+	windows = "windows"
 )
 
 var xattrsToIgnore = map[string]interface{}{
@@ -700,7 +699,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 
 	if forceMask != nil && hdr.Typeflag != tar.TypeSymlink {
 		value := fmt.Sprintf("%d:%d:0%o", hdr.Uid, hdr.Gid, hdrInfo.Mode()&07777)
-		if err := system.Lsetxattr(path, containersOverrideXattr, []byte(value), 0); err != nil {
+		if err := system.Lsetxattr(path, idtools.ContainersOverrideXattr, []byte(value), 0); err != nil {
 			return err
 		}
 	}
@@ -981,7 +980,7 @@ func Unpack(decompressedArchive io.Reader, dest string, options *TarOptions) err
 		uid, gid, mode, err := GetFileOwner(dest)
 		if err == nil {
 			value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
-			if err := system.Lsetxattr(dest, containersOverrideXattr, []byte(value), 0); err != nil {
+			if err := system.Lsetxattr(dest, idtools.ContainersOverrideXattr, []byte(value), 0); err != nil {
 				return err
 			}
 		}
