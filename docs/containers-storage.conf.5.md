@@ -74,7 +74,7 @@ The `storage.options` table supports the following options:
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
 
-**pull_options** = {enable_partial_images = "false", enable_host_deduplication = "false", use_hard_links = "false", ostree_repos=""}
+**pull_options** = {enable_partial_images = "false", use_hard_links = "false", ostree_repos=""}
 
 Allows specification of how storage is populated when pulling images. This
 option can speed the pulling process of images compressed with format zstd:chunked. Containers/storage looks
@@ -92,10 +92,6 @@ containers/storage supports four keys
   * use_hard_links = "false" | "true"
     Tells containers/storage to use hard links rather then create new files in
     the image, if an identical file already existed in storage.
-  * enable_host_deduplication = "false" | "true"
-    Tells containers/storage to search for files under `/usr` in addition to
-    files in other images when attempting to avoid pulling files from the
-    container registry.
   * ostree_repos = ""
     Tells containers/storage where an ostree repository exists that might have
     previously pulled content which can be used when attempting to avoid
