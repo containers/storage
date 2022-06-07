@@ -91,7 +91,7 @@ github.com/mattn/go-shellwords
 # github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
 ## explicit
 github.com/mistifyio/go-zfs
-# github.com/moby/sys/mountinfo v0.6.1
+# github.com/moby/sys/mountinfo v0.6.2
 ## explicit
 github.com/moby/sys/mountinfo
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -154,7 +154,7 @@ go.opencensus.io/trace/tracestate
 golang.org/x/net/context
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+# golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 ## explicit
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
