@@ -18,6 +18,7 @@ load helpers
 
 	n=5
 	host=2
+
 	# Create some temporary files.
 	for i in $(seq $n) ; do
 		createrandom "$TESTDIR"/file$i
@@ -53,6 +54,11 @@ load helpers
 	cp -p "$TESTDIR"/file3 ${lowermount}
 	cp -p "$TESTDIR"/file4 ${lowermount}
 	cp -p "$TESTDIR"/file5 ${lowermount}
+
+	# Create a hard link
+	createrandom ${lowermount}/origin-file
+	ln ${lowermount}/origin-file ${lowermount}/ln-file
+
 	# Create new layers.
 	for i in $(seq $n) ; do
 		if test $host -ne $i ; then
@@ -75,6 +81,13 @@ load helpers
 		echo "$output"
 		[ "$status" -eq 0 ]
 		[ "$output" = "" ]
+
+		# Verify that the hard link is maintained
+		origin_ino=$(stat -c %i ${uppermount}/origin-file)
+		ln_ino=$(stat -c %i ${uppermount}/ln-file)
+		echo test ${origin_ino} = ${ln_ino}
+		test ${origin_ino} = ${ln_ino}
+
 		for j in $(seq $n) ; do
 			# Check the inherited original files.
 			cmp ${uppermount}/file$j "$TESTDIR"/file$j
