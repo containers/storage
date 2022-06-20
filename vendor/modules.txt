@@ -122,7 +122,7 @@ github.com/pmezard/go-difflib/difflib
 # github.com/sirupsen/logrus v1.8.1
 ## explicit
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.7.2
+# github.com/stretchr/testify v1.7.3
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
