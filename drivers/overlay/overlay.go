@@ -322,7 +322,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	// Create the driver home dir
-	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0755, 0, 0); err != nil {
 		return nil, err
 	}
 
@@ -917,6 +917,11 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 		gidMaps = opts.IDMappings.GIDs()
 	}
 
+	// Make the link directory if it does not exist
+	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0755, 0, 0); err != nil {
+		return err
+	}
+
 	rootUID, rootGID, err := idtools.GetRootUIDGID(uidMaps, gidMaps)
 	if err != nil {
 		return err
@@ -927,12 +932,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 		GID: rootGID,
 	}
 
-	// Make the link directory if it does not exist
-	if err := idtools.MkdirAllAndChownNew(path.Join(d.home, linkDir), 0700, idPair); err != nil {
-		return err
-	}
-
-	if err := idtools.MkdirAllAndChownNew(path.Dir(dir), 0700, idPair); err != nil {
+	if err := idtools.MkdirAllAndChownNew(path.Dir(dir), 0755, idPair); err != nil {
 		return err
 	}
 	if parent != "" {
@@ -1215,11 +1215,7 @@ func (d *Driver) recreateSymlinks() error {
 		return fmt.Errorf("reading driver home directory %q: %v", d.home, err)
 	}
 	// This makes the link directory if it doesn't exist
-	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
-	if err != nil {
-		return err
-	}
-	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0755, 0, 0); err != nil {
 		return err
 	}
 	// Keep looping as long as we take some corrective action in each iteration
