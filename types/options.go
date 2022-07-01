@@ -43,9 +43,11 @@ func loadDefaultStoreOptions() {
 
 	if path, ok := os.LookupEnv(storageConfEnv); ok {
 		defaultOverrideConfigFile = path
-	}
-
-	if _, err := os.Stat(defaultOverrideConfigFile); err == nil {
+		if err := ReloadConfigurationFileIfNeeded(path, &defaultStoreOptions); err != nil {
+			loadDefaultStoreOptionsErr = err
+			return
+		}
+	} else if _, err := os.Stat(defaultOverrideConfigFile); err == nil {
 		// The DefaultConfigFile(rootless) function returns the path
 		// of the used storage.conf file, by returning defaultConfigFile
 		// If override exists containers/storage uses it by default.
