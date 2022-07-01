@@ -288,7 +288,8 @@ func ReloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 		return err
 	}
 
-	prevReloadConfig.storeOptions = storeOptions
+	cOptions := *storeOptions
+	prevReloadConfig.storeOptions = &cOptions
 	prevReloadConfig.mod = mtime
 	prevReloadConfig.configFile = configFile
 	return nil
