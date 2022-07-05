@@ -1,3 +1,4 @@
+//go:build linux && !exclude_disk_quota && cgo
 // +build linux,!exclude_disk_quota,cgo
 
 //
@@ -394,10 +395,13 @@ func makeBackingFsDev(home string) (string, error) {
 	}
 
 	backingFsBlockDev := path.Join(home, "backingFsBlockDev")
+	backingFsBlockDevTmp := backingFsBlockDev + ".tmp"
 	// Re-create just in case someone copied the home directory over to a new device
-	unix.Unlink(backingFsBlockDev)
-	if err := unix.Mknod(backingFsBlockDev, unix.S_IFBLK|0600, int(stat.Dev)); err != nil {
-		return "", fmt.Errorf("Failed to mknod %s: %v", backingFsBlockDev, err)
+	if err := unix.Mknod(backingFsBlockDevTmp, unix.S_IFBLK|0600, int(stat.Dev)); err != nil {
+		return "", fmt.Errorf("Failed to mknod %s: %v", backingFsBlockDevTmp, err)
+	}
+	if err := unix.Rename(backingFsBlockDevTmp, backingFsBlockDev); err != nil {
+		return "", fmt.Errorf("Failed to rename %s to %s: %v", backingFsBlockDevTmp, backingFsBlockDev, err)
 	}
 
 	return backingFsBlockDev, nil
