@@ -387,12 +387,16 @@ func SafeChown(name string, uid, gid int) error {
 		uid = os.Getuid()
 		gid = os.Getgid()
 	}
+	chownErr := os.Chown(name, uid, gid)
+	if chownErr == nil {
+		return nil
+	}
 	if stat, statErr := system.Stat(name); statErr == nil {
 		if stat.UID() == uint32(uid) && stat.GID() == uint32(gid) {
 			return nil
 		}
 	}
-	return checkChownErr(os.Chown(name, uid, gid), name, uid, gid)
+	return checkChownErr(chownErr, name, uid, gid)
 }
 
 func SafeLchown(name string, uid, gid int) error {
@@ -415,12 +419,16 @@ func SafeLchown(name string, uid, gid int) error {
 		uid = os.Getuid()
 		gid = os.Getgid()
 	}
+	lchownErr := os.Lchown(name, uid, gid)
+	if lchownErr == nil {
+		return nil
+	}
 	if stat, statErr := system.Lstat(name); statErr == nil {
 		if stat.UID() == uint32(uid) && stat.GID() == uint32(gid) {
 			return nil
 		}
 	}
-	return checkChownErr(os.Lchown(name, uid, gid), name, uid, gid)
+	return checkChownErr(lchownErr, name, uid, gid)
 }
 
 type sortByHostID []IDMap
