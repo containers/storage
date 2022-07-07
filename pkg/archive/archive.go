@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/bzip2"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -25,7 +26,6 @@ import (
 	"github.com/containers/storage/pkg/unshare"
 	gzip "github.com/klauspost/pgzip"
 	"github.com/opencontainers/runc/libcontainer/userns"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
 )
@@ -406,7 +406,7 @@ func ReadSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 	for _, xattr := range []string{"security.capability", "security.ima"} {
 		capability, err := system.Lgetxattr(path, xattr)
 		if err != nil && !errors.Is(err, system.EOPNOTSUPP) && err != system.ErrNotSupportedPlatform {
-			return errors.Wrapf(err, "failed to read %q attribute from %q", xattr, path)
+			return fmt.Errorf("failed to read %q attribute from %q: %w", xattr, path, err)
 		}
 		if capability != nil {
 			hdr.Xattrs[xattr] = string(capability)
@@ -1450,7 +1450,7 @@ func CopyFileWithTarAndChown(chownOpts *idtools.IDPair, hasher io.Writer, uidmap
 		archiver.Untar = func(tarArchive io.Reader, dest string, options *TarOptions) error {
 			contentReader, contentWriter, err := os.Pipe()
 			if err != nil {
-				return errors.Wrapf(err, "error creating pipe extract data to %q", dest)
+				return fmt.Errorf("error creating pipe extract data to %q: %w", dest, err)
 			}
 			defer contentReader.Close()
 			defer contentWriter.Close()
@@ -1469,11 +1469,11 @@ func CopyFileWithTarAndChown(chownOpts *idtools.IDPair, hasher io.Writer, uidmap
 				hashWorker.Done()
 			}()
 			if err = originalUntar(io.TeeReader(tarArchive, contentWriter), dest, options); err != nil {
-				err = errors.Wrapf(err, "error extracting data to %q while copying", dest)
+				err = fmt.Errorf("error extracting data to %q while copying: %w", dest, err)
 			}
 			hashWorker.Wait()
 			if err == nil {
-				err = errors.Wrapf(hashError, "error calculating digest of data for %q while copying", dest)
+				err = fmt.Errorf("error calculating digest of data for %q while copying: %w", dest, hashError)
 			}
 			return err
 		}

@@ -14,7 +14,6 @@ import (
 	"syscall"
 
 	"github.com/containers/storage/pkg/system"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -362,7 +361,7 @@ func parseSubidFile(path, username string) (ranges, error) {
 
 func checkChownErr(err error, name string, uid, gid int) error {
 	if e, ok := err.(*os.PathError); ok && e.Err == syscall.EINVAL {
-		return errors.Wrapf(err, "potentially insufficient UIDs or GIDs available in user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally and run podman-system-migrate", uid, gid, name)
+		return fmt.Errorf("potentially insufficient UIDs or GIDs available in user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally and run podman-system-migrate: %w", uid, gid, name, err)
 	}
 	return err
 }

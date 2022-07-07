@@ -5,6 +5,7 @@ package graphtest
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -17,7 +18,6 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/docker/go-units"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
@@ -52,8 +52,7 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root, RunRoot: runroot})
 	if err != nil {
 		t.Logf("graphdriver: %v\n", err)
-		cause := errors.Cause(err)
-		if cause == graphdriver.ErrNotSupported || cause == graphdriver.ErrPrerequisites || cause == graphdriver.ErrIncompatibleFS {
+		if errors.Is(err, graphdriver.ErrNotSupported) || errors.Is(err, graphdriver.ErrPrerequisites) || errors.Is(err, graphdriver.ErrIncompatibleFS) {
 			t.Skipf("Driver %s not supported", name)
 		}
 		t.Fatal(err)

@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package zfs
@@ -19,7 +20,6 @@ import (
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/mistifyio/go-zfs"
 	"github.com/opencontainers/selinux/go-selinux/label"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -54,13 +54,13 @@ func Init(base string, opt graphdriver.Options) (graphdriver.Driver, error) {
 
 	if _, err := exec.LookPath("zfs"); err != nil {
 		logger.Debugf("zfs command is not available: %v", err)
-		return nil, errors.Wrap(graphdriver.ErrPrerequisites, "the 'zfs' command is not available")
+		return nil, fmt.Errorf("the 'zfs' command is not available: %w", graphdriver.ErrPrerequisites)
 	}
 
 	file, err := os.OpenFile("/dev/zfs", os.O_RDWR, 0600)
 	if err != nil {
 		logger.Debugf("cannot open /dev/zfs: %v", err)
-		return nil, errors.Wrapf(graphdriver.ErrPrerequisites, "could not open /dev/zfs: %v", err)
+		return nil, fmt.Errorf("could not open /dev/zfs: %v: %w", err, graphdriver.ErrPrerequisites)
 	}
 	defer file.Close()
 
@@ -341,7 +341,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) error {
 			mountOpts := label.FormatMountLabel(d.options.mountOptions, mountLabel)
 
 			if err := mount.Mount(name, mountpoint, "zfs", mountOpts); err != nil {
-				return errors.Wrap(err, "error creating zfs mount")
+				return fmt.Errorf("error creating zfs mount: %w", err)
 			}
 			defer func() {
 				if err := detachUnmount(mountpoint); err != nil {
@@ -350,13 +350,13 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts) error {
 			}()
 
 			if err := os.Chmod(mountpoint, defaultPerms); err != nil {
-				return errors.Wrap(err, "error setting permissions on zfs mount")
+				return fmt.Errorf("error setting permissions on zfs mount: %w", err)
 			}
 
 			// this is our first mount after creation of the filesystem, and the root dir may still have root
 			// permissions instead of the remapped root uid:gid (if user namespaces are enabled):
 			if err := os.Chown(mountpoint, rootUID, rootGID); err != nil {
-				return errors.Wrapf(err, "modifying zfs mountpoint (%s) ownership", mountpoint)
+				return fmt.Errorf("modifying zfs mountpoint (%s) ownership: %w", mountpoint, err)
 			}
 
 		}
@@ -459,13 +459,13 @@ func (d *Driver) Get(id string, options graphdriver.MountOpts) (_ string, retErr
 	}
 
 	if err := mount.Mount(filesystem, mountpoint, "zfs", opts); err != nil {
-		return "", errors.Wrap(err, "error creating zfs mount")
+		return "", fmt.Errorf("error creating zfs mount: %w", err)
 	}
 
 	if remountReadOnly {
 		opts = label.FormatMountLabel("remount,ro", options.MountLabel)
 		if err := mount.Mount(filesystem, mountpoint, "zfs", opts); err != nil {
-			return "", errors.Wrap(err, "error remounting zfs mount read-only")
+			return "", fmt.Errorf("error remounting zfs mount read-only: %w", err)
 		}
 	}
 
