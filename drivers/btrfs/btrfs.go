@@ -36,7 +36,6 @@ import (
 	"github.com/containers/storage/pkg/system"
 	"github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -62,7 +61,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	if fsMagic != graphdriver.FsMagicBtrfs {
-		return nil, errors.Wrapf(graphdriver.ErrPrerequisites, "%q is not on a btrfs filesystem", home)
+		return nil, fmt.Errorf("%q is not on a btrfs filesystem: %w", home, graphdriver.ErrPrerequisites)
 	}
 
 	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UIDMaps, options.GIDMaps)

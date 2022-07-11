@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package aufs
@@ -5,6 +6,7 @@ package aufs
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -18,7 +20,6 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/containers/storage/pkg/stringid"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +36,7 @@ func init() {
 func testInit(dir string, t testing.TB) graphdriver.Driver {
 	d, err := Init(dir, graphdriver.Options{})
 	if err != nil {
-		if errors.Cause(err) == graphdriver.ErrNotSupported {
+		if errors.Is(err, graphdriver.ErrNotSupported) {
 			t.Skip(err)
 		} else {
 			t.Fatal(err)

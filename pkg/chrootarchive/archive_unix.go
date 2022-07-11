@@ -1,9 +1,11 @@
+//go:build !windows && !darwin
 // +build !windows,!darwin
 
 package chrootarchive
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,7 +17,6 @@ import (
 
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
-	"github.com/pkg/errors"
 )
 
 // untar is the entry-point for storage-untar on re-exec. This is not used on
@@ -184,22 +185,22 @@ func invokePack(srcPath string, options *archive.TarOptions, root string) (io.Re
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting options pipe for tar process")
+		return nil, fmt.Errorf("error getting options pipe for tar process: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return nil, errors.Wrap(err, "tar error on re-exec cmd")
+		return nil, fmt.Errorf("tar error on re-exec cmd: %w", err)
 	}
 
 	go func() {
 		err := cmd.Wait()
-		err = errors.Wrapf(err, "error processing tar file: %s", errBuff)
+		err = fmt.Errorf("error processing tar file: %s: %w", errBuff, err)
 		tarW.CloseWithError(err)
 	}()
 
 	if err := json.NewEncoder(stdin).Encode(options); err != nil {
 		stdin.Close()
-		return nil, errors.Wrap(err, "tar json encode to pipe failed")
+		return nil, fmt.Errorf("tar json encode to pipe failed: %w", err)
 	}
 	stdin.Close()
 

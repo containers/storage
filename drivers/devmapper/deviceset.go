@@ -5,6 +5,7 @@ package devmapper
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -29,7 +30,6 @@ import (
 	"github.com/containers/storage/pkg/parsers/kernel"
 	units "github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -548,7 +548,7 @@ func xfsSupported() error {
 
 	f, err := os.Open("/proc/filesystems")
 	if err != nil {
-		return errors.Wrapf(err, "error checking for xfs support")
+		return fmt.Errorf("error checking for xfs support: %w", err)
 	}
 	defer f.Close()
 
@@ -560,7 +560,7 @@ func xfsSupported() error {
 	}
 
 	if err := s.Err(); err != nil {
-		return errors.Wrapf(err, "error checking for xfs support")
+		return fmt.Errorf("error checking for xfs support: %w", err)
 	}
 
 	return errors.New(`kernel does not support xfs, or "modprobe xfs" failed`)
@@ -870,7 +870,7 @@ func (devices *DeviceSet) takeSnapshot(hash string, baseInfo *devInfo, size uint
 			err = devices.cancelDeferredRemoval(baseInfo)
 			if err != nil {
 				// If Error is ErrEnxio. Device is probably already gone. Continue.
-				if errors.Cause(err) != devicemapper.ErrEnxio {
+				if !errors.Is(err, devicemapper.ErrEnxio) {
 					return err
 				}
 				devinfo = nil
@@ -1206,7 +1206,7 @@ func (devices *DeviceSet) growFS(info *devInfo) error {
 	options = joinMountOptions(options, devices.mountOptions)
 
 	if err := mount.Mount(info.DevName(), fsMountPoint, devices.BaseDeviceFilesystem, options); err != nil {
-		return errors.Wrapf(err, "Failed to mount; dmesg: %s", string(dmesg.Dmesg(256)))
+		return fmt.Errorf("failed to mount; dmesg: %s: %w", string(dmesg.Dmesg(256)), err)
 	}
 
 	defer func() {
@@ -1507,7 +1507,7 @@ func determineDriverCapabilities(version string) error {
 	versionSplit := strings.Split(version, ".")
 	major, err := strconv.Atoi(versionSplit[0])
 	if err != nil {
-		return errors.Wrapf(graphdriver.ErrNotSupported, "unable to parse driver major version %q as a number", versionSplit[0])
+		return fmt.Errorf("unable to parse driver major version %q as a number: %w", versionSplit[0], graphdriver.ErrNotSupported)
 	}
 
 	if major > 4 {
@@ -1521,7 +1521,7 @@ func determineDriverCapabilities(version string) error {
 
 	minor, err := strconv.Atoi(versionSplit[1])
 	if err != nil {
-		return errors.Wrapf(graphdriver.ErrNotSupported, "unable to parse driver minor version %q as a number", versionSplit[1])
+		return fmt.Errorf("unable to parse driver minor version %q as a number: %w", versionSplit[1], graphdriver.ErrNotSupported)
 	}
 
 	/*
@@ -1783,7 +1783,7 @@ func (devices *DeviceSet) initDevmapper(doInit bool) (retErr error) {
 		}
 		switch fsMagic {
 		case graphdriver.FsMagicAufs:
-			return errors.Errorf("devmapper: Loopback devices can not be created on AUFS filesystems")
+			return fmt.Errorf("devmapper: Loopback devices can not be created on AUFS filesystems")
 		}
 
 		if devices.dataDevice == "" {
@@ -2013,7 +2013,7 @@ func (devices *DeviceSet) deleteDeviceNoLock(info *devInfo, syncDelete bool) err
 		// If syncDelete is true, we want to return error. If deferred
 		// deletion is not enabled, we return an error. If error is
 		// something other then EBUSY, return an error.
-		if syncDelete || !devices.deferredDelete || errors.Cause(err) != devicemapper.ErrBusy {
+		if syncDelete || !devices.deferredDelete || !errors.Is(err, devicemapper.ErrBusy) {
 			logrus.Debugf("devmapper: Error deleting device: %s", err)
 			return err
 		}
@@ -2174,7 +2174,7 @@ func (devices *DeviceSet) deactivateDeviceMode(info *devInfo, deferredRemove boo
 	// This function's semantics is such that it does not return an
 	// error if device does not exist. So if device went away by
 	// the time we actually tried to remove it, do not return error.
-	if errors.Cause(err) != devicemapper.ErrEnxio {
+	if !errors.Is(err, devicemapper.ErrEnxio) {
 		return err
 	}
 	return nil
@@ -2192,7 +2192,7 @@ func (devices *DeviceSet) removeDevice(devname string) error {
 		if err == nil {
 			break
 		}
-		if errors.Cause(err) != devicemapper.ErrBusy {
+		if !errors.Is(err, devicemapper.ErrBusy) {
 			return err
 		}
 
@@ -2226,7 +2226,7 @@ func (devices *DeviceSet) cancelDeferredRemovalIfNeeded(info *devInfo) error {
 	// Cancel deferred remove
 	if err := devices.cancelDeferredRemoval(info); err != nil {
 		// If Error is ErrEnxio. Device is probably already gone. Continue.
-		if errors.Cause(err) != devicemapper.ErrEnxio {
+		if !errors.Is(err, devicemapper.ErrEnxio) {
 			return err
 		}
 	}
@@ -2243,7 +2243,7 @@ func (devices *DeviceSet) cancelDeferredRemoval(info *devInfo) error {
 	for i := 0; i < 100; i++ {
 		err = devicemapper.CancelDeferredRemove(info.Name())
 		if err != nil {
-			if errors.Cause(err) != devicemapper.ErrBusy {
+			if !errors.Is(err, devicemapper.ErrBusy) {
 				// If we see EBUSY it may be a transient error,
 				// sleep a bit a retry a few times.
 				devices.Unlock()
@@ -2409,7 +2409,7 @@ func (devices *DeviceSet) MountDevice(hash, path string, moptions graphdriver.Mo
 	options = joinMountOptions(options, label.FormatMountLabel("", moptions.MountLabel))
 
 	if err := mount.Mount(info.DevName(), path, fstype, options); err != nil {
-		return errors.Wrapf(err, "Failed to mount; dmesg: %s", string(dmesg.Dmesg(256)))
+		return fmt.Errorf("failed to mount; dmesg: %s: %w", string(dmesg.Dmesg(256)), err)
 	}
 
 	if fstype == xfs && devices.xfsNospaceRetries != "" {
@@ -2790,7 +2790,7 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		case "dm.thinp_percent":
 			per, err := strconv.ParseUint(strings.TrimSuffix(val, "%"), 10, 32)
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse `dm.thinp_percent=%s`", val)
+				return nil, fmt.Errorf("could not parse `dm.thinp_percent=%s`: %w", val, err)
 			}
 			if per >= 100 {
 				return nil, errors.New("dm.thinp_percent must be greater than 0 and less than 100")
@@ -2799,7 +2799,7 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		case "dm.thinp_metapercent":
 			per, err := strconv.ParseUint(strings.TrimSuffix(val, "%"), 10, 32)
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse `dm.thinp_metapercent=%s`", val)
+				return nil, fmt.Errorf("could not parse `dm.thinp_metapercent=%s`: %w", val, err)
 			}
 			if per >= 100 {
 				return nil, errors.New("dm.thinp_metapercent must be greater than 0 and less than 100")
@@ -2808,7 +2808,7 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		case "dm.thinp_autoextend_percent":
 			per, err := strconv.ParseUint(strings.TrimSuffix(val, "%"), 10, 32)
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse `dm.thinp_autoextend_percent=%s`", val)
+				return nil, fmt.Errorf("could not parse `dm.thinp_autoextend_percent=%s`: %w", val, err)
 			}
 			if per > 100 {
 				return nil, errors.New("dm.thinp_autoextend_percent must be greater than 0 and less than 100")
@@ -2817,7 +2817,7 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		case "dm.thinp_autoextend_threshold":
 			per, err := strconv.ParseUint(strings.TrimSuffix(val, "%"), 10, 32)
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse `dm.thinp_autoextend_threshold=%s`", val)
+				return nil, fmt.Errorf("could not parse `dm.thinp_autoextend_threshold=%s`: %w", val, err)
 			}
 			if per > 100 {
 				return nil, errors.New("dm.thinp_autoextend_threshold must be greater than 0 and less than 100")
@@ -2826,10 +2826,10 @@ func NewDeviceSet(root string, doInit bool, options []string, uidMaps, gidMaps [
 		case "dm.libdm_log_level":
 			level, err := strconv.ParseInt(val, 10, 32)
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse `dm.libdm_log_level=%s`", val)
+				return nil, fmt.Errorf("could not parse `dm.libdm_log_level=%s`: %w", val, err)
 			}
 			if level < devicemapper.LogLevelFatal || level > devicemapper.LogLevelDebug {
-				return nil, errors.Errorf("dm.libdm_log_level must be in range [%d,%d]", devicemapper.LogLevelFatal, devicemapper.LogLevelDebug)
+				return nil, fmt.Errorf("dm.libdm_log_level must be in range [%d,%d]", devicemapper.LogLevelFatal, devicemapper.LogLevelDebug)
 			}
 			// Register a new logging callback with the specified level.
 			devicemapper.LogInit(devicemapper.DefaultLogger{
