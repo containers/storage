@@ -1248,13 +1248,13 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore ROImageStore, crea
 		layerOptions.TemplateLayer = layer.ID
 		mappedLayer, _, err := rlstore.Put("", parentLayer, nil, layer.MountLabel, nil, &layerOptions, false, nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("error creating an ID-mapped copy of layer %q: %w", layer.ID, err)
+			return nil, fmt.Errorf("creating an ID-mapped copy of layer %q: %w", layer.ID, err)
 		}
 		if err = istore.addMappedTopLayer(image.ID, mappedLayer.ID); err != nil {
 			if err2 := rlstore.Delete(mappedLayer.ID); err2 != nil {
-				err = fmt.Errorf("error deleting layer %q: %v: %w", mappedLayer.ID, err2, err)
+				err = fmt.Errorf("deleting layer %q: %v: %w", mappedLayer.ID, err2, err)
 			}
-			return nil, fmt.Errorf("error registering ID-mapped layer with image %q: %w", image.ID, err)
+			return nil, fmt.Errorf("registering ID-mapped layer with image %q: %w", image.ID, err)
 		}
 		layer = mappedLayer
 	}
@@ -1330,7 +1330,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			}
 		}
 		if cimage == nil {
-			return nil, fmt.Errorf("error locating image with ID %q: %w", image, ErrImageUnknown)
+			return nil, fmt.Errorf("locating image with ID %q: %w", image, ErrImageUnknown)
 		}
 		imageID = cimage.ID
 	}
@@ -1561,7 +1561,7 @@ func (s *store) ListImageBigData(id string) ([]string, error) {
 			return bigDataNames, err
 		}
 	}
-	return nil, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (s *store) ImageBigDataSize(id, key string) (int64, error) {
@@ -1639,9 +1639,9 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 		}
 	}
 	if foundImage {
-		return nil, fmt.Errorf("error locating item named %q for image with ID %q (consider removing the image to resolve the issue): %w", key, id, os.ErrNotExist)
+		return nil, fmt.Errorf("locating item named %q for image with ID %q (consider removing the image to resolve the issue): %w", key, id, os.ErrNotExist)
 	}
-	return nil, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 // ListLayerBigData retrieves a list of the (possibly large) chunks of
@@ -1672,9 +1672,9 @@ func (s *store) ListLayerBigData(id string) ([]string, error) {
 		}
 	}
 	if foundLayer {
-		return nil, fmt.Errorf("error locating big data for layer with ID %q: %w", id, os.ErrNotExist)
+		return nil, fmt.Errorf("locating big data for layer with ID %q: %w", id, os.ErrNotExist)
 	}
-	return nil, fmt.Errorf("error locating layer with ID %q: %w", id, ErrLayerUnknown)
+	return nil, fmt.Errorf("locating layer with ID %q: %w", id, ErrLayerUnknown)
 }
 
 // LayerBigData retrieves a (possibly large) chunk of named data
@@ -1705,9 +1705,9 @@ func (s *store) LayerBigData(id, key string) (io.ReadCloser, error) {
 		}
 	}
 	if foundLayer {
-		return nil, fmt.Errorf("error locating item named %q for layer with ID %q: %w", key, id, os.ErrNotExist)
+		return nil, fmt.Errorf("locating item named %q for layer with ID %q: %w", key, id, os.ErrNotExist)
 	}
-	return nil, fmt.Errorf("error locating layer with ID %q: %w", id, ErrLayerUnknown)
+	return nil, fmt.Errorf("locating layer with ID %q: %w", id, ErrLayerUnknown)
 }
 
 // SetLayerBigData stores a (possibly large) chunk of named data
@@ -1746,11 +1746,11 @@ func (s *store) ImageSize(id string) (int64, error) {
 
 	lstore, err := s.LayerStore()
 	if err != nil {
-		return -1, fmt.Errorf("error loading primary layer store data: %w", err)
+		return -1, fmt.Errorf("loading primary layer store data: %w", err)
 	}
 	lstores, err := s.ROLayerStores()
 	if err != nil {
-		return -1, fmt.Errorf("error loading additional layer stores: %w", err)
+		return -1, fmt.Errorf("loading additional layer stores: %w", err)
 	}
 	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
 		store := s
@@ -1764,11 +1764,11 @@ func (s *store) ImageSize(id string) (int64, error) {
 	var imageStore ROBigDataStore
 	istore, err := s.ImageStore()
 	if err != nil {
-		return -1, fmt.Errorf("error loading primary image store data: %w", err)
+		return -1, fmt.Errorf("loading primary image store data: %w", err)
 	}
 	istores, err := s.ROImageStores()
 	if err != nil {
-		return -1, fmt.Errorf("error loading additional image stores: %w", err)
+		return -1, fmt.Errorf("loading additional image stores: %w", err)
 	}
 
 	// Look for the image's record.
@@ -1785,7 +1785,7 @@ func (s *store) ImageSize(id string) (int64, error) {
 		}
 	}
 	if image == nil {
-		return -1, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return -1, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 
 	// Start with a list of the image's top layers, if it has any.
@@ -1815,7 +1815,7 @@ func (s *store) ImageSize(id string) (int64, error) {
 				}
 			}
 			if layer == nil {
-				return -1, fmt.Errorf("error locating layer with ID %q: %w", layerID, ErrLayerUnknown)
+				return -1, fmt.Errorf("locating layer with ID %q: %w", layerID, ErrLayerUnknown)
 			}
 			// The UncompressedSize is only valid if there's a digest to go with it.
 			n := layer.UncompressedSize
@@ -1838,12 +1838,12 @@ func (s *store) ImageSize(id string) (int64, error) {
 	// Count big data items.
 	names, err := imageStore.BigDataNames(id)
 	if err != nil {
-		return -1, fmt.Errorf("error reading list of big data items for image %q: %w", id, err)
+		return -1, fmt.Errorf("reading list of big data items for image %q: %w", id, err)
 	}
 	for _, name := range names {
 		n, err := imageStore.BigDataSize(id, name)
 		if err != nil {
-			return -1, fmt.Errorf("error reading size of big data item %q for image %q: %w", name, id, err)
+			return -1, fmt.Errorf("reading size of big data item %q for image %q: %w", name, id, err)
 		}
 		size += n
 	}
@@ -1903,24 +1903,24 @@ func (s *store) ContainerSize(id string) (int64, error) {
 		if layer, err = store.Get(container.LayerID); err == nil {
 			size, err = store.DiffSize("", layer.ID)
 			if err != nil {
-				return -1, fmt.Errorf("error determining size of layer with ID %q: %w", layer.ID, err)
+				return -1, fmt.Errorf("determining size of layer with ID %q: %w", layer.ID, err)
 			}
 			break
 		}
 	}
 	if layer == nil {
-		return -1, fmt.Errorf("error locating layer with ID %q: %w", container.LayerID, ErrLayerUnknown)
+		return -1, fmt.Errorf("locating layer with ID %q: %w", container.LayerID, ErrLayerUnknown)
 	}
 
 	// Count big data items.
 	names, err := rcstore.BigDataNames(id)
 	if err != nil {
-		return -1, fmt.Errorf("error reading list of big data items for container %q: %w", container.ID, err)
+		return -1, fmt.Errorf("reading list of big data items for container %q: %w", container.ID, err)
 	}
 	for _, name := range names {
 		n, err := rcstore.BigDataSize(id, name)
 		if err != nil {
-			return -1, fmt.Errorf("error reading size of big data item %q for container %q: %w", name, id, err)
+			return -1, fmt.Errorf("reading size of big data item %q for container %q: %w", name, id, err)
 		}
 		size += n
 	}
@@ -3064,14 +3064,14 @@ func (s *store) layersByMappedDigest(m func(ROLayerStore, digest.Digest) ([]Laye
 
 func (s *store) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) {
 	if err := d.Validate(); err != nil {
-		return nil, fmt.Errorf("error looking for compressed layers matching digest %q: %w", d, err)
+		return nil, fmt.Errorf("looking for compressed layers matching digest %q: %w", d, err)
 	}
 	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByCompressedDigest(d) }, d)
 }
 
 func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 	if err := d.Validate(); err != nil {
-		return nil, fmt.Errorf("error looking for layers matching digest %q: %w", d, err)
+		return nil, fmt.Errorf("looking for layers matching digest %q: %w", d, err)
 	}
 	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByUncompressedDigest(d) }, d)
 }
@@ -3351,7 +3351,7 @@ func (s *store) Image(id string) (*Image, error) {
 			return image, nil
 		}
 	}
-	return nil, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {

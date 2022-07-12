@@ -547,7 +547,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 	// Add an additional check to make sure the opened fd is inside the rootfs
 	if !strings.HasPrefix(target, targetRoot) {
 		unix.Close(fd)
-		return -1, fmt.Errorf("error while resolving %q.  It resolves outside the root directory", name)
+		return -1, fmt.Errorf("while resolving %q.  It resolves outside the root directory", name)
 	}
 
 	return fd, err

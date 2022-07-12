@@ -70,7 +70,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 	// child
 	r, w, err := os.Pipe()
 	if err != nil {
-		return fmt.Errorf("Untar pipe failure: %v", err)
+		return fmt.Errorf("untar pipe failure: %w", err)
 	}
 
 	if root != "" {
@@ -97,13 +97,13 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 
 	if err := cmd.Start(); err != nil {
 		w.Close()
-		return fmt.Errorf("Untar error on re-exec cmd: %v", err)
+		return fmt.Errorf("untar error on re-exec cmd: %w", err)
 	}
 
 	//write the options to the pipe for the untar exec to read
 	if err := json.NewEncoder(w).Encode(options); err != nil {
 		w.Close()
-		return fmt.Errorf("Untar json encode to pipe failed: %v", err)
+		return fmt.Errorf("untar json encode to pipe failed: %w", err)
 	}
 	w.Close()
 
@@ -113,7 +113,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 		// pending on write pipe forever
 		io.Copy(ioutil.Discard, decompressedArchive)
 
-		return fmt.Errorf("Error processing tar file(%v): %s", err, output)
+		return fmt.Errorf("processing tar file(%w): %s", err, output)
 	}
 	return nil
 }
@@ -185,7 +185,7 @@ func invokePack(srcPath string, options *archive.TarOptions, root string) (io.Re
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("error getting options pipe for tar process: %w", err)
+		return nil, fmt.Errorf("getting options pipe for tar process: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -194,7 +194,7 @@ func invokePack(srcPath string, options *archive.TarOptions, root string) (io.Re
 
 	go func() {
 		err := cmd.Wait()
-		err = fmt.Errorf("error processing tar file: %s: %w", errBuff, err)
+		err = fmt.Errorf("processing tar file: %s: %w", errBuff, err)
 		tarW.CloseWithError(err)
 	}()
 

@@ -433,11 +433,11 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		if d.quotaCtl, err = quota.NewControl(home); err == nil {
 			projectQuotaSupported = true
 		} else if opts.quota.Size > 0 || opts.quota.Inodes > 0 {
-			return nil, fmt.Errorf("Storage options overlay.size and overlay.inodes not supported. Filesystem does not support Project Quota: %v", err)
+			return nil, fmt.Errorf("storage options overlay.size and overlay.inodes not supported. Filesystem does not support Project Quota: %w", err)
 		}
 	} else if opts.quota.Size > 0 || opts.quota.Inodes > 0 {
 		// if xfs is not the backing fs then error out if the storage-opt overlay.size is used.
-		return nil, fmt.Errorf("Storage option overlay.size and overlay.inodes only supported for backingFS XFS. Found %v", backingFs)
+		return nil, fmt.Errorf("storage option overlay.size and overlay.inodes only supported for backingFS XFS. Found %v", backingFs)
 	}
 
 	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v, usingMetacopy=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff(), d.usingMetacopy)
@@ -488,7 +488,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 				}
 				st, err := os.Stat(store)
 				if err != nil {
-					return nil, fmt.Errorf("overlay: can't stat imageStore dir %s: %v", store, err)
+					return nil, fmt.Errorf("overlay: can't stat imageStore dir %s: %w", store, err)
 				}
 				if !st.IsDir() {
 					return nil, fmt.Errorf("overlay: image path %q must be a directory", store)
@@ -1057,7 +1057,7 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 			}
 			driver.options.quota.Inodes = uint64(inodes)
 		default:
-			return fmt.Errorf("Unknown option %s", key)
+			return fmt.Errorf("unknown option %s", key)
 		}
 	}
 
@@ -1129,7 +1129,7 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 				if os.IsNotExist(err) {
 					logrus.Warnf("Can't read link %q because it does not exist. A storage corruption might have occurred, attempting to recreate the missing symlinks. It might be best wipe the storage to avoid further errors due to storage corruption.", lower)
 					if err := d.recreateSymlinks(); err != nil {
-						return nil, fmt.Errorf("recreating the missing symlinks: %v", err)
+						return nil, fmt.Errorf("recreating the missing symlinks: %w", err)
 					}
 					// let's call Readlink on lower again now that we have recreated the missing symlinks
 					lp, err = os.Readlink(lower)
@@ -1212,7 +1212,7 @@ func (d *Driver) recreateSymlinks() error {
 	// List all the directories under the home directory
 	dirs, err := ioutil.ReadDir(d.home)
 	if err != nil {
-		return fmt.Errorf("reading driver home directory %q: %v", d.home, err)
+		return fmt.Errorf("reading driver home directory %q: %w", d.home, err)
 	}
 	// This makes the link directory if it doesn't exist
 	if err := idtools.MkdirAllAs(path.Join(d.home, linkDir), 0755, 0, 0); err != nil {
@@ -1301,7 +1301,7 @@ func (d *Driver) recreateSymlinks() error {
 		}
 		iterations++
 		if iterations >= maxIterations {
-			errs = multierror.Append(errs, fmt.Errorf("Reached %d iterations in overlay graph driver’s recreateSymlink, giving up", iterations))
+			errs = multierror.Append(errs, fmt.Errorf("reached %d iterations in overlay graph driver’s recreateSymlink, giving up", iterations))
 			break
 		}
 	}
@@ -1436,11 +1436,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			if lower == "" && os.IsNotExist(err) {
 				logrus.Warnf("Can't stat lower layer %q because it does not exist. Going through storage to recreate the missing symlinks.", newpath)
 				if err := d.recreateSymlinks(); err != nil {
-					return "", fmt.Errorf("Recreating the missing symlinks: %v", err)
+					return "", fmt.Errorf("recreating the missing symlinks: %w", err)
 				}
 				lower = newpath
 			} else if lower == "" {
-				return "", fmt.Errorf("Can't stat lower layer %q: %v", newpath, err)
+				return "", fmt.Errorf("can't stat lower layer %q: %w", newpath, err)
 			}
 		} else {
 			if !permsKnown {
@@ -1633,7 +1633,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	flags, data := mount.ParseOptions(mountData)
 	logrus.Debugf("overlay: mount_data=%s", mountData)
 	if err := mountFunc("overlay", mountTarget, "overlay", uintptr(flags), data); err != nil {
-		return "", fmt.Errorf("creating overlay mount to %s, mount_data=%q: %v", mountTarget, mountData, err)
+		return "", fmt.Errorf("creating overlay mount to %s, mount_data=%q: %w", mountTarget, mountData, err)
 	}
 
 	return mergedDir, nil

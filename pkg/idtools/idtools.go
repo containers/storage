@@ -119,7 +119,7 @@ func RawToContainer(hostID int, idMap []IDMap) (int, error) {
 			return contID, nil
 		}
 	}
-	return -1, fmt.Errorf("Host ID %d cannot be mapped to a container ID", hostID)
+	return -1, fmt.Errorf("host ID %d cannot be mapped to a container ID", hostID)
 }
 
 // RawToHost takes an id mapping and a remapped ID, and translates the ID to
@@ -139,7 +139,7 @@ func RawToHost(contID int, idMap []IDMap) (int, error) {
 			return hostID, nil
 		}
 	}
-	return -1, fmt.Errorf("Container ID %d cannot be mapped to a host ID", contID)
+	return -1, fmt.Errorf("container ID %d cannot be mapped to a host ID", contID)
 }
 
 // IDPair is a UID and GID pair
@@ -167,10 +167,10 @@ func NewIDMappings(username, groupname string) (*IDMappings, error) {
 		return nil, err
 	}
 	if len(subuidRanges) == 0 {
-		return nil, fmt.Errorf("No subuid ranges found for user %q in %s", username, subuidFileName)
+		return nil, fmt.Errorf("no subuid ranges found for user %q in %s", username, subuidFileName)
 	}
 	if len(subgidRanges) == 0 {
-		return nil, fmt.Errorf("No subgid ranges found for group %q in %s", groupname, subgidFileName)
+		return nil, fmt.Errorf("no subgid ranges found for group %q in %s", groupname, subgidFileName)
 	}
 
 	return &IDMappings{
@@ -342,16 +342,16 @@ func parseSubidFile(path, username string) (ranges, error) {
 		}
 		parts := strings.Split(text, ":")
 		if len(parts) != 3 {
-			return rangeList, fmt.Errorf("Cannot parse subuid/gid information: Format not correct for %s file", path)
+			return rangeList, fmt.Errorf("cannot parse subuid/gid information: Format not correct for %s file", path)
 		}
 		if parts[0] == username || username == "ALL" || (parts[0] == uidstr && parts[0] != "") {
 			startid, err := strconv.Atoi(parts[1])
 			if err != nil {
-				return rangeList, fmt.Errorf("String to int conversion failed during subuid/gid parsing of %s: %v", path, err)
+				return rangeList, fmt.Errorf("string to int conversion failed during subuid/gid parsing of %s: %w", path, err)
 			}
 			length, err := strconv.Atoi(parts[2])
 			if err != nil {
-				return rangeList, fmt.Errorf("String to int conversion failed during subuid/gid parsing of %s: %v", path, err)
+				return rangeList, fmt.Errorf("string to int conversion failed during subuid/gid parsing of %s: %w", path, err)
 			}
 			rangeList = append(rangeList, subIDRange{startid, length})
 		}

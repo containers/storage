@@ -49,7 +49,7 @@ func (c *Cmd) Start() error {
 	// Create the pipe for reading the child's PID.
 	pidRead, pidWrite, err := os.Pipe()
 	if err != nil {
-		return fmt.Errorf("error creating pid pipe: %w", err)
+		return fmt.Errorf("creating pid pipe: %w", err)
 	}
 	c.Env = append(c.Env, fmt.Sprintf("_Containers-pid-pipe=%d", len(c.ExtraFiles)+3))
 	c.ExtraFiles = append(c.ExtraFiles, pidWrite)
@@ -59,7 +59,7 @@ func (c *Cmd) Start() error {
 	if err != nil {
 		pidRead.Close()
 		pidWrite.Close()
-		return fmt.Errorf("error creating pid pipe: %w", err)
+		return fmt.Errorf("creating pid pipe: %w", err)
 	}
 	c.Env = append(c.Env, fmt.Sprintf("_Containers-continue-pipe=%d", len(c.ExtraFiles)+3))
 	c.ExtraFiles = append(c.ExtraFiles, continueRead)
@@ -108,13 +108,13 @@ func (c *Cmd) Start() error {
 	pidString := ""
 	b := new(bytes.Buffer)
 	if _, err := io.Copy(b, pidRead); err != nil {
-		return fmt.Errorf("Reading child PID: %w", err)
+		return fmt.Errorf("reading child PID: %w", err)
 	}
 	pidString = b.String()
 	pid, err := strconv.Atoi(pidString)
 	if err != nil {
 		fmt.Fprintf(continueWrite, "error parsing PID %q: %v", pidString, err)
-		return fmt.Errorf("error parsing PID %q: %w", pidString, err)
+		return fmt.Errorf("parsing PID %q: %w", pidString, err)
 	}
 
 	// Run any additional setup that we want to do before the child starts running proper.

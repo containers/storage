@@ -824,19 +824,19 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	if moreOptions.TemplateLayer != "" {
 		if err := r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
 			cleanupFailureContext = "creating a layer from template"
-			return nil, -1, fmt.Errorf("error creating copy of template layer %q with ID %q: %w", moreOptions.TemplateLayer, id, err)
+			return nil, -1, fmt.Errorf("creating copy of template layer %q with ID %q: %w", moreOptions.TemplateLayer, id, err)
 		}
 		oldMappings = templateIDMappings
 	} else {
 		if writeable {
 			if err := r.driver.CreateReadWrite(id, parent, &opts); err != nil {
 				cleanupFailureContext = "creating a read-write layer"
-				return nil, -1, fmt.Errorf("error creating read-write layer with ID %q: %w", id, err)
+				return nil, -1, fmt.Errorf("creating read-write layer with ID %q: %w", id, err)
 			}
 		} else {
 			if err := r.driver.Create(id, parent, &opts); err != nil {
 				cleanupFailureContext = "creating a read-only layer"
-				return nil, -1, fmt.Errorf("error creating layer with ID %q: %w", id, err)
+				return nil, -1, fmt.Errorf("creating layer with ID %q: %w", id, err)
 			}
 		}
 		oldMappings = parentMappings
@@ -1040,7 +1040,7 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	}
 	rootuid, rootgid, err := idtools.GetRootUIDGID(layer.UIDMap, layer.GIDMap)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error reading root ID values for layer %q: %w", layer.ID, err)
+		return nil, nil, fmt.Errorf("reading root ID values for layer %q: %w", layer.ID, err)
 	}
 	m := idtools.NewIDMappingsFromMaps(layer.UIDMap, layer.GIDMap)
 	fsuids := make(map[int]struct{})
@@ -1143,7 +1143,7 @@ func (r *layerStore) BigData(id, key string) (io.ReadCloser, error) {
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
-		return nil, fmt.Errorf("error locating layer with ID %q: %w", id, ErrLayerUnknown)
+		return nil, fmt.Errorf("locating layer with ID %q: %w", id, ErrLayerUnknown)
 	}
 	return os.Open(r.datapath(layer.ID, key))
 }
@@ -1157,7 +1157,7 @@ func (r *layerStore) SetBigData(id, key string, data io.Reader) error {
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
-		return fmt.Errorf("error locating layer with ID %q to write bigdata: %w", id, ErrLayerUnknown)
+		return fmt.Errorf("locating layer with ID %q to write bigdata: %w", id, ErrLayerUnknown)
 	}
 	err := os.MkdirAll(r.datadir(layer.ID), 0700)
 	if err != nil {
@@ -1169,16 +1169,16 @@ func (r *layerStore) SetBigData(id, key string, data io.Reader) error {
 	// so that it is either accessing the old data or the new one.
 	writer, err := ioutils.NewAtomicFileWriter(r.datapath(layer.ID, key), 0600)
 	if err != nil {
-		return fmt.Errorf("error opening bigdata file: %w", err)
+		return fmt.Errorf("opening bigdata file: %w", err)
 	}
 
 	if _, err := io.Copy(writer, data); err != nil {
 		writer.Close()
-		return fmt.Errorf("error copying bigdata for the layer: %w", err)
+		return fmt.Errorf("copying bigdata for the layer: %w", err)
 
 	}
 	if err := writer.Close(); err != nil {
-		return fmt.Errorf("error closing bigdata file for the layer: %w", err)
+		return fmt.Errorf("closing bigdata file for the layer: %w", err)
 	}
 
 	addName := true
@@ -1198,7 +1198,7 @@ func (r *layerStore) SetBigData(id, key string, data io.Reader) error {
 func (r *layerStore) BigDataNames(id string) ([]string, error) {
 	layer, ok := r.lookup(id)
 	if !ok {
-		return nil, fmt.Errorf("error locating layer with ID %q to retrieve bigdata names: %w", id, ErrImageUnknown)
+		return nil, fmt.Errorf("locating layer with ID %q to retrieve bigdata names: %w", id, ErrImageUnknown)
 	}
 	return copyStringSlice(layer.BigDataNames), nil
 }
@@ -1337,7 +1337,7 @@ func (r *layerStore) Delete(id string) error {
 	// driver level.
 	mountCount, err := r.Mounted(id)
 	if err != nil {
-		return fmt.Errorf("error checking if layer %q is still mounted: %w", id, err)
+		return fmt.Errorf("checking if layer %q is still mounted: %w", id, err)
 	}
 	for mountCount > 0 {
 		if _, err := r.Unmount(id, false); err != nil {
@@ -1345,7 +1345,7 @@ func (r *layerStore) Delete(id string) error {
 		}
 		mountCount, err = r.Mounted(id)
 		if err != nil {
-			return fmt.Errorf("error checking if layer %q is still mounted: %w", id, err)
+			return fmt.Errorf("checking if layer %q is still mounted: %w", id, err)
 		}
 	}
 	if err := r.deleteInternal(id); err != nil {
@@ -1671,7 +1671,7 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 		compressor = pgzip.NewWriter(&tsdata)
 	}
 	if err := compressor.SetConcurrency(1024*1024, 1); err != nil { // 1024*1024 is the hard-coded default; we're not changing that
-		logrus.Infof("Error setting compression concurrency threads to 1: %v; ignoring", err)
+		logrus.Infof("setting compression concurrency threads to 1: %v; ignoring", err)
 	}
 	metadata := storage.NewJSONPacker(compressor)
 	uncompressed, err := archive.DecompressStream(defragmented)

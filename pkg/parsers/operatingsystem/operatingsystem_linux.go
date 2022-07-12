@@ -29,11 +29,11 @@ func GetOperatingSystem() (string, error) {
 	osReleaseFile, err := os.Open(etcOsRelease)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			return "", fmt.Errorf("Error opening %s: %v", etcOsRelease, err)
+			return "", err
 		}
 		osReleaseFile, err = os.Open(altOsRelease)
 		if err != nil {
-			return "", fmt.Errorf("Error opening %s: %v", altOsRelease, err)
+			return "", err
 		}
 	}
 	defer osReleaseFile.Close()

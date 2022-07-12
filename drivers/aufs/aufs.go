@@ -56,9 +56,9 @@ import (
 
 var (
 	// ErrAufsNotSupported is returned if aufs is not supported by the host.
-	ErrAufsNotSupported = fmt.Errorf("AUFS was not found in /proc/filesystems")
+	ErrAufsNotSupported = fmt.Errorf("aufs was not found in /proc/filesystems")
 	// ErrAufsNested means aufs cannot be used bc we are in a user namespace
-	ErrAufsNested = fmt.Errorf("AUFS cannot be used in non-init user namespace")
+	ErrAufsNested = fmt.Errorf("aufs cannot be used in non-init user namespace")
 	backingFs     = "<unknown>"
 
 	enableDirpermLock sync.Once
@@ -106,7 +106,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	switch fsMagic {
 	case graphdriver.FsMagicAufs, graphdriver.FsMagicBtrfs, graphdriver.FsMagicEcryptfs:
 		logrus.Errorf("AUFS is not supported over %s", backingFs)
-		return nil, fmt.Errorf("AUFS is not supported over %q: %w", backingFs, graphdriver.ErrIncompatibleFS)
+		return nil, fmt.Errorf("aufs is not supported over %q: %w", backingFs, graphdriver.ErrIncompatibleFS)
 	}
 
 	var mountOptions string
@@ -387,7 +387,7 @@ func (a *Driver) Remove(id string) error {
 
 	// Remove the layers file for the id
 	if err := os.Remove(path.Join(a.rootPath(), "layers", id)); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("error removing layers dir for %s: %w", id, err)
+		return fmt.Errorf("removing layers dir for %s: %w", id, err)
 	}
 
 	if err := atomicRemove(a.getDiffPath(id)); err != nil {
@@ -422,7 +422,7 @@ func atomicRemove(source string) error {
 			return fmt.Errorf("target rename dir '%s' exists but should not, this needs to be manually cleaned up: %w", target, err)
 		}
 	default:
-		return fmt.Errorf("error preparing atomic delete: %w", err)
+		return fmt.Errorf("preparing atomic delete: %w", err)
 	}
 
 	return system.EnsureRemoveAll(target)
@@ -626,7 +626,7 @@ func (a *Driver) mount(id string, target string, layers []string, options graphd
 	rw := a.getDiffPath(id)
 
 	if err := a.aufsMount(layers, rw, target, options); err != nil {
-		return fmt.Errorf("error creating aufs mount to %s: %v", target, err)
+		return fmt.Errorf("creating aufs mount to %s: %w", target, err)
 	}
 	return nil
 }

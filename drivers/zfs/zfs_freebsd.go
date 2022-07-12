@@ -11,7 +11,7 @@ import (
 func checkRootdirFs(rootdir string) error {
 	var buf unix.Statfs_t
 	if err := unix.Statfs(rootdir, &buf); err != nil {
-		return fmt.Errorf("Failed to access '%s': %s", rootdir, err)
+		return fmt.Errorf("failed to access '%s': %s", rootdir, err)
 	}
 
 	// on FreeBSD buf.Fstypename contains ['z', 'f', 's', 0 ... ]

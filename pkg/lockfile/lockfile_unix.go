@@ -111,7 +111,7 @@ func createLockerForPath(path string, ro bool) (Locker, error) {
 	// Check if we can open the lock.
 	fd, err := openLock(path, ro)
 	if err != nil {
-		return nil, fmt.Errorf("error opening %q: %w", path, err)
+		return nil, err
 	}
 	unix.Close(fd)
 

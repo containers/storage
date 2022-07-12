@@ -86,7 +86,7 @@ func getLockfile(path string, ro bool) (Locker, error) {
 	}
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("error ensuring that path %q is an absolute path: %w", path, err)
+		return nil, fmt.Errorf("ensuring that path %q is an absolute path: %w", path, err)
 	}
 	if locker, ok := lockfiles[cleanPath]; ok {
 		if ro && locker.IsReadWrite() {
