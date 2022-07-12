@@ -113,7 +113,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest string, options *archive.T
 		// pending on write pipe forever
 		io.Copy(ioutil.Discard, decompressedArchive)
 
-		return fmt.Errorf("processing tar file(%w): %s", err, output)
+		return fmt.Errorf("processing tar file(%s): %w", output, err)
 	}
 	return nil
 }
@@ -194,7 +194,9 @@ func invokePack(srcPath string, options *archive.TarOptions, root string) (io.Re
 
 	go func() {
 		err := cmd.Wait()
-		err = fmt.Errorf("processing tar file: %s: %w", errBuff, err)
+		if err != nil {
+			err = fmt.Errorf("processing tar file(%s): %w", errBuff, err)
+		}
 		tarW.CloseWithError(err)
 	}()
 
