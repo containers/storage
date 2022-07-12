@@ -684,7 +684,7 @@ func tarUntar(t *testing.T, origin string, options *TarOptions) ([]Change, error
 	detectedCompression := DetectCompression(buf)
 	compression := options.Compression
 	if detectedCompression.Extension() != compression.Extension() {
-		return nil, fmt.Errorf("Wrong compression detected. Actual compression: %s, found %s", compression.Extension(), detectedCompression.Extension())
+		return nil, fmt.Errorf("wrong compression detected. Actual compression: %s, found %s", compression.Extension(), detectedCompression.Extension())
 	}
 
 	tmp, err := ioutil.TempDir("", "storage-test-untar")

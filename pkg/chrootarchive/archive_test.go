@@ -155,7 +155,7 @@ func compareDirectories(src string, dest string) error {
 		return err
 	}
 	if len(changes) > 0 {
-		return fmt.Errorf("Unexpected differences after untar: %v", changes)
+		return fmt.Errorf("unexpected differences after untar: %v", changes)
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ func compareDirectoriesChown(src string, dest string, uid, gid int) error {
 		return err
 	}
 	if len(changes) > 0 {
-		return fmt.Errorf("Unexpected differences after untar: %v", changes)
+		return fmt.Errorf("unexpected differences after untar: %v", changes)
 	}
 	return nil
 }

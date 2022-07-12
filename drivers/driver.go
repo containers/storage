@@ -282,7 +282,7 @@ func init() {
 // Register registers an InitFunc for the driver.
 func Register(name string, initFunc InitFunc) error {
 	if _, exists := drivers[name]; exists {
-		return fmt.Errorf("Name already registered %s", name)
+		return fmt.Errorf("name already registered %s", name)
 	}
 	drivers[name] = initFunc
 
@@ -384,7 +384,7 @@ func New(name string, config Options) (Driver, error) {
 		}
 		return driver, nil
 	}
-	return nil, fmt.Errorf("No supported storage backend found")
+	return nil, fmt.Errorf("no supported storage backend found")
 }
 
 // isDriverNotSupported returns true if the error initializing

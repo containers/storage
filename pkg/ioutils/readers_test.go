@@ -15,16 +15,16 @@ import (
 type errorReader struct{}
 
 func (r *errorReader) Read(p []byte) (int, error) {
-	return 0, fmt.Errorf("error reader always fail")
+	return 0, fmt.Errorf("reader always fail")
 }
 
 func TestReadCloserWrapperClose(t *testing.T) {
 	reader := strings.NewReader("A string reader")
 	wrapper := NewReadCloserWrapper(reader, func() error {
-		return fmt.Errorf("This will be called when closing")
+		return fmt.Errorf("this will be called when closing")
 	})
 	err := wrapper.Close()
-	if err == nil || !strings.Contains(err.Error(), "This will be called when closing") {
+	if err == nil || !strings.Contains(err.Error(), "this will be called when closing") {
 		t.Fatalf("readCloserWrapper should have call the anonymous func and thus, fail.")
 	}
 }
@@ -36,7 +36,7 @@ func TestReaderErrWrapperReadOnError(t *testing.T) {
 		called = true
 	})
 	_, err := wrapper.Read([]byte{})
-	assert.EqualError(t, err, "error reader always fail")
+	assert.EqualError(t, err, "reader always fail")
 	if !called {
 		t.Fatalf("readErrWrapper should have call the anonymous function on failure")
 	}

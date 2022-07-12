@@ -233,7 +233,7 @@ func (i *Image) recomputeDigests() error {
 	digests := make(map[digest.Digest]struct{})
 	if i.Digest != "" {
 		if err := i.Digest.Validate(); err != nil {
-			return fmt.Errorf("error validating image digest %q: %w", string(i.Digest), err)
+			return fmt.Errorf("validating image digest %q: %w", string(i.Digest), err)
 		}
 		digests[i.Digest] = struct{}{}
 		validDigests = append(validDigests, i.Digest)
@@ -243,7 +243,7 @@ func (i *Image) recomputeDigests() error {
 			continue
 		}
 		if digest.Validate() != nil {
-			return fmt.Errorf("error validating digest %q for big data item %q: %w", string(digest), name, digest.Validate())
+			return fmt.Errorf("validating digest %q for big data item %q: %w", string(digest), name, digest.Validate())
 		}
 		// Deduplicate the digest values.
 		if _, known := digests[digest]; !known {
@@ -284,7 +284,7 @@ func (r *imageStore) Load() error {
 			// Compute the digest list.
 			err = image.recomputeDigests()
 			if err != nil {
-				return fmt.Errorf("error computing digests for image with ID %q (%v): %w", image.ID, image.Names, err)
+				return fmt.Errorf("computing digests for image with ID %q (%v): %w", image.ID, image.Names, err)
 			}
 			for _, name := range image.Names {
 				names[name] = image
@@ -392,7 +392,7 @@ func (r *imageStore) ClearFlag(id string, flag string) error {
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	delete(image.Flags, flag)
 	return r.Save()
@@ -404,7 +404,7 @@ func (r *imageStore) SetFlag(id string, flag string, value interface{}) error {
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	if image.Flags == nil {
 		image.Flags = make(map[string]interface{})
@@ -453,7 +453,7 @@ func (r *imageStore) Create(id string, names []string, layer, metadata string, c
 	}
 	err = image.recomputeDigests()
 	if err != nil {
-		return nil, fmt.Errorf("error validating digests for new image: %w", err)
+		return nil, fmt.Errorf("validating digests for new image: %w", err)
 	}
 	r.images = append(r.images, image)
 	r.idindex.Add(id)
@@ -475,7 +475,7 @@ func (r *imageStore) addMappedTopLayer(id, layer string) error {
 		image.MappedTopLayers = append(image.MappedTopLayers, layer)
 		return r.Save()
 	}
-	return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) removeMappedTopLayer(id, layer string) error {
@@ -488,14 +488,14 @@ func (r *imageStore) removeMappedTopLayer(id, layer string) error {
 		}
 		return r.Save()
 	}
-	return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) Metadata(id string) (string, error) {
 	if image, ok := r.lookup(id); ok {
 		return image.Metadata, nil
 	}
-	return "", fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return "", fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) SetMetadata(id, metadata string) error {
@@ -506,7 +506,7 @@ func (r *imageStore) SetMetadata(id, metadata string) error {
 		image.Metadata = metadata
 		return r.Save()
 	}
-	return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) removeName(image *Image, name string) {
@@ -536,7 +536,7 @@ func (r *imageStore) updateNames(id string, names []string, op updateNameOperati
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	oldNames := image.Names
 	names, err := applyNameOperation(oldNames, names, op)
@@ -563,7 +563,7 @@ func (r *imageStore) Delete(id string) error {
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	id = image.ID
 	toDeleteIndex := -1
@@ -606,14 +606,14 @@ func (r *imageStore) Get(id string) (*Image, error) {
 	if image, ok := r.lookup(id); ok {
 		return copyImage(image), nil
 	}
-	return nil, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) Lookup(name string) (id string, err error) {
 	if image, ok := r.lookup(name); ok {
 		return image.ID, nil
 	}
-	return "", fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+	return "", fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) Exists(id string) bool {
@@ -625,7 +625,7 @@ func (r *imageStore) ByDigest(d digest.Digest) ([]*Image, error) {
 	if images, ok := r.bydigest[d]; ok {
 		return copyImageSlice(images), nil
 	}
-	return nil, fmt.Errorf("error locating image with digest %q: %w", d, ErrImageUnknown)
+	return nil, fmt.Errorf("locating image with digest %q: %w", d, ErrImageUnknown)
 }
 
 func (r *imageStore) BigData(id, key string) ([]byte, error) {
@@ -634,7 +634,7 @@ func (r *imageStore) BigData(id, key string) ([]byte, error) {
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return nil, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	return ioutil.ReadFile(r.datapath(image.ID, key))
 }
@@ -645,7 +645,7 @@ func (r *imageStore) BigDataSize(id, key string) (int64, error) {
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return -1, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return -1, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	if image.BigDataSizes == nil {
 		image.BigDataSizes = make(map[string]int64)
@@ -665,7 +665,7 @@ func (r *imageStore) BigDataDigest(id, key string) (digest.Digest, error) {
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return "", fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return "", fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	if image.BigDataDigests == nil {
 		image.BigDataDigests = make(map[string]digest.Digest)
@@ -679,7 +679,7 @@ func (r *imageStore) BigDataDigest(id, key string) (digest.Digest, error) {
 func (r *imageStore) BigDataNames(id string) ([]string, error) {
 	image, ok := r.lookup(id)
 	if !ok {
-		return nil, fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	return copyStringSlice(image.BigDataNames), nil
 }
@@ -704,7 +704,7 @@ func (r *imageStore) SetBigData(id, key string, data []byte, digestManifest func
 	}
 	image, ok := r.lookup(id)
 	if !ok {
-		return fmt.Errorf("error locating image with ID %q: %w", id, ErrImageUnknown)
+		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	err := os.MkdirAll(r.datadir(image.ID), 0700)
 	if err != nil {
@@ -713,10 +713,10 @@ func (r *imageStore) SetBigData(id, key string, data []byte, digestManifest func
 	var newDigest digest.Digest
 	if bigDataNameIsManifest(key) {
 		if digestManifest == nil {
-			return fmt.Errorf("error digesting manifest: no manifest digest callback provided: %w", ErrDigestUnknown)
+			return fmt.Errorf("digesting manifest: no manifest digest callback provided: %w", ErrDigestUnknown)
 		}
 		if newDigest, err = digestManifest(data); err != nil {
-			return fmt.Errorf("error digesting manifest: %w", err)
+			return fmt.Errorf("digesting manifest: %w", err)
 		}
 	} else {
 		newDigest = digest.Canonical.FromBytes(data)
@@ -760,7 +760,7 @@ func (r *imageStore) SetBigData(id, key string, data []byte, digestManifest func
 			}
 		}
 		if err = image.recomputeDigests(); err != nil {
-			return fmt.Errorf("error loading recomputing image digest information for %s: %w", image.ID, err)
+			return fmt.Errorf("loading recomputing image digest information for %s: %w", image.ID, err)
 		}
 		for _, newDigest := range image.Digests {
 			// add the image to the list of images in the digest-based index which

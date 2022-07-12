@@ -62,7 +62,7 @@ func UntarUncompressed(tarArchive io.Reader, dest string, options *archive.TarOp
 // Handler for teasing out the automatic decompression
 func untarHandler(tarArchive io.Reader, dest string, options *archive.TarOptions, decompress bool, root string) error {
 	if tarArchive == nil {
-		return fmt.Errorf("Empty archive")
+		return fmt.Errorf("empty archive")
 	}
 	if options == nil {
 		options = &archive.TarOptions{}
@@ -114,7 +114,7 @@ func CopyFileWithTarAndChown(chownOpts *idtools.IDPair, hasher io.Writer, uidmap
 		archiver.Untar = func(tarArchive io.Reader, dest string, options *archive.TarOptions) error {
 			contentReader, contentWriter, err := os.Pipe()
 			if err != nil {
-				return fmt.Errorf("error creating pipe extract data to %q: %w", dest, err)
+				return fmt.Errorf("creating pipe extract data to %q: %w", dest, err)
 			}
 			defer contentReader.Close()
 			defer contentWriter.Close()
@@ -133,11 +133,11 @@ func CopyFileWithTarAndChown(chownOpts *idtools.IDPair, hasher io.Writer, uidmap
 				hashWorker.Done()
 			}()
 			if err = originalUntar(io.TeeReader(tarArchive, contentWriter), dest, options); err != nil {
-				err = fmt.Errorf("error extracting data to %q while copying: %w", dest, err)
+				err = fmt.Errorf("extracting data to %q while copying: %w", dest, err)
 			}
 			hashWorker.Wait()
 			if err == nil {
-				err = fmt.Errorf("error calculating digest of data for %q while copying: %w", dest, hashError)
+				err = fmt.Errorf("calculating digest of data for %q while copying: %w", dest, hashError)
 			}
 			return err
 		}

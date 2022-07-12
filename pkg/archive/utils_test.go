@@ -91,7 +91,7 @@ func testBreakout(untarFn string, tmpdir string, headers []*tar.Header) error {
 	f, err := os.Open(victim)
 	if err != nil {
 		// codepath taken if victim folder was removed
-		return fmt.Errorf("archive breakout: error reading %q: %v", victim, err)
+		return fmt.Errorf("archive breakout: error reading %q: %w", victim, err)
 	}
 	defer f.Close()
 
@@ -104,7 +104,7 @@ func testBreakout(untarFn string, tmpdir string, headers []*tar.Header) error {
 	names, err := f.Readdirnames(2)
 	if err != nil {
 		// codepath taken if victim is not a folder
-		return fmt.Errorf("archive breakout: error reading directory content of %q: %v", victim, err)
+		return fmt.Errorf("archive breakout: error reading directory content of %q: %w", victim, err)
 	}
 	for _, name := range names {
 		if name != "hello" {
@@ -117,7 +117,7 @@ func testBreakout(untarFn string, tmpdir string, headers []*tar.Header) error {
 	f, err = os.Open(hello)
 	if err != nil {
 		// codepath taken if read permissions were removed
-		return fmt.Errorf("archive breakout: could not lstat %q: %v", hello, err)
+		return fmt.Errorf("archive breakout: could not lstat %q: %w", hello, err)
 	}
 	defer f.Close()
 	b, err := ioutil.ReadAll(f)

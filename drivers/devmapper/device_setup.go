@@ -159,7 +159,7 @@ func readLVMConfig(root string) (directLVMConfig, error) {
 		if os.IsNotExist(err) {
 			return cfg, nil
 		}
-		return cfg, fmt.Errorf("error reading existing setup config: %w", err)
+		return cfg, fmt.Errorf("reading existing setup config: %w", err)
 	}
 
 	// check if this is just an empty file, no need to produce a json error later if so
@@ -168,17 +168,17 @@ func readLVMConfig(root string) (directLVMConfig, error) {
 	}
 
 	err = json.Unmarshal(b, &cfg)
-	return cfg, fmt.Errorf("error unmarshaling previous device setup config: %w", err)
+	return cfg, fmt.Errorf("unmarshaling previous device setup config: %w", err)
 }
 
 func writeLVMConfig(root string, cfg directLVMConfig) error {
 	p := filepath.Join(root, "setup-config.json")
 	b, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("error marshalling direct lvm config: %w", err)
+		return fmt.Errorf("marshalling direct lvm config: %w", err)
 	}
 	err = ioutil.WriteFile(p, b, 0600)
-	return fmt.Errorf("error writing direct lvm config to file: %w", err)
+	return fmt.Errorf("writing direct lvm config to file: %w", err)
 }
 
 func setupDirectLVM(cfg directLVMConfig) error {
@@ -187,13 +187,13 @@ func setupDirectLVM(cfg directLVMConfig) error {
 
 	for _, bin := range binaries {
 		if _, err := exec.LookPath(bin); err != nil {
-			return fmt.Errorf("error looking up command `"+bin+"` while setting up direct lvm: %w", err)
+			return fmt.Errorf("looking up command `"+bin+"` while setting up direct lvm: %w", err)
 		}
 	}
 
 	err := os.MkdirAll(lvmProfileDir, 0755)
 	if err != nil {
-		return fmt.Errorf("error creating lvm profile directory: %w", err)
+		return fmt.Errorf("creating lvm profile directory: %w", err)
 	}
 
 	if cfg.AutoExtendPercent == 0 {
@@ -241,7 +241,7 @@ func setupDirectLVM(cfg directLVMConfig) error {
 	profile := fmt.Sprintf("activation{\nthin_pool_autoextend_threshold=%d\nthin_pool_autoextend_percent=%d\n}", cfg.AutoExtendThreshold, cfg.AutoExtendPercent)
 	err = ioutil.WriteFile(lvmProfileDir+"/storage-thinpool.profile", []byte(profile), 0600)
 	if err != nil {
-		return fmt.Errorf("error writing storage thinp autoextend profile: %w", err)
+		return fmt.Errorf("writing storage thinp autoextend profile: %w", err)
 	}
 
 	out, err = exec.Command("lvchange", "--metadataprofile", "storage-thinpool", "storage/thinpool").CombinedOutput()

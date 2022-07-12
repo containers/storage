@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package idtools
@@ -174,10 +175,10 @@ func buildTree(base string, tree map[string]node) error {
 	for path, node := range tree {
 		fullPath := filepath.Join(base, path)
 		if err := os.MkdirAll(fullPath, 0755); err != nil {
-			return fmt.Errorf("Couldn't create path: %s; error: %v", fullPath, err)
+			return fmt.Errorf("couldn't create path: %s; error: %w", fullPath, err)
 		}
 		if err := os.Chown(fullPath, node.uid, node.gid); err != nil {
-			return fmt.Errorf("Couldn't chown path: %s; error: %v", fullPath, err)
+			return fmt.Errorf("couldn't chown path: %s; error: %w", fullPath, err)
 		}
 	}
 	return nil
@@ -188,13 +189,13 @@ func readTree(base, root string) (map[string]node, error) {
 
 	dirInfos, err := ioutil.ReadDir(base)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't read directory entries for %q: %v", base, err)
+		return nil, fmt.Errorf("couldn't read directory entries for %q: %w", base, err)
 	}
 
 	for _, info := range dirInfos {
 		s := &unix.Stat_t{}
 		if err := unix.Stat(filepath.Join(base, info.Name()), s); err != nil {
-			return nil, fmt.Errorf("Can't stat file %q: %v", filepath.Join(base, info.Name()), err)
+			return nil, fmt.Errorf("can't stat file %q: %w", filepath.Join(base, info.Name()), err)
 		}
 		tree[filepath.Join(root, info.Name())] = node{int(s.Uid), int(s.Gid)}
 		if info.IsDir() {
@@ -213,7 +214,7 @@ func readTree(base, root string) (map[string]node, error) {
 
 func compareTrees(left, right map[string]node) error {
 	if len(left) != len(right) {
-		return fmt.Errorf("Trees aren't the same size")
+		return fmt.Errorf("trees aren't the same size")
 	}
 	for path, nodeLeft := range left {
 		if nodeRight, ok := right[path]; ok {

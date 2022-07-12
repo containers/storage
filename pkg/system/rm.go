@@ -67,7 +67,7 @@ func EnsureRemoveAll(dir string) error {
 		}
 
 		if e := mount.Unmount(pe.Path); e != nil {
-			return fmt.Errorf("error while removing %s: %w", dir, e)
+			return fmt.Errorf("while removing %s: %w", dir, e)
 		}
 
 		if exitOnErr[pe.Path] == maxRetry {

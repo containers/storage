@@ -171,7 +171,7 @@ func doesMetacopy(d, mountOpts string) (bool, error) {
 	// Make a change that only impacts the inode, and check if the pulled-up copy is marked
 	// as a metadata-only copy
 	if err := os.Chmod(filepath.Join(td, "merged", "f"), 0600); err != nil {
-		return false, fmt.Errorf("error changing permissions on file for metacopy check: %w", err)
+		return false, fmt.Errorf("changing permissions on file for metacopy check: %w", err)
 	}
 	metacopy, err := system.Lgetxattr(filepath.Join(td, "l2", "f"), archive.GetOverlayXattrName("metacopy"))
 	if err != nil {
