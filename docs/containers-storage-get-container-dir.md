@@ -1,4 +1,4 @@
-## containers-storage-get-container-dir 1 "Sepember 2016"
+## containers-storage-get-container-dir 1 "September 2016"
 
 ## NAME
 containers-storage get-container-dir - Find lookaside directory for a container
