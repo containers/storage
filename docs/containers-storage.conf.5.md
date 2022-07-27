@@ -99,7 +99,7 @@ containers/storage supports four keys
 
 **remap-uids=**""
 **remap-gids=**""
-  Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of a container, to the UIDs/GIDs outside of the container, and the length of the range of UIDs/GIDs.  Additional mapped sets can be listed and will be heeded by libraries, but there are limits to the number of mappings which the kernel will allow when you later attempt to run a container.
+  Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of a container, to the UIDs/GIDs outside of the container, and the length of the range of UIDs/GIDs.  Additional mapped sets can be listed and will be needed by libraries, but there are limits to the number of mappings which the kernel will allow when you later attempt to run a container.
 
   Example
      remap-uids = 0:1668442479:65536
@@ -244,7 +244,7 @@ Note: The force_mask Flag is an experimental feature, it could change in the
 future.  When "force_mask" is set the original permission mask is stored in the
 "user.containers.override_stat" xattr and the "mount_program" option must be
 specified. Mount programs like "/usr/bin/fuse-overlayfs" present the extended
-attribute permissions to processes within containers rather then the
+attribute permissions to processes within containers rather than the
 "force_mask"  permissions.
 
 **mount_program**=""

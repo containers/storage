@@ -7,7 +7,7 @@ containers-storage layer - Examine a single layer
 **containers-storage** **layer** *layerNameOrID*
 
 ## DESCRIPTION
-Retrieve information about an layer: its ID, any names it has, and the ID of
+Retrieve information about a layer: its ID, any names it has, and the ID of
 its parent, if it has one.
 
 ## EXAMPLE
