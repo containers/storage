@@ -28,6 +28,29 @@ case $TEST_DRIVER in
     aufs)
         showrun make STORAGE_DRIVER=aufs local-test-integration local-test-unit
         ;;
+    btrfs)
+        # Fedora: install btrfs-progs, btrfs-progs-devel
+        # Ubuntu: install btrfs-progs, libbtrfs-dev
+        if [[ "$(./hack/btrfs_tag.sh)" =~ exclude_graphdriver_btrfs ]]; then
+            die "Built without btrfs, so we can't test it"
+        fi
+        if ! check_filesystem_supported $TEST_DRIVER ; then
+            die "This CI VM does not support $TEST_DRIVER in its kernel"
+        fi
+        if test -z "$(which mkfs.btrfs 2> /dev/null)" ; then
+            die "This CI VM does not have mkfs.btrfs installed"
+        fi
+        tmpdir=$(mktemp -d)
+        if [ -z "$tmpdir" ]; then
+            die "Error creating temporary directory"
+        fi
+        trap "umount -l $tmpdir; rm -f $GOSRC/$TEST_DRIVER.img" EXIT
+        truncate -s 0 $GOSRC/$TEST_DRIVER.img
+        fallocate -l 1G $GOSRC/$TEST_DRIVER.img
+        mkfs.btrfs $GOSRC/$TEST_DRIVER.img
+        mount -o loop $GOSRC/$TEST_DRIVER.img $tmpdir
+        TMPDIR="$tmpdir" showrun make STORAGE_DRIVER=$TEST_DRIVER local-test-integration local-test-unit
+        ;;
     *)
         die "Unknown/Unsupported \$TEST_DRIVER=$TEST_DRIVER (see .cirrus.yml and $(basename $0))"
         ;;
