@@ -1388,6 +1388,9 @@ func (r *layerStore) Wipe() error {
 	for id := range r.byid {
 		ids = append(ids, id)
 	}
+	sort.Slice(ids, func(i, j int) bool {
+		return r.byid[ids[i]].Created.After(r.byid[ids[j]].Created)
+	})
 	for _, id := range ids {
 		if err := r.Delete(id); err != nil {
 			return err
