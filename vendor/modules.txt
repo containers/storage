@@ -88,9 +88,9 @@ github.com/klauspost/pgzip
 # github.com/mattn/go-shellwords v1.0.12
 ## explicit
 github.com/mattn/go-shellwords
-# github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
+# github.com/mistifyio/go-zfs/v3 v3.0.0
 ## explicit
-github.com/mistifyio/go-zfs
+github.com/mistifyio/go-zfs/v3
 # github.com/moby/sys/mountinfo v0.6.2
 ## explicit
 github.com/moby/sys/mountinfo
