@@ -6,8 +6,10 @@ package overlay
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/containers/storage/pkg/idtools"
@@ -132,7 +134,7 @@ func createUsernsProcess(uidMaps []idtools.IDMap, gidMaps []idtools.IDMap) (int,
 		_ = unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(unix.SIGKILL), 0, 0, 0)
 		// just wait for the SIGKILL
 		for {
-			syscall.Pause()
+			<-time.After(math.MaxInt)
 		}
 	}
 	cleanupFunc := func() {
