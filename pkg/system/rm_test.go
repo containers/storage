@@ -19,10 +19,7 @@ func TestEnsureRemoveAllNotExist(t *testing.T) {
 }
 
 func TestEnsureRemoveAllWithDir(t *testing.T) {
-	dir, err := ioutil.TempDir("", "test-ensure-removeall-with-dir")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := t.TempDir()
 	if err := EnsureRemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -44,15 +41,8 @@ func TestEnsureRemoveAllWithMount(t *testing.T) {
 		t.Skip("mount not supported on Windows")
 	}
 
-	dir1, err := ioutil.TempDir("", "test-ensure-removeall-with-dir1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir2, err := ioutil.TempDir("", "test-ensure-removeall-with-dir2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir2)
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
 
 	bindDir := filepath.Join(dir1, "bind")
 	if err := os.MkdirAll(bindDir, 0755); err != nil {
@@ -63,6 +53,7 @@ func TestEnsureRemoveAllWithMount(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var err error
 	done := make(chan struct{})
 	go func() {
 		err = EnsureRemoveAll(dir1)

@@ -9,23 +9,17 @@ import (
 )
 
 // prepareTempFile creates a temporary file in a temporary directory.
-func prepareTempFile(t *testing.T) (string, string) {
-	dir, err := ioutil.TempDir("", "storage-system-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	file := filepath.Join(dir, "exist")
+func prepareTempFile(t *testing.T) string {
+	file := filepath.Join(t.TempDir(), "exist")
 	if err := ioutil.WriteFile(file, []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	return file, dir
+	return file
 }
 
 // TestChtimes tests Chtimes on a tempfile. Test only mTime, because aTime is OS dependent
 func TestChtimes(t *testing.T) {
-	file, dir := prepareTempFile(t)
-	defer os.RemoveAll(dir)
+	file := prepareTempFile(t)
 
 	beforeUnixEpochTime := time.Unix(0, 0).Add(-100 * time.Second)
 	unixEpochTime := time.Unix(0, 0)

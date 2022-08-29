@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -10,9 +9,7 @@ import (
 )
 
 func newTestImageStore(t *testing.T) ImageStore {
-	dir, err := ioutil.TempDir("", "storage")
-	require.Nil(t, err)
-	store, err := newImageStore(dir)
+	store, err := newImageStore(t.TempDir())
 	require.Nil(t, err)
 	return store
 }

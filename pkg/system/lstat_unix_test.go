@@ -1,16 +1,15 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package system
 
 import (
-	"os"
 	"testing"
 )
 
 // TestLstat tests Lstat for existing and non existing files
 func TestLstat(t *testing.T) {
-	file, invalid, _, dir := prepareFiles(t)
-	defer os.RemoveAll(dir)
+	file, invalid, _ := prepareFiles(t)
 
 	statFile, err := Lstat(file)
 	if err != nil {

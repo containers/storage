@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"runtime"
@@ -23,11 +22,7 @@ func TestHardLinkOrder(t *testing.T) {
 	msg := []byte("Hey y'all")
 
 	// Create dir
-	src, err := ioutil.TempDir("", "storage-hardlink-test-src-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(src)
+	src := t.TempDir()
 	for _, name := range names {
 		func() {
 			fh, err := os.Create(path.Join(src, name))
@@ -41,15 +36,11 @@ func TestHardLinkOrder(t *testing.T) {
 		}()
 	}
 	// Create dest, with changes that includes hardlinks
-	dest, err := ioutil.TempDir("", "storage-hardlink-test-dest-")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dest := t.TempDir()
 	os.RemoveAll(dest) // we just want the name, at first
 	if err := copyDir(src, dest); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(dest)
 	for _, name := range names {
 		for i := 0; i < 5; i++ {
 			if err := os.Link(path.Join(dest, name), path.Join(dest, fmt.Sprintf("%s.link%d", name, i))); err != nil {

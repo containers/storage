@@ -1,3 +1,4 @@
+//go:build windows
 // +build windows
 
 package archive
@@ -14,15 +15,11 @@ func TestCopyFileWithInvalidDest(t *testing.T) {
 	// recently changed in CopyWithTar as used to pass. Further investigation
 	// is required.
 	t.Skip("Currently fails")
-	folder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(folder)
+	folder := t.TempDir()
 	dest := "c:dest"
 	srcFolder := filepath.Join(folder, "src")
 	src := filepath.Join(folder, "src", "src")
-	err = os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}

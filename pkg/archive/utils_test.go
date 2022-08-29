@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 )
 
@@ -34,12 +35,8 @@ var testUntarFns = map[string]func(string, io.Reader) error{
 // - file in `dest` with same content as `victim/hello` (read)
 //
 // When using testBreakout make sure you cover one of the scenarios listed above.
-func testBreakout(untarFn string, tmpdir string, headers []*tar.Header) error {
-	tmpdir, err := ioutil.TempDir("", tmpdir)
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmpdir)
+func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
+	tmpdir := t.TempDir()
 
 	dest := filepath.Join(tmpdir, "dest")
 	if err := os.Mkdir(dest, 0755); err != nil {

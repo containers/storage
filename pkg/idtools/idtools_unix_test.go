@@ -20,11 +20,7 @@ type node struct {
 }
 
 func TestMkdirAllAs(t *testing.T) {
-	dirName, err := ioutil.TempDir("", "mkdirall")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
-	defer os.RemoveAll(dirName)
+	dirName := t.TempDir()
 
 	testTree := map[string]node{
 		"usr":              {0, 0},
@@ -85,9 +81,7 @@ func TestMkdirAllAs(t *testing.T) {
 }
 
 func TestMkdirAllAndChownNew(t *testing.T) {
-	dirName, err := ioutil.TempDir("", "mkdirnew")
-	require.NoError(t, err)
-	defer os.RemoveAll(dirName)
+	dirName := t.TempDir()
 
 	testTree := map[string]node{
 		"usr":              {0, 0},
@@ -99,7 +93,7 @@ func TestMkdirAllAndChownNew(t *testing.T) {
 	require.NoError(t, buildTree(dirName, testTree))
 
 	// test adding a directory to a pre-existing dir; only the new dir is owned by the uid/gid
-	err = MkdirAllAndChownNew(filepath.Join(dirName, "usr", "share"), 0755, IDPair{99, 99})
+	err := MkdirAllAndChownNew(filepath.Join(dirName, "usr", "share"), 0755, IDPair{99, 99})
 	require.NoError(t, err)
 
 	testTree["usr/share"] = node{99, 99}
@@ -126,11 +120,7 @@ func TestMkdirAllAndChownNew(t *testing.T) {
 
 func TestMkdirAs(t *testing.T) {
 
-	dirName, err := ioutil.TempDir("", "mkdir")
-	if err != nil {
-		t.Fatalf("Couldn't create temp dir: %v", err)
-	}
-	defer os.RemoveAll(dirName)
+	dirName := t.TempDir()
 
 	testTree := map[string]node{
 		"usr": {0, 0},
@@ -231,11 +221,7 @@ func compareTrees(left, right map[string]node) error {
 }
 
 func TestParseSubidFileWithNewlinesAndComments(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "parsesubid")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	fnamePath := filepath.Join(tmpDir, "testsubuid")
 	fcontent := `tss:100000:65536

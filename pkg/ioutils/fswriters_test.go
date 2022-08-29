@@ -21,11 +21,7 @@ func init() {
 }
 
 func TestAtomicWriteToFile(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "atomic-writers-test")
-	if err != nil {
-		t.Fatalf("Error when creating temporary directory: %s", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	expected := []byte("barbaz")
 	if err := AtomicWriteFile(filepath.Join(tmpDir, "foo"), expected, testMode); err != nil {
@@ -51,11 +47,7 @@ func TestAtomicWriteToFile(t *testing.T) {
 }
 
 func TestAtomicWriteSetCommit(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "atomic-writerset-test")
-	if err != nil {
-		t.Fatalf("Error when creating temporary directory: %s", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	if err := os.Mkdir(filepath.Join(tmpDir, "tmp"), 0700); err != nil {
 		t.Fatalf("Error creating tmp directory: %s", err)
@@ -100,11 +92,7 @@ func TestAtomicWriteSetCommit(t *testing.T) {
 }
 
 func TestAtomicWriteSetCancel(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "atomic-writerset-test")
-	if err != nil {
-		t.Fatalf("Error when creating temporary directory: %s", err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	if err := os.Mkdir(filepath.Join(tmpDir, "tmp"), 0700); err != nil {
 		t.Fatalf("Error creating tmp directory: %s", err)

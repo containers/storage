@@ -22,7 +22,8 @@ import (
 // ├── d2     # opaque, 0750
 // │   └── f1 # empty file, 0660
 // └── d3     # 0700
-//     └── f1 # whiteout, 0000
+//
+//	└── f1 # whiteout, 0000
 func setupOverlayTestDir(t *testing.T, src string) {
 	// Create opaque directory containing single file and permission 0700
 	err := os.Mkdir(filepath.Join(src, "d1"), 0700)
@@ -98,21 +99,13 @@ func TestOverlayTarUntar(t *testing.T) {
 	require.NoError(t, err)
 	defer system.Umask(oldmask)
 
-	src, err := ioutil.TempDir("", "storage-test-overlay-tar-src")
-	require.NoError(t, err)
-	defer os.RemoveAll(src)
-
+	src := t.TempDir()
 	setupOverlayTestDir(t, src)
 
-	lower, err := ioutil.TempDir("", "storage-test-overlay-tar-lower")
-	require.NoError(t, err)
-	defer os.RemoveAll(lower)
-
+	lower := t.TempDir()
 	setupOverlayLowerDir(t, lower)
 
-	dst, err := ioutil.TempDir("", "storage-test-overlay-tar-dst")
-	require.NoError(t, err)
-	defer os.RemoveAll(dst)
+	dst := t.TempDir()
 
 	options := &TarOptions{
 		Compression:    Uncompressed,
@@ -144,21 +137,13 @@ func TestOverlayTarAUFSUntar(t *testing.T) {
 	require.NoError(t, err)
 	defer system.Umask(oldmask)
 
-	src, err := ioutil.TempDir("", "storage-test-overlay-tar-src")
-	require.NoError(t, err)
-	defer os.RemoveAll(src)
-
+	src := t.TempDir()
 	setupOverlayTestDir(t, src)
 
-	lower, err := ioutil.TempDir("", "storage-test-overlay-tar-lower")
-	require.NoError(t, err)
-	defer os.RemoveAll(lower)
-
+	lower := t.TempDir()
 	setupOverlayLowerDir(t, lower)
 
-	dst, err := ioutil.TempDir("", "storage-test-overlay-tar-dst")
-	require.NoError(t, err)
-	defer os.RemoveAll(dst)
+	dst := t.TempDir()
 
 	archive, err := TarWithOptions(src, &TarOptions{
 		Compression:    Uncompressed,
@@ -205,11 +190,9 @@ func TestNestedOverlayWhiteouts(t *testing.T) {
 		require.NoError(t, tw.Close())
 	}()
 
-	dst, err := ioutil.TempDir("", "storage-test-overlay-tar-dst")
-	require.NoError(t, err)
-	defer os.RemoveAll(dst)
+	dst := t.TempDir()
 
-	err = Untar(reader, dst, &TarOptions{
+	err := Untar(reader, dst, &TarOptions{
 		Compression:    Uncompressed,
 		WhiteoutFormat: OverlayWhiteoutFormat,
 	})

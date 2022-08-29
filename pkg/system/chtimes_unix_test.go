@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package system
@@ -11,8 +12,7 @@ import (
 
 // TestChtimesLinux tests Chtimes access time on a tempfile on Linux
 func TestChtimesLinux(t *testing.T) {
-	file, dir := prepareTempFile(t)
-	defer os.RemoveAll(dir)
+	file := prepareTempFile(t)
 
 	beforeUnixEpochTime := time.Unix(0, 0).Add(-100 * time.Second)
 	unixEpochTime := time.Unix(0, 0)

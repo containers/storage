@@ -32,13 +32,10 @@ func TestCopyWithoutRange(t *testing.T) {
 }
 
 func TestCopyDir(t *testing.T) {
-	srcDir, err := ioutil.TempDir("", "srcDir")
-	assert.NilError(t, err)
+	srcDir := t.TempDir()
 	populateSrcDir(t, srcDir, 3)
 
-	dstDir, err := ioutil.TempDir("", "testdst")
-	assert.NilError(t, err)
-	defer os.RemoveAll(dstDir)
+	dstDir := t.TempDir()
 
 	assert.Check(t, DirCopy(srcDir, dstDir, Content, false))
 	assert.NilError(t, filepath.Walk(srcDir, func(srcPath string, f os.FileInfo, err error) error {
@@ -110,15 +107,13 @@ func populateSrcDir(t *testing.T, srcDir string, remainingDepth int) {
 }
 
 func doCopyTest(t *testing.T, copyWithFileRange, copyWithFileClone *bool) {
-	dir, err := ioutil.TempDir("", "storage-copy-check")
-	assert.NilError(t, err)
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 	srcFilename := filepath.Join(dir, "srcFilename")
 	dstFilename := filepath.Join(dir, "dstilename")
 
 	r := rand.New(rand.NewSource(0))
 	buf := make([]byte, 1024)
-	_, err = r.Read(buf)
+	_, err := r.Read(buf)
 	assert.NilError(t, err)
 	assert.NilError(t, ioutil.WriteFile(srcFilename, buf, 0777))
 	fileinfo, err := os.Stat(srcFilename)
@@ -133,13 +128,8 @@ func doCopyTest(t *testing.T, copyWithFileRange, copyWithFileClone *bool) {
 func TestCopyHardlink(t *testing.T) {
 	var srcFile1FileInfo, srcFile2FileInfo, dstFile1FileInfo, dstFile2FileInfo unix.Stat_t
 
-	srcDir, err := ioutil.TempDir("", "srcDir")
-	assert.NilError(t, err)
-	defer os.RemoveAll(srcDir)
-
-	dstDir, err := ioutil.TempDir("", "dstDir")
-	assert.NilError(t, err)
-	defer os.RemoveAll(dstDir)
+	srcDir := t.TempDir()
+	dstDir := t.TempDir()
 
 	srcFile1 := filepath.Join(srcDir, "file1")
 	srcFile2 := filepath.Join(srcDir, "file2")
