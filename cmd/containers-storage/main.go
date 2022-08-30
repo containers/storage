@@ -104,7 +104,10 @@ func main() {
 					flags.Usage()
 					os.Exit(1)
 				}
-				if command.maxArgs != 0 && len(args) > command.maxArgs {
+				if command.maxArgs >= 0 && command.maxArgs < command.minArgs {
+					panic(fmt.Sprintf("command %v requires more args (%d) than it allows (%d)", command.names, command.minArgs, command.maxArgs))
+				}
+				if command.maxArgs >= 0 && len(args) > command.maxArgs {
 					fmt.Printf("%s: too many arguments (%s).\n", cmd, args)
 					flags.Usage()
 					os.Exit(1)

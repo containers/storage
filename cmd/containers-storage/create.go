@@ -198,6 +198,7 @@ func init() {
 		names:       []string{"create-layer", "createlayer"},
 		optionsHelp: "[options [...]] [parentLayerNameOrID]",
 		usage:       "Create a new layer",
+		minArgs:     0,
 		maxArgs:     1,
 		action:      createLayer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
@@ -218,6 +219,7 @@ func init() {
 		names:       []string{"import-layer", "importlayer"},
 		optionsHelp: "[options [...]] [parentLayerNameOrID]",
 		usage:       "Import a new layer",
+		minArgs:     0,
 		maxArgs:     1,
 		action:      importLayer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {

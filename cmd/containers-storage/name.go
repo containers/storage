@@ -92,6 +92,7 @@ func init() {
 		optionsHelp: "[options [...]] imageOrContainerNameOrID",
 		usage:       "Get layer, image, or container name or names",
 		minArgs:     1,
+		maxArgs:     1,
 		action:      getNames,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
@@ -102,6 +103,7 @@ func init() {
 		optionsHelp: "[options [...]] imageOrContainerNameOrID",
 		usage:       "Add layer, image, or container name or names",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      addNames,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "New name")
@@ -113,6 +115,7 @@ func init() {
 		optionsHelp: "[options [...]] imageOrContainerNameOrID",
 		usage:       "Set layer, image, or container name or names",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      setNames,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "New name")

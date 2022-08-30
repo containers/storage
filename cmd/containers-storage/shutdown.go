@@ -31,6 +31,7 @@ func init() {
 		names:   []string{"shutdown"},
 		usage:   "Shut down layer storage",
 		minArgs: 0,
+		maxArgs: 0,
 		action:  shutdown,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")

@@ -27,6 +27,7 @@ func init() {
 		names:   []string{"version"},
 		usage:   "Return containers-storage version information",
 		minArgs: 0,
+		maxArgs: 0,
 		action:  version,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")

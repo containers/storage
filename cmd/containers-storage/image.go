@@ -165,6 +165,7 @@ func init() {
 			usage:       "Examine an image",
 			action:      image,
 			minArgs:     1,
+			maxArgs:     -1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},
@@ -186,6 +187,7 @@ func init() {
 			usage:       "Get data that is attached to an image",
 			action:      getImageBigData,
 			minArgs:     2,
+			maxArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramImageDataFile, []string{"-file", "f"}, paramImageDataFile, "Write data to file")
 			},
@@ -196,6 +198,7 @@ func init() {
 			usage:       "Get size of data that is attached to an image",
 			action:      getImageBigDataSize,
 			minArgs:     2,
+			maxArgs:     2,
 		},
 		command{
 			names:       []string{"get-image-data-digest", "getimagedatadigest"},
@@ -203,6 +206,7 @@ func init() {
 			usage:       "Get digest of data that is attached to an image",
 			action:      getImageBigDataDigest,
 			minArgs:     2,
+			maxArgs:     2,
 		},
 		command{
 			names:       []string{"set-image-data", "setimagedata"},
@@ -210,6 +214,7 @@ func init() {
 			usage:       "Set data that is attached to an image (with sometimes wrong digest)",
 			action:      setImageBigData,
 			minArgs:     2,
+			maxArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramImageDataFile, []string{"-file", "f"}, paramImageDataFile, "Read data from file")
 			},
