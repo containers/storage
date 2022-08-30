@@ -256,9 +256,8 @@ func TestCopyErrDstNotDir(t *testing.T) {
 //
 
 // A. SRC specifies a file and DST (no trailing path separator) doesn't
-//
-//	exist. This should create a file with the name DST and copy the
-//	contents of the source file into it.
+//    exist. This should create a file with the name DST and copy the
+//    contents of the source file into it.
 func TestCopyCaseA(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -298,9 +297,8 @@ func TestCopyCaseA(t *testing.T) {
 }
 
 // B. SRC specifies a file and DST (with trailing path separator) doesn't
-//
-//	exist. This should cause an error because the copy operation cannot
-//	create a directory when copying a single file.
+//    exist. This should cause an error because the copy operation cannot
+//    create a directory when copying a single file.
 func TestCopyCaseB(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -332,8 +330,7 @@ func TestCopyCaseB(t *testing.T) {
 }
 
 // C. SRC specifies a file and DST exists as a file. This should overwrite
-//
-//	the file at DST with the contents of the source file.
+//    the file at DST with the contents of the source file.
 func TestCopyCaseC(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -360,9 +357,8 @@ func TestCopyCaseC(t *testing.T) {
 }
 
 // C. Symbol link following version:
-//
-//	SRC specifies a file and DST exists as a file. This should overwrite
-//	the file at DST with the contents of the source file.
+//    SRC specifies a file and DST exists as a file. This should overwrite
+//    the file at DST with the contents of the source file.
 func TestCopyCaseCFSym(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -397,9 +393,8 @@ func TestCopyCaseCFSym(t *testing.T) {
 }
 
 // D. SRC specifies a file and DST exists as a directory. This should place
-//
-//	a copy of the source file inside it using the basename from SRC. Ensure
-//	this works whether DST has a trailing path separator or not.
+//    a copy of the source file inside it using the basename from SRC. Ensure
+//    this works whether DST has a trailing path separator or not.
 func TestCopyCaseD(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -446,10 +441,9 @@ func TestCopyCaseD(t *testing.T) {
 }
 
 // D. Symbol link following version:
-//
-//	SRC specifies a file and DST exists as a directory. This should place
-//	a copy of the source file inside it using the basename from SRC. Ensure
-//	this works whether DST has a trailing path separator or not.
+//    SRC specifies a file and DST exists as a directory. This should place
+//    a copy of the source file inside it using the basename from SRC. Ensure
+//    this works whether DST has a trailing path separator or not.
 func TestCopyCaseDFSym(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -497,10 +491,9 @@ func TestCopyCaseDFSym(t *testing.T) {
 }
 
 // E. SRC specifies a directory and DST does not exist. This should create a
-//
-//	directory at DST and copy the contents of the SRC directory into the DST
-//	directory. Ensure this works whether DST has a trailing path separator or
-//	not.
+//    directory at DST and copy the contents of the SRC directory into the DST
+//    directory. Ensure this works whether DST has a trailing path separator or
+//    not.
 func TestCopyCaseE(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -540,11 +533,10 @@ func TestCopyCaseE(t *testing.T) {
 }
 
 // E. Symbol link following version:
-//
-//	SRC specifies a directory and DST does not exist. This should create a
-//	directory at DST and copy the contents of the SRC directory into the DST
-//	directory. Ensure this works whether DST has a trailing path separator or
-//	not.
+//    SRC specifies a directory and DST does not exist. This should create a
+//    directory at DST and copy the contents of the SRC directory into the DST
+//    directory. Ensure this works whether DST has a trailing path separator or
+//    not.
 func TestCopyCaseEFSym(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -585,8 +577,7 @@ func TestCopyCaseEFSym(t *testing.T) {
 }
 
 // F. SRC specifies a directory and DST exists as a file. This should cause an
-//
-//	error as it is not possible to overwrite a file with a directory.
+//    error as it is not possible to overwrite a file with a directory.
 func TestCopyCaseF(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -619,9 +610,8 @@ func TestCopyCaseF(t *testing.T) {
 }
 
 // G. SRC specifies a directory and DST exists as a directory. This should copy
-//
-//	the SRC directory and all its contents to the DST directory. Ensure this
-//	works whether DST has a trailing path separator or not.
+//    the SRC directory and all its contents to the DST directory. Ensure this
+//    works whether DST has a trailing path separator or not.
 func TestCopyCaseG(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -663,10 +653,9 @@ func TestCopyCaseG(t *testing.T) {
 }
 
 // G. Symbol link version:
-//
-//	SRC specifies a directory and DST exists as a directory. This should copy
-//	the SRC directory and all its contents to the DST directory. Ensure this
-//	works whether DST has a trailing path separator or not.
+//    SRC specifies a directory and DST exists as a directory. This should copy
+//    the SRC directory and all its contents to the DST directory. Ensure this
+//    works whether DST has a trailing path separator or not.
 func TestCopyCaseGFSym(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -709,10 +698,9 @@ func TestCopyCaseGFSym(t *testing.T) {
 }
 
 // H. SRC specifies a directory's contents only and DST does not exist. This
-//
-//	should create a directory at DST and copy the contents of the SRC
-//	directory (but not the directory itself) into the DST directory. Ensure
-//	this works whether DST has a trailing path separator or not.
+//    should create a directory at DST and copy the contents of the SRC
+//    directory (but not the directory itself) into the DST directory. Ensure
+//    this works whether DST has a trailing path separator or not.
 func TestCopyCaseH(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -756,11 +744,10 @@ func TestCopyCaseH(t *testing.T) {
 }
 
 // H. Symbol link following version:
-//
-//	SRC specifies a directory's contents only and DST does not exist. This
-//	should create a directory at DST and copy the contents of the SRC
-//	directory (but not the directory itself) into the DST directory. Ensure
-//	this works whether DST has a trailing path separator or not.
+//    SRC specifies a directory's contents only and DST does not exist. This
+//    should create a directory at DST and copy the contents of the SRC
+//    directory (but not the directory itself) into the DST directory. Ensure
+//    this works whether DST has a trailing path separator or not.
 func TestCopyCaseHFSym(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -805,9 +792,8 @@ func TestCopyCaseHFSym(t *testing.T) {
 }
 
 // I. SRC specifies a directory's contents only and DST exists as a file. This
-//
-//	should cause an error as it is not possible to overwrite a file with a
-//	directory.
+//    should cause an error as it is not possible to overwrite a file with a
+//    directory.
 func TestCopyCaseI(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -840,10 +826,9 @@ func TestCopyCaseI(t *testing.T) {
 }
 
 // J. SRC specifies a directory's contents only and DST exists as a directory.
-//
-//	This should copy the contents of the SRC directory (but not the directory
-//	itself) into the DST directory. Ensure this works whether DST has a
-//	trailing path separator or not.
+//    This should copy the contents of the SRC directory (but not the directory
+//    itself) into the DST directory. Ensure this works whether DST has a
+//    trailing path separator or not.
 func TestCopyCaseJ(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
@@ -889,11 +874,10 @@ func TestCopyCaseJ(t *testing.T) {
 }
 
 // J. Symbol link following version:
-//
-//	SRC specifies a directory's contents only and DST exists as a directory.
-//	This should copy the contents of the SRC directory (but not the directory
-//	itself) into the DST directory. Ensure this works whether DST has a
-//	trailing path separator or not.
+//    SRC specifies a directory's contents only and DST exists as a directory.
+//    This should copy the contents of the SRC directory (but not the directory
+//    itself) into the DST directory. Ensure this works whether DST has a
+//    trailing path separator or not.
 func TestCopyCaseJFSym(t *testing.T) {
 	tmpDirA, tmpDirB := getTestTempDirs(t)
 
