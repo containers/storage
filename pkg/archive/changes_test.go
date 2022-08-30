@@ -123,12 +123,8 @@ func TestChangesWithNoChanges(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("symlinks on Windows")
 	}
-	rwLayer, err := ioutil.TempDir("", "storage-changes-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(rwLayer)
-	layer, err := ioutil.TempDir("", "storage-changes-test-layer")
-	require.NoError(t, err)
-	defer os.RemoveAll(layer)
+	rwLayer := t.TempDir()
+	layer := t.TempDir()
 	createSampleDir(t, layer)
 	changes, err := Changes([]string{layer}, rwLayer)
 	require.NoError(t, err)
@@ -144,16 +140,12 @@ func TestChangesWithChanges(t *testing.T) {
 		t.Skip("symlinks on Windows")
 	}
 	// Mock the readonly layer
-	layer, err := ioutil.TempDir("", "storage-changes-test-layer")
-	require.NoError(t, err)
-	defer os.RemoveAll(layer)
+	layer := t.TempDir()
 	createSampleDir(t, layer)
 	os.MkdirAll(path.Join(layer, "dir1/subfolder"), 0740)
 
 	// Mock the RW layer
-	rwLayer, err := ioutil.TempDir("", "storage-changes-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(rwLayer)
+	rwLayer := t.TempDir()
 
 	// Create a folder in RW layer
 	dir1 := path.Join(rwLayer, "dir1")
@@ -188,8 +180,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("symlinks on Windows")
 	}
-	baseLayer, err := ioutil.TempDir("", "storage-changes-test.")
-	defer os.RemoveAll(baseLayer)
+	baseLayer := t.TempDir()
 
 	dir3 := path.Join(baseLayer, "dir1/dir2/dir3")
 	os.MkdirAll(dir3, 07400)
@@ -197,8 +188,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	file := path.Join(dir3, "file.txt")
 	ioutil.WriteFile(file, []byte("hello"), 0666)
 
-	layer, err := ioutil.TempDir("", "storage-changes-test2.")
-	defer os.RemoveAll(layer)
+	layer := t.TempDir()
 
 	// Test creating a new file
 	if err := copyDir(baseLayer+"/dir1", layer+"/"); err != nil {
@@ -221,8 +211,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	checkChanges(expectedChanges, changes, t)
 
 	// Now test changing a file
-	layer, err = ioutil.TempDir("", "storage-changes-test3.")
-	defer os.RemoveAll(layer)
+	layer = t.TempDir()
 
 	if err := copyDir(baseLayer+"/dir1", layer+"/"); err != nil {
 		t.Fatalf("Cmd failed: %q", err)
@@ -248,22 +237,17 @@ func TestChangesDirsEmpty(t *testing.T) {
 	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("symlinks on Windows; gcp failure on Solaris")
 	}
-	src, err := ioutil.TempDir("", "storage-changes-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(src)
+	src := t.TempDir()
 	createSampleDir(t, src)
 	dst := src + "-copy"
-	err = copyDir(src, dst)
+	err := copyDir(src, dst)
 	require.NoError(t, err)
-	defer os.RemoveAll(dst)
 	changes, err := ChangesDirs(dst, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	require.NoError(t, err)
 
 	if len(changes) != 0 {
 		t.Fatalf("Reported changes for identical dirs: %v", changes)
 	}
-	os.RemoveAll(src)
-	os.RemoveAll(dst)
 }
 
 func mutateSampleDir(t *testing.T, root string) {
@@ -336,14 +320,11 @@ func TestChangesDirsMutated(t *testing.T) {
 	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("symlinks on Windows; gcp failures on Solaris")
 	}
-	src, err := ioutil.TempDir("", "storage-changes-test")
-	require.NoError(t, err)
+	src := t.TempDir()
 	createSampleDir(t, src)
 	dst := src + "-copy"
-	err = copyDir(src, dst)
+	err := copyDir(src, dst)
 	require.NoError(t, err)
-	defer os.RemoveAll(src)
-	defer os.RemoveAll(dst)
 
 	mutateSampleDir(t, dst)
 
@@ -393,15 +374,12 @@ func TestApplyLayer(t *testing.T) {
 	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("symlinks on Windows; gcp failures on Solaris")
 	}
-	src, err := ioutil.TempDir("", "storage-changes-test")
-	require.NoError(t, err)
+	src := t.TempDir()
 	createSampleDir(t, src)
-	defer os.RemoveAll(src)
 	dst := src + "-copy"
-	err = copyDir(src, dst)
+	err := copyDir(src, dst)
 	require.NoError(t, err)
 	mutateSampleDir(t, dst)
-	defer os.RemoveAll(dst)
 
 	changes, err := ChangesDirs(dst, &idtools.IDMappings{}, src, &idtools.IDMappings{})
 	require.NoError(t, err)
@@ -429,13 +407,8 @@ func TestChangesSizeWithHardlinks(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("hardlinks on Windows")
 	}
-	srcDir, err := ioutil.TempDir("", "storage-test-srcDir")
-	require.NoError(t, err)
-	defer os.RemoveAll(srcDir)
-
-	destDir, err := ioutil.TempDir("", "storage-test-destDir")
-	require.NoError(t, err)
-	defer os.RemoveAll(destDir)
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
 
 	creationSize, err := prepareUntarSourceDirectory(100, destDir, true)
 	require.NoError(t, err)
@@ -467,10 +440,9 @@ func TestChangesSizeWithOnlyDeleteChanges(t *testing.T) {
 }
 
 func TestChangesSize(t *testing.T) {
-	parentPath, err := ioutil.TempDir("", "storage-changes-test")
-	defer os.RemoveAll(parentPath)
+	parentPath := t.TempDir()
 	addition := path.Join(parentPath, "addition")
-	err = ioutil.WriteFile(addition, []byte{0x01, 0x01, 0x01}, 0744)
+	err := ioutil.WriteFile(addition, []byte{0x01, 0x01, 0x01}, 0744)
 	require.NoError(t, err)
 	modification := path.Join(parentPath, "modification")
 	err = ioutil.WriteFile(modification, []byte{0x01, 0x01, 0x01}, 0744)

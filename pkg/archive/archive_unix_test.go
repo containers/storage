@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package archive
@@ -72,11 +73,9 @@ func TestChmodTarEntry(t *testing.T) {
 }
 
 func TestTarWithHardLink(t *testing.T) {
-	origin, err := ioutil.TempDir("", "storage-test-tar-hardlink")
-	require.NoError(t, err)
-	defer os.RemoveAll(origin)
+	origin := t.TempDir()
 
-	err = ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
 	require.NoError(t, err)
 
 	err = os.Link(filepath.Join(origin, "1"), filepath.Join(origin, "2"))
@@ -91,9 +90,7 @@ func TestTarWithHardLink(t *testing.T) {
 		t.Skipf("skipping since hardlinks don't work here; expected 2 links, got %d", i1)
 	}
 
-	dest, err := ioutil.TempDir("", "storage-test-tar-hardlink-dest")
-	require.NoError(t, err)
-	defer os.RemoveAll(dest)
+	dest := t.TempDir()
 
 	// we'll do this in two steps to separate failure
 	fh, err := Tar(origin, Uncompressed)
@@ -117,12 +114,10 @@ func TestTarWithHardLink(t *testing.T) {
 }
 
 func TestTarWithHardLinkAndRebase(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "storage-test-tar-hardlink-rebase")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	origin := filepath.Join(tmpDir, "origin")
-	err = os.Mkdir(origin, 0700)
+	err := os.Mkdir(origin, 0700)
 	require.NoError(t, err)
 
 	err = ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
@@ -184,11 +179,9 @@ func getInode(path string) (uint64, error) {
 }
 
 func TestTarWithBlockCharFifo(t *testing.T) {
-	origin, err := ioutil.TempDir("", "storage-test-tar-hardlink")
-	require.NoError(t, err)
+	origin := t.TempDir()
 
-	defer os.RemoveAll(origin)
-	err = ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
 	require.NoError(t, err)
 
 	err = system.Mknod(filepath.Join(origin, "2"), unix.S_IFBLK, int(system.Mkdev(int64(12), int64(5))))
@@ -198,9 +191,7 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 	err = system.Mknod(filepath.Join(origin, "4"), unix.S_IFIFO, int(system.Mkdev(int64(12), int64(5))))
 	require.NoError(t, err)
 
-	dest, err := ioutil.TempDir("", "storage-test-tar-hardlink-dest")
-	require.NoError(t, err)
-	defer os.RemoveAll(dest)
+	dest := t.TempDir()
 
 	// we'll do this in two steps to separate failure
 	fh, err := Tar(origin, Uncompressed)
@@ -227,10 +218,8 @@ func TestTarUntarWithXattr(t *testing.T) {
 	if runtime.GOOS == solaris {
 		t.Skip()
 	}
-	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
-	require.NoError(t, err)
-	defer os.RemoveAll(origin)
-	err = ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	origin := t.TempDir()
+	err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
 	require.NoError(t, err)
 
 	err = ioutil.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700)

@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -13,10 +12,7 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	wd, err := ioutil.TempDir("", "testStorageRuntime")
-	require.NoError(t, err)
-	err = os.MkdirAll(wd, 0700)
-	require.NoError(t, err)
+	wd := t.TempDir()
 
 	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
 	store, err := GetStore(StoreOptions{

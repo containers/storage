@@ -1,10 +1,9 @@
+//go:build linux
 // +build linux
 
 package overlay
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
@@ -25,11 +24,7 @@ func init() {
 }
 
 func skipIfNaive(t *testing.T) {
-	td, err := ioutil.TempDir("", "naive-check-")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(td)
+	td := t.TempDir()
 
 	if err := doesSupportNativeDiff(td, ""); err != nil {
 		t.Skipf("Cannot run test with naive diff")

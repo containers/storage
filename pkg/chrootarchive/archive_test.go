@@ -47,11 +47,7 @@ func CopyWithTar(src, dst string) error {
 }
 
 func TestChrootTarUntar(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootTarUntar")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -78,11 +74,7 @@ func TestChrootTarUntar(t *testing.T) {
 // gh#10426: Verify the fix for having a huge excludes list (like on `docker load` with large # of
 // local images)
 func TestChrootUntarWithHugeExcludesList(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarHugeExcludes")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -112,11 +104,7 @@ func TestChrootUntarWithHugeExcludesList(t *testing.T) {
 }
 
 func TestChrootUntarEmptyArchive(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarEmptyArchive")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	if err := Untar(nil, tmpdir, nil); err == nil {
 		t.Fatal("expected error on empty archive")
 	}
@@ -210,11 +198,7 @@ func TestChrootTarUntarWithSymlink(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootTarUntarWithSymlink")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -236,11 +220,7 @@ func TestChrootCopyWithTar(t *testing.T) {
 	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("Failing on Windows and Solaris")
 	}
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootCopyWithTar")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -286,11 +266,7 @@ func TestChrootCopyWithTarAndChown(t *testing.T) {
 	if runtime.GOOS == windows || runtime.GOOS == solaris {
 		t.Skip("Failing on Windows and Solaris")
 	}
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootCopyWithTar")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -338,11 +314,7 @@ func TestChrootCopyWithTarAndChown(t *testing.T) {
 }
 
 func TestChrootCopyFileWithTar(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootCopyFileWithTar")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -381,11 +353,7 @@ func TestChrootCopyFileWithTar(t *testing.T) {
 }
 
 func TestChrootCopyFileWithTarAndChown(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootCopyFileWithTar")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -435,11 +403,7 @@ func TestChrootUntarPath(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarPath")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -478,11 +442,7 @@ func TestChrootUntarPathAndChown(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarPath")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
@@ -550,11 +510,7 @@ func (s *slowEmptyTarReader) Read(p []byte) (int, error) {
 }
 
 func TestChrootUntarEmptyArchiveFromSlowReader(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootUntarEmptyArchiveFromSlowReader")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	dest := filepath.Join(tmpdir, "dest")
 	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
@@ -566,11 +522,7 @@ func TestChrootUntarEmptyArchiveFromSlowReader(t *testing.T) {
 }
 
 func TestChrootApplyEmptyArchiveFromSlowReader(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootApplyEmptyArchiveFromSlowReader")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	dest := filepath.Join(tmpdir, "dest")
 	if err := os.MkdirAll(dest, 0700); err != nil {
 		t.Fatal(err)
@@ -582,11 +534,7 @@ func TestChrootApplyEmptyArchiveFromSlowReader(t *testing.T) {
 }
 
 func TestChrootApplyDotDotFile(t *testing.T) {
-	tmpdir, err := ioutil.TempDir("", "storage-TestChrootApplyDotDotFile")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 	src := filepath.Join(tmpdir, "src")
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)

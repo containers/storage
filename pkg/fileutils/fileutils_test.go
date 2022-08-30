@@ -18,11 +18,7 @@ const windows = "windows"
 
 // CopyFile with invalid src
 func TestCopyFileWithInvalidSrc(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	defer os.RemoveAll(tempFolder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tempFolder := t.TempDir()
 	bytes, err := CopyFile("/invalid/file/path", path.Join(tempFolder, "dest"))
 	if err == nil {
 		t.Fatal("Should have fail to copy an invalid src file")
@@ -35,13 +31,9 @@ func TestCopyFileWithInvalidSrc(t *testing.T) {
 
 // CopyFile with invalid dest
 func TestCopyFileWithInvalidDest(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	defer os.RemoveAll(tempFolder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tempFolder := t.TempDir()
 	src := path.Join(tempFolder, "file")
-	err = ioutil.WriteFile(src, []byte("content"), 0740)
+	err := ioutil.WriteFile(src, []byte("content"), 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,13 +49,9 @@ func TestCopyFileWithInvalidDest(t *testing.T) {
 
 // CopyFile with same src and dest
 func TestCopyFileWithSameSrcAndDest(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	defer os.RemoveAll(tempFolder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tempFolder := t.TempDir()
 	file := path.Join(tempFolder, "file")
-	err = ioutil.WriteFile(file, []byte("content"), 0740)
+	err := ioutil.WriteFile(file, []byte("content"), 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,13 +66,9 @@ func TestCopyFileWithSameSrcAndDest(t *testing.T) {
 
 // CopyFile with same src and dest but path is different and not clean
 func TestCopyFileWithSameSrcAndDestWithPathNameDifferent(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	defer os.RemoveAll(tempFolder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tempFolder := t.TempDir()
 	testFolder := path.Join(tempFolder, "test")
-	err = os.MkdirAll(testFolder, 0740)
+	err := os.MkdirAll(testFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,14 +88,10 @@ func TestCopyFileWithSameSrcAndDestWithPathNameDifferent(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	defer os.RemoveAll(tempFolder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	tempFolder := t.TempDir()
 	src := path.Join(tempFolder, "src")
 	dest := path.Join(tempFolder, "dest")
-	err = ioutil.WriteFile(src, []byte("content"), 0777)
+	err := ioutil.WriteFile(src, []byte("content"), 0777)
 	require.NoError(t, err)
 
 	err = ioutil.WriteFile(dest, []byte("destContent"), 0777)
@@ -486,11 +466,7 @@ func TestCleanPatternsErrorSingleException(t *testing.T) {
 }
 
 func TestCreateIfNotExistsDir(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempFolder)
+	tempFolder := t.TempDir()
 
 	folderToCreate := filepath.Join(tempFolder, "tocreate")
 
@@ -508,11 +484,7 @@ func TestCreateIfNotExistsDir(t *testing.T) {
 }
 
 func TestCreateIfNotExistsFile(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-fileutils-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempFolder)
+	tempFolder := t.TempDir()
 
 	fileToCreate := filepath.Join(tempFolder, "file/to/create")
 

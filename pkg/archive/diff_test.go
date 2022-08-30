@@ -36,7 +36,7 @@ func TestApplyLayerInvalidFilenames(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("applylayer", "storage-TestApplyLayerInvalidFilenames", headers); err != nil {
+		if err := testBreakout(t, "applylayer", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -119,7 +119,7 @@ func TestApplyLayerInvalidHardlink(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("applylayer", "storage-TestApplyLayerInvalidHardlink", headers); err != nil {
+		if err := testBreakout(t, "applylayer", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -202,7 +202,7 @@ func TestApplyLayerInvalidSymlink(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("applylayer", "storage-TestApplyLayerInvalidSymlink", headers); err != nil {
+		if err := testBreakout(t, "applylayer", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -214,11 +214,7 @@ func TestApplyLayerWhiteouts(t *testing.T) {
 		t.Skip("Failing on Windows")
 	}
 
-	wd, err := ioutil.TempDir("", "graphdriver-test-whiteouts")
-	if err != nil {
-		return
-	}
-	defer os.RemoveAll(wd)
+	wd := t.TempDir()
 
 	base := []string{
 		".baz",
@@ -303,7 +299,7 @@ func TestApplyLayerWhiteouts(t *testing.T) {
 	}
 
 	for i, tc := range tcases {
-		l, err := makeTestLayer(tc.change)
+		l, err := makeTestLayer(t, tc.change)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -329,16 +325,8 @@ func TestApplyLayerWhiteouts(t *testing.T) {
 
 }
 
-func makeTestLayer(paths []string) (rc io.ReadCloser, err error) {
-	tmpDir, err := ioutil.TempDir("", "graphdriver-test-mklayer")
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(tmpDir)
-		}
-	}()
+func makeTestLayer(t *testing.T, paths []string) (rc io.ReadCloser, err error) {
+	tmpDir := t.TempDir()
 	for _, p := range paths {
 		if p[len(p)-1] == filepath.Separator {
 			if err = os.MkdirAll(filepath.Join(tmpDir, p), 0700); err != nil {
@@ -356,7 +344,6 @@ func makeTestLayer(paths []string) (rc io.ReadCloser, err error) {
 	}
 	return ioutils.NewReadCloserWrapper(archive, func() error {
 		err := archive.Close()
-		os.RemoveAll(tmpDir)
 		return err
 	}), nil
 }

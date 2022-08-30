@@ -47,12 +47,10 @@ func (env rootlessRuntimeDirEnvironmentTest) homedirGet() string {
 }
 
 func TestRootlessRuntimeDir(t *testing.T) {
-	testDir, err := ioutil.TempDir("", "rootless-runtime-dir-test")
-	assert.NilError(t, err)
-	defer os.Remove(testDir)
+	testDir := t.TempDir()
 
 	homeRuntimeDir := filepath.Join(testDir, "home-rundir")
-	err = os.Mkdir(homeRuntimeDir, 0700)
+	err := os.Mkdir(homeRuntimeDir, 0700)
 	assert.NilError(t, err)
 
 	homeRuntimeDisabled := homeRuntimeData{err: errors.New("homedirGetRuntimeDir is disabled")}
@@ -244,12 +242,10 @@ func (rootlessRuntimeDirEnvironmentRace) homedirGet() string {
 }
 
 func TestRootlessRuntimeDirRace(t *testing.T) {
-	raceDir, err := ioutil.TempDir("", "rootless-runtime-dir-race-test")
-	assert.NilError(t, err)
-	defer os.Remove(raceDir)
+	raceDir := t.TempDir()
 
 	procCommandFile := filepath.Join(raceDir, "command")
-	err = ioutil.WriteFile(procCommandFile, []byte("init"), 0644)
+	err := ioutil.WriteFile(procCommandFile, []byte("init"), 0644)
 	assert.NilError(t, err)
 
 	tmpPerUserDir := filepath.Join(raceDir, "tmp")

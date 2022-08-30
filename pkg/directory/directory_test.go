@@ -11,14 +11,7 @@ import (
 
 // Usage of an empty directory should be 0
 func TestUsageEmpty(t *testing.T) {
-	var dir string
-	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "testUsageEmptyDirectory"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
-
-	usage, _ := Usage(dir)
+	usage, _ := Usage(t.TempDir())
 	expectSizeAndInodeCount(t, "empty directory", usage, &DiskUsage{
 		Size:       0,
 		InodeCount: 1,
@@ -27,14 +20,10 @@ func TestUsageEmpty(t *testing.T) {
 
 // Usage of one empty file should be 0
 func TestUsageEmptyFile(t *testing.T) {
-	var dir string
-	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "testUsageEmptyFile"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	var file *os.File
+	var err error
 	if file, err = ioutil.TempFile(dir, "file"); err != nil {
 		t.Fatalf("failed to create file: %s", err)
 	}
@@ -48,14 +37,10 @@ func TestUsageEmptyFile(t *testing.T) {
 
 // Usage of a directory with one 5-byte file should be 5
 func TestUsageNonemptyFile(t *testing.T) {
-	var dir string
-	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "testUsageNonemptyFile"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
 
 	var file *os.File
+	var err error
 	if file, err = ioutil.TempFile(dir, "file"); err != nil {
 		t.Fatalf("failed to create file: %s", err)
 	}
@@ -72,14 +57,7 @@ func TestUsageNonemptyFile(t *testing.T) {
 
 // Usage of an empty directory should be 0
 func TestUsageEmptyDirectory(t *testing.T) {
-	var dir string
-	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "testUsageEmptyDirectory"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
-
-	usage, _ := Usage(dir)
+	usage, _ := Usage(t.TempDir())
 	expectSizeAndInodeCount(t, "one directory", usage, &DiskUsage{
 		Size:       0,
 		InodeCount: 1,
@@ -88,13 +66,8 @@ func TestUsageEmptyDirectory(t *testing.T) {
 
 // Usage of a directory with one empty directory should be 0
 func TestUsageNestedDirectoryEmpty(t *testing.T) {
-	var dir string
-	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "testUsageNestedDirectoryEmpty"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
-	if _, err = ioutil.TempDir(dir, "nested"); err != nil {
+	dir := t.TempDir()
+	if _, err := ioutil.TempDir(dir, "nested"); err != nil {
 		t.Fatalf("failed to create nested directory: %s", err)
 	}
 
@@ -107,12 +80,9 @@ func TestUsageNestedDirectoryEmpty(t *testing.T) {
 
 // Test directory with 1 file and 1 empty directory
 func TestUsageFileAndNestedDirectoryEmpty(t *testing.T) {
-	var dir string
 	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "testUsageFileAndNestedDirectoryEmpty"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
+
 	if _, err = ioutil.TempDir(dir, "nested"); err != nil {
 		t.Fatalf("failed to create nested directory: %s", err)
 	}
@@ -134,12 +104,10 @@ func TestUsageFileAndNestedDirectoryEmpty(t *testing.T) {
 
 // Test directory with 1 file and 1 non-empty directory
 func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
-	var dir, dirNested string
+	var dirNested string
 	var err error
-	if dir, err = ioutil.TempDir(os.TempDir(), "TestUsageFileAndNestedDirectoryNonempty"); err != nil {
-		t.Fatalf("failed to create directory: %s", err)
-	}
-	defer os.RemoveAll(dir)
+	dir := t.TempDir()
+
 	if dirNested, err = ioutil.TempDir(dir, "nested"); err != nil {
 		t.Fatalf("failed to create nested directory: %s", err)
 	}
@@ -169,13 +137,9 @@ func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
 
 // Test migration of directory to a subdir underneath itself
 func TestMoveToSubdir(t *testing.T) {
-	var outerDir, subDir string
+	var subDir string
 	var err error
-
-	if outerDir, err = ioutil.TempDir(os.TempDir(), "TestMoveToSubdir"); err != nil {
-		t.Fatalf("failed to create directory: %v", err)
-	}
-	defer os.RemoveAll(outerDir)
+	outerDir := t.TempDir()
 
 	if subDir, err = ioutil.TempDir(outerDir, "testSub"); err != nil {
 		t.Fatalf("failed to create subdirectory: %v", err)

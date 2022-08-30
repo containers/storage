@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package system
@@ -11,11 +12,8 @@ import (
 )
 
 // prepareFiles creates files for testing in the temp directory
-func prepareFiles(t *testing.T) (string, string, string, string) {
-	dir, err := ioutil.TempDir("", "storage-system-test")
-	if err != nil {
-		t.Fatal(err)
-	}
+func prepareFiles(t *testing.T) (string, string, string) {
+	dir := t.TempDir()
 
 	file := filepath.Join(dir, "exist")
 	if err := ioutil.WriteFile(file, []byte("hello"), 0644); err != nil {
@@ -29,12 +27,11 @@ func prepareFiles(t *testing.T) (string, string, string, string) {
 		t.Fatal(err)
 	}
 
-	return file, invalid, symlink, dir
+	return file, invalid, symlink
 }
 
 func TestLUtimesNano(t *testing.T) {
-	file, invalid, symlink, dir := prepareFiles(t)
-	defer os.RemoveAll(dir)
+	file, invalid, symlink := prepareFiles(t)
 
 	before, err := os.Stat(file)
 	if err != nil {

@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package chrootarchive
@@ -23,13 +24,10 @@ import (
 // some path outside of a container's rootfs that we do not copy data to a
 // container path that will actually overwrite data on the host
 func TestUntarWithMaliciousSymlinks(t *testing.T) {
-	dir, err := ioutil.TempDir("", t.Name())
-	assert.NilError(t, err)
-	defer os.RemoveAll(dir)
-
+	dir := t.TempDir()
 	root := filepath.Join(dir, "root")
 
-	err = os.MkdirAll(root, 0755)
+	err := os.MkdirAll(root, 0755)
 	assert.NilError(t, err)
 
 	// Add a file into a directory above root
@@ -84,14 +82,12 @@ func TestUntarWithMaliciousSymlinks(t *testing.T) {
 // some path outside of a container's rootfs that we do not unwittingly leak
 // host data into the archive.
 func TestTarWithMaliciousSymlinks(t *testing.T) {
-	dir, err := ioutil.TempDir("", t.Name())
-	assert.NilError(t, err)
-	// defer os.RemoveAll(dir)
+	dir := t.TempDir()
 	t.Log(dir)
 
 	root := filepath.Join(dir, "root")
 
-	err = os.MkdirAll(root, 0755)
+	err := os.MkdirAll(root, 0755)
 	assert.NilError(t, err)
 
 	hostFileData := []byte("I am a host file")

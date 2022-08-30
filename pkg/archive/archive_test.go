@@ -210,9 +210,7 @@ func TestExtensionXz(t *testing.T) {
 }
 
 func TestUntarPathWithInvalidDest(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-archive-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempFolder)
+	tempFolder := t.TempDir()
 	invalidDestFolder := filepath.Join(tempFolder, "invalidDest")
 	// Create a src file
 	srcFile := filepath.Join(tempFolder, "src")
@@ -229,7 +227,7 @@ func TestUntarPathWithInvalidDest(t *testing.T) {
 	}
 
 	cmd := exec.Command("sh", "-c", "tar cf "+tarFileU+" "+srcFileU)
-	_, err = cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 	require.NoError(t, err)
 
 	err = defaultUntarPath(tarFile, invalidDestFolder)
@@ -239,27 +237,21 @@ func TestUntarPathWithInvalidDest(t *testing.T) {
 }
 
 func TestUntarPathWithInvalidSrc(t *testing.T) {
-	dest, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatalf("Fail to create the destination file")
-	}
-	defer os.RemoveAll(dest)
-	err = defaultUntarPath("/invalid/path", dest)
+	dest := t.TempDir()
+	err := defaultUntarPath("/invalid/path", dest)
 	if err == nil {
 		t.Fatalf("UntarPath with invalid src path should throw an error.")
 	}
 }
 
 func TestUntarPath(t *testing.T) {
-	tmpFolder, err := ioutil.TempDir("", "storage-archive-test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpFolder)
+	tmpFolder := t.TempDir()
 	srcFile := filepath.Join(tmpFolder, "src")
 	tarFile := filepath.Join(tmpFolder, "src.tar")
 	os.Create(filepath.Join(tmpFolder, "src"))
 
 	destFolder := filepath.Join(tmpFolder, "dest")
-	err = os.MkdirAll(destFolder, 0740)
+	err := os.MkdirAll(destFolder, 0740)
 	if err != nil {
 		t.Fatalf("Fail to create the destination file")
 	}
@@ -288,11 +280,7 @@ func TestUntarPath(t *testing.T) {
 
 // Do the same test as above but with the destination as file, it should fail
 func TestUntarPathWithDestinationFile(t *testing.T) {
-	tmpFolder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpFolder)
+	tmpFolder := t.TempDir()
 	srcFile := filepath.Join(tmpFolder, "src")
 	tarFile := filepath.Join(tmpFolder, "src.tar")
 	os.Create(filepath.Join(tmpFolder, "src"))
@@ -305,7 +293,7 @@ func TestUntarPathWithDestinationFile(t *testing.T) {
 		srcFileU = "/tmp/" + filepath.Base(filepath.Dir(srcFile)) + "/src"
 	}
 	cmd := exec.Command("sh", "-c", "tar cf "+tarFileU+" "+srcFileU)
-	_, err = cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,11 +312,7 @@ func TestUntarPathWithDestinationFile(t *testing.T) {
 // and the destination file is a directory
 // It's working, see https://github.com/docker/docker/issues/10040
 func TestUntarPathWithDestinationSrcFileAsFolder(t *testing.T) {
-	tmpFolder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpFolder)
+	tmpFolder := t.TempDir()
 	srcFile := filepath.Join(tmpFolder, "src")
 	tarFile := filepath.Join(tmpFolder, "src.tar")
 	os.Create(srcFile)
@@ -342,7 +326,7 @@ func TestUntarPathWithDestinationSrcFileAsFolder(t *testing.T) {
 	}
 
 	cmd := exec.Command("sh", "-c", "tar cf "+tarFileU+" "+srcFileU)
-	_, err = cmd.CombinedOutput()
+	_, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,13 +348,10 @@ func TestUntarPathWithDestinationSrcFileAsFolder(t *testing.T) {
 }
 
 func TestCopyWithTarInvalidSrc(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(nil)
-	}
+	tempFolder := t.TempDir()
 	destFolder := filepath.Join(tempFolder, "dest")
 	invalidSrc := filepath.Join(tempFolder, "doesnotexists")
-	err = os.MkdirAll(destFolder, 0740)
+	err := os.MkdirAll(destFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,13 +362,10 @@ func TestCopyWithTarInvalidSrc(t *testing.T) {
 }
 
 func TestCopyWithTarInexistentDestWillCreateIt(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(nil)
-	}
+	tempFolder := t.TempDir()
 	srcFolder := filepath.Join(tempFolder, "src")
 	inexistentDestFolder := filepath.Join(tempFolder, "doesnotexists")
-	err = os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -403,15 +381,11 @@ func TestCopyWithTarInexistentDestWillCreateIt(t *testing.T) {
 
 // Test CopyWithTar with a file as src
 func TestCopyWithTarSrcFile(t *testing.T) {
-	folder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(folder)
+	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	srcFolder := filepath.Join(folder, "src")
 	src := filepath.Join(folder, filepath.Join("src", "src"))
-	err = os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -469,14 +443,10 @@ func TestCopyWithTarSrcFile(t *testing.T) {
 
 // Test CopyWithTar with a folder as src
 func TestCopyWithTarSrcFolder(t *testing.T) {
-	folder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(folder)
+	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	src := filepath.Join(folder, filepath.Join("src", "folder"))
-	err = os.MkdirAll(src, 0740)
+	err := os.MkdirAll(src, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,13 +467,9 @@ func TestCopyWithTarSrcFolder(t *testing.T) {
 }
 
 func TestCopyFileWithTarInvalidSrc(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempFolder)
+	tempFolder := t.TempDir()
 	destFolder := filepath.Join(tempFolder, "dest")
-	err = os.MkdirAll(destFolder, 0740)
+	err := os.MkdirAll(destFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -515,14 +481,10 @@ func TestCopyFileWithTarInvalidSrc(t *testing.T) {
 }
 
 func TestCopyFileWithTarInexistentDestWillCreateIt(t *testing.T) {
-	tempFolder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(nil)
-	}
-	defer os.RemoveAll(tempFolder)
+	tempFolder := t.TempDir()
 	srcFile := filepath.Join(tempFolder, "src")
 	inexistentDestFolder := filepath.Join(tempFolder, "doesnotexists")
-	_, err = os.Create(srcFile)
+	_, err := os.Create(srcFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,14 +500,10 @@ func TestCopyFileWithTarInexistentDestWillCreateIt(t *testing.T) {
 }
 
 func TestCopyFileWithTarSrcFolder(t *testing.T) {
-	folder, err := ioutil.TempDir("", "storage-archive-copyfilewithtar-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(folder)
+	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	src := filepath.Join(folder, "srcfolder")
-	err = os.MkdirAll(src, 0740)
+	err := os.MkdirAll(src, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -560,15 +518,11 @@ func TestCopyFileWithTarSrcFolder(t *testing.T) {
 }
 
 func TestCopyFileWithTarSrcFile(t *testing.T) {
-	folder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(folder)
+	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	srcFolder := filepath.Join(folder, "src")
 	src := filepath.Join(folder, filepath.Join("src", "src"))
-	err = os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -588,14 +542,10 @@ func TestCopyFileWithTarSrcFile(t *testing.T) {
 }
 
 func TestCopySocket(t *testing.T) {
-	folder, err := ioutil.TempDir("", "storage-archive-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(folder)
+	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	src := filepath.Join(folder, "src")
-	err = os.MkdirAll(src, 0740)
+	err := os.MkdirAll(src, 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -626,29 +576,20 @@ func TestTarFiles(t *testing.T) {
 		t.Skip("Failing on Windows")
 	}
 	// try without hardlinks
-	if err := checkNoChanges(1000, false); err != nil {
+	if err := checkNoChanges(t, 1000, false); err != nil {
 		t.Fatal(err)
 	}
 	// try with hardlinks
-	if err := checkNoChanges(1000, true); err != nil {
+	if err := checkNoChanges(t, 1000, true); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func checkNoChanges(fileNum int, hardlinks bool) error {
-	srcDir, err := ioutil.TempDir("", "storage-test-srcDir")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(srcDir)
+func checkNoChanges(t *testing.T, fileNum int, hardlinks bool) error {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
 
-	destDir, err := ioutil.TempDir("", "storage-test-destDir")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(destDir)
-
-	_, err = prepareUntarSourceDirectory(fileNum, srcDir, hardlinks)
+	_, err := prepareUntarSourceDirectory(fileNum, srcDir, hardlinks)
 	if err != nil {
 		return err
 	}
@@ -687,11 +628,7 @@ func tarUntar(t *testing.T, origin string, options *TarOptions) ([]Change, error
 		return nil, fmt.Errorf("wrong compression detected. Actual compression: %s, found %s", compression.Extension(), detectedCompression.Extension())
 	}
 
-	tmp, err := ioutil.TempDir("", "storage-test-untar")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(tmp)
+	tmp := t.TempDir()
 	if err := Untar(wrap, tmp, nil); err != nil {
 		return nil, err
 	}
@@ -707,11 +644,7 @@ func TestTarUntar(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
-	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(origin)
+	origin := t.TempDir()
 	if err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -742,12 +675,9 @@ func TestTarUntar(t *testing.T) {
 }
 
 func TestTarWithOptionsChownOptsAlwaysOverridesIdPair(t *testing.T) {
-	origin, err := ioutil.TempDir("", "storage-test-tar-chown-opt")
-	require.NoError(t, err)
-
-	defer os.RemoveAll(origin)
+	origin := t.TempDir()
 	filePath := filepath.Join(origin, "1")
-	err = ioutil.WriteFile(filePath, []byte("hello world"), 0700)
+	err := ioutil.WriteFile(filePath, []byte("hello world"), 0700)
 	require.NoError(t, err)
 
 	idMaps := []idtools.IDMap{
@@ -797,14 +727,10 @@ func TestTarWithOptions(t *testing.T) {
 	if runtime.GOOS == windows {
 		t.Skip("Failing on Windows")
 	}
-	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
-	if err != nil {
-		t.Fatal(err)
-	}
+	origin := t.TempDir()
 	if _, err := ioutil.TempDir(origin, "folder"); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(origin)
 	if err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -839,13 +765,9 @@ func TestTarWithOptions(t *testing.T) {
 // Failing prevents the archives from being uncompressed during ADD
 func TestTypeXGlobalHeaderDoesNotFail(t *testing.T) {
 	hdr := tar.Header{Typeflag: tar.TypeXGlobalHeader}
-	tmpDir, err := ioutil.TempDir("", "storage-test-archive-pax-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 	buffer := make([]byte, 1<<20)
-	err = createTarFile(filepath.Join(tmpDir, "pax_global_header"), tmpDir, &hdr, nil, true, nil, false, false, nil, buffer)
+	err := createTarFile(filepath.Join(tmpDir, "pax_global_header"), tmpDir, &hdr, nil, true, nil, false, false, nil, buffer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -900,21 +822,13 @@ func prepareUntarSourceDirectory(numberOfFiles int, targetPath string, makeLinks
 }
 
 func BenchmarkTarUntar(b *testing.B) {
-	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
-	if err != nil {
-		b.Fatal(err)
-	}
-	tempDir, err := ioutil.TempDir("", "storage-test-untar-destination")
-	if err != nil {
-		b.Fatal(err)
-	}
+	origin := b.TempDir()
+	tempDir := b.TempDir()
 	target := filepath.Join(tempDir, "dest")
 	n, err := prepareUntarSourceDirectory(100, origin, false)
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(origin)
-	defer os.RemoveAll(tempDir)
 
 	b.ResetTimer()
 	b.SetBytes(int64(n))
@@ -928,21 +842,13 @@ func BenchmarkTarUntar(b *testing.B) {
 }
 
 func BenchmarkTarUntarWithLinks(b *testing.B) {
-	origin, err := ioutil.TempDir("", "storage-test-untar-origin")
-	if err != nil {
-		b.Fatal(err)
-	}
-	tempDir, err := ioutil.TempDir("", "storage-test-untar-destination")
-	if err != nil {
-		b.Fatal(err)
-	}
+	origin := b.TempDir()
+	tempDir := b.TempDir()
 	target := filepath.Join(tempDir, "dest")
 	n, err := prepareUntarSourceDirectory(100, origin, true)
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer os.RemoveAll(origin)
-	defer os.RemoveAll(tempDir)
 
 	b.ResetTimer()
 	b.SetBytes(int64(n))
@@ -969,7 +875,7 @@ func TestUntarSelinuxLabel(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("untar", "storage-TestUntarInvalidFilenames", headers); err != nil {
+		if err := testBreakout(t, "untar", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -997,7 +903,7 @@ func TestUntarInvalidFilenames(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("untar", "storage-TestUntarInvalidFilenames", headers); err != nil {
+		if err := testBreakout(t, "untar", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -1029,7 +935,7 @@ func TestUntarHardlinkToSymlink(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("untar", "storage-TestUntarHardlinkToSymlink", headers); err != nil {
+		if err := testBreakout(t, "untar", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -1113,7 +1019,7 @@ func TestUntarInvalidHardlink(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("untar", "storage-TestUntarInvalidHardlink", headers); err != nil {
+		if err := testBreakout(t, "untar", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -1211,7 +1117,7 @@ func TestUntarInvalidSymlink(t *testing.T) {
 			},
 		},
 	} {
-		if err := testBreakout("untar", "storage-TestUntarInvalidSymlink", headers); err != nil {
+		if err := testBreakout(t, "untar", headers); err != nil {
 			t.Fatalf("i=%d. %v", i, err)
 		}
 	}
@@ -1285,16 +1191,14 @@ func TestReplaceFileTarWrapper(t *testing.T) {
 }
 
 func buildSourceArchive(t *testing.T, numberOfFiles int) (io.ReadCloser, func()) {
-	srcDir, err := ioutil.TempDir("", "storage-test-srcDir")
-	require.NoError(t, err)
+	srcDir := t.TempDir()
 
-	_, err = prepareUntarSourceDirectory(numberOfFiles, srcDir, false)
+	_, err := prepareUntarSourceDirectory(numberOfFiles, srcDir, false)
 	require.NoError(t, err)
 
 	sourceArchive, err := TarWithOptions(srcDir, &TarOptions{})
 	require.NoError(t, err)
 	return sourceArchive, func() {
-		os.RemoveAll(srcDir)
 		sourceArchive.Close()
 	}
 }
@@ -1325,11 +1229,9 @@ func appendModifier(path string, header *tar.Header, content io.Reader) (*tar.He
 }
 
 func readFileFromArchive(t *testing.T, archive io.ReadCloser, name string, expectedCount int, doc string) string {
-	destDir, err := ioutil.TempDir("", "storage-test-destDir")
-	require.NoError(t, err)
-	defer os.RemoveAll(destDir)
+	destDir := t.TempDir()
 
-	err = Untar(archive, destDir, nil)
+	err := Untar(archive, destDir, nil)
 	require.NoError(t, err)
 
 	files, _ := ioutil.ReadDir(destDir)
