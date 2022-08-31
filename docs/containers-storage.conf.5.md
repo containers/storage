@@ -27,45 +27,37 @@ No bare options are used. The format of TOML can be simplified to:
 The `storage` table supports the following options:
 
 **driver**=""
-  container storage driver
-  Default Copy On Write (COW) container storage driver. Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs". Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem.
-  This field is required to guarantee proper operation.
-  Valid rootless drivers are "btrfs", "overlay", and "vfs".
-  Rootless users default to the driver defined in the system configuration when possible.
-  When the system configuration uses an unsupported rootless driver, rootless users default to "overlay" if available, otherwise "vfs".
+  Copy On Write (COW) container storage driver. Valid drivers are "overlay", "vfs", "devmapper", "aufs", "btrfs", and "zfs". Some drivers (for example, "zfs", "btrfs", and "aufs") may not work if your kernel lacks support for the filesystem.
+This field is required to guarantee proper operation.
+Valid rootless drivers are "btrfs", "overlay", and "vfs".
+Rootless users default to the driver defined in the system configuration when possible.
+When the system configuration uses an unsupported rootless driver, rootless users default to "overlay" if available, otherwise "vfs".
 
 **graphroot**=""
   container storage graph dir (default: "/var/lib/containers/storage")
-  Default directory to store all writable content created by container storage programs.
-  The rootless graphroot path supports environment variable substitutions (ie. `$HOME/containers/storage`)
-  When changing the graphroot location on an SELINUX system, ensure
-  the labeling matches the default locations labels with the
-  following commands:
+Default directory to store all writable content created by container storage programs.
+The rootless graphroot path supports environment variable substitutions (ie. `$HOME/containers/storage`).
+When changing the graphroot location on an SELINUX system, ensure the labeling matches the default locations labels with the following commands:
 
 ```
 # semanage fcontext -a -e /var/lib/containers/storage /NEWSTORAGEPATH
 # restorecon -R -v /NEWSTORAGEPATH
 ```
 
-  In Rootless Mode you would set
+In rootless mode you would set
 
 ```
 # semanage fcontext -a -e $HOME/.local/share/containers NEWSTORAGEPATH
 $ restorecon -R -v /NEWSTORAGEPATH
 ```
 **rootless_storage_path**="$HOME/.local/share/containers/storage"
-  Storage path for rootless users. By default the graphroot for rootless users
-  is set to `$XDG_DATA_HOME/containers/storage`, if XDG_DATA_HOME is set.
-  Otherwise `$HOME/.local/share/containers/storage` is used.  This field can
-  be used if administrators need to change the storage location for all users.
-  The rootless storage path supports environment variable substitutions (ie. `$HOME/containers/storage`)
+  Storage path for rootless users. By default the graphroot for rootless users is set to `$XDG_DATA_HOME/containers/storage`, if XDG_DATA_HOME is set. Otherwise `$HOME/.local/share/containers/storage` is used. This field can be used if administrators need to change the storage location for all users. The rootless storage path supports environment variable substitutions (ie. `$HOME/containers/storage`)
 
-  A common use case for this field is to provide a local storage directory when user home directories are NFS-mounted (podman does not support container storage over NFS).
+A common use case for this field is to provide a local storage directory when user home directories are NFS-mounted (podman does not support container storage over NFS).
 
 **runroot**=""
   container storage run dir (default: "/run/containers/storage")
-  Default directory to store all temporary writable content created by container storage programs.
-  The rootless runroot path supports environment variable substitutions (ie. `$HOME/containers/storage`)
+Default directory to store all temporary writable content created by container storage programs. The rootless runroot path supports environment variable substitutions (ie. `$HOME/containers/storage`)
 
 ### STORAGE OPTIONS TABLE
 
@@ -216,21 +208,20 @@ The `storage.options.overlay` table supports the following options:
 
 **force_mask** = "0000|shared|private"
   ForceMask specifies the permissions mask that is used for new files and
-directories.
-The values "shared" and "private" are accepted.  (default: ""). Octal permission
+directories. The values "shared" and "private" are accepted.  (default: ""). Octal permission
 masks are also accepted.
 
-  ``: Not set
-     All files/directories, get set with the permissions identified within the
+- ``: Not set
+  All files/directories, get set with the permissions identified within the
 image.
 
-  `private`: it is equivalent to 0700.
-     All files/directories get set with 0700 permissions.  The owner has rwx
+- `private`: it is equivalent to 0700.
+  All files/directories get set with 0700 permissions.  The owner has rwx
 access to the files. No other users on the system can access the files.
 This setting could be used with networked based home directories.
 
-  `shared`: it is equivalent to 0755.
-     The owner has rwx access to the files and everyone else can read, access
+- `shared`: it is equivalent to 0755.
+  The owner has rwx access to the files and everyone else can read, access
 and execute them. This setting is useful for sharing containers storage
 with other users.  For instance, a storage owned by root could be shared
 to rootless users as an additional store.
