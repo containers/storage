@@ -44,7 +44,7 @@ github.com/containerd/stargz-snapshotter/estargz/errorutil
 github.com/cyphar/filepath-securejoin
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/docker/go-units v0.4.0
+# github.com/docker/go-units v0.5.0
 ## explicit
 github.com/docker/go-units
 # github.com/gogo/protobuf v1.3.2

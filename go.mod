@@ -8,7 +8,7 @@ require (
 	github.com/Microsoft/hcsshim v0.9.4
 	github.com/containerd/stargz-snapshotter/estargz v0.12.0
 	github.com/cyphar/filepath-securejoin v0.2.3
-	github.com/docker/go-units v0.4.0
+	github.com/docker/go-units v0.5.0
 	github.com/google/go-intervals v0.0.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/json-iterator/go v1.1.12
