@@ -307,6 +307,16 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		return nil, err
 	}
 
+	if opts.mountProgram == "" {
+		if err := os.Remove(getMountProgramFlagFile(home)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+	} else {
+		if err := ioutil.WriteFile(getMountProgramFlagFile(home), []byte("true"), 0600); err != nil {
+			return nil, err
+		}
+	}
+
 	fsMagic, err := graphdriver.GetFSMagic(home)
 	if err != nil {
 		return nil, err
@@ -345,10 +355,6 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 			m := os.FileMode(0700)
 			opts.forceMask = &m
 			logrus.Warnf("Network file system detected as backing store.  Enforcing overlay option `force_mask=\"%o\"`.  Add it to storage.conf to silence this warning", m)
-		}
-
-		if err := ioutil.WriteFile(getMountProgramFlagFile(home), []byte("true"), 0600); err != nil {
-			return nil, err
 		}
 	} else {
 		if opts.forceMask != nil {
@@ -619,9 +625,6 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 	default:
 		needsMountProgram, err := scanForMountProgramIndicators(home)
 		if err != nil && !os.IsNotExist(err) {
-			return false, err
-		}
-		if err := ioutil.WriteFile(getMountProgramFlagFile(home), []byte(fmt.Sprintf("%t", needsMountProgram)), 0600); err != nil && !os.IsNotExist(err) {
 			return false, err
 		}
 		if needsMountProgram {
