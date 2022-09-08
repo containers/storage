@@ -65,9 +65,11 @@ func newLastWriterID() []byte {
 }
 
 // openLock opens the file at path and returns the corresponding file
-// descriptor.  Note that the path is opened read-only when ro is set.  If ro
-// is unset, openLock will open the path read-write and create the file if
-// necessary.
+// descriptor. The path is opened either read-only or read-write,
+// depending on the value of ro argument.
+//
+// openLock will create the file and its parent directories,
+// if necessary.
 func openLock(path string, ro bool) (fd int, err error) {
 	if ro {
 		fd, err = unix.Open(path, os.O_RDONLY|unix.O_CLOEXEC|os.O_CREATE, 0)
