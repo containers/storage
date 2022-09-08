@@ -11,7 +11,7 @@ import (
 
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
-	"github.com/opencontainers/runc/libcontainer/userns"
+	"github.com/containers/storage/pkg/unshare"
 )
 
 // NewArchiver returns a new Archiver which uses chrootarchive.Untar
@@ -66,7 +66,7 @@ func untarHandler(tarArchive io.Reader, dest string, options *archive.TarOptions
 	}
 	if options == nil {
 		options = &archive.TarOptions{}
-		options.InUserNS = userns.RunningInUserNS()
+		options.InUserNS = unshare.IsRootless()
 	}
 	if options.ExcludePatterns == nil {
 		options.ExcludePatterns = []string{}
