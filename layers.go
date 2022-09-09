@@ -345,10 +345,11 @@ func (r *layerStore) Load() error {
 	shouldSave := false
 	rpath := r.layerspath()
 	info, err := os.Stat(rpath)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	if info != nil {
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+	} else {
 		r.layerspathModified = info.ModTime()
 	}
 	data, err := ioutil.ReadFile(rpath)
