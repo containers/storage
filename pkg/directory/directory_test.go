@@ -67,7 +67,7 @@ func TestUsageEmptyDirectory(t *testing.T) {
 // Usage of a directory with one empty directory should be 0
 func TestUsageNestedDirectoryEmpty(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := ioutil.TempDir(dir, "nested"); err != nil {
+	if _, err := os.MkdirTemp(dir, "nested"); err != nil {
 		t.Fatalf("failed to create nested directory: %s", err)
 	}
 
@@ -83,7 +83,7 @@ func TestUsageFileAndNestedDirectoryEmpty(t *testing.T) {
 	var err error
 	dir := t.TempDir()
 
-	if _, err = ioutil.TempDir(dir, "nested"); err != nil {
+	if _, err = os.MkdirTemp(dir, "nested"); err != nil {
 		t.Fatalf("failed to create nested directory: %s", err)
 	}
 
@@ -108,7 +108,7 @@ func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
 	var err error
 	dir := t.TempDir()
 
-	if dirNested, err = ioutil.TempDir(dir, "nested"); err != nil {
+	if dirNested, err = os.MkdirTemp(dir, "nested"); err != nil {
 		t.Fatalf("failed to create nested directory: %s", err)
 	}
 
@@ -141,7 +141,7 @@ func TestMoveToSubdir(t *testing.T) {
 	var err error
 	outerDir := t.TempDir()
 
-	if subDir, err = ioutil.TempDir(outerDir, "testSub"); err != nil {
+	if subDir, err = os.MkdirTemp(outerDir, "testSub"); err != nil {
 		t.Fatalf("failed to create subdirectory: %v", err)
 	}
 

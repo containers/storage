@@ -656,7 +656,7 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		logLevel = logrus.DebugLevel
 	}
 
-	layerDir, err := ioutil.TempDir(home, "compat")
+	layerDir, err := os.MkdirTemp(home, "compat")
 	if err != nil {
 		patherr, ok := err.(*os.PathError)
 		if ok && patherr.Err == syscall.ENOSPC {
@@ -1809,7 +1809,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		if err != nil && !os.IsExist(err) {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
-		applyDir, err = ioutil.TempDir(d.getStagingDir(), "")
+		applyDir, err = os.MkdirTemp(d.getStagingDir(), "")
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}

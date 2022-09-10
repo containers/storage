@@ -730,14 +730,14 @@ func (a *Driver) aufsMount(ro []string, rw, target string, options graphdriver.M
 // version of aufs.
 func useDirperm() bool {
 	enableDirpermLock.Do(func() {
-		base, err := ioutil.TempDir("", "storage-aufs-base")
+		base, err := os.MkdirTemp("", "storage-aufs-base")
 		if err != nil {
 			logrus.Errorf("Checking dirperm1: %v", err)
 			return
 		}
 		defer os.RemoveAll(base)
 
-		union, err := ioutil.TempDir("", "storage-aufs-union")
+		union, err := os.MkdirTemp("", "storage-aufs-union")
 		if err != nil {
 			logrus.Errorf("Checking dirperm1: %v", err)
 			return

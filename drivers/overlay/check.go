@@ -27,7 +27,7 @@ import (
 // directory or the kernel enable CONFIG_OVERLAY_FS_REDIRECT_DIR.
 // When these exist naive diff should be used.
 func doesSupportNativeDiff(d, mountOpts string) error {
-	td, err := ioutil.TempDir(d, "opaque-bug-check")
+	td, err := os.MkdirTemp(d, "opaque-bug-check")
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func doesSupportNativeDiff(d, mountOpts string) error {
 // copying up a file from a lower layer unless/until its contents are being
 // modified
 func doesMetacopy(d, mountOpts string) (bool, error) {
-	td, err := ioutil.TempDir(d, "metacopy-check")
+	td, err := os.MkdirTemp(d, "metacopy-check")
 	if err != nil {
 		return false, err
 	}
@@ -186,7 +186,7 @@ func doesMetacopy(d, mountOpts string) (bool, error) {
 
 // doesVolatile checks if the filesystem supports the "volatile" mount option
 func doesVolatile(d string) (bool, error) {
-	td, err := ioutil.TempDir(d, "volatile-check")
+	td, err := os.MkdirTemp(d, "volatile-check")
 	if err != nil {
 		return false, err
 	}
@@ -224,7 +224,7 @@ func doesVolatile(d string) (bool, error) {
 // supportsIdmappedLowerLayers checks if the kernel supports mounting overlay on top of
 // a idmapped lower layer.
 func supportsIdmappedLowerLayers(home string) (bool, error) {
-	layerDir, err := ioutil.TempDir(home, "compat")
+	layerDir, err := os.MkdirTemp(home, "compat")
 	if err != nil {
 		return false, err
 	}

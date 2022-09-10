@@ -43,9 +43,9 @@ type Driver struct {
 }
 
 func newDriver(t testing.TB, name string, options []string) *Driver {
-	root, err := ioutil.TempDir("", "storage-graphtest-")
+	root, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
-	runroot, err := ioutil.TempDir("", "storage-graphtest-")
+	runroot, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(root, 0755))

@@ -124,7 +124,7 @@ type AtomicWriteSet struct {
 // commit. If no temporary directory is given the system
 // default is used.
 func NewAtomicWriteSet(tmpDir string) (*AtomicWriteSet, error) {
-	td, err := ioutil.TempDir(tmpDir, "write-set-")
+	td, err := os.MkdirTemp(tmpDir, "write-set-")
 	if err != nil {
 		return nil, err
 	}

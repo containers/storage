@@ -1,3 +1,4 @@
+//go:build ignore
 // +build ignore
 
 // Simple tool to create an archive stream from an old and new directory
@@ -39,7 +40,7 @@ func main() {
 
 	if len(*flNewDir) == 0 {
 		var err error
-		newDir, err = ioutil.TempDir("", "storage-test-newDir")
+		newDir, err = os.MkdirTemp("", "storage-test-newDir")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -52,7 +53,7 @@ func main() {
 	}
 
 	if len(*flOldDir) == 0 {
-		oldDir, err := ioutil.TempDir("", "storage-test-oldDir")
+		oldDir, err := os.MkdirTemp("", "storage-test-oldDir")
 		if err != nil {
 			log.Fatal(err)
 		}

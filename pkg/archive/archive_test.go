@@ -728,7 +728,7 @@ func TestTarWithOptions(t *testing.T) {
 		t.Skip("Failing on Windows")
 	}
 	origin := t.TempDir()
-	if _, err := ioutil.TempDir(origin, "folder"); err != nil {
+	if _, err := os.MkdirTemp(origin, "folder"); err != nil {
 		t.Fatal(err)
 	}
 	if err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
