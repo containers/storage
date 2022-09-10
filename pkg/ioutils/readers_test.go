@@ -2,7 +2,7 @@ package ioutils
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -80,7 +80,7 @@ func (p *perpetualReader) Read(buf []byte) (n int, err error) {
 
 func TestCancelReadCloser(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	cancelReadCloser := NewCancelReadCloser(ctx, ioutil.NopCloser(&perpetualReader{}))
+	cancelReadCloser := NewCancelReadCloser(ctx, io.NopCloser(&perpetualReader{}))
 	for {
 		var buf [128]byte
 		_, err := cancelReadCloser.Read(buf[:])

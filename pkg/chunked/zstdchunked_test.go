@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package chunked
@@ -8,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/containers/storage/pkg/chunked/internal"
@@ -48,7 +48,7 @@ func (s seekable) GetBlobAt(req []ImageSourceChunk) (chan io.ReadCloser, chan er
 	e := make(chan error)
 
 	go func() {
-		m <- ioutil.NopCloser(bytes.NewReader(s.data))
+		m <- io.NopCloser(bytes.NewReader(s.data))
 		close(m)
 		close(e)
 	}()

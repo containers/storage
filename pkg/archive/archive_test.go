@@ -1124,7 +1124,7 @@ func TestUntarInvalidSymlink(t *testing.T) {
 }
 
 func TestTempArchiveCloseMultipleTimes(t *testing.T) {
-	reader := ioutil.NopCloser(strings.NewReader("hello"))
+	reader := io.NopCloser(strings.NewReader("hello"))
 	tempArchive, err := NewTempArchive(reader, "")
 	buf := make([]byte, 10)
 	n, err := tempArchive.Read(buf)
