@@ -68,6 +68,10 @@ func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, 
 		return 1
 	}
 	d, err := m.ListContainerBigData(container.ID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		return 1
+	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(d)
 	} else {
