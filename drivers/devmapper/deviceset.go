@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -1276,11 +1275,11 @@ func (devices *DeviceSet) setupBaseImage() error {
 }
 
 func setCloseOnExec(name string) {
-	fileInfos, _ := ioutil.ReadDir("/proc/self/fd")
-	for _, i := range fileInfos {
-		link, _ := os.Readlink(filepath.Join("/proc/self/fd", i.Name()))
+	fileEntries, _ := os.ReadDir("/proc/self/fd")
+	for _, e := range fileEntries {
+		link, _ := os.Readlink(filepath.Join("/proc/self/fd", e.Name()))
 		if link == name {
-			fd, err := strconv.Atoi(i.Name())
+			fd, err := strconv.Atoi(e.Name())
 			if err == nil {
 				unix.CloseOnExec(fd)
 			}
@@ -2258,7 +2257,7 @@ func (devices *DeviceSet) cancelDeferredRemoval(info *devInfo) error {
 }
 
 func (devices *DeviceSet) unmountAndDeactivateAll(dir string) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		logrus.Warnf("devmapper: unmountAndDeactivate: %s", err)
 		return

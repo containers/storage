@@ -1,7 +1,6 @@
 package directory
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -160,7 +159,7 @@ func TestMoveToSubdir(t *testing.T) {
 		t.Fatalf("Error during migration of content to subdirectory: %v", err)
 	}
 	// validate that the files were moved to the subdirectory
-	infos, err := ioutil.ReadDir(subDir)
+	infos, err := os.ReadDir(subDir)
 	if err != nil {
 		t.Fatal(err)
 	}

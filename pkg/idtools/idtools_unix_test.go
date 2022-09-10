@@ -5,7 +5,6 @@ package idtools
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -177,7 +176,7 @@ func buildTree(base string, tree map[string]node) error {
 func readTree(base, root string) (map[string]node, error) {
 	tree := make(map[string]node)
 
-	dirInfos, err := ioutil.ReadDir(base)
+	dirInfos, err := os.ReadDir(base)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't read directory entries for %q: %w", base, err)
 	}

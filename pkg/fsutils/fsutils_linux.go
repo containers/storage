@@ -5,7 +5,6 @@ package fsutils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"unsafe"
 
@@ -13,7 +12,7 @@ import (
 )
 
 func locateDummyIfEmpty(path string) (string, error) {
-	children, err := ioutil.ReadDir(path)
+	children, err := os.ReadDir(path)
 	if err != nil {
 		return "", err
 	}

@@ -3,7 +3,6 @@ package graphtest
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -328,11 +327,11 @@ func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
 	return nil
 }
 
-// readDir reads a directory just like ioutil.ReadDir()
+// readDir reads a directory just like os.ReadDir()
 // then hides specific files (currently "lost+found")
 // so the tests don't "see" it
-func readDir(dir string) ([]os.FileInfo, error) {
-	a, err := ioutil.ReadDir(dir)
+func readDir(dir string) ([]os.DirEntry, error) {
+	a, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
