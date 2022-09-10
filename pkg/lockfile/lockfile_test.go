@@ -201,7 +201,7 @@ type namedLocker struct {
 
 func getNamedLocker(ro bool) (*namedLocker, error) {
 	var l Locker
-	tf, err := ioutil.TempFile("", "lockfile")
+	tf, err := os.CreateTemp("", "lockfile")
 	if err != nil {
 		return nil, err
 	}

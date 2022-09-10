@@ -4,7 +4,6 @@
 package lockfile
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +21,7 @@ func TestOpenLock(t *testing.T) {
 		{
 			name: "file exists (read/write)",
 			prepare: func() (string, bool) {
-				tempFile, err := ioutil.TempFile("", "lock-")
+				tempFile, err := os.CreateTemp("", "lock-")
 				require.NoError(t, err)
 				return tempFile.Name(), false
 			},
@@ -30,7 +29,7 @@ func TestOpenLock(t *testing.T) {
 		{
 			name: "file exists readonly (readonly)",
 			prepare: func() (string, bool) {
-				tempFile, err := ioutil.TempFile("", "lock-")
+				tempFile, err := os.CreateTemp("", "lock-")
 				require.NoError(t, err)
 				return tempFile.Name(), true
 			},

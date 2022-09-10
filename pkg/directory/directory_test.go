@@ -24,7 +24,7 @@ func TestUsageEmptyFile(t *testing.T) {
 
 	var file *os.File
 	var err error
-	if file, err = ioutil.TempFile(dir, "file"); err != nil {
+	if file, err = os.CreateTemp(dir, "file"); err != nil {
 		t.Fatalf("failed to create file: %s", err)
 	}
 
@@ -41,7 +41,7 @@ func TestUsageNonemptyFile(t *testing.T) {
 
 	var file *os.File
 	var err error
-	if file, err = ioutil.TempFile(dir, "file"); err != nil {
+	if file, err = os.CreateTemp(dir, "file"); err != nil {
 		t.Fatalf("failed to create file: %s", err)
 	}
 
@@ -88,7 +88,7 @@ func TestUsageFileAndNestedDirectoryEmpty(t *testing.T) {
 	}
 
 	var file *os.File
-	if file, err = ioutil.TempFile(dir, "file"); err != nil {
+	if file, err = os.CreateTemp(dir, "file"); err != nil {
 		t.Fatalf("failed to create file: %s", err)
 	}
 
@@ -113,7 +113,7 @@ func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
 	}
 
 	var file *os.File
-	if file, err = ioutil.TempFile(dir, "file"); err != nil {
+	if file, err = os.CreateTemp(dir, "file"); err != nil {
 		t.Fatalf("failed to create file: %s", err)
 	}
 
@@ -121,7 +121,7 @@ func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
 	file.Write(data)
 
 	var nestedFile *os.File
-	if nestedFile, err = ioutil.TempFile(dirNested, "file"); err != nil {
+	if nestedFile, err = os.CreateTemp(dirNested, "file"); err != nil {
 		t.Fatalf("failed to create file in nested directory: %s", err)
 	}
 

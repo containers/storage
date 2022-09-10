@@ -331,7 +331,7 @@ func (devices *DeviceSet) removeMetadata(info *devInfo) error {
 
 // Given json data and file path, write it to disk
 func (devices *DeviceSet) writeMetaFile(jsonData []byte, filePath string) error {
-	tmpFile, err := ioutil.TempFile(devices.metadataDir(), ".tmp")
+	tmpFile, err := os.CreateTemp(devices.metadataDir(), ".tmp")
 	if err != nil {
 		return fmt.Errorf("devmapper: Error creating metadata file: %s", err)
 	}
