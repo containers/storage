@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -1668,7 +1667,7 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 	if compressedDigester != nil {
 		compressedWriter = compressedDigester.Hash()
 	} else {
-		compressedWriter = ioutil.Discard
+		compressedWriter = io.Discard
 	}
 	compressedCounter := ioutils.NewWriteCounter(compressedWriter)
 	defragmented = io.TeeReader(defragmented, compressedCounter)

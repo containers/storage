@@ -881,7 +881,7 @@ func (d *Driver) resolveID(id string) (string, error) {
 
 // setID stores the layerId in disk.
 func (d *Driver) setID(id, altID string) error {
-	return ioutil.WriteFile(filepath.Join(d.dir(id), "layerId"), []byte(altID), 0600)
+	return os.WriteFile(filepath.Join(d.dir(id), "layerId"), []byte(altID), 0600)
 }
 
 // getLayerChain returns the layer chain information.
@@ -911,7 +911,7 @@ func (d *Driver) setLayerChain(id string, chain []string) error {
 	}
 
 	jPath := filepath.Join(d.dir(id), "layerchain.json")
-	err = ioutil.WriteFile(jPath, content, 0600)
+	err = os.WriteFile(jPath, content, 0600)
 	if err != nil {
 		return fmt.Errorf("unable to write layerchain file - %s", err)
 	}

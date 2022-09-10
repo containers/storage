@@ -3,7 +3,6 @@ package archive
 import (
 	"archive/tar"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -32,7 +31,7 @@ func setupOverlayTestDir(t *testing.T, src string) {
 	err = system.Lsetxattr(filepath.Join(src, "d1"), getOverlayOpaqueXattrName(), []byte("y"), 0)
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(filepath.Join(src, "d1", "f1"), []byte{}, 0600)
+	err = os.WriteFile(filepath.Join(src, "d1", "f1"), []byte{}, 0600)
 	require.NoError(t, err)
 
 	// Create another opaque directory containing single file but with permission 0750
@@ -42,7 +41,7 @@ func setupOverlayTestDir(t *testing.T, src string) {
 	err = system.Lsetxattr(filepath.Join(src, "d2"), getOverlayOpaqueXattrName(), []byte("y"), 0)
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(filepath.Join(src, "d2", "f1"), []byte{}, 0660)
+	err = os.WriteFile(filepath.Join(src, "d2", "f1"), []byte{}, 0660)
 	require.NoError(t, err)
 
 	// Create regular directory with deleted file
@@ -58,7 +57,7 @@ func setupOverlayLowerDir(t *testing.T, lower string) {
 	err := os.Mkdir(filepath.Join(lower, "d1"), 0700)
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(filepath.Join(lower, "d1", "f1"), []byte{}, 0600)
+	err = os.WriteFile(filepath.Join(lower, "d1", "f1"), []byte{}, 0600)
 	require.NoError(t, err)
 }
 

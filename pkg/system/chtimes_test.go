@@ -1,7 +1,6 @@
 package system
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +10,7 @@ import (
 // prepareTempFile creates a temporary file in a temporary directory.
 func prepareTempFile(t *testing.T) string {
 	file := filepath.Join(t.TempDir(), "exist")
-	if err := ioutil.WriteFile(file, []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	return file

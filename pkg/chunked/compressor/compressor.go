@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 
 	"github.com/containers/storage/pkg/chunked/internal"
 	"github.com/containers/storage/pkg/ioutils"
@@ -432,7 +431,7 @@ func zstdChunkedWriterWithLevel(out io.Writer, metadata map[string]string, level
 
 	go func() {
 		ch <- writeZstdChunkedStream(out, metadata, r, level)
-		io.Copy(ioutil.Discard, r)
+		io.Copy(io.Discard, r)
 		r.Close()
 		close(ch)
 	}()

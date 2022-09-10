@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -178,7 +177,7 @@ func writeLVMConfig(root string, cfg directLVMConfig) error {
 	if err != nil {
 		return fmt.Errorf("marshalling direct lvm config: %w", err)
 	}
-	if err := ioutil.WriteFile(p, b, 0600); err != nil {
+	if err := os.WriteFile(p, b, 0600); err != nil {
 		return fmt.Errorf("writing direct lvm config to file: %w", err)
 	}
 	return nil
@@ -242,7 +241,7 @@ func setupDirectLVM(cfg directLVMConfig) error {
 	}
 
 	profile := fmt.Sprintf("activation{\nthin_pool_autoextend_threshold=%d\nthin_pool_autoextend_percent=%d\n}", cfg.AutoExtendThreshold, cfg.AutoExtendPercent)
-	err = ioutil.WriteFile(lvmProfileDir+"/storage-thinpool.profile", []byte(profile), 0600)
+	err = os.WriteFile(lvmProfileDir+"/storage-thinpool.profile", []byte(profile), 0600)
 	if err != nil {
 		return fmt.Errorf("writing storage thinp autoextend profile: %w", err)
 	}

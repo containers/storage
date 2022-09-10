@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -420,7 +419,7 @@ func writeRandomFile(path string, size uint64) error {
 		return err
 	}
 
-	return ioutil.WriteFile(path, data, 0700)
+	return os.WriteFile(path, data, 0700)
 }
 
 // DriverTestSetQuota Create a driver and test setting quota.
@@ -483,7 +482,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		}
 		path = filepath.Join(path, "file")
 		paths = append(paths, path)
-		if err = ioutil.WriteFile(filepath.Join(root, path), randomContent(128, int64(depth)), 0600); err != nil {
+		if err = os.WriteFile(filepath.Join(root, path), randomContent(128, int64(depth)), 0600); err != nil {
 			t.Fatal(err)
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: path})
@@ -541,7 +540,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			}
 			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[i]})
 		}
-		if err = ioutil.WriteFile(filepath.Join(root, paths[len(paths)-1]), randomContent(128, int64(depth)), 0600); err != nil {
+		if err = os.WriteFile(filepath.Join(root, paths[len(paths)-1]), randomContent(128, int64(depth)), 0600); err != nil {
 			t.Fatal(err)
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[len(paths)-1]})

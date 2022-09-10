@@ -393,7 +393,7 @@ func TestCopyWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ioutil.WriteFile(src, []byte("content"), 0777)
+	err = os.WriteFile(src, []byte("content"), 0777)
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar couldn't write content, %s.", err)
 	}
@@ -411,7 +411,7 @@ func TestCopyWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar shouldn't have thrown an error, %s.", err)
 	}
-	err = ioutil.WriteFile(dest, []byte("modified content"), 0751)
+	err = os.WriteFile(dest, []byte("modified content"), 0751)
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar couldn't write modified content, %s.", err)
 	}
@@ -454,7 +454,7 @@ func TestCopyWithTarSrcFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ioutil.WriteFile(filepath.Join(src, "file"), []byte("content"), 0777)
+	os.WriteFile(filepath.Join(src, "file"), []byte("content"), 0777)
 	err = defaultCopyWithTar(src, dest)
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar shouldn't throw an error, %s.", err)
@@ -530,7 +530,7 @@ func TestCopyFileWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ioutil.WriteFile(src, []byte("content"), 0777)
+	os.WriteFile(src, []byte("content"), 0777)
 	err = defaultCopyWithTar(src, dest+"/")
 	if err != nil {
 		t.Fatalf("archiver.CopyFileWithTar shouldn't throw an error, %s.", err)
@@ -559,7 +559,7 @@ func TestCopySocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ioutil.WriteFile(src, []byte("content"), 0777)
+	os.WriteFile(src, []byte("content"), 0777)
 	err = defaultCopyWithTar(src, dest+"/")
 	if err != nil {
 		t.Fatalf("archiver.CopyFileWithTar shouldn't throw an error, %s.", err)
@@ -645,13 +645,13 @@ func TestTarUntar(t *testing.T) {
 		t.Skip("Failing on Windows")
 	}
 	origin := t.TempDir()
-	if err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -677,7 +677,7 @@ func TestTarUntar(t *testing.T) {
 func TestTarWithOptionsChownOptsAlwaysOverridesIdPair(t *testing.T) {
 	origin := t.TempDir()
 	filePath := filepath.Join(origin, "1")
-	err := ioutil.WriteFile(filePath, []byte("hello world"), 0700)
+	err := os.WriteFile(filePath, []byte("hello world"), 0700)
 	require.NoError(t, err)
 
 	idMaps := []idtools.IDMap{
@@ -731,10 +731,10 @@ func TestTarWithOptions(t *testing.T) {
 	if _, err := os.MkdirTemp(origin, "folder"); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -808,7 +808,7 @@ func prepareUntarSourceDirectory(numberOfFiles int, targetPath string, makeLinks
 	fileData := []byte("fooo")
 	for n := 0; n < numberOfFiles; n++ {
 		fileName := fmt.Sprintf("file-%d", n)
-		if err := ioutil.WriteFile(filepath.Join(targetPath, fileName), fileData, 0700); err != nil {
+		if err := os.WriteFile(filepath.Join(targetPath, fileName), fileData, 0700); err != nil {
 			return 0, err
 		}
 		if makeLinks {

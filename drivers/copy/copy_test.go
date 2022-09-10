@@ -5,7 +5,6 @@ package copy
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -101,7 +100,7 @@ func populateSrcDir(t *testing.T, srcDir string, remainingDepth int) {
 	for i := 0; i < 10; i++ {
 		fileName := filepath.Join(srcDir, fmt.Sprintf("srcfile-%d", i))
 		// Owner read bit set
-		assert.NilError(t, ioutil.WriteFile(fileName, []byte{}, randomMode(0400)))
+		assert.NilError(t, os.WriteFile(fileName, []byte{}, randomMode(0400)))
 		assert.NilError(t, system.Chtimes(fileName, aTime, mTime))
 	}
 }
@@ -115,7 +114,7 @@ func doCopyTest(t *testing.T, copyWithFileRange, copyWithFileClone *bool) {
 	buf := make([]byte, 1024)
 	_, err := r.Read(buf)
 	assert.NilError(t, err)
-	assert.NilError(t, ioutil.WriteFile(srcFilename, buf, 0777))
+	assert.NilError(t, os.WriteFile(srcFilename, buf, 0777))
 	fileinfo, err := os.Stat(srcFilename)
 	assert.NilError(t, err)
 
@@ -135,7 +134,7 @@ func TestCopyHardlink(t *testing.T) {
 	srcFile2 := filepath.Join(srcDir, "file2")
 	dstFile1 := filepath.Join(dstDir, "file1")
 	dstFile2 := filepath.Join(dstDir, "file2")
-	assert.NilError(t, ioutil.WriteFile(srcFile1, []byte{}, 0777))
+	assert.NilError(t, os.WriteFile(srcFile1, []byte{}, 0777))
 	assert.NilError(t, os.Link(srcFile1, srcFile2))
 
 	assert.Check(t, DirCopy(srcDir, dstDir, Content, false))

@@ -1,9 +1,9 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package operatingsystem
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -117,7 +117,7 @@ PRETTY_NAME="Source Mage"`,
 	}()
 
 	for _, elt := range invalids {
-		if err := ioutil.WriteFile(etcOsRelease, []byte(elt.content), 0600); err != nil {
+		if err := os.WriteFile(etcOsRelease, []byte(elt.content), 0600); err != nil {
 			t.Fatalf("failed to write to %s: %v", etcOsRelease, err)
 		}
 		s, err := GetOperatingSystem()
@@ -127,7 +127,7 @@ PRETTY_NAME="Source Mage"`,
 	}
 
 	for _, elt := range valids {
-		if err := ioutil.WriteFile(etcOsRelease, []byte(elt.content), 0600); err != nil {
+		if err := os.WriteFile(etcOsRelease, []byte(elt.content), 0600); err != nil {
 			t.Fatalf("failed to write to %s: %v", etcOsRelease, err)
 		}
 		s, err := GetOperatingSystem()
@@ -183,7 +183,7 @@ func TestIsContainerized(t *testing.T) {
 		proc1Cgroup = backup
 	}()
 
-	if err := ioutil.WriteFile(proc1Cgroup, nonContainerizedProc1Cgroup, 0600); err != nil {
+	if err := os.WriteFile(proc1Cgroup, nonContainerizedProc1Cgroup, 0600); err != nil {
 		t.Fatalf("failed to write to %s: %v", proc1Cgroup, err)
 	}
 	inContainer, err := IsContainerized()
@@ -194,7 +194,7 @@ func TestIsContainerized(t *testing.T) {
 		t.Fatal("Wrongly assuming containerized")
 	}
 
-	if err := ioutil.WriteFile(proc1Cgroup, nonContainerizedProc1Cgroupsystemd226, 0600); err != nil {
+	if err := os.WriteFile(proc1Cgroup, nonContainerizedProc1Cgroupsystemd226, 0600); err != nil {
 		t.Fatalf("failed to write to %s: %v", proc1Cgroup, err)
 	}
 	inContainer, err = IsContainerized()
@@ -205,7 +205,7 @@ func TestIsContainerized(t *testing.T) {
 		t.Fatal("Wrongly assuming containerized for systemd /init.scope cgroup layout")
 	}
 
-	if err := ioutil.WriteFile(proc1Cgroup, containerizedProc1Cgroup, 0600); err != nil {
+	if err := os.WriteFile(proc1Cgroup, containerizedProc1Cgroup, 0600); err != nil {
 		t.Fatalf("failed to write to %s: %v", proc1Cgroup, err)
 	}
 	inContainer, err = IsContainerized()
@@ -237,7 +237,7 @@ HOME_URL="http://www.gentoo.org/"
 SUPPORT_URL="http://www.gentoo.org/main/en/support.xml"
 BUG_REPORT_URL="https://bugs.gentoo.org/"
 `
-	if err := ioutil.WriteFile(altOsRelease, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(altOsRelease, []byte(content), 0600); err != nil {
 		t.Fatalf("failed to write to %s: %v", etcOsRelease, err)
 	}
 	s, err := GetOperatingSystem()

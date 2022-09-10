@@ -228,7 +228,7 @@ func TestParseSubidFileWithNewlinesAndComments(t *testing.T) {
 # empty default subuid/subgid file
 
 dockremap:231072:65536`
-	if err := ioutil.WriteFile(fnamePath, []byte(fcontent), 0644); err != nil {
+	if err := os.WriteFile(fnamePath, []byte(fcontent), 0644); err != nil {
 		t.Fatal(err)
 	}
 	ranges, err := parseSubidFile(fnamePath, "dockremap")

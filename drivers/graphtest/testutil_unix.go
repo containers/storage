@@ -1,9 +1,9 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package graphtest
 
 import (
-	"io/ioutil"
 	"os"
 	"path"
 	"syscall"
@@ -49,7 +49,7 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 	require.NoError(t, os.Chown(subdir, 1, 2))
 
 	file := path.Join(dir, "a file")
-	err = ioutil.WriteFile(file, []byte("Some data"), 0222|os.ModeSetuid)
+	err = os.WriteFile(file, []byte("Some data"), 0222|os.ModeSetuid)
 	require.NoError(t, err)
 }
 

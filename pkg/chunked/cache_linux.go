@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strconv"
@@ -334,7 +333,7 @@ func writeCache(manifest []byte, id string, dest setBigData) (*metadata, error) 
 	}()
 	defer pipeReader.Close()
 
-	counter := ioutils.NewWriteCounter(ioutil.Discard)
+	counter := ioutils.NewWriteCounter(io.Discard)
 
 	r := io.TeeReader(pipeReader, counter)
 

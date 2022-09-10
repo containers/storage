@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,7 +51,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(hello, helloData, 0644); err != nil {
+	if err := os.WriteFile(hello, helloData, 0644); err != nil {
 		return err
 	}
 	helloStat, err := os.Stat(hello)
