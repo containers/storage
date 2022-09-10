@@ -110,7 +110,7 @@ func testDecompressStream(t *testing.T, ext, compressCommand string) {
 	if err != nil {
 		t.Fatalf("Failed to decompress %s: %v", filename, err)
 	}
-	if _, err = ioutil.ReadAll(r); err != nil {
+	if _, err = io.ReadAll(r); err != nil {
 		t.Fatalf("Failed to read the decompressed stream: %v ", err)
 	}
 	if err = r.Close(); err != nil {

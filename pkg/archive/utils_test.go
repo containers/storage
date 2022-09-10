@@ -117,7 +117,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 		return fmt.Errorf("archive breakout: could not lstat %q: %w", hello, err)
 	}
 	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return err
 	}

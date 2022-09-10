@@ -128,7 +128,7 @@ func (c *layersCache) load() error {
 		}
 		defer manifestReader.Close()
 
-		manifest, err := ioutil.ReadAll(manifestReader)
+		manifest, err := io.ReadAll(manifestReader)
 		if err != nil {
 			return fmt.Errorf("open manifest file for layer %q: %w", r.ID, err)
 		}

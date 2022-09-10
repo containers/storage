@@ -6,6 +6,7 @@ package archive
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -97,7 +98,7 @@ func TestTarWithHardLink(t *testing.T) {
 	require.NoError(t, err)
 
 	// ensure we can read the whole thing with no error, before writing back out
-	buf, err := ioutil.ReadAll(fh)
+	buf, err := io.ReadAll(fh)
 	require.NoError(t, err)
 
 	bRdr := bytes.NewReader(buf)
@@ -198,7 +199,7 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 	require.NoError(t, err)
 
 	// ensure we can read the whole thing with no error, before writing back out
-	buf, err := ioutil.ReadAll(fh)
+	buf, err := io.ReadAll(fh)
 	require.NoError(t, err)
 
 	bRdr := bytes.NewReader(buf)
