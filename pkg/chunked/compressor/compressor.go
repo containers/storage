@@ -20,9 +20,7 @@ const holesThreshold = int64(1 << 10)
 
 type holesFinder struct {
 	reader    *bufio.Reader
-	fileOff   int64
 	zeros     int64
-	from      int64
 	threshold int64
 
 	state int
