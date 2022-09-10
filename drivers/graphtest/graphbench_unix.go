@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package graphtest
@@ -6,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -246,7 +248,7 @@ func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, d
 	for i := 0; i < b.N; i++ {
 
 		// Read content
-		c, err := ioutil.ReadFile(filepath.Join(root, "testfile.txt"))
+		c, err := os.ReadFile(filepath.Join(root, "testfile.txt"))
 		if err != nil {
 			b.Fatal(err)
 		}

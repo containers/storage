@@ -1237,7 +1237,7 @@ func readFileFromArchive(t *testing.T, archive io.ReadCloser, name string, expec
 	files, _ := ioutil.ReadDir(destDir)
 	assert.Len(t, files, expectedCount, doc)
 
-	content, err := ioutil.ReadFile(filepath.Join(destDir, name))
+	content, err := os.ReadFile(filepath.Join(destDir, name))
 	assert.NoError(t, err)
 	return string(content)
 }

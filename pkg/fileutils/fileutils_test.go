@@ -103,7 +103,7 @@ func TestCopyFile(t *testing.T) {
 	if bytes != 7 {
 		t.Fatalf("Should have written %d bytes but wrote %d", 7, bytes)
 	}
-	actual, err := ioutil.ReadFile(dest)
+	actual, err := os.ReadFile(dest)
 	if err != nil {
 		t.Fatal(err)
 	}

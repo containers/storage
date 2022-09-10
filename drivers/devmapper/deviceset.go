@@ -630,7 +630,7 @@ func (devices *DeviceSet) createFilesystem(info *devInfo) (err error) {
 
 func (devices *DeviceSet) migrateOldMetaData() error {
 	// Migrate old metadata file
-	jsonData, err := ioutil.ReadFile(devices.oldMetadataFile())
+	jsonData, err := os.ReadFile(devices.oldMetadataFile())
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -955,7 +955,7 @@ func (devices *DeviceSet) createRegisterSnapDevice(hash string, baseInfo *devInf
 func (devices *DeviceSet) loadMetadata(hash string) *devInfo {
 	info := &devInfo{Hash: hash, devices: devices}
 
-	jsonData, err := ioutil.ReadFile(devices.metadataFile(info))
+	jsonData, err := os.ReadFile(devices.metadataFile(info))
 	if err != nil {
 		logrus.Debugf("devmapper: Failed to read %s with err: %v", devices.metadataFile(info), err)
 		return nil
@@ -1370,7 +1370,7 @@ func (devices *DeviceSet) ResizePool(size int64) error {
 }
 
 func (devices *DeviceSet) loadTransactionMetaData() error {
-	jsonData, err := ioutil.ReadFile(devices.transactionMetaFile())
+	jsonData, err := os.ReadFile(devices.transactionMetaFile())
 	if err != nil {
 		// There is no active transaction. This will be the case
 		// during upgrade.
@@ -1451,7 +1451,7 @@ func (devices *DeviceSet) processPendingTransaction() error {
 }
 
 func (devices *DeviceSet) loadDeviceSetMetaData() error {
-	jsonData, err := ioutil.ReadFile(devices.deviceSetMetaFile())
+	jsonData, err := os.ReadFile(devices.deviceSetMetaFile())
 	if err != nil {
 		// For backward compatibility return success if file does
 		// not exist.

@@ -352,7 +352,7 @@ func (r *layerStore) Load() error {
 	} else {
 		r.layerspathModified = info.ModTime()
 	}
-	data, err := ioutil.ReadFile(rpath)
+	data, err := os.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -443,7 +443,7 @@ func (r *layerStore) LoadLocked() error {
 func (r *layerStore) loadMounts() error {
 	mounts := make(map[string]*Layer)
 	mpath := r.mountspath()
-	data, err := ioutil.ReadFile(mpath)
+	data, err := os.ReadFile(mpath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -754,7 +754,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		templateUncompressedDigest, templateUncompressedSize = templateLayer.UncompressedDigest, templateLayer.UncompressedSize
 		templateCompressionType = templateLayer.CompressionType
 		templateUIDs, templateGIDs = append([]uint32{}, templateLayer.UIDs...), append([]uint32{}, templateLayer.GIDs...)
-		templateTSdata, tserr = ioutil.ReadFile(r.tspath(templateLayer.ID))
+		templateTSdata, tserr = os.ReadFile(r.tspath(templateLayer.ID))
 		if tserr != nil && !os.IsNotExist(tserr) {
 			return nil, -1, tserr
 		}

@@ -1,3 +1,4 @@
+//go:build solaris && cgo
 // +build solaris,cgo
 
 package operatingsystem
@@ -10,14 +11,14 @@ import "C"
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"os"
 )
 
 var etcOsRelease = "/etc/release"
 
 // GetOperatingSystem gets the name of the current operating system.
 func GetOperatingSystem() (string, error) {
-	b, err := ioutil.ReadFile(etcOsRelease)
+	b, err := os.ReadFile(etcOsRelease)
 	if err != nil {
 		return "", err
 	}

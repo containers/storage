@@ -128,7 +128,7 @@ func prepareSourceDirectory(numberOfFiles int, targetPath string, makeSymLinks b
 }
 
 func getHash(filename string) (uint32, error) {
-	stream, err := ioutil.ReadFile(filename)
+	stream, err := os.ReadFile(filename)
 	if err != nil {
 		return 0, err
 	}

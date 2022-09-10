@@ -24,7 +24,7 @@ import (
 	"github.com/Microsoft/go-winio"
 	"github.com/Microsoft/go-winio/backuptar"
 	"github.com/Microsoft/hcsshim"
-	"github.com/containers/storage/drivers"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
@@ -870,7 +870,7 @@ func writeLayer(layerData io.Reader, home string, id string, parentLayerPaths ..
 
 // resolveID computes the layerID information based on the given id.
 func (d *Driver) resolveID(id string) (string, error) {
-	content, err := ioutil.ReadFile(filepath.Join(d.dir(id), "layerID"))
+	content, err := os.ReadFile(filepath.Join(d.dir(id), "layerID"))
 	if os.IsNotExist(err) {
 		return id, nil
 	} else if err != nil {
@@ -887,7 +887,7 @@ func (d *Driver) setID(id, altID string) error {
 // getLayerChain returns the layer chain information.
 func (d *Driver) getLayerChain(id string) ([]string, error) {
 	jPath := filepath.Join(d.dir(id), "layerchain.json")
-	content, err := ioutil.ReadFile(jPath)
+	content, err := os.ReadFile(jPath)
 	if os.IsNotExist(err) {
 		return nil, nil
 	} else if err != nil {

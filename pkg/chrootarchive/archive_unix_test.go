@@ -62,7 +62,7 @@ func TestUntarWithMaliciousSymlinks(t *testing.T) {
 
 	// Make sure the "host" file is still in tact
 	// Before the fix the host file would be overwritten
-	hostData, err := ioutil.ReadFile(filepath.Join(dir, "host-file"))
+	hostData, err := os.ReadFile(filepath.Join(dir, "host-file"))
 	assert.NilError(t, err)
 	assert.Equal(t, string(hostData), "I am a host file")
 
@@ -72,7 +72,7 @@ func TestUntarWithMaliciousSymlinks(t *testing.T) {
 	err = UntarWithRoot(bufRdr, safe, nil, safe)
 	assert.NilError(t, err)
 
-	hostData, err = ioutil.ReadFile(filepath.Join(dir, "host-file"))
+	hostData, err = os.ReadFile(filepath.Join(dir, "host-file"))
 	assert.NilError(t, err)
 	assert.Equal(t, string(hostData), "pwn3d")
 }

@@ -154,7 +154,7 @@ func readLVMConfig(root string) (directLVMConfig, error) {
 	var cfg directLVMConfig
 
 	p := filepath.Join(root, "setup-config.json")
-	b, err := ioutil.ReadFile(p)
+	b, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return cfg, nil

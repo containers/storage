@@ -2,7 +2,6 @@ package ioutils
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,7 +27,7 @@ func TestAtomicWriteToFile(t *testing.T) {
 		t.Fatalf("Error writing to file: %v", err)
 	}
 
-	actual, err := ioutil.ReadFile(filepath.Join(tmpDir, "foo"))
+	actual, err := os.ReadFile(filepath.Join(tmpDir, "foo"))
 	if err != nil {
 		t.Fatalf("Error reading from file: %v", err)
 	}
@@ -64,7 +63,7 @@ func TestAtomicWriteSetCommit(t *testing.T) {
 		t.Fatalf("Error writing to file: %v", err)
 	}
 
-	if _, err := ioutil.ReadFile(filepath.Join(targetDir, "foo")); err == nil {
+	if _, err := os.ReadFile(filepath.Join(targetDir, "foo")); err == nil {
 		t.Fatalf("Expected error reading file where should not exist")
 	}
 
@@ -72,7 +71,7 @@ func TestAtomicWriteSetCommit(t *testing.T) {
 		t.Fatalf("Error committing file: %s", err)
 	}
 
-	actual, err := ioutil.ReadFile(filepath.Join(targetDir, "foo"))
+	actual, err := os.ReadFile(filepath.Join(targetDir, "foo"))
 	if err != nil {
 		t.Fatalf("Error reading from file: %v", err)
 	}
@@ -112,7 +111,7 @@ func TestAtomicWriteSetCancel(t *testing.T) {
 		t.Fatalf("Error committing file: %s", err)
 	}
 
-	if _, err := ioutil.ReadFile(filepath.Join(tmpDir, "target", "foo")); err == nil {
+	if _, err := os.ReadFile(filepath.Join(tmpDir, "target", "foo")); err == nil {
 		t.Fatalf("Expected error reading file where should not exist")
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("Unexpected error reading file: %s", err)

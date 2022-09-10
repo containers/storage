@@ -53,7 +53,7 @@ func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) e
 	}
 	defer drv.Put(layer)
 
-	fileContent, err := ioutil.ReadFile(path.Join(root, filename))
+	fileContent, err := os.ReadFile(path.Join(root, filename))
 	if err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func checkManyFiles(drv graphdriver.Driver, layer string, count int, seed int64)
 		dir := path.Join(root, fmt.Sprintf("directory-%d", i))
 		for j := 0; i+j < count && j < 100; j++ {
 			file := path.Join(dir, fmt.Sprintf("file-%d", i+j))
-			fileContent, err := ioutil.ReadFile(file)
+			fileContent, err := os.ReadFile(file)
 			if err != nil {
 				return err
 			}
@@ -301,7 +301,7 @@ func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
 	}
 	defer drv.Put(layer)
 
-	layerIDBytes, err := ioutil.ReadFile(path.Join(root, "top-id"))
+	layerIDBytes, err := os.ReadFile(path.Join(root, "top-id"))
 	if err != nil {
 		return err
 	}
@@ -313,14 +313,14 @@ func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
 	for i := count; i > 0; i-- {
 		layerDir := path.Join(root, fmt.Sprintf("layer-%d", i))
 
-		thisLayerIDBytes, err := ioutil.ReadFile(path.Join(layerDir, "layer-id"))
+		thisLayerIDBytes, err := os.ReadFile(path.Join(layerDir, "layer-id"))
 		if err != nil {
 			return err
 		}
 		if bytes.Compare(thisLayerIDBytes, layerIDBytes) != 0 {
 			return fmt.Errorf("mismatched file content %v, expecting %v", thisLayerIDBytes, layerIDBytes)
 		}
-		layerIDBytes, err = ioutil.ReadFile(path.Join(layerDir, "parent-id"))
+		layerIDBytes, err = os.ReadFile(path.Join(layerDir, "parent-id"))
 		if err != nil {
 			return err
 		}

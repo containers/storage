@@ -151,7 +151,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 			// skip file if error
 			return nil
 		}
-		b, err := ioutil.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			// Houston, we have a problem. Aborting (space)walk.
 			return err

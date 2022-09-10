@@ -579,11 +579,11 @@ func cachedFeatureSet(feature string, set bool) string {
 }
 
 func cachedFeatureCheck(runhome, feature string) (supported bool, text string, err error) {
-	content, err := ioutil.ReadFile(filepath.Join(runhome, cachedFeatureSet(feature, true)))
+	content, err := os.ReadFile(filepath.Join(runhome, cachedFeatureSet(feature, true)))
 	if err == nil {
 		return true, string(content), nil
 	}
-	content, err = ioutil.ReadFile(filepath.Join(runhome, cachedFeatureSet(feature, false)))
+	content, err = os.ReadFile(filepath.Join(runhome, cachedFeatureSet(feature, false)))
 	if err == nil {
 		return false, string(content), nil
 	}
@@ -607,7 +607,7 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 	}
 
 	var contents string
-	flagContent, err := ioutil.ReadFile(getMountProgramFlagFile(home))
+	flagContent, err := os.ReadFile(getMountProgramFlagFile(home))
 	if err == nil {
 		contents = strings.TrimSpace(string(flagContent))
 	}
@@ -1072,7 +1072,7 @@ func (d *Driver) getLower(parent string) (string, error) {
 	}
 
 	// Read Parent link fileA
-	parentLink, err := ioutil.ReadFile(path.Join(parentDir, "link"))
+	parentLink, err := os.ReadFile(path.Join(parentDir, "link"))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return "", err
@@ -1081,14 +1081,14 @@ func (d *Driver) getLower(parent string) (string, error) {
 		if err := d.recreateSymlinks(); err != nil {
 			return "", fmt.Errorf("recreating the links: %w", err)
 		}
-		parentLink, err = ioutil.ReadFile(path.Join(parentDir, "link"))
+		parentLink, err = os.ReadFile(path.Join(parentDir, "link"))
 		if err != nil {
 			return "", err
 		}
 	}
 	lowers := []string{path.Join(linkDir, string(parentLink))}
 
-	parentLower, err := ioutil.ReadFile(path.Join(parentDir, lowerFile))
+	parentLower, err := os.ReadFile(path.Join(parentDir, lowerFile))
 	if err == nil {
 		parentLowers := strings.Split(string(parentLower), ":")
 		lowers = append(lowers, parentLowers...)
@@ -1117,7 +1117,7 @@ func (d *Driver) dir2(id string) (string, bool) {
 
 func (d *Driver) getLowerDirs(id string) ([]string, error) {
 	var lowersArray []string
-	lowers, err := ioutil.ReadFile(path.Join(d.dir(id), lowerFile))
+	lowers, err := os.ReadFile(path.Join(d.dir(id), lowerFile))
 	if err == nil {
 		for _, s := range strings.Split(string(lowers), ":") {
 			lower := d.dir(s)
@@ -1186,7 +1186,7 @@ func (d *Driver) optsAppendMappings(opts string, uidMaps, gidMaps []idtools.IDMa
 // Remove cleans the directories that are created for this id.
 func (d *Driver) Remove(id string) error {
 	dir := d.dir(id)
-	lid, err := ioutil.ReadFile(path.Join(dir, "link"))
+	lid, err := os.ReadFile(path.Join(dir, "link"))
 	if err == nil {
 		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
 			logrus.Debugf("Failed to remove link: %v", err)
@@ -1232,7 +1232,7 @@ func (d *Driver) recreateSymlinks() error {
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink
-			data, err := ioutil.ReadFile(path.Join(d.dir(dir.Name()), "link"))
+			data, err := os.ReadFile(path.Join(d.dir(dir.Name()), "link"))
 			if err != nil {
 				errs = multierror.Append(errs, fmt.Errorf("reading name of symlink for %q: %w", dir.Name(), err))
 				continue
@@ -1287,7 +1287,7 @@ func (d *Driver) recreateSymlinks() error {
 			// it has the basename of our symlink in it.
 			targetID := targetComponents[1]
 			linkFile := filepath.Join(d.dir(targetID), "link")
-			data, err := ioutil.ReadFile(linkFile)
+			data, err := os.ReadFile(linkFile)
 			if err != nil || string(data) != link.Name() {
 				// NOTE: If two or more links point to the same target, we will update linkFile
 				// with every value of link.Name(), and set madeProgress = true every time.
@@ -1361,7 +1361,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}
 
-	lowers, err := ioutil.ReadFile(path.Join(dir, lowerFile))
+	lowers, err := os.ReadFile(path.Join(dir, lowerFile))
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
 	}
@@ -1377,7 +1377,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	// Check if $link/../diff{1-*} exist.  If they do, add them, in order, as the front of the lowers
 	// lists that we're building.  "diff" itself is the upper, so it won't be in the lists.
-	link, err := ioutil.ReadFile(path.Join(dir, "link"))
+	link, err := os.ReadFile(path.Join(dir, "link"))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return "", err
@@ -1386,7 +1386,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		if err := d.recreateSymlinks(); err != nil {
 			return "", fmt.Errorf("recreating the links: %w", err)
 		}
-		link, err = ioutil.ReadFile(path.Join(dir, "link"))
+		link, err = os.ReadFile(path.Join(dir, "link"))
 		if err != nil {
 			return "", err
 		}
@@ -1652,7 +1652,7 @@ func (d *Driver) Put(id string) error {
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
 	}
-	if _, err := ioutil.ReadFile(path.Join(dir, lowerFile)); err != nil && !os.IsNotExist(err) {
+	if _, err := os.ReadFile(path.Join(dir, lowerFile)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
@@ -2178,7 +2178,7 @@ func (al *additionalLayer) CreateAs(id, parent string) error {
 }
 
 func (d *Driver) getAdditionalLayerPathByID(id string) (string, error) {
-	al, err := ioutil.ReadFile(path.Join(d.dir(id), "additionallayer"))
+	al, err := os.ReadFile(path.Join(d.dir(id), "additionallayer"))
 	if err != nil {
 		return "", err
 	}
