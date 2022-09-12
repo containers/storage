@@ -170,7 +170,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	for _, path := range []string{"mnt", "diff"} {
 		p := filepath.Join(home, path)
-		entries, err := ioutil.ReadDir(p)
+		entries, err := os.ReadDir(p)
 		if err != nil {
 			logger.WithError(err).WithField("dir", p).Error("error reading dir entries")
 			continue

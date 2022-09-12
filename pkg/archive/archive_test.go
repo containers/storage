@@ -1234,7 +1234,7 @@ func readFileFromArchive(t *testing.T, archive io.ReadCloser, name string, expec
 	err := Untar(archive, destDir, nil)
 	require.NoError(t, err)
 
-	files, _ := ioutil.ReadDir(destDir)
+	files, _ := os.ReadDir(destDir)
 	assert.Len(t, files, expectedCount, doc)
 
 	content, err := ioutil.ReadFile(filepath.Join(destDir, name))

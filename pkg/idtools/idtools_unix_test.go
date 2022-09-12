@@ -177,20 +177,20 @@ func buildTree(base string, tree map[string]node) error {
 func readTree(base, root string) (map[string]node, error) {
 	tree := make(map[string]node)
 
-	dirInfos, err := ioutil.ReadDir(base)
+	dirEntries, err := os.ReadDir(base)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't read directory entries for %q: %w", base, err)
 	}
 
-	for _, info := range dirInfos {
+	for _, entry := range dirEntries {
 		s := &unix.Stat_t{}
-		if err := unix.Stat(filepath.Join(base, info.Name()), s); err != nil {
-			return nil, fmt.Errorf("can't stat file %q: %w", filepath.Join(base, info.Name()), err)
+		if err := unix.Stat(filepath.Join(base, entry.Name()), s); err != nil {
+			return nil, fmt.Errorf("can't stat file %q: %w", filepath.Join(base, entry.Name()), err)
 		}
-		tree[filepath.Join(root, info.Name())] = node{int(s.Uid), int(s.Gid)}
-		if info.IsDir() {
+		tree[filepath.Join(root, entry.Name())] = node{int(s.Uid), int(s.Gid)}
+		if entry.IsDir() {
 			// read the subdirectory
-			subtree, err := readTree(filepath.Join(base, info.Name()), filepath.Join(root, info.Name()))
+			subtree, err := readTree(filepath.Join(base, entry.Name()), filepath.Join(root, entry.Name()))
 			if err != nil {
 				return nil, err
 			}

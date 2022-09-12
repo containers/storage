@@ -1209,7 +1209,7 @@ func (d *Driver) recreateSymlinks() error {
 	const maxIterations = 10
 
 	// List all the directories under the home directory
-	dirs, err := ioutil.ReadDir(d.home)
+	dirs, err := os.ReadDir(d.home)
 	if err != nil {
 		return fmt.Errorf("reading driver home directory %q: %w", d.home, err)
 	}
@@ -1228,7 +1228,7 @@ func (d *Driver) recreateSymlinks() error {
 		// the layer's "link" file that points to the layer's "diff" directory.
 		for _, dir := range dirs {
 			// Skip over the linkDir and anything that is not a directory
-			if dir.Name() == linkDir || !dir.Mode().IsDir() {
+			if dir.Name() == linkDir || !dir.IsDir() {
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink
@@ -1257,7 +1257,7 @@ func (d *Driver) recreateSymlinks() error {
 		linkDirFullPath := filepath.Join(d.home, "l")
 		// Now check if we somehow lost a "link" file, by making sure
 		// that each symlink we have corresponds to one.
-		links, err := ioutil.ReadDir(linkDirFullPath)
+		links, err := os.ReadDir(linkDirFullPath)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue
@@ -1661,7 +1661,7 @@ func (d *Driver) Put(id string) error {
 	mappedRoot := filepath.Join(d.home, id, "mapped")
 	// It should not happen, but cleanup any mapped mount if it was leaked.
 	if _, err := os.Stat(mappedRoot); err == nil {
-		mounts, err := ioutil.ReadDir(mappedRoot)
+		mounts, err := os.ReadDir(mappedRoot)
 		if err == nil {
 			// Go through all of the mapped mounts.
 			for _, m := range mounts {

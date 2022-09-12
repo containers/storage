@@ -160,16 +160,16 @@ func TestMoveToSubdir(t *testing.T) {
 		t.Fatalf("Error during migration of content to subdirectory: %v", err)
 	}
 	// validate that the files were moved to the subdirectory
-	infos, err := ioutil.ReadDir(subDir)
+	entries, err := os.ReadDir(subDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(infos) != 4 {
-		t.Fatalf("Should be four files in the subdir after the migration: actual length: %d", len(infos))
+	if len(entries) != 4 {
+		t.Fatalf("Should be four files in the subdir after the migration: actual length: %d", len(entries))
 	}
 	var results []string
-	for _, info := range infos {
-		results = append(results, info.Name())
+	for _, entry := range entries {
+		results = append(results, entry.Name())
 	}
 	sort.Sort(sort.StringSlice(results))
 	if !reflect.DeepEqual(filesList, results) {

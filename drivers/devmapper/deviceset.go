@@ -1276,8 +1276,8 @@ func (devices *DeviceSet) setupBaseImage() error {
 }
 
 func setCloseOnExec(name string) {
-	fileInfos, _ := ioutil.ReadDir("/proc/self/fd")
-	for _, i := range fileInfos {
+	entries, _ := os.ReadDir("/proc/self/fd")
+	for _, i := range entries {
 		link, _ := os.Readlink(filepath.Join("/proc/self/fd", i.Name()))
 		if link == name {
 			fd, err := strconv.Atoi(i.Name())
@@ -2258,7 +2258,7 @@ func (devices *DeviceSet) cancelDeferredRemoval(info *devInfo) error {
 }
 
 func (devices *DeviceSet) unmountAndDeactivateAll(dir string) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		logrus.Warnf("devmapper: unmountAndDeactivate: %s", err)
 		return

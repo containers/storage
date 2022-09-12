@@ -1,7 +1,6 @@
 package directory
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 )
@@ -15,14 +14,14 @@ type DiskUsage struct {
 
 // MoveToSubdir moves all contents of a directory to a subdirectory underneath the original path
 func MoveToSubdir(oldpath, subdir string) error {
-	infos, err := ioutil.ReadDir(oldpath)
+	entries, err := os.ReadDir(oldpath)
 	if err != nil {
 		return err
 	}
-	for _, info := range infos {
-		if info.Name() != subdir {
-			oldName := filepath.Join(oldpath, info.Name())
-			newName := filepath.Join(oldpath, subdir, info.Name())
+	for _, entry := range entries {
+		if entry.Name() != subdir {
+			oldName := filepath.Join(oldpath, entry.Name())
+			newName := filepath.Join(oldpath, subdir, entry.Name())
 			if err := os.Rename(oldName, newName); err != nil {
 				return err
 			}
