@@ -2,7 +2,6 @@ package fileutils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -33,7 +32,7 @@ func TestCopyFileWithInvalidSrc(t *testing.T) {
 func TestCopyFileWithInvalidDest(t *testing.T) {
 	tempFolder := t.TempDir()
 	src := path.Join(tempFolder, "file")
-	err := ioutil.WriteFile(src, []byte("content"), 0740)
+	err := os.WriteFile(src, []byte("content"), 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +50,7 @@ func TestCopyFileWithInvalidDest(t *testing.T) {
 func TestCopyFileWithSameSrcAndDest(t *testing.T) {
 	tempFolder := t.TempDir()
 	file := path.Join(tempFolder, "file")
-	err := ioutil.WriteFile(file, []byte("content"), 0740)
+	err := os.WriteFile(file, []byte("content"), 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +73,7 @@ func TestCopyFileWithSameSrcAndDestWithPathNameDifferent(t *testing.T) {
 	}
 	file := path.Join(testFolder, "file")
 	sameFile := testFolder + "/../test/file"
-	err = ioutil.WriteFile(file, []byte("content"), 0740)
+	err = os.WriteFile(file, []byte("content"), 0740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,10 +90,10 @@ func TestCopyFile(t *testing.T) {
 	tempFolder := t.TempDir()
 	src := path.Join(tempFolder, "src")
 	dest := path.Join(tempFolder, "dest")
-	err := ioutil.WriteFile(src, []byte("content"), 0777)
+	err := os.WriteFile(src, []byte("content"), 0777)
 	require.NoError(t, err)
 
-	err = ioutil.WriteFile(dest, []byte("destContent"), 0777)
+	err = os.WriteFile(dest, []byte("destContent"), 0777)
 	require.NoError(t, err)
 	bytes, err := CopyFile(src, dest)
 	if err != nil {
@@ -103,7 +102,7 @@ func TestCopyFile(t *testing.T) {
 	if bytes != 7 {
 		t.Fatalf("Should have written %d bytes but wrote %d", 7, bytes)
 	}
-	actual, err := ioutil.ReadFile(dest)
+	actual, err := os.ReadFile(dest)
 	if err != nil {
 		t.Fatal(err)
 	}

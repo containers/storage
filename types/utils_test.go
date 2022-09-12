@@ -3,7 +3,6 @@ package types
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,11 +55,11 @@ func TestRootlessRuntimeDir(t *testing.T) {
 	homeRuntimeDisabled := homeRuntimeData{err: errors.New("homedirGetRuntimeDir is disabled")}
 
 	systemdCommandFile := filepath.Join(testDir, "systemd-command")
-	err = ioutil.WriteFile(systemdCommandFile, []byte("systemd"), 0644)
+	err = os.WriteFile(systemdCommandFile, []byte("systemd"), 0644)
 	assert.NilError(t, err)
 
 	initCommandFile := filepath.Join(testDir, "init-command")
-	err = ioutil.WriteFile(initCommandFile, []byte("init"), 0644)
+	err = os.WriteFile(initCommandFile, []byte("init"), 0644)
 	assert.NilError(t, err)
 
 	dirForOwner := filepath.Join(testDir, "dir-for-owner")
@@ -245,7 +244,7 @@ func TestRootlessRuntimeDirRace(t *testing.T) {
 	raceDir := t.TempDir()
 
 	procCommandFile := filepath.Join(raceDir, "command")
-	err := ioutil.WriteFile(procCommandFile, []byte("init"), 0644)
+	err := os.WriteFile(procCommandFile, []byte("init"), 0644)
 	assert.NilError(t, err)
 
 	tmpPerUserDir := filepath.Join(raceDir, "tmp")

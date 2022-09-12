@@ -3,7 +3,6 @@ package lockfile
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -38,7 +37,7 @@ func subTouchMain() {
 	}
 	tf.Lock()
 	os.Stdout.Close()
-	io.Copy(ioutil.Discard, os.Stdin)
+	io.Copy(io.Discard, os.Stdin)
 	tf.Touch()
 	tf.Unlock()
 }
@@ -83,7 +82,7 @@ func subLockMain() {
 	}
 	tf.Lock()
 	os.Stdout.Close()
-	io.Copy(ioutil.Discard, os.Stdin)
+	io.Copy(io.Discard, os.Stdin)
 	tf.Unlock()
 }
 
@@ -122,7 +121,7 @@ func subRecursiveLockMain() {
 	}
 	tf.RecursiveLock()
 	os.Stdout.Close()
-	io.Copy(ioutil.Discard, os.Stdin)
+	io.Copy(io.Discard, os.Stdin)
 	tf.Unlock()
 }
 
@@ -161,7 +160,7 @@ func subRLockMain() {
 	}
 	tf.RLock()
 	os.Stdout.Close()
-	io.Copy(ioutil.Discard, os.Stdin)
+	io.Copy(io.Discard, os.Stdin)
 	tf.Unlock()
 }
 
@@ -201,7 +200,7 @@ type namedLocker struct {
 
 func getNamedLocker(ro bool) (*namedLocker, error) {
 	var l Locker
-	tf, err := ioutil.TempFile("", "lockfile")
+	tf, err := os.CreateTemp("", "lockfile")
 	if err != nil {
 		return nil, err
 	}
@@ -328,9 +327,9 @@ func TestLockfileTouch(t *testing.T) {
 	stdin, stdout, stderr, err := subTouch(l)
 	require.Nil(t, err, "got an error starting a subprocess to touch the lockfile")
 	l.Unlock()
-	io.Copy(ioutil.Discard, stdout)
+	io.Copy(io.Discard, stdout)
 	stdin.Close()
-	io.Copy(ioutil.Discard, stderr)
+	io.Copy(io.Discard, stderr)
 	l.Lock()
 	m, err = l.Modified()
 	l.Unlock()
@@ -574,7 +573,7 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 	for i := range subs {
 		wg.Add(1)
 		go func(i int) {
-			io.Copy(ioutil.Discard, subs[i].stdout)
+			io.Copy(io.Discard, subs[i].stdout)
 			if testing.Verbose() {
 				fmt.Printf("\tchild %4d acquired the read lock\n", i+1)
 			}
@@ -617,7 +616,7 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 	for i := range subs {
 		wg.Add(1)
 		go func(i int) {
-			io.Copy(ioutil.Discard, subs[i].stdout)
+			io.Copy(io.Discard, subs[i].stdout)
 			if testing.Verbose() {
 				fmt.Printf("\tchild %4d acquired the write lock\n", i+1)
 			}
@@ -660,7 +659,7 @@ func TestLockfileMultiprocessRecursiveWrite(t *testing.T) {
 	for i := range subs {
 		wg.Add(1)
 		go func(i int) {
-			io.Copy(ioutil.Discard, subs[i].stdout)
+			io.Copy(io.Discard, subs[i].stdout)
 			if testing.Verbose() {
 				fmt.Printf("\tchild %4d acquired the recursive write lock\n", i+1)
 			}
@@ -719,7 +718,7 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			// wait for the child to acquire whatever lock it wants
-			io.Copy(ioutil.Discard, subs[i].stdout)
+			io.Copy(io.Discard, subs[i].stdout)
 			if writer(i) {
 				// child acquired a write lock
 				if testing.Verbose() {

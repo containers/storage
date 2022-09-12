@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,7 +51,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(hello, helloData, 0644); err != nil {
+	if err := os.WriteFile(hello, helloData, 0644); err != nil {
 		return err
 	}
 	helloStat, err := os.Stat(hello)
@@ -117,7 +116,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 		return fmt.Errorf("archive breakout: could not lstat %q: %w", hello, err)
 	}
 	defer f.Close()
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return err
 	}
@@ -151,7 +150,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 			// skip file if error
 			return nil
 		}
-		b, err := ioutil.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			// Houston, we have a problem. Aborting (space)walk.
 			return err

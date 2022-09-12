@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package unshare
@@ -5,7 +6,6 @@ package unshare
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -70,7 +70,7 @@ func report() {
 	}
 	report.Sid = sid
 
-	oomBytes, err := ioutil.ReadFile("/proc/self/oom_score_adj")
+	oomBytes, err := os.ReadFile("/proc/self/oom_score_adj")
 	if err != nil {
 		logrus.Errorf("Reading current oom_score_adj: %v", err)
 		os.Exit(1)

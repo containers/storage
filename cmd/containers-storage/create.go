@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/containers/storage"
@@ -144,7 +143,7 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		b, err := ioutil.ReadAll(f)
+		b, err := io.ReadAll(f)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
@@ -181,7 +180,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		b, err := ioutil.ReadAll(f)
+		b, err := io.ReadAll(f)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1

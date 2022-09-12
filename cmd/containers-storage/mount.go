@@ -64,7 +64,7 @@ func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		errText := ""
 		if err != nil {
 			var err1 error
-			mounted, err1 = m.UnmountImage(arg, force)
+			_, err1 = m.UnmountImage(arg, force)
 			if err1 != nil {
 				errText = err.Error()
 				errors = true

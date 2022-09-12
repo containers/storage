@@ -1,3 +1,4 @@
+//go:build linux || freebsd
 // +build linux freebsd
 
 package graphtest
@@ -5,7 +6,7 @@ package graphtest
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -77,7 +78,7 @@ func DriverBenchDiffBase(b *testing.B, drivername string, driveroptions ...strin
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = io.Copy(ioutil.Discard, arch)
+		_, err = io.Copy(io.Discard, arch)
 		if err != nil {
 			b.Fatalf("Error copying archive: %s", err)
 		}
@@ -113,7 +114,7 @@ func DriverBenchDiffN(b *testing.B, bottom, top int, drivername string, driverop
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = io.Copy(ioutil.Discard, arch)
+		_, err = io.Copy(io.Discard, arch)
 		if err != nil {
 			b.Fatalf("Error copying archive: %s", err)
 		}
@@ -208,7 +209,7 @@ func DriverBenchDeepLayerDiff(b *testing.B, layerCount int, drivername string, d
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = io.Copy(ioutil.Discard, arch)
+		_, err = io.Copy(io.Discard, arch)
 		if err != nil {
 			b.Fatalf("Error copying archive: %s", err)
 		}
@@ -246,7 +247,7 @@ func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, d
 	for i := 0; i < b.N; i++ {
 
 		// Read content
-		c, err := ioutil.ReadFile(filepath.Join(root, "testfile.txt"))
+		c, err := os.ReadFile(filepath.Join(root, "testfile.txt"))
 		if err != nil {
 			b.Fatal(err)
 		}

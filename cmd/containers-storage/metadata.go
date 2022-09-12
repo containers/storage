@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -57,7 +57,7 @@ func setMetadata(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1
 		}
-		b, err := ioutil.ReadAll(f)
+		b, err := io.ReadAll(f)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%v\n", err)
 			return 1

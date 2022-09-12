@@ -72,8 +72,8 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 }
 
 type deletedImage struct {
-	DeletedLayers []string `json:"deleted-layers,omitifempty"`
-	Error         string   `json:"error,omitifempty"`
+	DeletedLayers []string `json:"deleted-layers,omitempty"`
+	Error         string   `json:"error,omitempty"`
 }
 
 func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {

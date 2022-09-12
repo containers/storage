@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -333,7 +332,7 @@ func makeTestLayer(t *testing.T, paths []string) (rc io.ReadCloser, err error) {
 				return
 			}
 		} else {
-			if err = ioutil.WriteFile(filepath.Join(tmpDir, p), nil, 0600); err != nil {
+			if err = os.WriteFile(filepath.Join(tmpDir, p), nil, 0600); err != nil {
 				return
 			}
 		}

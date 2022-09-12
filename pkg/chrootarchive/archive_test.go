@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -52,10 +51,10 @@ func TestChrootTarUntar(t *testing.T) {
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(src, "toto"), []byte("hello toto"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "toto"), []byte("hello toto"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(src, "lolo"), []byte("hello lolo"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "lolo"), []byte("hello lolo"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	stream, err := archive.Tar(src, archive.Uncompressed)
@@ -79,7 +78,7 @@ func TestChrootUntarWithHugeExcludesList(t *testing.T) {
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(src, "toto"), []byte("hello toto"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "toto"), []byte("hello toto"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	stream, err := archive.Tar(src, archive.Uncompressed)
@@ -114,7 +113,7 @@ func prepareSourceDirectory(numberOfFiles int, targetPath string, makeSymLinks b
 	fileData := []byte("fooo")
 	for n := 0; n < numberOfFiles; n++ {
 		fileName := fmt.Sprintf("file-%d", n)
-		if err := ioutil.WriteFile(filepath.Join(targetPath, fileName), fileData, 0700); err != nil {
+		if err := os.WriteFile(filepath.Join(targetPath, fileName), fileData, 0700); err != nil {
 			return 0, err
 		}
 		if makeSymLinks {
@@ -128,7 +127,7 @@ func prepareSourceDirectory(numberOfFiles int, targetPath string, makeSymLinks b
 }
 
 func getHash(filename string) (uint32, error) {
-	stream, err := ioutil.ReadFile(filename)
+	stream, err := os.ReadFile(filename)
 	if err != nil {
 		return 0, err
 	}
@@ -426,7 +425,7 @@ func TestChrootUntarPath(t *testing.T) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stream)
 	tarfile := filepath.Join(tmpdir, "src.tar")
-	if err := ioutil.WriteFile(tarfile, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(tarfile, buf.Bytes(), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := UntarPath(tarfile, dest); err != nil {
@@ -475,7 +474,7 @@ func TestChrootUntarPathAndChown(t *testing.T) {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(stream)
 	tarfile := filepath.Join(tmpdir, "src.tar")
-	if err := ioutil.WriteFile(tarfile, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(tarfile, buf.Bytes(), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if err := untarFunc(tarfile, dest); err != nil {
@@ -539,7 +538,7 @@ func TestChrootApplyDotDotFile(t *testing.T) {
 	if err := os.MkdirAll(src, 0700); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(filepath.Join(src, "..gitme"), []byte(""), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(src, "..gitme"), []byte(""), 0644); err != nil {
 		t.Fatal(err)
 	}
 	stream, err := archive.Tar(src, archive.Uncompressed)

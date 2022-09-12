@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -692,7 +691,7 @@ func testMountMoreThan42Layers(t *testing.T, mountPath string) {
 	// Perform the actual mount for the top most image
 	point, err := driverGet(d, last, "")
 	require.NoError(t, err)
-	files, err := ioutil.ReadDir(point)
+	files, err := os.ReadDir(point)
 	require.NoError(t, err)
 	assert.Len(t, files, expected)
 }

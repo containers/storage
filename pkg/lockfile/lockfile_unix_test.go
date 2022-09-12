@@ -1,9 +1,9 @@
+//go:build linux || solaris || darwin || freebsd
 // +build linux solaris darwin freebsd
 
 package lockfile
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,7 +21,7 @@ func TestOpenLock(t *testing.T) {
 		{
 			name: "file exists (read/write)",
 			prepare: func() (string, bool) {
-				tempFile, err := ioutil.TempFile("", "lock-")
+				tempFile, err := os.CreateTemp("", "lock-")
 				require.NoError(t, err)
 				return tempFile.Name(), false
 			},
@@ -29,7 +29,7 @@ func TestOpenLock(t *testing.T) {
 		{
 			name: "file exists readonly (readonly)",
 			prepare: func() (string, bool) {
-				tempFile, err := ioutil.TempFile("", "lock-")
+				tempFile, err := os.CreateTemp("", "lock-")
 				require.NoError(t, err)
 				return tempFile.Name(), true
 			},
@@ -45,7 +45,7 @@ func TestOpenLock(t *testing.T) {
 		{
 			name: "base dir not exists (read/write)",
 			prepare: func() (string, bool) {
-				tempDir, err := ioutil.TempDir("", "lock-")
+				tempDir, err := os.MkdirTemp("", "lock-")
 				require.NoError(t, err)
 				return filepath.Join(tempDir, "subdir", "test-1.lock"), false
 			},

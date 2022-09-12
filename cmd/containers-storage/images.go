@@ -55,9 +55,7 @@ func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args [
 			fmt.Fprintf(os.Stderr, "%+v\n", err)
 			return 1
 		}
-		for _, match := range matched {
-			images = append(images, match)
-		}
+		images = append(images, matched...)
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(images)
