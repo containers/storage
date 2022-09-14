@@ -266,10 +266,6 @@ type rwLayerStore interface {
 	// DifferTarget gets the location where files are stored for the layer.
 	DifferTarget(id string) (string, error)
 
-	// LoadLocked wraps Load in a locked state. This means it loads the store
-	// and cleans-up invalid layers if needed.
-	LoadLocked() error
-
 	// PutAdditionalLayer creates a layer using the diff contained in the additional layer
 	// store.
 	// This API is experimental and can be changed without bumping the major version number.
@@ -427,12 +423,6 @@ func (r *layerStore) Load() error {
 	}
 
 	return err
-}
-
-func (r *layerStore) LoadLocked() error {
-	r.lockfile.Lock()
-	defer r.lockfile.Unlock()
-	return r.Load()
 }
 
 func (r *layerStore) loadMounts() error {
