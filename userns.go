@@ -163,7 +163,7 @@ outer:
 		return 0, fmt.Errorf("cannot find layer %q", layerName)
 	}
 
-	rlstore, err := s.LayerStore()
+	rlstore, err := s.getLayerStore()
 	if err != nil {
 		return 0, err
 	}
