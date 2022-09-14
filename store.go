@@ -50,10 +50,10 @@ var (
 	storesLock sync.Mutex
 )
 
-// ROFileBasedStore wraps up the methods of the various types of file-based
+// roFileBasedStore wraps up the methods of the various types of file-based
 // data stores that we implement which are needed for both read-only and
 // read-write files.
-type ROFileBasedStore interface {
+type roFileBasedStore interface {
 	Locker
 
 	// Load reloads the contents of the store from disk.  It should be called
@@ -64,43 +64,43 @@ type ROFileBasedStore interface {
 	ReloadIfChanged() error
 }
 
-// RWFileBasedStore wraps up the methods of various types of file-based data
+// rwFileBasedStore wraps up the methods of various types of file-based data
 // stores that we implement using read-write files.
-type RWFileBasedStore interface {
+type rwFileBasedStore interface {
 	// Save saves the contents of the store to disk.  It should be called with
 	// the lock held, and Touch() should be called afterward before releasing the
 	// lock.
 	Save() error
 }
 
-// FileBasedStore wraps up the common methods of various types of file-based
+// fileBasedStore wraps up the common methods of various types of file-based
 // data stores that we implement.
-type FileBasedStore interface {
-	ROFileBasedStore
-	RWFileBasedStore
+type fileBasedStore interface {
+	roFileBasedStore
+	rwFileBasedStore
 }
 
-// ROMetadataStore wraps a method for reading metadata associated with an ID.
-type ROMetadataStore interface {
+// roMetadataStore wraps a method for reading metadata associated with an ID.
+type roMetadataStore interface {
 	// Metadata reads metadata associated with an item with the specified ID.
 	Metadata(id string) (string, error)
 }
 
-// RWMetadataStore wraps a method for setting metadata associated with an ID.
-type RWMetadataStore interface {
+// rwMetadataStore wraps a method for setting metadata associated with an ID.
+type rwMetadataStore interface {
 	// SetMetadata updates the metadata associated with the item with the specified ID.
 	SetMetadata(id, metadata string) error
 }
 
-// MetadataStore wraps up methods for getting and setting metadata associated with IDs.
-type MetadataStore interface {
-	ROMetadataStore
-	RWMetadataStore
+// metadataStore wraps up methods for getting and setting metadata associated with IDs.
+type metadataStore interface {
+	roMetadataStore
+	rwMetadataStore
 }
 
-// An ROBigDataStore wraps up the read-only big-data related methods of the
+// An roBigDataStore wraps up the read-only big-data related methods of the
 // various types of file-based lookaside stores that we implement.
-type ROBigDataStore interface {
+type roBigDataStore interface {
 	// BigData retrieves a (potentially large) piece of data associated with
 	// this ID, if it has previously been set.
 	BigData(id, key string) ([]byte, error)
@@ -118,8 +118,8 @@ type ROBigDataStore interface {
 	BigDataNames(id string) ([]string, error)
 }
 
-// A RWImageBigDataStore wraps up how we store big-data associated with images.
-type RWImageBigDataStore interface {
+// A rwImageBigDataStore wraps up how we store big-data associated with images.
+type rwImageBigDataStore interface {
 	// SetBigData stores a (potentially large) piece of data associated
 	// with this ID.
 	// Pass github.com/containers/image/manifest.Digest as digestManifest
@@ -127,16 +127,16 @@ type RWImageBigDataStore interface {
 	SetBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error
 }
 
-// A ContainerBigDataStore wraps up how we store big-data associated with containers.
-type ContainerBigDataStore interface {
-	ROBigDataStore
+// A containerBigDataStore wraps up how we store big-data associated with containers.
+type containerBigDataStore interface {
+	roBigDataStore
 	// SetBigData stores a (potentially large) piece of data associated
 	// with this ID.
 	SetBigData(id, key string, data []byte) error
 }
 
-// A ROLayerBigDataStore wraps up how we store RO big-data associated with layers.
-type ROLayerBigDataStore interface {
+// A roLayerBigDataStore wraps up how we store RO big-data associated with layers.
+type roLayerBigDataStore interface {
 	// SetBigData stores a (potentially large) piece of data associated
 	// with this ID.
 	BigData(id, key string) (io.ReadCloser, error)
@@ -146,21 +146,15 @@ type ROLayerBigDataStore interface {
 	BigDataNames(id string) ([]string, error)
 }
 
-// A RWLayerBigDataStore wraps up how we store big-data associated with layers.
-type RWLayerBigDataStore interface {
+// A rwLayerBigDataStore wraps up how we store big-data associated with layers.
+type rwLayerBigDataStore interface {
 	// SetBigData stores a (potentially large) piece of data associated
 	// with this ID.
 	SetBigData(id, key string, data io.Reader) error
 }
 
-// A LayerBigDataStore wraps up how we store big-data associated with layers.
-type LayerBigDataStore interface {
-	ROLayerBigDataStore
-	RWLayerBigDataStore
-}
-
-// A FlaggableStore can have flags set and cleared on items which it manages.
-type FlaggableStore interface {
+// A flaggableStore can have flags set and cleared on items which it manages.
+type flaggableStore interface {
 	// ClearFlag removes a named flag from an item in the store.
 	ClearFlag(id string, flag string) error
 
@@ -623,11 +617,11 @@ type store struct {
 	autoNsMinSize   uint32
 	autoNsMaxSize   uint32
 	graphDriver     drivers.Driver
-	layerStore      LayerStore
-	roLayerStores   []ROLayerStore
-	imageStore      ImageStore
-	roImageStores   []ROImageStore
-	containerStore  ContainerStore
+	layerStore      rwLayerStore
+	roLayerStores   []roLayerStore
+	imageStore      rwImageStore
+	roImageStores   []roImageStore
+	containerStore  rwContainerStore
 	digestLockRoot  string
 	disableVolatile bool
 }
@@ -897,7 +891,7 @@ func (s *store) GraphDriver() (drivers.Driver, error) {
 
 // getLayerStore obtains and returns a handle to the writeable layer store object
 // used by the Store.
-func (s *store) getLayerStore() (LayerStore, error) {
+func (s *store) getLayerStore() (rwLayerStore, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
 	if s.graphLock.TouchedSince(s.lastLoaded) {
@@ -931,7 +925,7 @@ func (s *store) getLayerStore() (LayerStore, error) {
 
 // getROLayerStores obtains additional read/only layer store objects used by the
 // Store.
-func (s *store) getROLayerStores() ([]ROLayerStore, error) {
+func (s *store) getROLayerStores() ([]roLayerStore, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
 	if s.roLayerStores != nil {
@@ -959,7 +953,7 @@ func (s *store) getROLayerStores() ([]ROLayerStore, error) {
 
 // allLayerStores returns a list of all layer store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
-func (s *store) allLayerStores() ([]ROLayerStore, error) {
+func (s *store) allLayerStores() ([]roLayerStore, error) {
 	primary, err := s.getLayerStore()
 	if err != nil {
 		return nil, fmt.Errorf("loading primary layer store data: %w", err)
@@ -968,12 +962,12 @@ func (s *store) allLayerStores() ([]ROLayerStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading additional layer stores: %w", err)
 	}
-	return append([]ROLayerStore{primary}, additional...), nil
+	return append([]roLayerStore{primary}, additional...), nil
 }
 
 // getImageStore obtains and returns a handle to the writable image store object
 // used by the Store.
-func (s *store) getImageStore() (ImageStore, error) {
+func (s *store) getImageStore() (rwImageStore, error) {
 	if s.imageStore != nil {
 		return s.imageStore, nil
 	}
@@ -982,7 +976,7 @@ func (s *store) getImageStore() (ImageStore, error) {
 
 // getROImageStores obtains additional read/only image store objects used by the
 // Store.
-func (s *store) getROImageStores() ([]ROImageStore, error) {
+func (s *store) getROImageStores() ([]roImageStore, error) {
 	if s.imageStore == nil {
 		return nil, ErrLoadError
 	}
@@ -992,7 +986,7 @@ func (s *store) getROImageStores() ([]ROImageStore, error) {
 
 // allImageStores returns a list of all image store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
-func (s *store) allImageStores() ([]ROImageStore, error) {
+func (s *store) allImageStores() ([]roImageStore, error) {
 	primary, err := s.getImageStore()
 	if err != nil {
 		return nil, fmt.Errorf("loading primary image store data: %w", err)
@@ -1001,12 +995,12 @@ func (s *store) allImageStores() ([]ROImageStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading additional image stores: %w", err)
 	}
-	return append([]ROImageStore{primary}, additional...), nil
+	return append([]roImageStore{primary}, additional...), nil
 }
 
 // getContainerStore obtains and returns a handle to the container store object
 // used by the Store.
-func (s *store) getContainerStore() (ContainerStore, error) {
+func (s *store) getContainerStore() (rwContainerStore, error) {
 	if s.containerStore != nil {
 		return s.containerStore, nil
 	}
@@ -1063,7 +1057,7 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 	gidMap := options.GIDMap
 	if parent != "" {
 		var ilayer *Layer
-		for _, l := range append([]ROLayerStore{rlstore}, rlstores...) {
+		for _, l := range append([]roLayerStore{rlstore}, rlstores...) {
 			lstore := l
 			if lstore != rlstore {
 				lstore.RLock()
@@ -1138,7 +1132,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 			return nil, err
 		}
 		var ilayer *Layer
-		for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+		for _, s := range append([]roLayerStore{lstore}, lstores...) {
 			store := s
 			if store == lstore {
 				store.Lock()
@@ -1179,7 +1173,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	return ristore.Create(id, names, layer, metadata, creationDate, options.Digest)
 }
 
-func (s *store) imageTopLayerForMapping(image *Image, ristore ROImageStore, createMappedLayer bool, rlstore LayerStore, lstores []ROLayerStore, options types.IDMappingOptions) (*Layer, error) {
+func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, createMappedLayer bool, rlstore rwLayerStore, lstores []roLayerStore, options types.IDMappingOptions) (*Layer, error) {
 	layerMatchesMappingOptions := func(layer *Layer, options types.IDMappingOptions) bool {
 		// If the driver supports shifting and the layer has no mappings, we can use it.
 		if s.canUseShifting(options.UIDMap, options.GIDMap) && len(layer.UIDMap) == 0 && len(layer.GIDMap) == 0 {
@@ -1196,7 +1190,7 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore ROImageStore, crea
 		return reflect.DeepEqual(layer.UIDMap, options.UIDMap) && reflect.DeepEqual(layer.GIDMap, options.GIDMap)
 	}
 	var layer, parentLayer *Layer
-	allStores := append([]ROLayerStore{rlstore}, lstores...)
+	allStores := append([]roLayerStore{rlstore}, lstores...)
 	// Locate the image's top layer and its parent, if it has one.
 	for _, s := range allStores {
 		store := s
@@ -1319,10 +1313,10 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		defer s.usernsLock.Unlock()
 	}
 
-	var imageHomeStore ROImageStore
-	var istore ImageStore
-	var istores []ROImageStore
-	var lstores []ROLayerStore
+	var imageHomeStore roImageStore
+	var istore rwImageStore
+	var istores []roImageStore
+	var lstores []roLayerStore
 	var cimage *Image
 	if image != "" {
 		var err error
@@ -1343,7 +1337,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		if err := rlstore.ReloadIfChanged(); err != nil {
 			return nil, err
 		}
-		for _, s := range append([]ROImageStore{istore}, istores...) {
+		for _, s := range append([]roImageStore{istore}, istores...) {
 			store := s
 			if store == istore {
 				store.Lock()
@@ -1765,7 +1759,7 @@ func (s *store) ImageSize(id string) (int64, error) {
 		return -1, err
 	}
 	// Look for the image's record.
-	var imageStore ROBigDataStore
+	var imageStore roBigDataStore
 	var image *Image
 	for _, s := range imageStores {
 		store := s
@@ -1801,7 +1795,7 @@ func (s *store) ImageSize(id string) (int64, error) {
 			}
 			visited[layerID] = struct{}{}
 			// Look for the layer and the store that knows about it.
-			var layerStore ROLayerStore
+			var layerStore roLayerStore
 			var layer *Layer
 			for _, store := range layerStores {
 				if layer, err = store.Get(layerID); err == nil {
@@ -2987,7 +2981,7 @@ func (s *store) ApplyDiff(to string, diff io.Reader) (int64, error) {
 	return -1, ErrLayerUnknown
 }
 
-func (s *store) layersByMappedDigest(m func(ROLayerStore, digest.Digest) ([]Layer, error), d digest.Digest) ([]Layer, error) {
+func (s *store) layersByMappedDigest(m func(roLayerStore, digest.Digest) ([]Layer, error), d digest.Digest) ([]Layer, error) {
 	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
@@ -3019,14 +3013,14 @@ func (s *store) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) {
 	if err := d.Validate(); err != nil {
 		return nil, fmt.Errorf("looking for compressed layers matching digest %q: %w", d, err)
 	}
-	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByCompressedDigest(d) }, d)
+	return s.layersByMappedDigest(func(r roLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByCompressedDigest(d) }, d)
 }
 
 func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 	if err := d.Validate(); err != nil {
 		return nil, fmt.Errorf("looking for layers matching digest %q: %w", d, err)
 	}
-	return s.layersByMappedDigest(func(r ROLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByUncompressedDigest(d) }, d)
+	return s.layersByMappedDigest(func(r roLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByUncompressedDigest(d) }, d)
 }
 
 func (s *store) LayerSize(id string) (int64, error) {
@@ -3245,7 +3239,7 @@ func (al *additionalLayer) PutAs(id, parent string, names []string) (*Layer, err
 
 	var parentLayer *Layer
 	if parent != "" {
-		for _, lstore := range append([]ROLayerStore{rlstore}, rlstores...) {
+		for _, lstore := range append([]roLayerStore{rlstore}, rlstores...) {
 			if lstore != rlstore {
 				lstore.RLock()
 				defer lstore.Unlock()

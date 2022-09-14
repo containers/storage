@@ -66,12 +66,12 @@ type Container struct {
 	Flags map[string]interface{} `json:"flags,omitempty"`
 }
 
-// ContainerStore provides bookkeeping for information about Containers.
-type ContainerStore interface {
-	FileBasedStore
-	MetadataStore
-	ContainerBigDataStore
-	FlaggableStore
+// rwContainerStore provides bookkeeping for information about Containers.
+type rwContainerStore interface {
+	fileBasedStore
+	metadataStore
+	containerBigDataStore
+	flaggableStore
 
 	// Create creates a container that has a specified ID (or generates a
 	// random one if an empty value is supplied) and optional names,
@@ -249,7 +249,7 @@ func (r *containerStore) Save() error {
 	return r.Touch()
 }
 
-func newContainerStore(dir string) (ContainerStore, error) {
+func newContainerStore(dir string) (rwContainerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}

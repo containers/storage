@@ -137,13 +137,13 @@ type DiffOptions struct {
 	Compression *archive.Compression
 }
 
-// ROLayerStore wraps a graph driver, adding the ability to refer to layers by
+// roLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
-type ROLayerStore interface {
-	ROFileBasedStore
-	ROMetadataStore
-	ROLayerBigDataStore
+type roLayerStore interface {
+	roFileBasedStore
+	roMetadataStore
+	roLayerBigDataStore
 
 	// Exists checks if a layer with the specified name or ID is known.
 	Exists(id string) bool
@@ -193,15 +193,15 @@ type ROLayerStore interface {
 	Layers() ([]Layer, error)
 }
 
-// LayerStore wraps a graph driver, adding the ability to refer to layers by
+// rwLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
-type LayerStore interface {
-	ROLayerStore
-	RWFileBasedStore
-	RWMetadataStore
-	FlaggableStore
-	RWLayerBigDataStore
+type rwLayerStore interface {
+	roLayerStore
+	rwFileBasedStore
+	rwMetadataStore
+	flaggableStore
+	rwLayerBigDataStore
 
 	// Create creates a new layer, optionally giving it a specified ID rather than
 	// a randomly-generated one, either inheriting data from another specified
@@ -540,7 +540,7 @@ func (r *layerStore) saveMounts() error {
 	return r.loadMounts()
 }
 
-func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Driver) (LayerStore, error) {
+func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Driver) (rwLayerStore, error) {
 	if err := os.MkdirAll(rundir, 0700); err != nil {
 		return nil, err
 	}
@@ -575,7 +575,7 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 	return &rlstore, nil
 }
 
-func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (ROLayerStore, error) {
+func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roLayerStore, error) {
 	lockfile, err := GetROLockfile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
