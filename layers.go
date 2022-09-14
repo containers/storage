@@ -177,10 +177,6 @@ type roLayerStore interface {
 	// found, it returns an error.
 	Size(name string) (int64, error)
 
-	// Lookup attempts to translate a name to an ID.  Most methods do this
-	// implicitly.
-	Lookup(name string) (string, error)
-
 	// LayersByCompressedDigest returns a slice of the layers with the
 	// specified compressed digest value recorded for them.
 	LayersByCompressedDigest(d digest.Digest) ([]Layer, error)
@@ -1373,13 +1369,6 @@ func (r *layerStore) Delete(id string) error {
 		return err
 	}
 	return r.Save()
-}
-
-func (r *layerStore) Lookup(name string) (id string, err error) {
-	if layer, ok := r.lookup(name); ok {
-		return layer.ID, nil
-	}
-	return "", ErrLayerUnknown
 }
 
 func (r *layerStore) Exists(id string) bool {

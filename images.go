@@ -106,10 +106,6 @@ type roImageStore interface {
 	// Get retrieves information about an image given an ID or name.
 	Get(id string) (*Image, error)
 
-	// Lookup attempts to translate a name to an ID.  Most methods do this
-	// implicitly.
-	Lookup(name string) (string, error)
-
 	// Images returns a slice enumerating the known images.
 	Images() ([]Image, error)
 
@@ -612,13 +608,6 @@ func (r *imageStore) Get(id string) (*Image, error) {
 		return copyImage(image), nil
 	}
 	return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
-}
-
-func (r *imageStore) Lookup(name string) (id string, err error) {
-	if image, ok := r.lookup(name); ok {
-		return image.ID, nil
-	}
-	return "", fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) Exists(id string) bool {
