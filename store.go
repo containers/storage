@@ -959,6 +959,20 @@ func (s *store) ROLayerStores() ([]ROLayerStore, error) {
 	return s.roLayerStores, nil
 }
 
+// allLayerStores returns a list of all layer store objects used by the Store.
+// This is a convenience method for read-only users of the Store.
+func (s *store) allLayerStores() ([]ROLayerStore, error) {
+	primary, err := s.LayerStore()
+	if err != nil {
+		return nil, fmt.Errorf("loading primary layer store data: %w", err)
+	}
+	additional, err := s.ROLayerStores()
+	if err != nil {
+		return nil, fmt.Errorf("loading additional layer stores: %w", err)
+	}
+	return append([]ROLayerStore{primary}, additional...), nil
+}
+
 // ImageStore obtains and returns a handle to the writable image store object
 // used by the Store.  Accessing this store directly will bypass locking and
 // synchronization, so it is not a part of the exported Store interface.
@@ -978,6 +992,20 @@ func (s *store) ROImageStores() ([]ROImageStore, error) {
 	}
 
 	return s.roImageStores, nil
+}
+
+// allImageStores returns a list of all image store objects used by the Store.
+// This is a convenience method for read-only users of the Store.
+func (s *store) allImageStores() ([]ROImageStore, error) {
+	primary, err := s.ImageStore()
+	if err != nil {
+		return nil, fmt.Errorf("loading primary image store data: %w", err)
+	}
+	additional, err := s.ROImageStores()
+	if err != nil {
+		return nil, fmt.Errorf("loading additional image stores: %w", err)
+	}
+	return append([]ROImageStore{primary}, additional...), nil
 }
 
 // ContainerStore obtains and returns a handle to the container store object
@@ -1499,15 +1527,11 @@ func (s *store) SetMetadata(id, metadata string) error {
 }
 
 func (s *store) Metadata(id string) (string, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return "", err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return "", err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1519,15 +1543,11 @@ func (s *store) Metadata(id string) (string, error) {
 		}
 	}
 
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return "", err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return "", err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1555,15 +1575,11 @@ func (s *store) Metadata(id string) (string, error) {
 }
 
 func (s *store) ListImageBigData(id string) ([]string, error) {
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return nil, err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1579,15 +1595,11 @@ func (s *store) ListImageBigData(id string) ([]string, error) {
 }
 
 func (s *store) ImageBigDataSize(id, key string) (int64, error) {
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return -1, err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return -1, err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1603,16 +1615,11 @@ func (s *store) ImageBigDataSize(id, key string) (int64, error) {
 }
 
 func (s *store) ImageBigDataDigest(id, key string) (digest.Digest, error) {
-	ristore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return "", err
 	}
-	stores, err := s.ROImageStores()
-	if err != nil {
-		return "", err
-	}
-	stores = append([]ROImageStore{ristore}, stores...)
-	for _, r := range stores {
+	for _, r := range imageStores {
 		ristore := r
 		ristore.RLock()
 		defer ristore.Unlock()
@@ -1628,16 +1635,13 @@ func (s *store) ImageBigDataDigest(id, key string) (digest.Digest, error) {
 }
 
 func (s *store) ImageBigData(id, key string) ([]byte, error) {
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return nil, err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
+
 	foundImage := false
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1661,16 +1665,12 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 // ListLayerBigData retrieves a list of the (possibly large) chunks of
 // named data associated with an layer.
 func (s *store) ListLayerBigData(id string) ([]string, error) {
-	lstore, err := s.LayerStore()
-	if err != nil {
-		return nil, err
-	}
-	lstores, err := s.ROLayerStores()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
 	}
 	foundLayer := false
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1694,16 +1694,12 @@ func (s *store) ListLayerBigData(id string) ([]string, error) {
 // LayerBigData retrieves a (possibly large) chunk of named data
 // associated with a layer.
 func (s *store) LayerBigData(id, key string) (io.ReadCloser, error) {
-	lstore, err := s.LayerStore()
-	if err != nil {
-		return nil, err
-	}
-	lstores, err := s.ROLayerStores()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
 	}
 	foundLayer := false
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1756,17 +1752,11 @@ func (s *store) SetImageBigData(id, key string, data []byte, digestManifest func
 }
 
 func (s *store) ImageSize(id string) (int64, error) {
-	var image *Image
-
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
-		return -1, fmt.Errorf("loading primary layer store data: %w", err)
+		return -1, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return -1, fmt.Errorf("loading additional layer stores: %w", err)
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1775,18 +1765,14 @@ func (s *store) ImageSize(id string) (int64, error) {
 		}
 	}
 
-	var imageStore ROBigDataStore
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
-		return -1, fmt.Errorf("loading primary image store data: %w", err)
+		return -1, err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return -1, fmt.Errorf("loading additional image stores: %w", err)
-	}
-
 	// Look for the image's record.
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	var imageStore ROBigDataStore
+	var image *Image
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1822,7 +1808,7 @@ func (s *store) ImageSize(id string) (int64, error) {
 			// Look for the layer and the store that knows about it.
 			var layerStore ROLayerStore
 			var layer *Layer
-			for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+			for _, store := range layerStores {
 				if layer, err = store.Get(layerID); err == nil {
 					layerStore = store
 					break
@@ -1866,15 +1852,11 @@ func (s *store) ImageSize(id string) (int64, error) {
 }
 
 func (s *store) ContainerSize(id string) (int64, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return -1, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return -1, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -1913,7 +1895,7 @@ func (s *store) ContainerSize(id string) (int64, error) {
 	// Read the container's layer's size.
 	var layer *Layer
 	var size int64
-	for _, store := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, store := range layerStores {
 		if layer, err = store.Get(container.LayerID); err == nil {
 			size, err = store.DiffSize("", layer.ID)
 			if err != nil {
@@ -2022,15 +2004,11 @@ func (s *store) SetContainerBigData(id, key string, data []byte) error {
 }
 
 func (s *store) Exists(id string) bool {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return false
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return false
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2042,15 +2020,11 @@ func (s *store) Exists(id string) bool {
 		}
 	}
 
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return false
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return false
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2200,15 +2174,11 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 }
 
 func (s *store) Names(id string) ([]string, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2220,15 +2190,11 @@ func (s *store) Names(id string) ([]string, error) {
 		}
 	}
 
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return nil, err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2256,15 +2222,11 @@ func (s *store) Names(id string) ([]string, error) {
 }
 
 func (s *store) Lookup(name string) (string, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return "", err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return "", err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2276,15 +2238,11 @@ func (s *store) Lookup(name string) (string, error) {
 		}
 	}
 
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return "", err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return "", err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2859,15 +2817,12 @@ func (s *store) Unmount(id string, force bool) (bool, error) {
 }
 
 func (s *store) Changes(from, to string) ([]archive.Change, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2882,15 +2837,11 @@ func (s *store) Changes(from, to string) ([]archive.Change, error) {
 }
 
 func (s *store) DiffSize(from, to string) (int64, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return -1, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return -1, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -2905,11 +2856,7 @@ func (s *store) DiffSize(from, to string) (int64, error) {
 }
 
 func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
-	lstore, err := s.LayerStore()
-	if err != nil {
-		return nil, err
-	}
-	lstores, err := s.ROLayerStores()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
 	}
@@ -2935,7 +2882,7 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		s.lastLoaded = time.Now()
 	}
 
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		if err := store.ReloadIfChanged(); err != nil {
@@ -3046,17 +2993,12 @@ func (s *store) ApplyDiff(to string, diff io.Reader) (int64, error) {
 }
 
 func (s *store) layersByMappedDigest(m func(ROLayerStore, digest.Digest) ([]Layer, error), d digest.Digest) ([]Layer, error) {
+	layerStores, err := s.allLayerStores()
+	if err != nil {
+		return nil, err
+	}
 	var layers []Layer
-	lstore, err := s.LayerStore()
-	if err != nil {
-		return nil, err
-	}
-
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -3093,15 +3035,11 @@ func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 }
 
 func (s *store) LayerSize(id string) (int64, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return -1, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return -1, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -3200,17 +3138,12 @@ func (s *store) Layers() ([]Layer, error) {
 }
 
 func (s *store) Images() ([]Image, error) {
+	imageStores, err := s.allImageStores()
+	if err != nil {
+		return nil, err
+	}
 	var images []Image
-	istore, err := s.ImageStore()
-	if err != nil {
-		return nil, err
-	}
-
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -3242,15 +3175,11 @@ func (s *store) Containers() ([]Container, error) {
 }
 
 func (s *store) Layer(id string) (*Layer, error) {
-	lstore, err := s.LayerStore()
+	layerStores, err := s.allLayerStores()
 	if err != nil {
 		return nil, err
 	}
-	lstores, err := s.ROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROLayerStore{lstore}, lstores...) {
+	for _, s := range layerStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -3347,15 +3276,11 @@ func (al *additionalLayer) Release() {
 }
 
 func (s *store) Image(id string) (*Image, error) {
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return nil, err
 	}
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -3371,22 +3296,17 @@ func (s *store) Image(id string) (*Image, error) {
 }
 
 func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {
-	images := []*Image{}
 	layer, err := s.Layer(id)
 	if err != nil {
 		return nil, err
 	}
 
-	istore, err := s.ImageStore()
+	imageStores, err := s.allImageStores()
 	if err != nil {
 		return nil, err
 	}
-
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range append([]ROImageStore{istore}, istores...) {
+	images := []*Image{}
+	for _, s := range imageStores {
 		store := s
 		store.RLock()
 		defer store.Unlock()
@@ -3407,18 +3327,12 @@ func (s *store) ImagesByTopLayer(id string) ([]*Image, error) {
 }
 
 func (s *store) ImagesByDigest(d digest.Digest) ([]*Image, error) {
+	imageStores, err := s.allImageStores()
+	if err != nil {
+		return nil, err
+	}
 	images := []*Image{}
-
-	istore, err := s.ImageStore()
-	if err != nil {
-		return nil, err
-	}
-
-	istores, err := s.ROImageStores()
-	if err != nil {
-		return nil, err
-	}
-	for _, store := range append([]ROImageStore{istore}, istores...) {
+	for _, store := range imageStores {
 		store.RLock()
 		defer store.Unlock()
 		if err := store.ReloadIfChanged(); err != nil {
