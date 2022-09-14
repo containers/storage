@@ -714,7 +714,7 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 				logrus.Debugf("overlay: test mount with multiple lowers succeeded")
 				return supportsDType, nil
 			}
-			logrus.Debugf("overlay: test mount with multiple lowers failed %v", err)
+			logrus.Debugf("overlay: test mount with multiple lowers failed: %v", err)
 		}
 		flags = fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s", lower1Dir, upperDir, workDir)
 		if selinux.GetEnabled() {
@@ -726,7 +726,7 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 				logrus.StandardLogger().Logf(logLevel, "overlay: test mount with multiple lowers failed, but succeeded with a single lower")
 				return supportsDType, fmt.Errorf("kernel too old to provide multiple lowers feature for overlay: %w", graphdriver.ErrNotSupported)
 			}
-			logrus.Debugf("overlay: test mount with a single lower failed %v", err)
+			logrus.Debugf("overlay: test mount with a single lower failed: %v", err)
 		}
 		logrus.StandardLogger().Logf(logLevel, "'overlay' is not supported over %s at %q", backingFs, home)
 		return supportsDType, fmt.Errorf("'overlay' is not supported over %s at %q: %w", backingFs, home, graphdriver.ErrIncompatibleFS)
@@ -1310,7 +1310,7 @@ func (d *Driver) recreateSymlinks() error {
 }
 
 // Get creates and mounts the required file system for the given id and returns the mount path.
-func (d *Driver) Get(id string, options graphdriver.MountOpts) (_ string, retErr error) {
+func (d *Driver) Get(id string, options graphdriver.MountOpts) (string, error) {
 	return d.get(id, false, options)
 }
 
