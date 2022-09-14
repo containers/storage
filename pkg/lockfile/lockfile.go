@@ -19,6 +19,9 @@ type Locker interface {
 
 	// Acquire a writer lock recursively, allowing for recursive acquisitions
 	// within the same process space.
+	//
+	// Deprecated: This can block indefinitely if the current goroutine owns the lock, and another goroutine is trying to acquire a writer lock.
+	// Do not use this.
 	RecursiveLock()
 
 	// Unlock the lock.

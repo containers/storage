@@ -1895,6 +1895,8 @@ func (r *layerStore) Lock() {
 	r.lockfile.Lock()
 }
 
+// Deprecated: This can block indefinitely if the current goroutine owns the lock, and another goroutine is trying to acquire a writer lock.
+// Do not use this.
 func (r *layerStore) RecursiveLock() {
 	r.lockfile.RecursiveLock()
 }

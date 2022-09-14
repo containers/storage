@@ -143,8 +143,13 @@ func (l *lockfile) lock(lType int16, recursive bool) {
 		l.rwMutex.RLock()
 	case unix.F_WRLCK:
 		if recursive {
-			// NOTE: that's okay as recursive is only set in RecursiveLock(), so
-			// there's no need to protect against hypothetical RDLCK cases.
+			// WARNING: This is invalid according to the sync.RWMutex API:
+			// sync.RWMutex must not be used recursively, because
+			// RLock() will block on a goroutine that owns the lock already
+			// if there is another goroutine blocked in rwMutex.Lock().
+			//
+			// Recursive is only set in RecursiveLock(), so we only need to check
+			// “recursive” in the unix.F_WRLCK case.
 			l.rwMutex.RLock()
 		} else {
 			l.rwMutex.Lock()
@@ -187,6 +192,9 @@ func (l *lockfile) Lock() {
 // RecursiveLock locks the lockfile as a writer but allows for recursive
 // acquisitions within the same process space.  Note that RLock() will be called
 // if it's a lockTypReader lock.
+//
+// Deprecated: This can block indefinitely if the current goroutine owns the lock, and another goroutine is trying to acquire a writer lock.
+// Do not use this.
 func (l *lockfile) RecursiveLock() {
 	if l.ro {
 		l.RLock()
