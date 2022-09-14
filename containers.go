@@ -143,26 +143,26 @@ func copyContainer(c *Container) *Container {
 }
 
 func (c *Container) MountLabel() string {
-	if label, ok := c.Flags["MountLabel"].(string); ok {
+	if label, ok := c.Flags[mountLabelFlag].(string); ok {
 		return label
 	}
 	return ""
 }
 
 func (c *Container) ProcessLabel() string {
-	if label, ok := c.Flags["ProcessLabel"].(string); ok {
+	if label, ok := c.Flags[processLabelFlag].(string); ok {
 		return label
 	}
 	return ""
 }
 
 func (c *Container) MountOpts() []string {
-	switch c.Flags["MountOpts"].(type) {
+	switch c.Flags[mountOptsFlag].(type) {
 	case []string:
-		return c.Flags["MountOpts"].([]string)
+		return c.Flags[mountOptsFlag].([]string)
 	case []interface{}:
 		var mountOpts []string
-		for _, v := range c.Flags["MountOpts"].([]interface{}) {
+		for _, v := range c.Flags[mountOptsFlag].([]interface{}) {
 			if flag, ok := v.(string); ok {
 				mountOpts = append(mountOpts, flag)
 			}
@@ -320,10 +320,10 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 		return nil, ErrDuplicateID
 	}
 	if options.MountOpts != nil {
-		options.Flags["MountOpts"] = append([]string{}, options.MountOpts...)
+		options.Flags[mountOptsFlag] = append([]string{}, options.MountOpts...)
 	}
 	if options.Volatile {
-		options.Flags["Volatile"] = true
+		options.Flags[volatileFlag] = true
 	}
 	names = dedupeNames(names)
 	for _, name := range names {
