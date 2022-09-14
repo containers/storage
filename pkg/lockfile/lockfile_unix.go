@@ -71,8 +71,10 @@ func newLastWriterID() []byte {
 // openLock will create the file and its parent directories,
 // if necessary.
 func openLock(path string, ro bool) (fd int, err error) {
-	flags := os.O_RDONLY | unix.O_CLOEXEC | os.O_CREATE
-	if !ro {
+	flags := unix.O_CLOEXEC | os.O_CREATE
+	if ro {
+		flags |= os.O_RDONLY
+	} else {
 		flags |= os.O_RDWR
 	}
 	fd, err = unix.Open(path, flags, 0o644)
