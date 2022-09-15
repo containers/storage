@@ -965,10 +965,10 @@ load helpers
 
 @test "idmaps-create-layer-from-another-image-store" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	overlay*|vfs)
 		;;
 	*)
-		skip "not supported by driver $STORAGE_DRIVER"
+		skip ".imagestore option not supported by driver ${STORAGE_DRIVER}"
 		;;
 	esac
 	case "$STORAGE_OPTION" in
