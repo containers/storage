@@ -23,13 +23,9 @@ clean:
 	rm -rf $(BUILDDIR)
 
 $(BUILDDIR): \
-	$(BUILDDIR)/ffjson \
 	$(BUILDDIR)/git-validation \
 	$(BUILDDIR)/go-md2man \
 	$(BUILDDIR)/golangci-lint
-
-$(BUILDDIR)/ffjson:
-	$(call go-build,./vendor/github.com/pquerna/ffjson)
 
 $(BUILDDIR)/git-validation:
 	$(call go-build,./vendor/github.com/vbatts/git-validation)
