@@ -15,7 +15,7 @@ require (
 	github.com/klauspost/compress v1.15.9
 	github.com/klauspost/pgzip v1.2.5
 	github.com/mattn/go-shellwords v1.0.12
-	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
+	github.com/mistifyio/go-zfs/v3 v3.0.0
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/runc v1.1.4
