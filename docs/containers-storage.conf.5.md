@@ -91,7 +91,7 @@ containers/storage supports four keys
 
 **remap-uids=**""
 **remap-gids=**""
-  Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of a container, to the UIDs/GIDs outside of the container, and the length of the range of UIDs/GIDs.  Additional mapped sets can be listed and will be needed by libraries, but there are limits to the number of mappings which the kernel will allow when you later attempt to run a container.
+  Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of a container, to the UIDs/GIDs outside of the container, and the length of the range of UIDs/GIDs.  Additional mapped sets can be listed and will be heeded by libraries, but there are limits to the number of mappings which the kernel will allow when you later attempt to run a container.
 
   Example
      remap-uids = 0:1668442479:65536
