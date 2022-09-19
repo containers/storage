@@ -22,9 +22,6 @@ func TestFromStatT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if stat.Mode != s.Mode() {
-		t.Fatal("got invalid mode")
-	}
 	if stat.Uid != s.UID() {
 		t.Fatal("got invalid uid")
 	}
@@ -34,7 +31,7 @@ func TestFromStatT(t *testing.T) {
 	if stat.Rdev != s.Rdev() {
 		t.Fatal("got invalid rdev")
 	}
-	if stat.Mtim != s.Mtim() {
-		t.Fatal("got invalid mtim")
-	}
+	// Types for Mode can vary and not all platforms have an Mtim
+	// member in Stat_t
+	platformTestFromStatT(t, stat, s)
 }
