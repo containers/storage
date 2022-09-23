@@ -5,6 +5,7 @@ TESTSDIR=${TESTSDIR:-$(dirname ${BASH_SOURCE})}
 STORAGE_DRIVER=${STORAGE_DRIVER:-vfs}
 STORAGE_OPTION=${STORAGE_OPTION:-}
 PATH=$(dirname ${BASH_SOURCE})/..:${PATH}
+OS=$(uname -s)
 
 # Create a unique root directory and a runroot directory.
 function setup() {
