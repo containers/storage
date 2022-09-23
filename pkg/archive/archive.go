@@ -75,6 +75,7 @@ const (
 	solaris = "solaris"
 	windows = "windows"
 	darwin  = "darwin"
+	freebsd = "freebsd"
 )
 
 var xattrsToIgnore = map[string]interface{}{

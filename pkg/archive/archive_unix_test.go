@@ -188,7 +188,10 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 	require.NoError(t, err)
 	err = system.Mknod(filepath.Join(origin, "3"), unix.S_IFCHR, system.Mkdev(int64(12), int64(5)))
 	require.NoError(t, err)
-	err = system.Mknod(filepath.Join(origin, "4"), unix.S_IFIFO, system.Mkdev(int64(12), int64(5)))
+	if runtime.GOOS != freebsd {
+		// On FreeBSD mknod with S_IFIFO requires the dev argument to be zero.
+		err = system.Mknod(filepath.Join(origin, "4"), unix.S_IFIFO, system.Mkdev(int64(12), int64(5)))
+	}
 	require.NoError(t, err)
 
 	dest := t.TempDir()
@@ -215,7 +218,7 @@ func TestTarWithBlockCharFifo(t *testing.T) {
 
 // TestTarUntarWithXattr is Unix as Lsetxattr is not supported on Windows
 func TestTarUntarWithXattr(t *testing.T) {
-	if runtime.GOOS == solaris {
+	if runtime.GOOS == solaris || runtime.GOOS == freebsd {
 		t.Skip()
 	}
 	origin := t.TempDir()
