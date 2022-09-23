@@ -124,3 +124,8 @@ func handleLChmod(hdr *tar.Header, path string, hdrInfo os.FileInfo, forceMask *
 	}
 	return nil
 }
+
+// Hardlink without following symlinks
+func handleLLink(targetPath string, path string) error {
+	return unix.Linkat(unix.AT_FDCWD, targetPath, unix.AT_FDCWD, path, 0)
+}

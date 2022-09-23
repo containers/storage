@@ -671,7 +671,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		if !strings.HasPrefix(targetPath, extractDir) {
 			return breakoutError(fmt.Errorf("invalid hardlink %q -> %q", targetPath, hdr.Linkname))
 		}
-		if err := os.Link(targetPath, path); err != nil {
+		if err := handleLLink(targetPath, path); err != nil {
 			return err
 		}
 
