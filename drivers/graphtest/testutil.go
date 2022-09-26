@@ -57,7 +57,7 @@ func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) e
 		return err
 	}
 
-	if bytes.Compare(fileContent, content) != 0 {
+	if !bytes.Equal(fileContent, content) {
 		return fmt.Errorf("mismatched file content %v, expecting %v", fileContent, content)
 	}
 
@@ -216,7 +216,7 @@ func checkManyFiles(drv graphdriver.Driver, layer string, count int, seed int64)
 
 			content := randomContent(64, seed+int64(i+j))
 
-			if bytes.Compare(fileContent, content) != 0 {
+			if !bytes.Equal(fileContent, content) {
 				return fmt.Errorf("mismatched file content %v, expecting %v", fileContent, content)
 			}
 		}
@@ -305,7 +305,7 @@ func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
 		return err
 	}
 
-	if bytes.Compare(layerIDBytes, []byte(layer)) != 0 {
+	if !bytes.Equal(layerIDBytes, []byte(layer)) {
 		return fmt.Errorf("mismatched file content %v, expecting %v", layerIDBytes, []byte(layer))
 	}
 
@@ -316,7 +316,7 @@ func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
 		if err != nil {
 			return err
 		}
-		if bytes.Compare(thisLayerIDBytes, layerIDBytes) != 0 {
+		if !bytes.Equal(thisLayerIDBytes, layerIDBytes) {
 			return fmt.Errorf("mismatched file content %v, expecting %v", thisLayerIDBytes, layerIDBytes)
 		}
 		layerIDBytes, err = os.ReadFile(path.Join(layerDir, "parent-id"))
