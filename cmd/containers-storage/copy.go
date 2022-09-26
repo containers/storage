@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -53,7 +54,12 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			return 1, fmt.Errorf("error mounting layer %q: %+v", targetLayer.ID, err)
 		}
 		target = filepath.Join(targetMount, targetParts[1])
-		defer m.Unmount(targetLayer.ID, false)
+		defer func() {
+			if _, err := m.Unmount(targetLayer.ID, false); err != nil {
+				fmt.Fprintf(os.Stderr, "error unmounting layer %q: %+v\n", targetLayer.ID, err)
+				// Does not change the exit code
+			}
+		}()
 	}
 	args = args[:len(args)-1]
 	for _, srcSpec := range args {
@@ -74,7 +80,12 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 				return 1, fmt.Errorf("error mounting layer %q: %+v", sourceLayer.ID, err)
 			}
 			source = filepath.Join(sourceMount, sourceParts[1])
-			defer m.Unmount(sourceLayer.ID, false)
+			defer func() {
+				if _, err := m.Unmount(sourceLayer.ID, false); err != nil {
+					fmt.Fprintf(os.Stderr, "error unmounting layer %q: %+v\n", sourceLayer.ID, err)
+					// Does not change the exit code
+				}
+			}()
 		}
 		archiver := chrootarchive.NewArchiverWithChown(tarIDMappings, chownOpts, untarIDMappings)
 		if err := archiver.CopyWithTar(source, target); err != nil {

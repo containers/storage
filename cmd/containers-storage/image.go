@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -23,7 +22,9 @@ func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matched)
+		if _, err := outputJSON(matched); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, image := range matched {
 			fmt.Printf("ID: %s\n", image.ID)
@@ -67,11 +68,10 @@ func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(d)
-	} else {
-		for _, name := range d {
-			fmt.Printf("%s\n", name)
-		}
+		return outputJSON(d)
+	}
+	for _, name := range d {
+		fmt.Printf("%s\n", name)
 	}
 	return 0, nil
 }
@@ -93,7 +93,9 @@ func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args 
 	if err != nil {
 		return 1, err
 	}
-	output.Write(b)
+	if _, err := output.Write(b); err != nil {
+		return 1, err
+	}
 	output.Close()
 	return 0, nil
 }

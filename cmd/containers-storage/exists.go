@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
@@ -45,7 +43,9 @@ func exist(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(existDict)
+		if _, err := outputJSON(existDict); err != nil {
+			return 1, err
+		}
 	} else {
 		if !existQuiet {
 			for what, exists := range existDict {

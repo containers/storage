@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/internal/opts"
@@ -23,11 +21,10 @@ func getNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(append([]string{}, names...))
-	} else {
-		for _, name := range names {
-			fmt.Printf("%s\n", name)
-		}
+		return outputJSON(append([]string{}, names...))
+	}
+	for _, name := range names {
+		fmt.Printf("%s\n", name)
 	}
 	return 0, nil
 }
@@ -59,7 +56,9 @@ func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(names)
+		if _, err := outputJSON(names); err != nil {
+			return 1, err
+		}
 	}
 	return 0, nil
 }
@@ -80,7 +79,9 @@ func setNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(names)
+		if _, err := outputJSON(names); err != nil {
+			return 1, err
+		}
 	}
 	return 0, nil
 }

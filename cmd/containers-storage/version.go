@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -15,11 +14,10 @@ func version(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		return 1, fmt.Errorf("version: %+v", err)
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(version)
-	} else {
-		for _, pair := range version {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", pair[0], pair[1])
-		}
+		return outputJSON(version)
+	}
+	for _, pair := range version {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", pair[0], pair[1])
 	}
 	return 0, nil
 }

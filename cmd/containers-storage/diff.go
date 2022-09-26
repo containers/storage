@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -34,20 +33,19 @@ func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(changes)
-	} else {
-		for _, change := range changes {
-			what := "?"
-			switch change.Kind {
-			case archive.ChangeAdd:
-				what = "Add"
-			case archive.ChangeModify:
-				what = "Modify"
-			case archive.ChangeDelete:
-				what = "Delete"
-			}
-			fmt.Printf("%s %q\n", what, change.Path)
+		return outputJSON(changes)
+	}
+	for _, change := range changes {
+		what := "?"
+		switch change.Kind {
+		case archive.ChangeAdd:
+			what = "Add"
+		case archive.ChangeModify:
+			what = "Modify"
+		case archive.ChangeDelete:
+			what = "Delete"
 		}
+		fmt.Printf("%s %q\n", what, change.Path)
 	}
 	return 0, nil
 }

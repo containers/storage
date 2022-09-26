@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -133,4 +134,13 @@ func main() {
 	}
 	fmt.Printf("%s: unrecognized command.\n", cmd)
 	os.Exit(1)
+}
+
+// outputJSON formats its input as JSON to stdout, and returns values suitable
+// for directly returning from command.action
+func outputJSON(data interface{}) (int, error) {
+	if err := json.NewEncoder(os.Stdout).Encode(data); err != nil {
+		return 1, err
+	}
+	return 0, nil
 }

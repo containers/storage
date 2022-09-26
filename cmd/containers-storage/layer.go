@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -24,11 +23,10 @@ func listLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(d)
-	} else {
-		for _, name := range d {
-			fmt.Printf("%s\n", name)
-		}
+		return outputJSON(d)
+	}
+	for _, name := range d {
+		fmt.Printf("%s\n", name)
 	}
 	return 0, nil
 }
@@ -85,7 +83,9 @@ func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matched)
+		if _, err := outputJSON(matched); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, layer := range matched {
 			fmt.Printf("ID: %s\n", layer.ID)
@@ -134,7 +134,9 @@ func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, arg
 				UIDs: uids,
 				GIDs: gids,
 			}
-			json.NewEncoder(os.Stdout).Encode(mappings)
+			if _, err := outputJSON(mappings); err != nil {
+				return 1, err
+			}
 		} else {
 			fmt.Printf("ID: %s\n", layer.ID)
 			if len(uids) > 0 {

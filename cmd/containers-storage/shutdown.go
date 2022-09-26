@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
@@ -15,17 +13,15 @@ var (
 
 func shutdown(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	_, err := m.Shutdown(forceShutdown)
+	if err != nil {
+		if jsonOutput {
+			_, err2 := outputJSON(err)
+			return 1, err2 // Note that err2 is usually nil
+		}
+		return 1, fmt.Errorf("%s: %+v", action, err)
+	}
 	if jsonOutput {
-		if err == nil {
-			json.NewEncoder(os.Stdout).Encode(string(""))
-		} else {
-			json.NewEncoder(os.Stdout).Encode(err)
-			return 1, nil
-		}
-	} else {
-		if err != nil {
-			return 1, fmt.Errorf("%s: %+v", action, err)
-		}
+		return outputJSON(string(""))
 	}
 	return 0, nil
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -87,12 +86,11 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(layer)
-	} else {
-		fmt.Printf("%s\n", layer.ID)
-		for _, name := range layer.Names {
-			fmt.Printf("\t%s\n", name)
-		}
+		return outputJSON(layer)
+	}
+	fmt.Printf("%s\n", layer.ID)
+	for _, name := range layer.Names {
+		fmt.Printf("\t%s\n", name)
 	}
 	return 0, nil
 }
@@ -121,12 +119,11 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(layer)
-	} else {
-		fmt.Printf("%s\n", layer.ID)
-		for _, name := range layer.Names {
-			fmt.Printf("\t%s\n", name)
-		}
+		return outputJSON(layer)
+	}
+	fmt.Printf("%s\n", layer.ID)
+	for _, name := range layer.Names {
+		fmt.Printf("\t%s\n", name)
 	}
 	return 0, nil
 }
@@ -155,12 +152,11 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(image)
-	} else {
-		fmt.Printf("%s\n", image.ID)
-		for _, name := range image.Names {
-			fmt.Printf("\t%s\n", name)
-		}
+		return outputJSON(image)
+	}
+	fmt.Printf("%s\n", image.ID)
+	for _, name := range image.Names {
+		fmt.Printf("\t%s\n", name)
 	}
 	return 0, nil
 }
@@ -188,12 +184,11 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(container)
-	} else {
-		fmt.Printf("%s\n", container.ID)
-		for _, name := range container.Names {
-			fmt.Printf("\t%s", name)
-		}
+		return outputJSON(container)
+	}
+	fmt.Printf("%s\n", container.ID)
+	for _, name := range container.Names {
+		fmt.Printf("\t%s", name)
 	}
 	return 0, nil
 }

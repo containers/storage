@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -26,7 +25,9 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matches)
+		if _, err := outputJSON(matches); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, container := range matches {
 			fmt.Printf("ID: %s\n", container.ID)
@@ -70,11 +71,10 @@ func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, 
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(d)
-	} else {
-		for _, name := range d {
-			fmt.Printf("%s\n", name)
-		}
+		return outputJSON(d)
+	}
+	for _, name := range d {
+		fmt.Printf("%s\n", name)
 	}
 	return 0, nil
 }
@@ -96,7 +96,9 @@ func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, a
 	if err != nil {
 		return 1, err
 	}
-	output.Write(b)
+	if _, err := output.Write(b); err != nil {
+		return 1, err
+	}
 	output.Close()
 	return 0, nil
 }
@@ -194,7 +196,9 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 				UIDs: uids,
 				GIDs: gids,
 			}
-			json.NewEncoder(os.Stdout).Encode(mappings)
+			if _, err := outputJSON(mappings); err != nil {
+				return 1, err
+			}
 		} else {
 			fmt.Printf("ID: %s\n", container.ID)
 			fmt.Printf("UIDs: %v\n", uids)

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
@@ -17,8 +15,7 @@ func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(layers)
-		return 0, nil
+		return outputJSON(layers)
 	}
 	imageMap := make(map[string]*[]storage.Image)
 	if images, err := m.Images(); err == nil {
