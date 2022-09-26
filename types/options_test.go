@@ -76,8 +76,7 @@ func TestGetRootlessStorageOpts(t *testing.T) {
 	})
 
 	t.Run("STORAGE_DRIVER=btrfs", func(t *testing.T) {
-		os.Setenv("STORAGE_DRIVER", "btrfs")
-		defer os.Unsetenv("STORAGE_DRIVER")
+		t.Setenv("STORAGE_DRIVER", "btrfs")
 		systemOpts := StoreOptions{}
 		systemOpts.GraphDriverName = vfsDriver
 		storageOpts, err := getRootlessStorageOpts(1000, systemOpts)
@@ -86,8 +85,7 @@ func TestGetRootlessStorageOpts(t *testing.T) {
 	})
 
 	t.Run("STORAGE_DRIVER=zfs", func(t *testing.T) {
-		os.Setenv("STORAGE_DRIVER", "zfs")
-		defer os.Unsetenv("STORAGE_DRIVER")
+		t.Setenv("STORAGE_DRIVER", "zfs")
 		systemOpts := StoreOptions{}
 		systemOpts.GraphDriverName = vfsDriver
 		storageOpts, err := getRootlessStorageOpts(1000, systemOpts)
