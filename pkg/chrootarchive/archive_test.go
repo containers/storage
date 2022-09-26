@@ -16,6 +16,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/reexec"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -423,7 +424,8 @@ func TestChrootUntarPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(stream)
+	_, err = buf.ReadFrom(stream)
+	require.NoError(t, err)
 	tarfile := filepath.Join(tmpdir, "src.tar")
 	if err := os.WriteFile(tarfile, buf.Bytes(), 0644); err != nil {
 		t.Fatal(err)
@@ -472,7 +474,8 @@ func TestChrootUntarPathAndChown(t *testing.T) {
 	}
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(stream)
+	_, err = buf.ReadFrom(stream)
+	require.NoError(t, err)
 	tarfile := filepath.Join(tmpdir, "src.tar")
 	if err := os.WriteFile(tarfile, buf.Bytes(), 0644); err != nil {
 		t.Fatal(err)

@@ -12,6 +12,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // ResetForTesting clears all flag state and sets the usage function as directed.
@@ -76,14 +79,19 @@ func TestEverything(t *testing.T) {
 		}
 	}
 	// Now set all flags
-	Set("test_bool", "true")
-	Set("test_int", "1")
-	Set("test_int64", "1")
-	Set("test_uint", "1")
-	Set("test_uint64", "1")
-	Set("test_string", "1")
-	Set("test_float64", "1")
-	Set("test_duration", "1s")
+	for _, e := range []struct{ name, value string }{
+		{"test_bool", "true"},
+		{"test_int", "1"},
+		{"test_int64", "1"},
+		{"test_uint", "1"},
+		{"test_uint64", "1"},
+		{"test_string", "1"},
+		{"test_float64", "1"},
+		{"test_duration", "1s"},
+	} {
+		err := Set(e.name, e.value)
+		require.NoError(t, err)
+	}
 	desired = "1"
 	Visit(visitor)
 	if len(m) != 8 {
@@ -274,7 +282,7 @@ func testPanic(t *testing.T, f *FlagSet) {
 	args := []string{
 		"-int", "21",
 	}
-	f.Parse(args)
+	_ = f.Parse(args)
 }
 
 func TestParsePanic(t *testing.T) {
@@ -366,7 +374,8 @@ func TestSetOutput(t *testing.T) {
 	var buf bytes.Buffer
 	flags.SetOutput(&buf)
 	flags.Init("test", ContinueOnError)
-	flags.Parse([]string{"-unknown"})
+	err := flags.Parse([]string{"-unknown"})
+	assert.ErrorContains(t, err, "unknown")
 	if out := buf.String(); !strings.Contains(out, "-unknown") {
 		t.Logf("expected output mentioning unknown; got %q", out)
 	}
@@ -518,7 +527,8 @@ func TestMergeFlags(t *testing.T) {
 	base.String([]string{"f"}, "", "")
 
 	fs := NewFlagSet("test", ContinueOnError)
-	Merge(fs, base)
+	err := Merge(fs, base)
+	require.NoError(t, err)
 	if len(fs.formal) != 1 {
 		t.Fatalf("FlagCount (%d) != number (1) of elements merged", len(fs.formal))
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/stretchr/testify/require"
 )
 
 // Test the behavior of TruncIndex, an index for querying IDs from a non-conflicting prefix.
@@ -134,7 +135,8 @@ func assertIndexIterateDoNotPanic(t *testing.T) {
 
 	go func() {
 		<-iterationStarted
-		index.Delete("19b36c2c326ccc11e726eee6ee78a0baf166ef96")
+		err := index.Delete("19b36c2c326ccc11e726eee6ee78a0baf166ef96")
+		require.NoError(t, err)
 	}()
 
 	index.Iterate(func(targetId string) {

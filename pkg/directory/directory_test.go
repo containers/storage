@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // Usage of an empty directory should be 0
@@ -45,7 +47,8 @@ func TestUsageNonemptyFile(t *testing.T) {
 	}
 
 	d := []byte{97, 98, 99, 100, 101}
-	file.Write(d)
+	_, err = file.Write(d)
+	require.NoError(t, err)
 
 	usage, _ := Usage(dir)
 	expectSizeAndInodeCount(t, "directory with one 5-byte file", usage, &DiskUsage{
@@ -92,7 +95,8 @@ func TestUsageFileAndNestedDirectoryEmpty(t *testing.T) {
 	}
 
 	d := []byte{100, 111, 99, 107, 101, 114}
-	file.Write(d)
+	_, err = file.Write(d)
+	require.NoError(t, err)
 
 	usage, _ := Usage(dir)
 	expectSizeAndInodeCount(t, "directory with 6-byte file and empty directory", usage, &DiskUsage{
@@ -117,7 +121,8 @@ func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
 	}
 
 	data := []byte{100, 111, 99, 107, 101, 114}
-	file.Write(data)
+	_, err = file.Write(data)
+	require.NoError(t, err)
 
 	var nestedFile *os.File
 	if nestedFile, err = os.CreateTemp(dirNested, "file"); err != nil {
@@ -125,7 +130,8 @@ func TestUsageFileAndNestedDirectoryNonempty(t *testing.T) {
 	}
 
 	nestedData := []byte{100, 111, 99, 107, 101, 114}
-	nestedFile.Write(nestedData)
+	_, err = nestedFile.Write(nestedData)
+	require.NoError(t, err)
 
 	usage, _ := Usage(dir)
 	expectSizeAndInodeCount(t, "directory with 6-byte file and nested directory with 6-byte file", usage, &DiskUsage{
@@ -150,7 +156,8 @@ func TestMoveToSubdir(t *testing.T) {
 		if file, err := os.Create(filepath.Join(outerDir, fName)); err != nil {
 			t.Fatalf("couldn't create temp file %q: %v", fName, err)
 		} else {
-			file.WriteString(fName)
+			_, err = file.WriteString(fName)
+			require.NoError(t, err)
 			file.Close()
 		}
 	}

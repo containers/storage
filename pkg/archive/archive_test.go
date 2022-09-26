@@ -458,7 +458,8 @@ func TestCopyWithTarSrcFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(src, "file"), []byte("content"), 0777)
+	err = os.WriteFile(filepath.Join(src, "file"), []byte("content"), 0777)
+	require.NoError(t, err)
 	err = defaultCopyWithTar(src, dest)
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar shouldn't throw an error, %s.", err)
@@ -531,7 +532,8 @@ func TestCopyFileWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(src, []byte("content"), 0777)
+	err = os.WriteFile(src, []byte("content"), 0777)
+	require.NoError(t, err)
 	err = defaultCopyWithTar(src, dest+"/")
 	if err != nil {
 		t.Fatalf("archiver.CopyFileWithTar shouldn't throw an error, %s.", err)
@@ -560,7 +562,6 @@ func TestCopySocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(src, []byte("content"), 0777)
 	err = defaultCopyWithTar(src, dest+"/")
 	if err != nil {
 		t.Fatalf("archiver.CopyFileWithTar shouldn't throw an error, %s.", err)
@@ -1127,8 +1128,10 @@ func TestUntarInvalidSymlink(t *testing.T) {
 func TestTempArchiveCloseMultipleTimes(t *testing.T) {
 	reader := io.NopCloser(strings.NewReader("hello"))
 	tempArchive, err := NewTempArchive(reader, "")
+	require.NoError(t, err)
 	buf := make([]byte, 10)
 	n, err := tempArchive.Read(buf)
+	require.NoError(t, err)
 	if n != 5 {
 		t.Fatalf("Expected to read 5 bytes. Read %d instead", n)
 	}

@@ -141,23 +141,29 @@ func TestChangesWithChanges(t *testing.T) {
 	// Mock the readonly layer
 	layer := t.TempDir()
 	createSampleDir(t, layer)
-	os.MkdirAll(path.Join(layer, "dir1/subfolder"), 0740)
+	err := os.MkdirAll(path.Join(layer, "dir1/subfolder"), 0740)
+	require.NoError(t, err)
 
 	// Mock the RW layer
 	rwLayer := t.TempDir()
 
 	// Create a folder in RW layer
 	dir1 := path.Join(rwLayer, "dir1")
-	os.MkdirAll(dir1, 0740)
+	err = os.MkdirAll(dir1, 0740)
+	require.NoError(t, err)
 	deletedFile := path.Join(dir1, ".wh.file1-2")
-	os.WriteFile(deletedFile, []byte{}, 0600)
+	err = os.WriteFile(deletedFile, []byte{}, 0600)
+	require.NoError(t, err)
 	modifiedFile := path.Join(dir1, "file1-1")
-	os.WriteFile(modifiedFile, []byte{0x00}, 01444)
+	err = os.WriteFile(modifiedFile, []byte{0x00}, 01444)
+	require.NoError(t, err)
 	// Let's add a subfolder for a newFile
 	subfolder := path.Join(dir1, "subfolder")
-	os.MkdirAll(subfolder, 0740)
+	err = os.MkdirAll(subfolder, 0740)
+	require.NoError(t, err)
 	newFile := path.Join(subfolder, "newFile")
-	os.WriteFile(newFile, []byte{}, 0740)
+	err = os.WriteFile(newFile, []byte{}, 0740)
+	require.NoError(t, err)
 
 	changes, err := Changes([]string{layer}, rwLayer)
 	require.NoError(t, err)
@@ -182,10 +188,12 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	baseLayer := t.TempDir()
 
 	dir3 := path.Join(baseLayer, "dir1/dir2/dir3")
-	os.MkdirAll(dir3, 07400)
+	err := os.MkdirAll(dir3, 07400)
+	require.NoError(t, err)
 
 	file := path.Join(dir3, "file.txt")
-	os.WriteFile(file, []byte("hello"), 0666)
+	err = os.WriteFile(file, []byte("hello"), 0666)
+	require.NoError(t, err)
 
 	layer := t.TempDir()
 
@@ -196,7 +204,8 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 
 	os.Remove(path.Join(layer, "dir1/dir2/dir3/file.txt"))
 	file = path.Join(layer, "dir1/dir2/dir3/file1.txt")
-	os.WriteFile(file, []byte("bye"), 0666)
+	err = os.WriteFile(file, []byte("bye"), 0666)
+	require.NoError(t, err)
 
 	changes, err := Changes([]string{baseLayer}, layer)
 	require.NoError(t, err)
@@ -217,7 +226,8 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	}
 
 	file = path.Join(layer, "dir1/dir2/dir3/file.txt")
-	os.WriteFile(file, []byte("bye"), 0666)
+	err = os.WriteFile(file, []byte("bye"), 0666)
+	require.NoError(t, err)
 
 	changes, err = Changes([]string{baseLayer}, layer)
 	require.NoError(t, err)

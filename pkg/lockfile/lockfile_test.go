@@ -36,8 +36,14 @@ func subTouchMain() {
 	}
 	tf.Lock()
 	os.Stdout.Close()
-	io.Copy(io.Discard, os.Stdin)
-	tf.Touch()
+	_, err = io.Copy(io.Discard, os.Stdin)
+	if err != nil {
+		logrus.Fatalf("error reading stdin: %v", err)
+	}
+	err = tf.Touch()
+	if err != nil {
+		logrus.Fatalf("error touching lock: %v", err)
+	}
 	tf.Unlock()
 }
 
@@ -81,7 +87,10 @@ func subLockMain() {
 	}
 	tf.Lock()
 	os.Stdout.Close()
-	io.Copy(io.Discard, os.Stdin)
+	_, err = io.Copy(io.Discard, os.Stdin)
+	if err != nil {
+		logrus.Fatalf("error reading stdin: %v", err)
+	}
 	tf.Unlock()
 }
 
@@ -120,7 +129,10 @@ func subRLockMain() {
 	}
 	tf.RLock()
 	os.Stdout.Close()
-	io.Copy(io.Discard, os.Stdin)
+	_, err = io.Copy(io.Discard, os.Stdin)
+	if err != nil {
+		logrus.Fatalf("error reading stdin: %v", err)
+	}
 	tf.Unlock()
 }
 
@@ -274,9 +286,11 @@ func TestLockfileTouch(t *testing.T) {
 	stdin, stdout, stderr, err := subTouch(l)
 	require.Nil(t, err, "got an error starting a subprocess to touch the lockfile")
 	l.Unlock()
-	io.Copy(io.Discard, stdout)
+	_, err = io.Copy(io.Discard, stdout)
+	require.NoError(t, err)
 	stdin.Close()
-	io.Copy(io.Discard, stderr)
+	_, err = io.Copy(io.Discard, stderr)
+	require.NoError(t, err)
 	l.Lock()
 	m, err = l.Modified()
 	l.Unlock()
@@ -425,7 +439,8 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 	for i := range subs {
 		wg.Add(1)
 		go func(i int) {
-			io.Copy(io.Discard, subs[i].stdout)
+			_, err := io.Copy(io.Discard, subs[i].stdout)
+			require.NoError(t, err)
 			if testing.Verbose() {
 				t.Logf("\tchild %4d acquired the read lock\n", i+1)
 			}
@@ -468,7 +483,8 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 	for i := range subs {
 		wg.Add(1)
 		go func(i int) {
-			io.Copy(io.Discard, subs[i].stdout)
+			_, err := io.Copy(io.Discard, subs[i].stdout)
+			require.NoError(t, err)
 			if testing.Verbose() {
 				t.Logf("\tchild %4d acquired the write lock\n", i+1)
 			}
@@ -527,7 +543,8 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			// wait for the child to acquire whatever lock it wants
-			io.Copy(io.Discard, subs[i].stdout)
+			_, err := io.Copy(io.Discard, subs[i].stdout)
+			require.NoError(t, err)
 			if writer(i) {
 				// child acquired a write lock
 				if testing.Verbose() {
