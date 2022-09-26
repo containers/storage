@@ -48,6 +48,12 @@ func loadDefaultStoreOptions() {
 			loadDefaultStoreOptionsErr = err
 			return
 		}
+	} else if path, ok := os.LookupEnv("XDG_CONFIG_HOME"); ok {
+		defaultOverrideConfigFile = filepath.Join(path, "containers", "storage.conf")
+		if err := ReloadConfigurationFileIfNeeded(defaultOverrideConfigFile, &defaultStoreOptions); err != nil {
+			loadDefaultStoreOptionsErr = err
+			return
+		}
 	} else if _, err := os.Stat(defaultOverrideConfigFile); err == nil {
 		// The DefaultConfigFile(rootless) function returns the path
 		// of the used storage.conf file, by returning defaultConfigFile
