@@ -32,14 +32,14 @@ func TestHole(t *testing.T) {
 		reader:    bufio.NewReader(bytes.NewReader(data)),
 	}
 	for i := 0; i < 5; i++ {
-		hole, byte, err := hf.ReadByte()
+		hole, b, err := hf.ReadByte()
 		if err != nil {
 			t.Errorf("got error: %v", err)
 		}
 		if hole != 0 {
 			t.Error("hole found")
 		}
-		if byte != 0 {
+		if b != 0 {
 			t.Error("wrong read")
 		}
 	}

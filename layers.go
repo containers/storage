@@ -1258,8 +1258,7 @@ func (r *layerStore) deleteInternal(id string) error {
 	// We never unset incompleteFlag; below, we remove the entire object from r.layers.
 
 	id = layer.ID
-	err := r.driver.Remove(id)
-	if err != nil {
+	if err := r.driver.Remove(id); err != nil {
 		return err
 	}
 

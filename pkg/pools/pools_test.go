@@ -105,8 +105,9 @@ func TestBufioWriterPoolPutAndGet(t *testing.T) {
 	// Make sure we Flush all the way ?
 	writer.Flush()
 	bw.Flush()
-	if len(buf.Bytes()) != 6 {
-		t.Fatalf("The buffer should contain 6 bytes ('foobar') but contains %v ('%v')", buf.Bytes(), string(buf.Bytes()))
+	bufContents := buf.Bytes()
+	if len(bufContents) != 6 {
+		t.Fatalf("The buffer should contain 6 bytes ('foobar') but contains %v ('%v')", bufContents, string(bufContents))
 	}
 	// Reset the buffer
 	buf.Reset()

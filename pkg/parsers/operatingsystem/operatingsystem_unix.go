@@ -1,3 +1,4 @@
+//go:build freebsd || darwin
 // +build freebsd darwin
 
 package operatingsystem
@@ -21,5 +22,5 @@ func GetOperatingSystem() (string, error) {
 // No-op on FreeBSD and Darwin, always returns false.
 func IsContainerized() (bool, error) {
 	// TODO: Implement jail detection for freeBSD
-	return false, errors.New("Cannot detect if we are in container")
+	return false, errors.New("cannot detect if we are in container")
 }
