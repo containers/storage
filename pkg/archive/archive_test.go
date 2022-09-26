@@ -208,14 +208,22 @@ func TestExtensionXz(t *testing.T) {
 	}
 }
 
+func createEmptyFile(t *testing.T, path string) {
+	t.Helper()
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	err = f.Close()
+	require.NoError(t, err)
+}
+
 func TestUntarPathWithInvalidDest(t *testing.T) {
 	tempFolder := t.TempDir()
 	invalidDestFolder := filepath.Join(tempFolder, "invalidDest")
 	// Create a src file
 	srcFile := filepath.Join(tempFolder, "src")
 	tarFile := filepath.Join(tempFolder, "src.tar")
-	os.Create(srcFile)
-	os.Create(invalidDestFolder) // being a file (not dir) should cause an error
+	createEmptyFile(t, srcFile)
+	createEmptyFile(t, invalidDestFolder) // being a file (not dir) should cause an error
 
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
@@ -247,7 +255,7 @@ func TestUntarPath(t *testing.T) {
 	tmpFolder := t.TempDir()
 	srcFile := filepath.Join(tmpFolder, "src")
 	tarFile := filepath.Join(tmpFolder, "src.tar")
-	os.Create(filepath.Join(tmpFolder, "src"))
+	createEmptyFile(t, filepath.Join(tmpFolder, "src"))
 
 	destFolder := filepath.Join(tmpFolder, "dest")
 	err := os.MkdirAll(destFolder, 0740)
@@ -282,7 +290,7 @@ func TestUntarPathWithDestinationFile(t *testing.T) {
 	tmpFolder := t.TempDir()
 	srcFile := filepath.Join(tmpFolder, "src")
 	tarFile := filepath.Join(tmpFolder, "src.tar")
-	os.Create(filepath.Join(tmpFolder, "src"))
+	createEmptyFile(t, filepath.Join(tmpFolder, "src"))
 
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
@@ -297,10 +305,7 @@ func TestUntarPathWithDestinationFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	destFile := filepath.Join(tmpFolder, "dest")
-	_, err = os.Create(destFile)
-	if err != nil {
-		t.Fatalf("Fail to create the destination file")
-	}
+	createEmptyFile(t, destFile)
 	err = defaultUntarPath(tarFile, destFile)
 	if err == nil {
 		t.Fatalf("UntarPath should throw an error if the destination if a file")
@@ -314,7 +319,7 @@ func TestUntarPathWithDestinationSrcFileAsFolder(t *testing.T) {
 	tmpFolder := t.TempDir()
 	srcFile := filepath.Join(tmpFolder, "src")
 	tarFile := filepath.Join(tmpFolder, "src.tar")
-	os.Create(srcFile)
+	createEmptyFile(t, srcFile)
 
 	// Translate back to Unix semantics as next exec.Command is run under sh
 	srcFileU := srcFile
@@ -483,11 +488,8 @@ func TestCopyFileWithTarInexistentDestWillCreateIt(t *testing.T) {
 	tempFolder := t.TempDir()
 	srcFile := filepath.Join(tempFolder, "src")
 	inexistentDestFolder := filepath.Join(tempFolder, "doesnotexists")
-	_, err := os.Create(srcFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = defaultCopyFileWithTar(srcFile, inexistentDestFolder)
+	createEmptyFile(t, srcFile)
+	err := defaultCopyFileWithTar(srcFile, inexistentDestFolder)
 	if err != nil {
 		t.Fatalf("CopyWithTar with an inexistent folder shouldn't fail.")
 	}
