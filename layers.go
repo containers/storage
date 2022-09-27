@@ -393,7 +393,7 @@ func (r *layerStore) Load() error {
 		return ErrDuplicateLayerNames
 	}
 	r.layers = layers
-	r.idindex = truncindex.NewTruncIndex(idlist)
+	r.idindex = truncindex.NewTruncIndex(idlist) // Invalid values in idlist are ignored: they are not a reason to refuse processing the whole store.
 	r.byid = ids
 	r.byname = names
 	r.bycompressedsum = compressedsums
@@ -685,7 +685,9 @@ func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []s
 
 	// TODO: check if necessary fields are filled
 	r.layers = append(r.layers, layer)
-	r.idindex.Add(id)
+	// This can only fail on duplicate IDs, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+	// Implementing recovery from an unlikely and unimportant failure here would be too risky.
+	_ = r.idindex.Add(id)
 	r.byid[id] = layer
 	for _, name := range names { // names got from the additional layer store won't be used
 		r.byname[name] = layer
@@ -795,7 +797,9 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		BigDataNames:       []string{},
 	}
 	r.layers = append(r.layers, layer)
-	r.idindex.Add(id)
+	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+	// This is on various paths to recover from failures, so this should be robust against partially missing data.
+	_ = r.idindex.Add(id)
 	r.byid[id] = layer
 	for _, name := range names {
 		r.byname[name] = layer
@@ -1279,7 +1283,9 @@ func (r *layerStore) deleteInternal(id string) error {
 	for _, name := range layer.Names {
 		delete(r.byname, name)
 	}
-	r.idindex.Delete(id)
+	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+	// The store’s Delete method is used on various paths to recover from failures, so this should be robust against partially missing data.
+	_ = r.idindex.Delete(id)
 	mountLabel := layer.MountLabel
 	if layer.MountPoint != "" {
 		delete(r.bymount, layer.MountPoint)

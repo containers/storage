@@ -221,7 +221,7 @@ func (r *containerStore) Load() error {
 		}
 	}
 	r.containers = containers
-	r.idindex = truncindex.NewTruncIndex(idlist)
+	r.idindex = truncindex.NewTruncIndex(idlist) // Invalid values in idlist are ignored: they are not a reason to refuse processing the whole store.
 	r.byid = ids
 	r.bylayer = layers
 	r.byname = names
@@ -354,7 +354,9 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 		}
 		r.containers = append(r.containers, container)
 		r.byid[id] = container
-		r.idindex.Add(id)
+		// This can only fail on duplicate IDs, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+		// Implementing recovery from an unlikely and unimportant failure here would be too risky.
+		_ = r.idindex.Add(id)
 		r.bylayer[layer] = container
 		for _, name := range names {
 			r.byname[name] = container
@@ -434,7 +436,9 @@ func (r *containerStore) Delete(id string) error {
 		}
 	}
 	delete(r.byid, id)
-	r.idindex.Delete(id)
+	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+	// The store’s Delete method is used on various paths to recover from failures, so this should be robust against partially missing data.
+	_ = r.idindex.Delete(id)
 	delete(r.bylayer, container.LayerID)
 	for _, name := range container.Names {
 		delete(r.byname, name)
