@@ -3,6 +3,9 @@
 load helpers
 
 @test "idmaps-create-apply-layer" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
@@ -109,6 +112,9 @@ load helpers
 }
 
 @test "idmaps-create-diff-layer" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
@@ -200,6 +206,9 @@ load helpers
 }
 
 @test "idmaps-create-container" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
@@ -331,6 +340,9 @@ load helpers
 }
 
 @test "idmaps-parent-owners" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
@@ -393,6 +405,9 @@ load helpers
 }
 
 @test "idmaps-copy" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
@@ -559,6 +574,9 @@ load helpers
 }
 
 @test "idmaps-create-mapped-image" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	btrfs|devicemapper|overlay*|vfs|zfs)
 		;;
@@ -741,6 +759,9 @@ load helpers
 }
 
 @test "idmaps-create-mapped-container" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	overlay*|vfs)
 		;;
@@ -902,6 +923,9 @@ load helpers
 }
 
 @test "idmaps-create-mapped-container-shifting" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	overlay*)
 		;;
@@ -964,6 +988,9 @@ load helpers
 }
 
 @test "idmaps-create-layer-from-another-image-store" {
+	if [ "$OS" != "Linux" ]; then
+		skip "not supported on $OS"
+	fi
 	case "$STORAGE_DRIVER" in
 	overlay*|vfs)
 		;;

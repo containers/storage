@@ -5,6 +5,7 @@ TESTSDIR=${TESTSDIR:-$(dirname ${BASH_SOURCE})}
 STORAGE_DRIVER=${STORAGE_DRIVER:-vfs}
 STORAGE_OPTION=${STORAGE_OPTION:-}
 PATH=$(dirname ${BASH_SOURCE})/..:${PATH}
+OS=$(uname -s)
 
 # Create a unique root directory and a runroot directory.
 function setup() {
@@ -23,9 +24,17 @@ function teardown() {
 
 # Create a file "$1" with random contents of length $2, or 256.
 function createrandom() {
-	dd if=/dev/urandom bs=1 count=${2:-256} of=${1:-${BATS_TMPDIR}/randomfile} status=none
-	# Set the mtime to the epoch so it won't be different once it is deduplicated with OSTree
-	touch -t 7001010000.00 ${1:-${BATS_TMPDIR}/randomfile}
+	output=${1:-${BATS_TMPDIR}/randomfile}
+	dd if=/dev/urandom bs=1 count=${2:-256} of=${output} status=none
+	# Set the mtime to the epoch so it won't be different once it
+	# is deduplicated with OSTree
+	#
+	# Note: The Linux touch utility can express time as an
+	# explicit offset, allowing '@0' as a clear way of expressing
+	# epoch. Unfortunately, the touch utility from BSD derived
+	# platforms including FreeBSD and darwin is more restrictive
+	# so we use ISO 8601 format as lowest common denominator.
+	touch -d 1970-01-01T00:00:00Z ${output}
 }
 
 # Run the CLI with the specified options.
