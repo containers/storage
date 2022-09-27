@@ -255,8 +255,6 @@ func newContainerStore(dir string) (ContainerStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	lockfile.Lock()
-	defer lockfile.Unlock()
 	cstore := containerStore{
 		lockfile:   lockfile,
 		dir:        dir,
@@ -265,6 +263,8 @@ func newContainerStore(dir string) (ContainerStore, error) {
 		bylayer:    make(map[string]*Container),
 		byname:     make(map[string]*Container),
 	}
+	cstore.Lock()
+	defer cstore.Unlock()
 	if err := cstore.Load(); err != nil {
 		return nil, err
 	}
