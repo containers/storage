@@ -140,8 +140,8 @@ var (
 )
 
 func init() {
-	graphdriver.Register("overlay", Init)
-	graphdriver.Register("overlay2", Init)
+	graphdriver.MustRegister("overlay", Init)
+	graphdriver.MustRegister("overlay2", Init)
 }
 
 func hasMetacopyOption(opts []string) bool {

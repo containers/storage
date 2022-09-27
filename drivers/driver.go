@@ -279,6 +279,14 @@ func init() {
 	drivers = make(map[string]InitFunc)
 }
 
+// MustRegister registers an InitFunc for the driver, or panics.
+// It is suitable for package’s init() sections.
+func MustRegister(name string, initFunc InitFunc) {
+	if err := Register(name, initFunc); err != nil {
+		panic(fmt.Sprintf("failed to register containers/storage graph driver %q: %v", name, err))
+	}
+}
+
 // Register registers an InitFunc for the driver.
 func Register(name string, initFunc InitFunc) error {
 	if _, exists := drivers[name]; exists {

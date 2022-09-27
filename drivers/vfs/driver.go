@@ -28,7 +28,7 @@ var (
 const defaultPerms = os.FileMode(0555)
 
 func init() {
-	graphdriver.Register("vfs", Init)
+	graphdriver.MustRegister("vfs", Init)
 }
 
 // Init returns a new VFS driver.
