@@ -26,7 +26,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
-	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/archive/tar"
 	"github.com/vbatts/tar-split/tar/asm"
@@ -362,7 +362,7 @@ func (r *layerStore) Load() error {
 	compressedsums := make(map[digest.Digest][]string)
 	uncompressedsums := make(map[digest.Digest][]string)
 	if r.IsReadWrite() {
-		label.ClearLabels()
+		selinux.ClearLabels()
 	}
 	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
 		idlist = make([]string, 0, len(layers))
@@ -383,7 +383,7 @@ func (r *layerStore) Load() error {
 				uncompressedsums[layer.UncompressedDigest] = append(uncompressedsums[layer.UncompressedDigest], layer.ID)
 			}
 			if layer.MountLabel != "" {
-				label.ReserveLabel(layer.MountLabel)
+				selinux.ReserveLabel(layer.MountLabel)
 			}
 			layer.ReadOnly = !r.IsReadWrite()
 		}
@@ -772,7 +772,7 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 		parentMappings = &idtools.IDMappings{}
 	}
 	if mountLabel != "" {
-		label.ReserveLabel(mountLabel)
+		selinux.ReserveLabel(mountLabel)
 	}
 
 	// Before actually creating the layer, make a persistent record of it with incompleteFlag,
@@ -1315,7 +1315,7 @@ func (r *layerStore) deleteInternal(id string) error {
 			}
 		}
 		if !found {
-			label.ReleaseLabel(mountLabel)
+			selinux.ReleaseLabel(mountLabel)
 		}
 	}
 
