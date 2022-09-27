@@ -243,8 +243,10 @@ func (r *containerStore) Save() error {
 	if err != nil {
 		return err
 	}
-	defer r.Touch()
-	return ioutils.AtomicWriteFile(rpath, jdata, 0600)
+	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
+		return err
+	}
+	return r.Touch()
 }
 
 func newContainerStore(dir string) (ContainerStore, error) {

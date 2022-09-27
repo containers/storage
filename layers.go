@@ -501,8 +501,10 @@ func (r *layerStore) saveLayers() error {
 	if err != nil {
 		return err
 	}
-	defer r.Touch()
-	return ioutils.AtomicWriteFile(rpath, jldata, 0600)
+	if err := ioutils.AtomicWriteFile(rpath, jldata, 0600); err != nil {
+		return err
+	}
+	return r.Touch()
 }
 
 func (r *layerStore) saveMounts() error {
