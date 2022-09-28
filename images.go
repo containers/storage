@@ -336,8 +336,6 @@ func newImageStore(dir string) (ImageStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	lockfile.Lock()
-	defer lockfile.Unlock()
 	istore := imageStore{
 		lockfile: lockfile,
 		dir:      dir,
@@ -346,6 +344,8 @@ func newImageStore(dir string) (ImageStore, error) {
 		byname:   make(map[string]*Image),
 		bydigest: make(map[digest.Digest][]*Image),
 	}
+	istore.Lock()
+	defer istore.Unlock()
 	if err := istore.Load(); err != nil {
 		return nil, err
 	}
@@ -357,8 +357,6 @@ func newROImageStore(dir string) (ROImageStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	lockfile.RLock()
-	defer lockfile.Unlock()
 	istore := imageStore{
 		lockfile: lockfile,
 		dir:      dir,
@@ -367,6 +365,8 @@ func newROImageStore(dir string) (ROImageStore, error) {
 		byname:   make(map[string]*Image),
 		bydigest: make(map[digest.Digest][]*Image),
 	}
+	istore.RLock()
+	defer istore.Unlock()
 	if err := istore.Load(); err != nil {
 		return nil, err
 	}
