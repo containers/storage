@@ -24,7 +24,7 @@ import (
 	"github.com/containers/storage/pkg/stringutils"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/types"
-	"github.com/hashicorp/go-multierror"
+	multierror "github.com/hashicorp/go-multierror"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/selinux/go-selinux/label"
 )
