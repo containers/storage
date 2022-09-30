@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/selinux/go-selinux/label"
+	"github.com/sirupsen/logrus"
 )
 
 type updateNameOperation int
@@ -1444,7 +1445,13 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	}
 	container, err := rcstore.Create(id, names, imageID, layer, metadata, options)
 	if err != nil || container == nil {
-		rlstore.Delete(layer)
+		if err2 := rlstore.Delete(layer); err2 != nil {
+			if err == nil {
+				err = fmt.Errorf("deleting layer %#v: %w", layer, err2)
+			} else {
+				logrus.Errorf("While recovering from a failure to create a container, error deleting layer %#v: %v", layer, err2)
+			}
+		}
 	}
 	return container, err
 }

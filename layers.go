@@ -703,7 +703,9 @@ func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []s
 		r.byuncompressedsum[layer.UncompressedDigest] = append(r.byuncompressedsum[layer.UncompressedDigest], layer.ID)
 	}
 	if err := r.Save(); err != nil {
-		r.driver.Remove(id)
+		if err2 := r.driver.Remove(id); err2 != nil {
+			logrus.Errorf("While recovering from a failure to save layers, error deleting layer %#v: %v", id, err2)
+		}
 		return nil, err
 	}
 	return copyLayer(layer), nil
@@ -1833,7 +1835,9 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 	}
 	for k, v := range diffOutput.BigData {
 		if err := r.SetBigData(id, k, bytes.NewReader(v)); err != nil {
-			r.Delete(id)
+			if err2 := r.Delete(id); err2 != nil {
+				logrus.Errorf("While recovering from a failure to set big data, error deleting layer %#v: %v", id, err2)
+			}
 			return err
 		}
 	}
