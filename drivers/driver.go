@@ -413,3 +413,21 @@ func scanPriorDrivers(root string) map[string]bool {
 	}
 	return driversMap
 }
+
+// driverPut is driver.Put, but errors are handled either by updating mainErr or just logging.
+// Typical usage:
+//
+//	func …(…) (err error) {
+//		…
+//		defer driverPut(driver, id, &err)
+//	}
+func driverPut(driver ProtoDriver, id string, mainErr *error) {
+	if err := driver.Put(id); err != nil {
+		err = fmt.Errorf("unmounting layer %s: %w", id, err)
+		if *mainErr == nil {
+			*mainErr = err
+		} else {
+			logrus.Errorf(err.Error())
+		}
+	}
+}
