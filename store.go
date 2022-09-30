@@ -3625,11 +3625,23 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 	}
 	if err == nil {
 		err = s.graphDriver.Cleanup()
-		s.graphLock.Touch()
+		if err2 := s.graphLock.Touch(); err2 != nil {
+			if err == nil {
+				err = err2
+			} else {
+				err = fmt.Errorf("(graphLock.Touch failed: %v) %w", err2, err)
+			}
+		}
 		modified = true
 	}
 	if modified {
-		rlstore.Touch()
+		if err2 := rlstore.Touch(); err2 != nil {
+			if err == nil {
+				err = err2
+			} else {
+				err = fmt.Errorf("rlstore.Touch failed: %v) %w", err2, err)
+			}
+		}
 	}
 	return mounted, err
 }
