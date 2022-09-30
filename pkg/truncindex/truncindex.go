@@ -25,7 +25,7 @@ var (
 
 // ErrAmbiguousPrefix is returned if the prefix was ambiguous
 // (multiple ids for the prefix).
-type ErrAmbiguousPrefix struct {
+type ErrAmbiguousPrefix struct { //nolint: errname
 	prefix string
 }
 

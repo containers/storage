@@ -1,7 +1,6 @@
 package lockfile
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -575,7 +574,7 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 		go func(i int) {
 			io.Copy(io.Discard, subs[i].stdout)
 			if testing.Verbose() {
-				fmt.Printf("\tchild %4d acquired the read lock\n", i+1)
+				t.Logf("\tchild %4d acquired the read lock\n", i+1)
 			}
 			workingRcounter := atomic.AddInt64(&rcounter, 1)
 			highestMutex.Lock()
@@ -586,7 +585,7 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			atomic.AddInt64(&rcounter, -1)
 			if testing.Verbose() {
-				fmt.Printf("\ttelling child %4d to release the read lock\n", i+1)
+				t.Logf("\ttelling child %4d to release the read lock\n", i+1)
 			}
 			subs[i].stdin.Close()
 			wg.Done()
@@ -618,7 +617,7 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 		go func(i int) {
 			io.Copy(io.Discard, subs[i].stdout)
 			if testing.Verbose() {
-				fmt.Printf("\tchild %4d acquired the write lock\n", i+1)
+				t.Logf("\tchild %4d acquired the write lock\n", i+1)
 			}
 			workingWcounter := atomic.AddInt64(&wcounter, 1)
 			highestMutex.Lock()
@@ -629,7 +628,7 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			atomic.AddInt64(&wcounter, -1)
 			if testing.Verbose() {
-				fmt.Printf("\ttelling child %4d to release the write lock\n", i+1)
+				t.Logf("\ttelling child %4d to release the write lock\n", i+1)
 			}
 			subs[i].stdin.Close()
 			wg.Done()
@@ -661,7 +660,7 @@ func TestLockfileMultiprocessRecursiveWrite(t *testing.T) {
 		go func(i int) {
 			io.Copy(io.Discard, subs[i].stdout)
 			if testing.Verbose() {
-				fmt.Printf("\tchild %4d acquired the recursive write lock\n", i+1)
+				t.Logf("\tchild %4d acquired the recursive write lock\n", i+1)
 			}
 			workingWcounter := atomic.AddInt64(&wcounter, 1)
 			highestMutex.Lock()
@@ -672,7 +671,7 @@ func TestLockfileMultiprocessRecursiveWrite(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			atomic.AddInt64(&wcounter, -1)
 			if testing.Verbose() {
-				fmt.Printf("\ttelling child %4d to release the recursive write lock\n", i+1)
+				t.Logf("\ttelling child %4d to release the recursive write lock\n", i+1)
 			}
 			subs[i].stdin.Close()
 			wg.Done()
@@ -722,7 +721,7 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 			if writer(i) {
 				// child acquired a write lock
 				if testing.Verbose() {
-					fmt.Printf("\tchild %4d acquired the write lock\n", i+1)
+					t.Logf("\tchild %4d acquired the write lock\n", i+1)
 				}
 				workingWcounter := atomic.AddInt64(&wcounter, 1)
 				whighestMutex.Lock()
@@ -735,7 +734,7 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 			} else {
 				// child acquired a read lock
 				if testing.Verbose() {
-					fmt.Printf("\tchild %4d acquired the read lock\n", i+1)
+					t.Logf("\tchild %4d acquired the read lock\n", i+1)
 				}
 				workingRcounter := atomic.AddInt64(&rcounter, 1)
 				rhighestMutex.Lock()
@@ -750,12 +749,12 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 			if writer(i) {
 				atomic.AddInt64(&wcounter, -1)
 				if testing.Verbose() {
-					fmt.Printf("\ttelling child %4d to release the write lock\n", i+1)
+					t.Logf("\ttelling child %4d to release the write lock\n", i+1)
 				}
 			} else {
 				atomic.AddInt64(&rcounter, -1)
 				if testing.Verbose() {
-					fmt.Printf("\ttelling child %4d to release the read lock\n", i+1)
+					t.Logf("\ttelling child %4d to release the read lock\n", i+1)
 				}
 			}
 			subs[i].stdin.Close()

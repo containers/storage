@@ -80,7 +80,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 		}
 		// Here, untar detected the breakout.
 		// Let's move on verifying that indeed there was no breakout.
-		fmt.Printf("breakoutError: %v\n", err)
+		t.Logf("breakoutError: %v\n", err)
 	}
 
 	// Check victim folder
@@ -148,7 +148,7 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 		}
 		if err != nil {
 			// skip file if error
-			return nil
+			return nil //nolint: nilerr
 		}
 		b, err := os.ReadFile(path)
 		if err != nil {

@@ -186,6 +186,7 @@ func TestUsageNonExistingDirectory(t *testing.T) {
 // A helper function that tests expectation of inode count and dir size against
 // the found usage.
 func expectSizeAndInodeCount(t *testing.T, testName string, current, expected *DiskUsage) {
+	t.Helper()
 	if current.Size != expected.Size {
 		t.Errorf("%s has size: %d, expected %d", testName, current.Size, expected.Size)
 	}

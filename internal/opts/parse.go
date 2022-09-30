@@ -232,20 +232,20 @@ func (args Args) Contains(field string) bool {
 	return ok
 }
 
-type invalidFilter string
+type invalidFilterError string
 
-func (e invalidFilter) Error() string {
+func (e invalidFilterError) Error() string {
 	return "Invalid filter '" + string(e) + "'"
 }
 
-func (invalidFilter) InvalidParameter() {}
+func (invalidFilterError) InvalidParameter() {}
 
 // Validate compared the set of accepted keys against the keys in the mapping.
 // An error is returned if any mapping keys are not in the accepted set.
 func (args Args) Validate(accepted map[string]bool) error {
 	for name := range args.fields {
 		if !accepted[name] {
-			return invalidFilter(name)
+			return invalidFilterError(name)
 		}
 	}
 	return nil
