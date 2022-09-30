@@ -1,6 +1,7 @@
+//go:build !linux || !cgo
 // +build !linux !cgo
 
-package copy
+package copy //nolint: predeclared
 
 import (
 	"io"
