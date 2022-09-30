@@ -479,7 +479,6 @@ func (r *layerStore) loadMounts() error {
 func (r *layerStore) Save() error {
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
-	defer r.mountsLockfile.Touch()
 	if err := r.saveLayers(); err != nil {
 		return err
 	}
@@ -533,6 +532,9 @@ func (r *layerStore) saveMounts() error {
 		return err
 	}
 	if err = ioutils.AtomicWriteFile(mpath, jmdata, 0600); err != nil {
+		return err
+	}
+	if err := r.mountsLockfile.Touch(); err != nil {
 		return err
 	}
 	return r.loadMounts()
@@ -953,7 +955,6 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 			return "", err
 		}
 	}
-	defer r.mountsLockfile.Touch()
 	layer, ok := r.lookup(id)
 	if !ok {
 		return "", ErrLayerUnknown
@@ -1004,7 +1005,6 @@ func (r *layerStore) Unmount(id string, force bool) (bool, error) {
 			return false, err
 		}
 	}
-	defer r.mountsLockfile.Touch()
 	layer, ok := r.lookup(id)
 	if !ok {
 		layerByMount, ok := r.bymount[filepath.Clean(id)]
