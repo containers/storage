@@ -686,7 +686,7 @@ func TestIntervalIsZero(t *testing.T) {
 
 // assertIntervalSame aserts `got` equals to `want` considering zero check. If the wanted interval
 // is empty, we only want to assert IsZero() == true, instead of the exact number.
-func assertIntervalSame(got intervalset.Interval, want *interval, t *testing.T, name string) {
+func assertIntervalSame(t *testing.T, got intervalset.Interval, want *interval, name string) {
 	if want == nil && !got.IsZero() {
 		t.Errorf("%v = %v, want nil", name, got)
 	} else if want != nil && !reflect.DeepEqual(got, *want) {
@@ -855,10 +855,10 @@ func TestIntervalIntersect(t *testing.T) {
 		i := interval{tt.start, tt.end}
 		j := interval{tt.otherStart, tt.otherEnd}
 		t.Run(tt.name, func(t *testing.T) {
-			assertIntervalSame(i.Intersect(j), tt.intersectWant, t, "interval.Intersect()")
+			assertIntervalSame(t, i.Intersect(j), tt.intersectWant, "interval.Intersect()")
 		})
 		t.Run("Reflective_"+tt.name, func(t *testing.T) {
-			assertIntervalSame(j.Intersect(i), tt.intersectWant, t, "interval.Intersect()")
+			assertIntervalSame(t, j.Intersect(i), tt.intersectWant, "interval.Intersect()")
 		})
 	}
 }
@@ -886,13 +886,13 @@ func TestIntervalBisect(t *testing.T) {
 		j := interval{tt.otherStart, tt.otherEnd}
 		t.Run(tt.name, func(t *testing.T) {
 			x, y := i.Bisect(j)
-			assertIntervalSame(x, tt.bisectWant[0], t, "interval.Bisect()[0]")
-			assertIntervalSame(y, tt.bisectWant[1], t, "interval.Bisect()[1]")
+			assertIntervalSame(t, x, tt.bisectWant[0], "interval.Bisect()[0]")
+			assertIntervalSame(t, y, tt.bisectWant[1], "interval.Bisect()[1]")
 		})
 		t.Run("Reflective_"+tt.name, func(t *testing.T) {
 			x, y := j.Bisect(i)
-			assertIntervalSame(x, tt.reflectiveBisectWant[0], t, "interval.Bisect()[0]")
-			assertIntervalSame(y, tt.reflectiveBisectWant[1], t, "interval.Bisect()[1]")
+			assertIntervalSame(t, x, tt.reflectiveBisectWant[0], "interval.Bisect()[0]")
+			assertIntervalSame(t, y, tt.reflectiveBisectWant[1], "interval.Bisect()[1]")
 		})
 	}
 }
@@ -902,10 +902,10 @@ func TestIntervalAdjoin(t *testing.T) {
 		i := interval{tt.start, tt.end}
 		j := interval{tt.otherStart, tt.otherEnd}
 		t.Run(tt.name, func(t *testing.T) {
-			assertIntervalSame(i.Adjoin(j), tt.adjoinWant, t, "interval.Adjoin()")
+			assertIntervalSame(t, i.Adjoin(j), tt.adjoinWant, "interval.Adjoin()")
 		})
 		t.Run("Reflective_"+tt.name, func(t *testing.T) {
-			assertIntervalSame(j.Adjoin(i), tt.adjoinWant, t, "interval.Adjoin()")
+			assertIntervalSame(t, j.Adjoin(i), tt.adjoinWant, "interval.Adjoin()")
 		})
 	}
 }
@@ -915,10 +915,10 @@ func TestIntervalEncompass(t *testing.T) {
 		i := interval{tt.start, tt.end}
 		j := interval{tt.otherStart, tt.otherEnd}
 		t.Run(tt.name, func(t *testing.T) {
-			assertIntervalSame(i.Encompass(j), tt.encompassWant, t, "interval.Encompass()")
+			assertIntervalSame(t, i.Encompass(j), tt.encompassWant, "interval.Encompass()")
 		})
 		t.Run("Reflective_"+tt.name, func(t *testing.T) {
-			assertIntervalSame(j.Encompass(i), tt.encompassWant, t, "interval.Encompass()")
+			assertIntervalSame(t, j.Encompass(i), tt.encompassWant, "interval.Encompass()")
 		})
 	}
 }

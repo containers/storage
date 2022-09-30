@@ -169,7 +169,7 @@ func TestChangesWithChanges(t *testing.T) {
 		{"/dir1/subfolder", ChangeModify},
 		{"/dir1/subfolder/newFile", ChangeAdd},
 	}
-	checkChanges(expectedChanges, changes, t)
+	checkChanges(t, expectedChanges, changes)
 }
 
 // See https://github.com/docker/docker/pull/13590
@@ -207,7 +207,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 		{"/dir1/dir2/dir3", ChangeModify},
 		{"/dir1/dir2/dir3/file1.txt", ChangeAdd},
 	}
-	checkChanges(expectedChanges, changes, t)
+	checkChanges(t, expectedChanges, changes)
 
 	// Now test changing a file
 	layer = t.TempDir()
@@ -225,7 +225,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	expectedChanges = []Change{
 		{"/dir1/dir2/dir3/file.txt", ChangeModify},
 	}
-	checkChanges(expectedChanges, changes, t)
+	checkChanges(t, expectedChanges, changes)
 }
 
 // Create a directory, copy it, make sure we report no changes between the two
@@ -457,7 +457,7 @@ func TestChangesSize(t *testing.T) {
 	}
 }
 
-func checkChanges(expectedChanges, changes []Change, t *testing.T) {
+func checkChanges(t *testing.T, expectedChanges, changes []Change) {
 	sort.Sort(changesByPath(expectedChanges))
 	sort.Sort(changesByPath(changes))
 	for i := 0; i < max(len(changes), len(expectedChanges)); i++ {
