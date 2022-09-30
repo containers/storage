@@ -1482,6 +1482,24 @@ func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 	}, nil
 }
 
+// writeCompressedData copies data from source to compressor, which is on top of pwriter.
+func writeCompressedData(compressor io.WriteCloser, source io.ReadCloser) error {
+	defer compressor.Close()
+	defer source.Close()
+	_, err := io.Copy(compressor, source)
+	return err
+}
+
+// writeCompressedDataGoroutine copies data from source to compressor, which is on top of pwriter.
+// All error must be reported by updating pwriter.
+func writeCompressedDataGoroutine(pwriter *io.PipeWriter, compressor io.WriteCloser, source io.ReadCloser) {
+	err := errors.New("internal error: unexpected panic in writeCompressedDataGoroutine")
+	defer func() { // Note that this is not the same as {defer dest.CloseWithError(err)}; we need err to be evaluated lazily.
+		_ = pwriter.CloseWithError(err) // CloseWithError(nil) is equivalent to Close(), always returns nil
+	}()
+	err = writeCompressedData(compressor, source)
+}
+
 func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
 	var metadata storage.Unpacker
 
@@ -1513,12 +1531,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 			preader.Close()
 			return nil, err
 		}
-		go func() {
-			defer pwriter.Close()
-			defer compressor.Close()
-			defer rc.Close()
-			io.Copy(compressor, rc)
-		}()
+		go writeCompressedDataGoroutine(pwriter, compressor, rc)
 		return preader, nil
 	}
 
