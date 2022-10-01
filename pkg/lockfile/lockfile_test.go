@@ -3,6 +3,7 @@ package lockfile
 import (
 	"io"
 	"os"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -52,26 +53,25 @@ func subTouchMain() {
 // At that point, the child will have acquired the lock.  It can then signal
 // that the child should Touch() the lock by closing the WriteCloser.  The
 // second ReadCloser will be closed when the child has finished.
-func subTouch(l *namedLocker) (io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
+// The caller must call Wait() on the returned cmd.
+func subTouch(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subTouch", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	ec, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	go func() {
-		if err = cmd.Run(); err != nil {
-			logrus.Errorf("Running subTouch: %v", err)
-		}
-	}()
-	return wc, rc, ec, nil
+	if err := cmd.Start(); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return cmd, wc, rc, ec, nil
 }
 
 // subLockMain is a child process which opens the lock file, closes stdout to
@@ -98,22 +98,21 @@ func subLockMain() {
 // should wait for the first ReadCloser by reading it until it receives an EOF.
 // At that point, the child will have acquired the lock.  It can then signal
 // that the child should release the lock by closing the WriteCloser.
-func subLock(l *namedLocker) (io.WriteCloser, io.ReadCloser, error) {
+// The caller must call Wait() on the returned cmd.
+func subLock(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subLock", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	go func() {
-		if err = cmd.Run(); err != nil {
-			logrus.Errorf("Running subLock: %v", err)
-		}
-	}()
-	return wc, rc, nil
+	if err := cmd.Start(); err != nil {
+		return nil, nil, nil, err
+	}
+	return cmd, wc, rc, nil
 }
 
 // subRLockMain is a child process which opens the lock file, closes stdout to
@@ -140,22 +139,21 @@ func subRLockMain() {
 // should wait for the first ReadCloser by reading it until it receives an EOF.
 // At that point, the child will have acquired a read lock.  It can then signal
 // that the child should release the lock by closing the WriteCloser.
-func subRLock(l *namedLocker) (io.WriteCloser, io.ReadCloser, error) {
+// The caller must call Wait() on the returned cmd.
+func subRLock(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subRLock", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	go func() {
-		if err = cmd.Run(); err != nil {
-			logrus.Errorf("Running subRLock: %v", err)
-		}
-	}()
-	return wc, rc, nil
+	if err := cmd.Start(); err != nil {
+		return nil, nil, nil, err
+	}
+	return cmd, wc, rc, nil
 }
 
 func init() {
@@ -283,13 +281,15 @@ func TestLockfileTouch(t *testing.T) {
 	require.Nil(t, err, "got an error from Modified()")
 	assert.False(t, m, "lock file mistakenly indicated that someone else has modified it")
 
-	stdin, stdout, stderr, err := subTouch(l)
+	cmd, stdin, stdout, stderr, err := subTouch(l)
 	require.Nil(t, err, "got an error starting a subprocess to touch the lockfile")
 	l.Unlock()
 	_, err = io.Copy(io.Discard, stdout)
 	require.NoError(t, err)
 	stdin.Close()
 	_, err = io.Copy(io.Discard, stderr)
+	require.NoError(t, err)
+	err = cmd.Wait()
 	require.NoError(t, err)
 	l.Lock()
 	m, err = l.Modified()
@@ -427,12 +427,14 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 	var rcounter, rhighest int64
 	var highestMutex sync.Mutex
 	subs := make([]struct {
+		cmd    *exec.Cmd
 		stdin  io.WriteCloser
 		stdout io.ReadCloser
 	}, 100)
 	for i := range subs {
-		stdin, stdout, err := subRLock(l)
+		cmd, stdin, stdout, err := subRLock(l)
 		require.Nil(t, err, "error starting subprocess %d to take a read lock", i+1)
+		subs[i].cmd = cmd
 		subs[i].stdin = stdin
 		subs[i].stdout = stdout
 	}
@@ -456,6 +458,8 @@ func TestLockfileMultiprocessRead(t *testing.T) {
 				t.Logf("\ttelling child %4d to release the read lock\n", i+1)
 			}
 			subs[i].stdin.Close()
+			err = subs[i].cmd.Wait()
+			require.NoError(t, err)
 			wg.Done()
 		}(i)
 	}
@@ -471,12 +475,14 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 	var wcounter, whighest int64
 	var highestMutex sync.Mutex
 	subs := make([]struct {
+		cmd    *exec.Cmd
 		stdin  io.WriteCloser
 		stdout io.ReadCloser
 	}, 10)
 	for i := range subs {
-		stdin, stdout, err := subLock(l)
+		cmd, stdin, stdout, err := subLock(l)
 		require.Nil(t, err, "error starting subprocess %d to take a write lock", i+1)
+		subs[i].cmd = cmd
 		subs[i].stdin = stdin
 		subs[i].stdout = stdout
 	}
@@ -500,6 +506,8 @@ func TestLockfileMultiprocessWrite(t *testing.T) {
 				t.Logf("\ttelling child %4d to release the write lock\n", i+1)
 			}
 			subs[i].stdin.Close()
+			err = subs[i].cmd.Wait()
+			require.NoError(t, err)
 			wg.Done()
 		}(i)
 	}
@@ -523,19 +531,22 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 
 	writer := func(i int) bool { return (i % biasQ) < biasP }
 	subs := make([]struct {
+		cmd    *exec.Cmd
 		stdin  io.WriteCloser
 		stdout io.ReadCloser
 	}, biasQ*groups)
 	for i := range subs {
+		var cmd *exec.Cmd
 		var stdin io.WriteCloser
 		var stdout io.ReadCloser
 		if writer(i) {
-			stdin, stdout, err = subLock(l)
+			cmd, stdin, stdout, err = subLock(l)
 			require.Nil(t, err, "error starting subprocess %d to take a write lock", i+1)
 		} else {
-			stdin, stdout, err = subRLock(l)
+			cmd, stdin, stdout, err = subRLock(l)
 			require.Nil(t, err, "error starting subprocess %d to take a read lock", i+1)
 		}
+		subs[i].cmd = cmd
 		subs[i].stdin = stdin
 		subs[i].stdout = stdout
 	}
@@ -585,6 +596,8 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 				}
 			}
 			subs[i].stdin.Close()
+			err = subs[i].cmd.Wait()
+			require.NoError(t, err)
 			wg.Done()
 		}(i)
 	}
