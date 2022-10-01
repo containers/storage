@@ -19,7 +19,7 @@ type command struct {
 	maxArgs     int
 	usage       string
 	addFlags    func(*mflag.FlagSet, *command)
-	action      func(*mflag.FlagSet, string, storage.Store, []string) int
+	action      func(*mflag.FlagSet, string, storage.Store, []string) (int, error)
 }
 
 var (
@@ -122,7 +122,11 @@ func main() {
 					os.Exit(1)
 				}
 				store.Free()
-				os.Exit(command.action(flags, cmd, store, args))
+				res, err := command.action(flags, cmd, store, args)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%+v\n", err)
+				}
+				os.Exit(res)
 				break
 			}
 		}

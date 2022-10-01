@@ -11,9 +11,9 @@ import (
 
 var testDeleteImage = false
 
-func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]string)
 	for _, what := range args {
@@ -35,15 +35,15 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	for _, err := range deleted {
 		if err != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]string)
 	for _, what := range args {
@@ -65,10 +65,10 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	for _, err := range deleted {
 		if err != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 type deletedImage struct {
@@ -76,9 +76,9 @@ type deletedImage struct {
 	Error         string   `json:"error,omitempty"`
 }
 
-func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]deletedImage)
 	for _, what := range args {
@@ -107,15 +107,15 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	for _, record := range deleted {
 		if record.Error != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]string)
 	for _, what := range args {
@@ -137,10 +137,10 @@ func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 	}
 	for _, err := range deleted {
 		if err != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

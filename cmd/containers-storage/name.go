@@ -10,19 +10,17 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-func getNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	id, err := m.Lookup(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	names, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(append([]string{}, names...))
@@ -31,22 +29,20 @@ func getNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 			fmt.Printf("%s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	id, err := m.Lookup(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	oldnames, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	newNames := []string{}
 	if oldnames != nil {
@@ -56,42 +52,37 @@ func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		newNames = append(newNames, paramNames...)
 	}
 	if err := m.SetNames(id, newNames); err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	names, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(names)
 	}
-	return 0
+	return 0, nil
 }
 
-func setNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func setNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	id, err := m.Lookup(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if err := m.SetNames(id, paramNames); err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	names, err := m.Names(id)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(names)
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

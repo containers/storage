@@ -14,16 +14,14 @@ var (
 	paramLayerDataFile = ""
 )
 
-func listLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func listLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	layer, err := m.Layer(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	d, err := m.ListLayerBigData(layer.ID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(d)
@@ -32,61 +30,54 @@ func listLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args
 			fmt.Printf("%s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func getLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	layer, err := m.Layer(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	output := os.Stdout
 	if paramLayerDataFile != "" {
 		f, err := os.Create(paramLayerDataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		output = f
 	}
 	b, err := m.LayerBigData(layer.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if _, err := io.Copy(output, b); err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	output.Close()
-	return 0
+	return 0, nil
 }
 
-func setLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func setLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	layer, err := m.Layer(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	input := os.Stdin
 	if paramLayerDataFile != "" {
 		f, err := os.Open(paramLayerDataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		input = f
 	}
 	err = m.SetLayerBigData(layer.ID, args[1], input)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	return 0
+	return 0, nil
 }
 
-func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	matched := []*storage.Layer{}
 	for _, arg := range args {
 		if layer, err := m.Layer(arg); err == nil {
@@ -116,12 +107,12 @@ func layer(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if len(matched) != len(args) {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
-func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	matched := []*storage.Layer{}
 	for _, arg := range args {
 		if layer, err := m.Layer(arg); err == nil {
@@ -131,8 +122,7 @@ func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, arg
 	for _, layer := range matched {
 		uids, gids, err := m.LayerParentOwners(layer.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "LayerParentOwner: %+v\n", err)
-			return 1
+			return 1, fmt.Errorf("LayerParentOwner: %+v", err)
 		}
 		if jsonOutput {
 			mappings := struct {
@@ -156,9 +146,9 @@ func layerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, arg
 		}
 	}
 	if len(matched) != len(args) {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

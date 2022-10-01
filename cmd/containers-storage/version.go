@@ -9,11 +9,10 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-func version(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func version(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	version, err := m.Version()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "version: %+v\n", err)
-		return 1
+		return 1, fmt.Errorf("version: %+v", err)
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(version)
@@ -22,7 +21,7 @@ func version(flags *mflag.FlagSet, action string, m storage.Store, args []string
 			fmt.Fprintf(os.Stderr, "%s: %s\n", pair[0], pair[1])
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

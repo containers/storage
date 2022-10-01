@@ -72,21 +72,19 @@ func paramIDMapping() (*types.IDMappingOptions, error) {
 	return &options, nil
 }
 
-func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	parent := ""
 	if len(args) > 0 {
 		parent = args[0]
 	}
 	mappings, err := paramIDMapping()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
 	options := &storage.LayerOptions{IDMappingOptions: *mappings}
 	layer, err := m.CreateLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, options)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(layer)
@@ -96,10 +94,10 @@ func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			fmt.Printf("\t%s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	parent := ""
 	if len(args) > 0 {
 		parent = args[0]
@@ -108,22 +106,19 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	if applyDiffFile != "" {
 		f, err := os.Open(applyDiffFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		diffStream = f
 		defer f.Close()
 	}
 	mappings, err := paramIDMapping()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
 	options := &storage.LayerOptions{IDMappingOptions: *mappings}
 	layer, _, err := m.PutLayer(paramID, parent, paramNames, paramMountLabel, !paramCreateRO, options, diffStream)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(layer)
@@ -133,20 +128,18 @@ func importLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			fmt.Printf("\t%s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if paramMetadataFile != "" {
 		f, err := os.Open(paramMetadataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		b, err := io.ReadAll(f)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		paramMetadata = string(b)
 	}
@@ -159,8 +152,7 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	image, err := m.CreateImage(paramID, paramNames, layer, paramMetadata, imageOptions)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(image)
@@ -170,34 +162,30 @@ func createImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 			fmt.Printf("\t%s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if paramMetadataFile != "" {
 		f, err := os.Open(paramMetadataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		b, err := io.ReadAll(f)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		paramMetadata = string(b)
 	}
 	mappings, err := paramIDMapping()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
 	options := &storage.ContainerOptions{IDMappingOptions: *mappings, Volatile: paramVolatile}
 	image := args[0]
 	container, err := m.CreateContainer(paramID, paramNames, image, paramLayer, paramMetadata, options)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(container)
@@ -207,7 +195,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 			fmt.Printf("\t%s", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

@@ -14,11 +14,10 @@ var (
 	imagesQuiet = false
 )
 
-func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images, err := m.Images()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(images)
@@ -39,21 +38,19 @@ func images(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 			}
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images := []*storage.Image{}
 	for _, arg := range args {
 		d := digest.Digest(arg)
 		if err := d.Validate(); err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", arg, err)
-			return 1
+			return 1, err
 		}
 		matched, err := m.ImagesByDigest(d)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
-			return 1
+			return 1, err
 		}
 		images = append(images, matched...)
 	}
@@ -76,7 +73,7 @@ func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args [
 			}
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

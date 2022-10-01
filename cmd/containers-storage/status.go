@@ -9,11 +9,11 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-func status(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func status(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	status, err := m.Status()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "status: %+v\n", err)
-		return 1
+		return 1, nil
 	}
 	basics := [][2]string{
 		{"Root", m.GraphRoot()},
@@ -29,7 +29,7 @@ func status(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 			fmt.Fprintf(os.Stderr, "%s: %s\n", pair[0], pair[1])
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

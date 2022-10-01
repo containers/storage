@@ -11,15 +11,14 @@ import (
 
 var listLayersTree = false
 
-func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	layers, err := m.Layers()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(layers)
-		return 0
+		return 0, nil
 	}
 	imageMap := make(map[string]*[]storage.Image)
 	if images, err := m.Images(); err == nil {
@@ -97,7 +96,7 @@ func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 	if listLayersTree {
 		printTree(nodes)
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

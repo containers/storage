@@ -13,23 +13,21 @@ var (
 	forceShutdown = false
 )
 
-func shutdown(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func shutdown(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	_, err := m.Shutdown(forceShutdown)
 	if jsonOutput {
 		if err == nil {
 			json.NewEncoder(os.Stdout).Encode(string(""))
 		} else {
 			json.NewEncoder(os.Stdout).Encode(err)
+			return 1, nil
 		}
 	} else {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %+v\n", action, err)
+			return 1, fmt.Errorf("%s: %+v", action, err)
 		}
 	}
-	if err != nil {
-		return 1
-	}
-	return 0
+	return 0, nil
 }
 
 func init() {

@@ -16,9 +16,9 @@ var (
 	existQuiet     = false
 )
 
-func exist(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func exist(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	anyMissing := false
 	existDict := make(map[string]bool)
@@ -54,9 +54,9 @@ func exist(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if anyMissing {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

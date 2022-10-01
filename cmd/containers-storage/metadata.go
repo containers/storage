@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,9 +14,9 @@ import (
 
 var metadataQuiet = false
 
-func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	metadataDict := make(map[string]string)
 	missingAny := false
@@ -38,37 +39,33 @@ func metadata(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 		}
 	}
 	if missingAny {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
-func setMetadata(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func setMetadata(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	if paramMetadataFile == "" && paramMetadata == "" {
-		fmt.Fprintf(os.Stderr, "no new metadata provided\n")
-		return 1
+		return 1, errors.New("no new metadata provided")
 	}
 	if paramMetadataFile != "" {
 		f, err := os.Open(paramMetadataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		b, err := io.ReadAll(f)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		paramMetadata = string(b)
 	}
 	if err := m.SetMetadata(args[0], paramMetadata); err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

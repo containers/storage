@@ -15,7 +15,7 @@ var (
 	paramImageDataFile = ""
 )
 
-func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	matched := []*storage.Image{}
 	for _, arg := range args {
 		if image, err := m.Image(arg); err == nil {
@@ -52,21 +52,19 @@ func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if len(matched) != len(args) {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
-func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	d, err := m.ListImageBigData(image.ID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(d)
@@ -75,98 +73,86 @@ func listImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args
 			fmt.Printf("%s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	output := os.Stdout
 	if paramImageDataFile != "" {
 		f, err := os.Create(paramImageDataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		output = f
 	}
 	b, err := m.ImageBigData(image.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	output.Write(b)
 	output.Close()
-	return 0
+	return 0, nil
 }
 
 func wrongManifestDigest(b []byte) (digest.Digest, error) {
 	return digest.Canonical.FromBytes(b), nil
 }
 
-func getImageBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getImageBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	size, err := m.ImageBigDataSize(image.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	fmt.Fprintf(os.Stdout, "%d\n", size)
-	return 0
+	return 0, nil
 }
 
-func getImageBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getImageBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	d, err := m.ImageBigDataDigest(image.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	if d.Validate() != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", d.Validate())
-		return 1
+	if err := d.Validate(); err != nil {
+		return 1, err
 	}
 	fmt.Fprintf(os.Stdout, "%s\n", d.String())
-	return 0
+	return 0, nil
 }
 
-func setImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func setImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	image, err := m.Image(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
 	input := os.Stdin
 	if paramImageDataFile != "" {
 		f, err := os.Open(paramImageDataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		input = f
 	}
 	b, err := io.ReadAll(input)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
 	err = m.SetImageBigData(image.ID, args[1], b, wrongManifestDigest)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

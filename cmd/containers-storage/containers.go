@@ -9,11 +9,10 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-func containers(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func containers(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	containers, err := m.Containers()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
 		json.NewEncoder(os.Stdout).Encode(containers)
@@ -28,7 +27,7 @@ func containers(flags *mflag.FlagSet, action string, m storage.Store, args []str
 			}
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {
