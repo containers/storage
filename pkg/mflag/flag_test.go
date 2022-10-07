@@ -150,7 +150,7 @@ func TestGet(t *testing.T) {
 	VisitAll(visitor)
 }
 
-func testParse(f *FlagSet, t *testing.T) {
+func testParse(t *testing.T, f *FlagSet) {
 	if f.Parsed() {
 		t.Error("f.Parse() = true before Parse")
 	}
@@ -268,7 +268,7 @@ func testParse(f *FlagSet, t *testing.T) {
 	}
 }
 
-func testPanic(f *FlagSet, t *testing.T) {
+func testPanic(t *testing.T, f *FlagSet) {
 	f.Int([]string{"-int"}, 0, "int value")
 	if f.Parsed() {
 		t.Error("f.Parse() = true before Parse")
@@ -281,16 +281,16 @@ func testPanic(f *FlagSet, t *testing.T) {
 
 func TestParsePanic(t *testing.T) {
 	ResetForTesting(func() {})
-	testPanic(CommandLine, t)
+	testPanic(t, CommandLine)
 }
 
 func TestParse(t *testing.T) {
 	ResetForTesting(func() { t.Error("bad parse") })
-	testParse(CommandLine, t)
+	testParse(t, CommandLine)
 }
 
 func TestFlagSetParse(t *testing.T) {
-	testParse(NewFlagSet("test", ContinueOnError), t)
+	testParse(t, NewFlagSet("test", ContinueOnError))
 }
 
 // Declare a user-defined flag type.

@@ -9,6 +9,7 @@ import (
 
 // prepareTempFile creates a temporary file in a temporary directory.
 func prepareTempFile(t *testing.T) string {
+	t.Helper()
 	file := filepath.Join(t.TempDir(), "exist")
 	if err := os.WriteFile(file, []byte("hello"), 0644); err != nil {
 		t.Fatal(err)

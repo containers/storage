@@ -142,6 +142,7 @@ func TestTarWithMaliciousSymlinks(t *testing.T) {
 }
 
 func isDataInTar(t *testing.T, tr *gotar.Reader, compare []byte, maxBytes int64) bool {
+	t.Helper()
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {

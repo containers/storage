@@ -1039,7 +1039,9 @@ func (fs *FlagSet) parseOne() (bool, string, error) {
 				return false, "", fs.failf("invalid boolean value %q for  -%s: %v", value, name, err)
 			}
 		} else {
-			fv.Set("true")
+			if err := fv.Set("true"); err != nil {
+				return false, "", fs.failf("failed to set default boolean value for -%s: %v", name, err)
+			}
 		}
 	} else {
 		// It must have a value, which might be the next argument.
@@ -1175,7 +1177,7 @@ func (fs *FlagSet) Parsed() bool {
 // after all flags are defined and before flags are accessed by the program.
 func Parse() {
 	// Ignore errors; CommandLine is set for ExitOnError.
-	CommandLine.Parse(os.Args[1:])
+	_ = CommandLine.Parse(os.Args[1:])
 }
 
 // Parsed returns true if the command-line flags have been parsed.

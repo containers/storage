@@ -8,6 +8,7 @@ import (
 )
 
 func assertParseRelease(t *testing.T, release string, b *VersionInfo, result int) {
+	t.Helper()
 	var (
 		a *VersionInfo
 	)
@@ -46,6 +47,7 @@ func TestParseRelease(t *testing.T) {
 }
 
 func assertKernelVersion(t *testing.T, a, b VersionInfo, result int) {
+	t.Helper()
 	if r := CompareKernelVersion(a, b); r != result {
 		t.Fatalf("Unexpected kernel version comparison result. Found %d, expected %d", r, result)
 	}

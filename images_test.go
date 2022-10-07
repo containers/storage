@@ -9,6 +9,7 @@ import (
 )
 
 func newTestImageStore(t *testing.T) ImageStore {
+	t.Helper()
 	store, err := newImageStore(t.TempDir())
 	require.Nil(t, err)
 	return store

@@ -2,7 +2,7 @@ package stringutils
 
 import "testing"
 
-func testLengthHelper(generator func(int) string, t *testing.T) {
+func testLengthHelper(t *testing.T, generator func(int) string) {
 	expectedLength := 20
 	s := generator(expectedLength)
 	if len(s) != expectedLength {
@@ -10,7 +10,7 @@ func testLengthHelper(generator func(int) string, t *testing.T) {
 	}
 }
 
-func testUniquenessHelper(generator func(int) string, t *testing.T) {
+func testUniquenessHelper(t *testing.T, generator func(int) string) {
 	repeats := 25
 	set := make(map[string]struct{}, repeats)
 	for i := 0; i < repeats; i = i + 1 {
@@ -35,19 +35,19 @@ func isASCII(s string) bool {
 }
 
 func TestGenerateRandomAlphaOnlyStringLength(t *testing.T) {
-	testLengthHelper(GenerateRandomAlphaOnlyString, t)
+	testLengthHelper(t, GenerateRandomAlphaOnlyString)
 }
 
 func TestGenerateRandomAlphaOnlyStringUniqueness(t *testing.T) {
-	testUniquenessHelper(GenerateRandomAlphaOnlyString, t)
+	testUniquenessHelper(t, GenerateRandomAlphaOnlyString)
 }
 
 func TestGenerateRandomAsciiStringLength(t *testing.T) {
-	testLengthHelper(GenerateRandomASCIIString, t)
+	testLengthHelper(t, GenerateRandomASCIIString)
 }
 
 func TestGenerateRandomAsciiStringUniqueness(t *testing.T) {
-	testUniquenessHelper(GenerateRandomASCIIString, t)
+	testUniquenessHelper(t, GenerateRandomASCIIString)
 }
 
 func TestGenerateRandomAsciiStringIsAscii(t *testing.T) {

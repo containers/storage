@@ -28,16 +28,16 @@ func TestSum(t *testing.T) {
 		buf[i] = uint8(rnd.Intn(256))
 	}
 
-	roll := func(offset, len int) *RollSum {
+	roll := func(offset, length int) *RollSum {
 		rs := NewRollSum()
-		for count := offset; count < len; count++ {
+		for count := offset; count < length; count++ {
 			rs.Roll(buf[count])
 		}
 		return rs
 	}
 
-	sum := func(offset, len int) uint32 {
-		rs := roll(offset, len)
+	sum := func(offset, length int) uint32 {
+		rs := roll(offset, length)
 		return rs.Digest()
 	}
 
