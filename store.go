@@ -1100,6 +1100,23 @@ func (s *store) getContainerStore() (rwContainerStore, error) {
 	return nil, ErrLoadError
 }
 
+// writeToContainerStore is a convenience helper for working with store.getContainerStore():
+// It locks the store for writing, checks for updates, and calls fn()
+// It returns the return value of fn, or its own error initializing the store.
+func (s *store) writeToContainerStore(fn func(store rwContainerStore) error) error {
+	store, err := s.getContainerStore()
+	if err != nil {
+		return err
+	}
+
+	store.Lock()
+	defer store.Unlock()
+	if err := store.ReloadIfChanged(); err != nil {
+		return err
+	}
+	return fn(store)
+}
+
 func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 	if s.graphDriver == nil || !s.graphDriver.SupportsShifting() {
 		return false
@@ -1538,31 +1555,28 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		return nil, err
 	}
 	layer = clayer.ID
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return nil, err
-	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if err := rcstore.ReloadIfChanged(); err != nil {
-		return nil, err
-	}
-	options.IDMappingOptions = types.IDMappingOptions{
-		HostUIDMapping: len(options.UIDMap) == 0,
-		HostGIDMapping: len(options.GIDMap) == 0,
-		UIDMap:         copyIDMap(options.UIDMap),
-		GIDMap:         copyIDMap(options.GIDMap),
-	}
-	container, err := rcstore.Create(id, names, imageID, layer, metadata, options)
-	if err != nil || container == nil {
-		if err2 := rlstore.Delete(layer); err2 != nil {
-			if err == nil {
-				err = fmt.Errorf("deleting layer %#v: %w", layer, err2)
-			} else {
-				logrus.Errorf("While recovering from a failure to create a container, error deleting layer %#v: %v", layer, err2)
+
+	var container *Container
+	err = s.writeToContainerStore(func(rcstore rwContainerStore) error {
+		options.IDMappingOptions = types.IDMappingOptions{
+			HostUIDMapping: len(options.UIDMap) == 0,
+			HostGIDMapping: len(options.GIDMap) == 0,
+			UIDMap:         copyIDMap(options.UIDMap),
+			GIDMap:         copyIDMap(options.GIDMap),
+		}
+		var err error
+		container, err = rcstore.Create(id, names, imageID, layer, metadata, options)
+		if err != nil || container == nil {
+			if err2 := rlstore.Delete(layer); err2 != nil {
+				if err == nil {
+					err = fmt.Errorf("deleting layer %#v: %w", layer, err2)
+				} else {
+					logrus.Errorf("While recovering from a failure to create a container, error deleting layer %#v: %v", layer, err2)
+				}
 			}
 		}
-	}
+		return err
+	})
 	return container, err
 }
 
@@ -2026,16 +2040,9 @@ func (s *store) ContainerBigData(id, key string) ([]byte, error) {
 }
 
 func (s *store) SetContainerBigData(id, key string, data []byte) error {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return err
-	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if err := rcstore.ReloadIfChanged(); err != nil {
-		return err
-	}
-	return rcstore.SetBigData(id, key, data)
+	return s.writeToContainerStore(func(rcstore rwContainerStore) error {
+		return rcstore.SetBigData(id, key, data)
+	})
 }
 
 func (s *store) Exists(id string) bool {
@@ -2172,16 +2179,12 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 		}
 	}
 
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return err
-	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if err := rcstore.ReloadIfChanged(); err != nil {
-		return err
-	}
-	if rcstore.Exists(id) {
+	containerFound := false
+	if err := s.writeToContainerStore(func(rcstore rwContainerStore) error {
+		if !rcstore.Exists(id) {
+			return nil
+		}
+		containerFound = true
 		switch op {
 		case setNames:
 			return rcstore.SetNames(id, deduped)
@@ -2192,7 +2195,10 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 		default:
 			return errInvalidUpdateNameOperation
 		}
+	}); err != nil || containerFound {
+		return err
 	}
+
 	return ErrLayerUnknown
 }
 
