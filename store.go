@@ -1186,14 +1186,16 @@ func (s *store) readAllLayerStores(fn func(store roLayerStore) (bool, error)) (b
 // writeToLayerStore is a helper for working with store.getLayerStore():
 // It locks the store for writing, checks for updates, and calls fn()
 // It returns the return value of fn, or its own error initializing the store.
-func (s *store) writeToLayerStore(fn func(store rwLayerStore) error) error {
+func writeToLayerStore[T any](s *store, fn func(store rwLayerStore) (T, error)) (T, error) {
+	var zeroRes T // A zero value of T
+
 	store, err := s.getLayerStore()
 	if err != nil {
-		return err
+		return zeroRes, err
 	}
 
 	if err := store.startWriting(); err != nil {
-		return err
+		return zeroRes, err
 	}
 	defer store.stopWriting()
 	return fn(store)
@@ -1986,9 +1988,10 @@ func (s *store) LayerBigData(id, key string) (io.ReadCloser, error) {
 // SetLayerBigData stores a (possibly large) chunk of named data
 // associated with a layer.
 func (s *store) SetLayerBigData(id, key string, data io.Reader) error {
-	return s.writeToLayerStore(func(store rwLayerStore) error {
-		return store.SetBigData(id, key, data)
+	_, err := writeToLayerStore(s, func(store rwLayerStore) (struct{}, error) {
+		return struct{}{}, store.SetBigData(id, key, data)
 	})
+	return err
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error {
@@ -2283,14 +2286,12 @@ func (s *store) RemoveNames(id string, names []string) error {
 func (s *store) updateNames(id string, names []string, op updateNameOperation) error {
 	deduped := dedupeStrings(names)
 
-	layerFound := false
-	if err := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+	if found, err := writeToLayerStore(s, func(rlstore rwLayerStore) (bool, error) {
 		if !rlstore.Exists(id) {
-			return nil
+			return false, nil
 		}
-		layerFound = true
-		return rlstore.updateNames(id, deduped, op)
-	}); err != nil || layerFound {
+		return true, rlstore.updateNames(id, deduped, op)
+	}); err != nil || found {
 		return err
 	}
 
@@ -2787,16 +2788,12 @@ func (s *store) Unmount(id string, force bool) (bool, error) {
 	if layerID, err := s.ContainerLayerID(id); err == nil {
 		id = layerID
 	}
-	var res bool
-	err := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+	return writeToLayerStore(s, func(rlstore rwLayerStore) (bool, error) {
 		if rlstore.Exists(id) {
-			var err error
-			res, err = rlstore.unmount(id, force, false)
-			return err
+			return rlstore.unmount(id, force, false)
 		}
-		return ErrLayerUnknown
+		return false, ErrLayerUnknown
 	})
-	return res, err
 }
 
 func (s *store) Changes(from, to string) ([]archive.Change, error) {
@@ -2868,57 +2865,47 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 }
 
 func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error {
-	return s.writeToLayerStore(func(rlstore rwLayerStore) error {
+	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
 		if !rlstore.Exists(to) {
-			return ErrLayerUnknown
+			return struct{}{}, ErrLayerUnknown
 		}
-		return rlstore.ApplyDiffFromStagingDirectory(to, stagingDirectory, diffOutput, options)
+		return struct{}{}, rlstore.ApplyDiffFromStagingDirectory(to, stagingDirectory, diffOutput, options)
 	})
+	return err
 }
 
 func (s *store) CleanupStagingDirectory(stagingDirectory string) error {
-	return s.writeToLayerStore(func(rlstore rwLayerStore) error {
-		return rlstore.CleanupStagingDirectory(stagingDirectory)
+	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
+		return struct{}{}, rlstore.CleanupStagingDirectory(stagingDirectory)
 	})
+	return err
 }
 
 func (s *store) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
-	var res *drivers.DriverWithDifferOutput
-	err := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+	return writeToLayerStore(s, func(rlstore rwLayerStore) (*drivers.DriverWithDifferOutput, error) {
 		if to != "" && !rlstore.Exists(to) {
-			return ErrLayerUnknown
+			return nil, ErrLayerUnknown
 		}
-		var err error
-		res, err = rlstore.ApplyDiffWithDiffer(to, options, differ)
-		return err
+		return rlstore.ApplyDiffWithDiffer(to, options, differ)
 	})
-	return res, err
 }
 
 func (s *store) DifferTarget(id string) (string, error) {
-	var res string
-	err := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+	return writeToLayerStore(s, func(rlstore rwLayerStore) (string, error) {
 		if rlstore.Exists(id) {
-			var err error
-			res, err = rlstore.DifferTarget(id)
-			return err
+			return rlstore.DifferTarget(id)
 		}
-		return ErrLayerUnknown
+		return "", ErrLayerUnknown
 	})
-	return res, err
 }
 
 func (s *store) ApplyDiff(to string, diff io.Reader) (int64, error) {
-	var res int64 = -1
-	err := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+	return writeToLayerStore(s, func(rlstore rwLayerStore) (int64, error) {
 		if rlstore.Exists(to) {
-			var err error
-			res, err = rlstore.ApplyDiff(to, diff)
-			return err
+			return rlstore.ApplyDiff(to, diff)
 		}
-		return ErrLayerUnknown
+		return -1, ErrLayerUnknown
 	})
-	return res, err
 }
 
 func (s *store) layersByMappedDigest(m func(roLayerStore, digest.Digest) ([]Layer, error), d digest.Digest) ([]Layer, error) {
@@ -3583,8 +3570,8 @@ func (s *store) GarbageCollect() error {
 		firstErr = moreErr
 	}
 
-	moreErr = s.writeToLayerStore(func(rlstore rwLayerStore) error {
-		return rlstore.GarbageCollect()
+	_, moreErr = writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
+		return struct{}{}, rlstore.GarbageCollect()
 	})
 	if firstErr == nil {
 		firstErr = moreErr
