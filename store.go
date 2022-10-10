@@ -1243,9 +1243,10 @@ func (s *store) readAllImageStores(fn func(store roImageStore) (bool, error)) (b
 // writeToImageStore is a convenience helper for working with store.imageStore:
 // It locks the store for writing, checks for updates, and calls fn(), which can then access store.imageStore.
 // It returns the return value of fn, or its own error initializing the store.
-func (s *store) writeToImageStore(fn func() error) error {
+func writeToImageStore[T any](s *store, fn func() (T, error)) (T, error) {
 	if err := s.imageStore.startWriting(); err != nil {
-		return err
+		var zeroRes T // A zero value of T
+		return zeroRes, err
 	}
 	defer s.imageStore.stopWriting()
 	return fn()
@@ -1431,91 +1432,88 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, i
 		layer = ilayer.ID
 	}
 
-	var options ImageOptions
-	var namesToAddAfterCreating []string
+	return writeToImageStore(s, func() (*Image, error) {
+		var options ImageOptions
+		var namesToAddAfterCreating []string
 
-	if err := s.imageStore.startWriting(); err != nil {
-		return nil, err
-	}
-	defer s.imageStore.stopWriting()
-
-	// Check if the ID refers to an image in a read-only store -- we want
-	// to allow images in read-only stores to have their names changed, so
-	// if we find one, merge the new values in with what we know about the
-	// image that's already there.
-	if id != "" {
-		for _, is := range s.roImageStores {
-			store := is
-			if err := store.startReading(); err != nil {
-				return nil, err
-			}
-			defer store.stopReading()
-			if i, err := store.Get(id); err == nil {
-				// set information about this image in "options"
-				options = ImageOptions{
-					Metadata:     i.Metadata,
-					CreationDate: i.Created,
-					Digest:       i.Digest,
-					Digests:      copyDigestSlice(i.Digests),
-					NamesHistory: copyStringSlice(i.NamesHistory),
+		// Check if the ID refers to an image in a read-only store -- we want
+		// to allow images in read-only stores to have their names changed, so
+		// if we find one, merge the new values in with what we know about the
+		// image that's already there.
+		if id != "" {
+			for _, is := range s.roImageStores {
+				store := is
+				if err := store.startReading(); err != nil {
+					return nil, err
 				}
-				for _, key := range i.BigDataNames {
-					data, err := store.BigData(id, key)
-					if err != nil {
-						return nil, err
+				defer store.stopReading()
+				if i, err := store.Get(id); err == nil {
+					// set information about this image in "options"
+					options = ImageOptions{
+						Metadata:     i.Metadata,
+						CreationDate: i.Created,
+						Digest:       i.Digest,
+						Digests:      copyDigestSlice(i.Digests),
+						NamesHistory: copyStringSlice(i.NamesHistory),
 					}
-					dataDigest, err := store.BigDataDigest(id, key)
-					if err != nil {
-						return nil, err
+					for _, key := range i.BigDataNames {
+						data, err := store.BigData(id, key)
+						if err != nil {
+							return nil, err
+						}
+						dataDigest, err := store.BigDataDigest(id, key)
+						if err != nil {
+							return nil, err
+						}
+						options.BigData = append(options.BigData, ImageBigDataOption{
+							Key:    key,
+							Data:   data,
+							Digest: dataDigest,
+						})
 					}
-					options.BigData = append(options.BigData, ImageBigDataOption{
-						Key:    key,
-						Data:   data,
-						Digest: dataDigest,
-					})
+					namesToAddAfterCreating = dedupeStrings(append(append([]string{}, i.Names...), names...))
+					break
 				}
-				namesToAddAfterCreating = dedupeStrings(append(append([]string{}, i.Names...), names...))
-				break
 			}
 		}
-	}
 
-	// merge any passed-in options into "options" as best we can
-	if iOptions != nil {
-		if !iOptions.CreationDate.IsZero() {
-			options.CreationDate = iOptions.CreationDate
+		// merge any passed-in options into "options" as best we can
+		if iOptions != nil {
+			if !iOptions.CreationDate.IsZero() {
+				options.CreationDate = iOptions.CreationDate
+			}
+			if iOptions.Digest != "" {
+				options.Digest = iOptions.Digest
+			}
+			options.Digests = append(options.Digests, copyDigestSlice(iOptions.Digests)...)
+			if iOptions.Metadata != "" {
+				options.Metadata = iOptions.Metadata
+			}
+			options.BigData = append(options.BigData, copyImageBigDataOptionSlice(iOptions.BigData)...)
+			options.NamesHistory = append(options.NamesHistory, copyStringSlice(iOptions.NamesHistory)...)
+			if options.Flags == nil {
+				options.Flags = make(map[string]interface{})
+			}
+			for k, v := range iOptions.Flags {
+				options.Flags[k] = v
+			}
 		}
-		if iOptions.Digest != "" {
-			options.Digest = iOptions.Digest
-		}
-		options.Digests = append(options.Digests, copyDigestSlice(iOptions.Digests)...)
-		if iOptions.Metadata != "" {
-			options.Metadata = iOptions.Metadata
-		}
-		options.BigData = append(options.BigData, copyImageBigDataOptionSlice(iOptions.BigData)...)
-		options.NamesHistory = append(options.NamesHistory, copyStringSlice(iOptions.NamesHistory)...)
-		if options.Flags == nil {
-			options.Flags = make(map[string]interface{})
-		}
-		for k, v := range iOptions.Flags {
-			options.Flags[k] = v
-		}
-	}
 
-	if options.CreationDate.IsZero() {
-		options.CreationDate = time.Now().UTC()
-	}
-	if metadata != "" {
-		options.Metadata = metadata
-	}
+		if options.CreationDate.IsZero() {
+			options.CreationDate = time.Now().UTC()
+		}
+		if metadata != "" {
+			options.Metadata = metadata
+		}
 
-	res, err := s.imageStore.create(id, names, layer, options)
-	if err == nil && len(namesToAddAfterCreating) > 0 {
-		// set any names we pulled up from an additional image store, now that we won't be
-		// triggering a duplicate names error
-		err = s.imageStore.updateNames(res.ID, namesToAddAfterCreating, addNames)
-	}
-	return res, err
+		res, err := s.imageStore.create(id, names, layer, options)
+		if err == nil && len(namesToAddAfterCreating) > 0 {
+			// set any names we pulled up from an additional image store, now that we won't be
+			// triggering a duplicate names error
+			err = s.imageStore.updateNames(res.ID, namesToAddAfterCreating, addNames)
+		}
+		return res, err
+	})
 }
 
 // imageTopLayerForMapping does ???
@@ -1995,9 +1993,10 @@ func (s *store) SetLayerBigData(id, key string, data io.Reader) error {
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error {
-	return s.writeToImageStore(func() error {
-		return s.imageStore.SetBigData(id, key, data, digestManifest)
+	_, err := writeToImageStore(s, func() (struct{}, error) {
+		return struct{}{}, s.imageStore.SetBigData(id, key, data, digestManifest)
 	})
+	return err
 }
 
 func (s *store) ImageSize(id string) (int64, error) {
@@ -3563,8 +3562,8 @@ func (s *store) GarbageCollect() error {
 		return s.containerStore.GarbageCollect()
 	})
 
-	moreErr := s.writeToImageStore(func() error {
-		return s.imageStore.GarbageCollect()
+	_, moreErr := writeToImageStore(s, func() (struct{}, error) {
+		return struct{}{}, s.imageStore.GarbageCollect()
 	})
 	if firstErr == nil {
 		firstErr = moreErr
