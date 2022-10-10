@@ -1266,9 +1266,10 @@ func (s *store) readContainerStore(fn func() (bool, error)) (bool, error) {
 // writeToContainerStore is a convenience helper for working with store.containerStore:
 // It locks the store for writing, checks for updates, and calls fn(), which can then access store.containerStore.
 // It returns the return value of fn, or its own error initializing the store.
-func (s *store) writeToContainerStore(fn func() error) error {
+func writeToContainerStore[T any](s *store, fn func() (T, error)) (T, error) {
 	if err := s.containerStore.startWriting(); err != nil {
-		return err
+		var zeroRes T // A zero value of T
+		return zeroRes, err
 	}
 	defer s.containerStore.stopWriting()
 	return fn()
@@ -1790,16 +1791,14 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		options.Volatile = true
 	}
 
-	var container *Container
-	err = s.writeToContainerStore(func() error {
+	return writeToContainerStore(s, func() (*Container, error) {
 		options.IDMappingOptions = types.IDMappingOptions{
 			HostUIDMapping: len(options.UIDMap) == 0,
 			HostGIDMapping: len(options.GIDMap) == 0,
 			UIDMap:         copyIDMap(options.UIDMap),
 			GIDMap:         copyIDMap(options.GIDMap),
 		}
-		var err error
-		container, err = s.containerStore.create(id, names, imageID, layer, &options)
+		container, err := s.containerStore.create(id, names, imageID, layer, &options)
 		if err != nil || container == nil {
 			if err2 := rlstore.Delete(layer); err2 != nil {
 				if err == nil {
@@ -1809,9 +1808,8 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 				}
 			}
 		}
-		return err
+		return container, err
 	})
-	return container, err
 }
 
 func (s *store) SetMetadata(id, metadata string) error {
@@ -2117,12 +2115,11 @@ func (s *store) ContainerSize(id string) (int64, error) {
 		return -1, err
 	}
 
-	var res int64 = -1
-	err = s.writeToContainerStore(func() error { // Yes, s.containerStore.BigDataSize requires a write lock.
+	return writeToContainerStore(s, func() (int64, error) { // Yes, s.containerStore.BigDataSize requires a write lock.
 		// Read the container record.
 		container, err := s.containerStore.Get(id)
 		if err != nil {
-			return err
+			return -1, err
 		}
 
 		// Read the container's layer's size.
@@ -2132,24 +2129,24 @@ func (s *store) ContainerSize(id string) (int64, error) {
 			if layer, err = store.Get(container.LayerID); err == nil {
 				size, err = store.DiffSize("", layer.ID)
 				if err != nil {
-					return fmt.Errorf("determining size of layer with ID %q: %w", layer.ID, err)
+					return -1, fmt.Errorf("determining size of layer with ID %q: %w", layer.ID, err)
 				}
 				break
 			}
 		}
 		if layer == nil {
-			return fmt.Errorf("locating layer with ID %q: %w", container.LayerID, ErrLayerUnknown)
+			return -1, fmt.Errorf("locating layer with ID %q: %w", container.LayerID, ErrLayerUnknown)
 		}
 
 		// Count big data items.
 		names, err := s.containerStore.BigDataNames(id)
 		if err != nil {
-			return fmt.Errorf("reading list of big data items for container %q: %w", container.ID, err)
+			return -1, fmt.Errorf("reading list of big data items for container %q: %w", container.ID, err)
 		}
 		for _, name := range names {
 			n, err := s.containerStore.BigDataSize(id, name)
 			if err != nil {
-				return fmt.Errorf("reading size of big data item %q for container %q: %w", name, id, err)
+				return -1, fmt.Errorf("reading size of big data item %q for container %q: %w", name, id, err)
 			}
 			size += n
 		}
@@ -2157,19 +2154,17 @@ func (s *store) ContainerSize(id string) (int64, error) {
 		// Count the size of our container directory and container run directory.
 		n, err := directory.Size(cdir)
 		if err != nil {
-			return err
+			return -1, err
 		}
 		size += n
 		n, err = directory.Size(rdir)
 		if err != nil {
-			return err
+			return -1, err
 		}
 		size += n
 
-		res = size
-		return nil
+		return size, nil
 	})
-	return res, err
 }
 
 func (s *store) ListContainerBigData(id string) ([]string, error) {
@@ -2182,23 +2177,15 @@ func (s *store) ListContainerBigData(id string) ([]string, error) {
 }
 
 func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
-	var res int64 = -1
-	err := s.writeToContainerStore(func() error { // Yes, BigDataSize requires a write lock.
-		var err error
-		res, err = s.containerStore.BigDataSize(id, key)
-		return err
+	return writeToContainerStore(s, func() (int64, error) { // Yes, BigDataSize requires a write lock.
+		return s.containerStore.BigDataSize(id, key)
 	})
-	return res, err
 }
 
 func (s *store) ContainerBigDataDigest(id, key string) (digest.Digest, error) {
-	var res digest.Digest
-	err := s.writeToContainerStore(func() error { // Yes, BigDataDigest requires a write lock.
-		var err error
-		res, err = s.containerStore.BigDataDigest(id, key)
-		return err
+	return writeToContainerStore(s, func() (digest.Digest, error) { // Yes, BigDataDigest requires a write lock.
+		return s.containerStore.BigDataDigest(id, key)
 	})
-	return res, err
 }
 
 func (s *store) ContainerBigData(id, key string) ([]byte, error) {
@@ -2210,9 +2197,10 @@ func (s *store) ContainerBigData(id, key string) ([]byte, error) {
 }
 
 func (s *store) SetContainerBigData(id, key string, data []byte) error {
-	return s.writeToContainerStore(func() error {
-		return s.containerStore.SetBigData(id, key, data)
+	_, err := writeToContainerStore(s, func() (struct{}, error) {
+		return struct{}{}, s.containerStore.SetBigData(id, key, data)
 	})
+	return err
 }
 
 func (s *store) Exists(id string) bool {
@@ -2344,14 +2332,12 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 		}
 	}
 
-	containerFound := false
-	if err := s.writeToContainerStore(func() error {
+	if found, err := writeToContainerStore(s, func() (bool, error) {
 		if !s.containerStore.Exists(id) {
-			return nil
+			return false, nil
 		}
-		containerFound = true
-		return s.containerStore.updateNames(id, deduped, op)
-	}); err != nil || containerFound {
+		return true, s.containerStore.updateNames(id, deduped, op)
+	}); err != nil || found {
 		return err
 	}
 
@@ -3558,8 +3544,8 @@ func (s *store) Free() {
 // Tries to clean up old unreferenced container leftovers. returns the first error
 // but continues as far as it can
 func (s *store) GarbageCollect() error {
-	firstErr := s.writeToContainerStore(func() error {
-		return s.containerStore.GarbageCollect()
+	_, firstErr := writeToContainerStore(s, func() (struct{}, error) {
+		return struct{}{}, s.containerStore.GarbageCollect()
 	})
 
 	_, moreErr := writeToImageStore(s, func() (struct{}, error) {
