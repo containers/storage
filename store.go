@@ -2071,11 +2071,7 @@ func (s *store) Exists(id string) bool {
 		return false
 	}
 	defer rcstore.stopReading()
-	if rcstore.Exists(id) {
-		return true
-	}
-
-	return false
+	return rcstore.Exists(id)
 }
 
 func dedupeNames(names []string) []string {
