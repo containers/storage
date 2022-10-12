@@ -136,11 +136,6 @@ type rwImageStore interface {
 	// stopWriting releases locks obtained by startWriting.
 	stopWriting()
 
-	// Save saves the contents of the store to disk.  It should be called with
-	// the lock held, and Touch() should be called afterward before releasing the
-	// lock.
-	Save() error
-
 	// Create creates an image that has a specified ID (or a random one) and
 	// optional names, using the specified layer as its topmost (hopefully
 	// read-only) layer.  That layer can be referenced by multiple images.
@@ -361,6 +356,8 @@ func (r *imageStore) Load() error {
 	return nil
 }
 
+// Save saves the contents of the store to disk.  It should be called with
+// the lock held.
 func (r *imageStore) Save() error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to modify the image store at %q: %w", r.imagespath(), ErrStoreIsReadOnly)
