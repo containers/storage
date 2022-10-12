@@ -1481,23 +1481,25 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 				return nil, err
 			}
 		}
-		for _, s := range append([]roImageStore{istore}, istores...) {
-			store := s
-			if store == istore {
-				if err := store.startWriting(); err != nil {
-					return nil, err
-				}
-				defer store.stopWriting()
-			} else {
+		if err := istore.startWriting(); err != nil {
+			return nil, err
+		}
+		defer istore.stopWriting()
+		cimage, err = istore.Get(image)
+		if err == nil {
+			imageHomeStore = istore
+		} else {
+			for _, s := range istores {
+				store := s
 				if err := store.startReading(); err != nil {
 					return nil, err
 				}
 				defer store.stopReading()
-			}
-			cimage, err = store.Get(image)
-			if err == nil {
-				imageHomeStore = store
-				break
+				cimage, err = store.Get(image)
+				if err == nil {
+					imageHomeStore = store
+					break
+				}
 			}
 		}
 		if cimage == nil {
