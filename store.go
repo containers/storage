@@ -1092,11 +1092,10 @@ func (s *store) writeToImageStore(fn func(store rwImageStore) error) error {
 		return err
 	}
 
-	store.Lock()
-	defer store.Unlock()
-	if err := store.ReloadIfChanged(); err != nil {
+	if err := store.startWriting(); err != nil {
 		return err
 	}
+	defer store.stopWriting()
 	return fn(store)
 }
 
@@ -1147,11 +1146,10 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 	if err := rlstore.ReloadIfChanged(); err != nil {
 		return err
 	}
-	ristore.Lock()
-	defer ristore.Unlock()
-	if err := ristore.ReloadIfChanged(); err != nil {
+	if err := ristore.startWriting(); err != nil {
 		return err
 	}
+	defer ristore.stopWriting()
 	if err := rcstore.startWriting(); err != nil {
 		return err
 	}
@@ -1486,11 +1484,10 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		for _, s := range append([]roImageStore{istore}, istores...) {
 			store := s
 			if store == istore {
-				store.Lock()
-				defer store.Unlock()
-				if err := store.ReloadIfChanged(); err != nil {
+				if err := store.startWriting(); err != nil {
 					return nil, err
 				}
+				defer store.stopWriting()
 			} else {
 				if err := store.startReading(); err != nil {
 					return nil, err
@@ -2118,11 +2115,10 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 	if err != nil {
 		return err
 	}
-	ristore.Lock()
-	defer ristore.Unlock()
-	if err := ristore.ReloadIfChanged(); err != nil {
+	if err := ristore.startWriting(); err != nil {
 		return err
 	}
+	defer ristore.stopWriting()
 	if ristore.Exists(id) {
 		return ristore.updateNames(id, deduped, op)
 	}

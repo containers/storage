@@ -99,17 +99,12 @@ type roImageStore interface {
 	roMetadataStore
 	roBigDataStore
 
-	// Acquire a writer lock.
-	// The default unix implementation panics if:
-	// - opening the lockfile failed
-	// - tried to lock a read-only lock-file
-	Lock()
+	// startWriting makes sure the store is fresh, and locks it for writing.
+	// If this succeeds, the caller MUST call stopWriting().
+	startWriting() error
 
-	// Unlock the lock.
-	// The default unix implementation panics if:
-	// - unlocking an unlocked lock
-	// - if the lock counter is corrupted
-	Unlock()
+	// stopWriting releases locks obtained by startWriting.
+	stopWriting()
 
 	// startReading makes sure the store is fresh, and locks it for reading.
 	// If this succeeds, the caller MUST call stopReading().
@@ -226,6 +221,30 @@ func copyImageSlice(slice []*Image) []*Image {
 		return cp
 	}
 	return nil
+}
+
+// startWriting makes sure the store is fresh, and locks it for writing.
+// If this succeeds, the caller MUST call stopWriting().
+func (r *imageStore) startWriting() error {
+	r.lockfile.Lock()
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			r.lockfile.Unlock()
+		}
+	}()
+
+	if err := r.ReloadIfChanged(); err != nil {
+		return err
+	}
+
+	succeeded = true
+	return nil
+}
+
+// stopWriting releases locks obtained by startWriting.
+func (r *imageStore) stopWriting() {
+	r.lockfile.Unlock()
 }
 
 // startReading makes sure the store is fresh, and locks it for reading.
