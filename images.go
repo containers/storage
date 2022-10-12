@@ -114,9 +114,6 @@ type roImageStore interface {
 	// last recorded writer.  It should only be called with the lock held.
 	Modified() (bool, error)
 
-	// TouchedSince() checks if the most recent writer modified the file (likely using Touch()) after the specified time.
-	TouchedSince(when time.Time) bool
-
 	// IsReadWrite() checks if the lock file is read-write
 	IsReadWrite() bool
 
@@ -876,10 +873,6 @@ func (r *imageStore) Modified() (bool, error) {
 
 func (r *imageStore) IsReadWrite() bool {
 	return r.lockfile.IsReadWrite()
-}
-
-func (r *imageStore) TouchedSince(when time.Time) bool {
-	return r.lockfile.TouchedSince(when)
 }
 
 func (r *imageStore) Locked() bool {
