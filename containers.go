@@ -94,12 +94,6 @@ type rwContainerStore interface {
 	// last recorded writer.  It should only be called with the lock held.
 	Modified() (bool, error)
 
-	// TouchedSince() checks if the most recent writer modified the file (likely using Touch()) after the specified time.
-	TouchedSince(when time.Time) bool
-
-	// IsReadWrite() checks if the lock file is read-write
-	IsReadWrite() bool
-
 	// Locked() checks if lock is locked for writing by a thread in this process
 	Locked() bool
 	// Load reloads the contents of the store from disk.  It should be called
@@ -699,14 +693,6 @@ func (r *containerStore) Touch() error {
 
 func (r *containerStore) Modified() (bool, error) {
 	return r.lockfile.Modified()
-}
-
-func (r *containerStore) IsReadWrite() bool {
-	return r.lockfile.IsReadWrite()
-}
-
-func (r *containerStore) TouchedSince(when time.Time) bool {
-	return r.lockfile.TouchedSince(when)
 }
 
 func (r *containerStore) Locked() bool {
