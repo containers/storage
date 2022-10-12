@@ -86,16 +86,6 @@ type rwContainerStore interface {
 	// stopReading releases locks obtained by startReading.
 	stopReading()
 
-	// Touch records, for others sharing the lock, that the caller was the
-	// last writer.  It should only be called with the lock held.
-	Touch() error
-
-	// Modified() checks if the most recent writer was a party other than the
-	// last recorded writer.  It should only be called with the lock held.
-	Modified() (bool, error)
-
-	// Locked() checks if lock is locked for writing by a thread in this process
-	Locked() bool
 	// Load reloads the contents of the store from disk.  It should be called
 	// with the lock held.
 	Load() error
@@ -305,7 +295,7 @@ func (r *containerStore) Load() error {
 }
 
 func (r *containerStore) Save() error {
-	if !r.Locked() {
+	if !r.lockfile.Locked() {
 		return errors.New("container store is not locked")
 	}
 	rpath := r.containerspath()
@@ -319,7 +309,7 @@ func (r *containerStore) Save() error {
 	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
 		return err
 	}
-	return r.Touch()
+	return r.lockfile.Touch()
 }
 
 func newContainerStore(dir string) (rwContainerStore, error) {
@@ -687,23 +677,11 @@ func (r *containerStore) Unlock() {
 	r.lockfile.Unlock()
 }
 
-func (r *containerStore) Touch() error {
-	return r.lockfile.Touch()
-}
-
-func (r *containerStore) Modified() (bool, error) {
-	return r.lockfile.Modified()
-}
-
-func (r *containerStore) Locked() bool {
-	return r.lockfile.Locked()
-}
-
 func (r *containerStore) ReloadIfChanged() error {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
 
-	modified, err := r.Modified()
+	modified, err := r.lockfile.Modified()
 	if err == nil && modified {
 		return r.Load()
 	}
