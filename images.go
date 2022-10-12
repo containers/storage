@@ -106,13 +106,6 @@ type roImageStore interface {
 	// stopReading releases locks obtained by startReading.
 	stopReading()
 
-	// Load reloads the contents of the store from disk.  It should be called
-	// with the lock held.
-	Load() error
-
-	// ReloadIfChanged reloads the contents of the store from disk if it is changed.
-	ReloadIfChanged() error
-
 	// Exists checks if there is an image with the given ID or name.
 	Exists(id string) bool
 
@@ -314,6 +307,8 @@ func (i *Image) recomputeDigests() error {
 	return nil
 }
 
+// Load reloads the contents of the store from disk.  It should be called
+// with the lock held.
 func (r *imageStore) Load() error {
 	shouldSave := false
 	rpath := r.imagespath()
@@ -849,6 +844,7 @@ func (r *imageStore) Unlock() {
 	r.lockfile.Unlock()
 }
 
+// ReloadIfChanged reloads the contents of the store from disk if it is changed.
 func (r *imageStore) ReloadIfChanged() error {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
