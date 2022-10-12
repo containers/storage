@@ -73,13 +73,6 @@ type rwFileBasedStore interface {
 	Save() error
 }
 
-// fileBasedStore wraps up the common methods of various types of file-based
-// data stores that we implement.
-type fileBasedStore interface {
-	roFileBasedStore
-	rwFileBasedStore
-}
-
 // roMetadataStore wraps a method for reading metadata associated with an ID.
 type roMetadataStore interface {
 	// Metadata reads metadata associated with an item with the specified ID.
