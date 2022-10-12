@@ -89,11 +89,11 @@ func TestCheckDetectWriteable(t *testing.T) {
 	assert.False(t, done, "unexpected error from readAllLayerStores")
 	assert.NoError(t, err, "unexpected error from readAllLayerStores")
 	assert.True(t, sawRWlayers, "unexpected error detecting which layer store is writeable")
-	done, err = s.readAllImageStores(func(store roImageStore) (bool, error) {
+	_, done, err = readAllImageStores(s, func(store roImageStore) (struct{}, bool, error) {
 		if roImageStoreIsReallyReadWrite(store) { // implicitly checking that the type assertion in this function doesn't panic
 			sawRWimages = true
 		}
-		return false, nil
+		return struct{}{}, false, nil
 	})
 	assert.False(t, done, "unexpected error from readAllImageStores")
 	assert.NoError(t, err, "unexpected error from readAllImageStores")

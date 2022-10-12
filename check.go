@@ -452,10 +452,10 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 
 	// Walk the list of image stores, looking at each image that we didn't see in a
 	// previously-visited store.
-	if errored, err := s.readAllImageStores(func(store roImageStore) (bool, error) {
+	if _, _, err := readAllImageStores(s, func(store roImageStore) (struct{}, bool, error) {
 		images, err := store.Images()
 		if err != nil {
-			return true, err
+			return struct{}{}, true, err
 		}
 		isReadWrite := roImageStoreIsReallyReadWrite(store)
 		readWriteDesc := ""
@@ -564,8 +564,8 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 				}
 			}
 		}
-		return false, nil
-	}); errored {
+		return struct{}{}, false, nil
+	}); err != nil {
 		return CheckReport{}, err
 	}
 
