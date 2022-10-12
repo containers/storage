@@ -2142,9 +2142,6 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 				deduped = deduped[1:]
 			}
 			_, err := ristore.Create(id, deduped, i.TopLayer, i.Metadata, i.Created, i.Digest)
-			if err == nil {
-				return ristore.Save()
-			}
 			return err
 		}
 	}
