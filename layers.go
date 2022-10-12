@@ -144,13 +144,6 @@ type roLayerStore interface {
 	roMetadataStore
 	roLayerBigDataStore
 
-	// startWriting makes sure the store is fresh, and locks it for writing.
-	// If this succeeds, the caller MUST call stopWriting().
-	startWriting() error
-
-	// stopWriting releases locks obtained by startWriting.
-	stopWriting()
-
 	// startReading makes sure the store is fresh, and locks it for reading.
 	// If this succeeds, the caller MUST call stopReading().
 	startReading() error
@@ -234,6 +227,13 @@ type rwLayerStore interface {
 	rwMetadataStore
 	flaggableStore
 	rwLayerBigDataStore
+
+	// startWriting makes sure the store is fresh, and locks it for writing.
+	// If this succeeds, the caller MUST call stopWriting().
+	startWriting() error
+
+	// stopWriting releases locks obtained by startWriting.
+	stopWriting()
 
 	// Save saves the contents of the store to disk.  It should be called with
 	// the lock held, and Touch() should be called afterward before releasing the
