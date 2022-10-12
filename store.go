@@ -1149,38 +1149,39 @@ func (s *store) allLayerStores() ([]roLayerStore, error) {
 // readAllLayerStores processes allLayerStores() in order:
 // It locks the store for reading, checks for updates, and calls
 //
-//	(done, err) := fn(store)
+//	(data, done, err) := fn(store)
 //
 // until the callback returns done == true, and returns the data from the callback.
 //
-// If reading any layer store fails, it immediately returns (true, err).
+// If reading any layer store fails, it immediately returns ({}, true, err).
 //
-// If all layer stores are processed without setting done == true, it returns (false, nil).
+// If all layer stores are processed without setting done == true, it returns ({}, false, nil).
 //
 // Typical usage:
 //
-//	var res T = failureValue
-//	if done, err := s.readAllLayerStores(store, func(…) {
+//	if res, done, err := s.readAllLayerStores(store, func(…) {
 //		…
 //	}; done {
 //		return res, err
 //	}
-func (s *store) readAllLayerStores(fn func(store roLayerStore) (bool, error)) (bool, error) {
+func readAllLayerStores[T any](s *store, fn func(store roLayerStore) (T, bool, error)) (T, bool, error) {
+	var zeroRes T // A zero value of T
+
 	layerStores, err := s.allLayerStores()
 	if err != nil {
-		return true, err
+		return zeroRes, true, err
 	}
 	for _, s := range layerStores {
 		store := s
 		if err := store.startReading(); err != nil {
-			return true, err
+			return zeroRes, true, err
 		}
 		defer store.stopReading()
-		if done, err := fn(store); done {
-			return true, err
+		if res, done, err := fn(store); done {
+			return res, true, err
 		}
 	}
-	return false, nil
+	return zeroRes, false, nil
 }
 
 // writeToLayerStore is a helper for working with store.getLayerStore():
@@ -1828,19 +1829,17 @@ func (s *store) SetMetadata(id, metadata string) error {
 }
 
 func (s *store) Metadata(id string) (string, error) {
-	var res string
-
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) (string, bool, error) {
 		if store.Exists(id) {
-			var err error
-			res, err = store.Metadata(id)
-			return true, err
+			res, err := store.Metadata(id)
+			return res, true, err
 		}
-		return false, nil
+		return "", false, nil
 	}); done {
 		return res, err
 	}
 
+	var res string
 	if done, err := s.readAllImageStores(func(store roImageStore) (bool, error) {
 		if store.Exists(id) {
 			var err error
@@ -1937,17 +1936,15 @@ func (s *store) ImageBigData(id, key string) ([]byte, error) {
 // named data associated with an layer.
 func (s *store) ListLayerBigData(id string) ([]string, error) {
 	foundLayer := false
-	var res []string
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) ([]string, bool, error) {
 		data, err := store.BigDataNames(id)
 		if err == nil {
-			res = data
-			return true, nil
+			return data, true, nil
 		}
 		if store.Exists(id) {
 			foundLayer = true
 		}
-		return false, nil
+		return nil, false, nil
 	}); done {
 		return res, err
 	}
@@ -1961,17 +1958,15 @@ func (s *store) ListLayerBigData(id string) ([]string, error) {
 // associated with a layer.
 func (s *store) LayerBigData(id, key string) (io.ReadCloser, error) {
 	foundLayer := false
-	var res io.ReadCloser
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) (io.ReadCloser, bool, error) {
 		data, err := store.BigData(id, key)
 		if err == nil {
-			res = data
-			return true, nil
+			return data, true, nil
 		}
 		if store.Exists(id) {
 			foundLayer = true
 		}
-		return false, nil
+		return nil, false, nil
 	}); done {
 		return res, err
 	}
@@ -2204,18 +2199,20 @@ func (s *store) SetContainerBigData(id, key string, data []byte) error {
 }
 
 func (s *store) Exists(id string) bool {
-	var res = false
-
-	if done, _ := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	found, _, err := readAllLayerStores(s, func(store roLayerStore) (bool, bool, error) {
 		if store.Exists(id) {
-			res = true
-			return true, nil
+			return true, true, nil
 		}
-		return false, nil
-	}); done {
-		return res
+		return false, false, nil
+	})
+	if err != nil {
+		return false
+	}
+	if found {
+		return true
 	}
 
+	var res = false
 	if done, _ := s.readAllImageStores(func(store roImageStore) (bool, error) {
 		if store.Exists(id) {
 			res = true
@@ -2345,18 +2342,16 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 }
 
 func (s *store) Names(id string) ([]string, error) {
-	var res []string
-
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) ([]string, bool, error) {
 		if l, err := store.Get(id); l != nil && err == nil {
-			res = l.Names
-			return true, nil
+			return l.Names, true, nil
 		}
-		return false, nil
+		return nil, false, nil
 	}); done {
 		return res, err
 	}
 
+	var res []string
 	if done, err := s.readAllImageStores(func(store roImageStore) (bool, error) {
 		if i, err := store.Get(id); i != nil && err == nil {
 			res = i.Names
@@ -2378,18 +2373,16 @@ func (s *store) Names(id string) ([]string, error) {
 }
 
 func (s *store) Lookup(name string) (string, error) {
-	var res string
-
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) (string, bool, error) {
 		if l, err := store.Get(name); l != nil && err == nil {
-			res = l.ID
-			return true, nil
+			return l.ID, true, nil
 		}
-		return false, nil
+		return "", false, nil
 	}); done {
 		return res, err
 	}
 
+	var res string
 	if done, err := s.readAllImageStores(func(store roImageStore) (bool, error) {
 		if i, err := store.Get(name); i != nil && err == nil {
 			res = i.ID
@@ -2782,14 +2775,12 @@ func (s *store) Unmount(id string, force bool) (bool, error) {
 }
 
 func (s *store) Changes(from, to string) ([]archive.Change, error) {
-	var res []archive.Change
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) ([]archive.Change, bool, error) {
 		if store.Exists(to) {
-			var err error
-			res, err = store.Changes(from, to)
-			return true, err
+			res, err := store.Changes(from, to)
+			return res, true, err
 		}
-		return false, nil
+		return nil, false, nil
 	}); done {
 		return res, err
 	}
@@ -2797,16 +2788,17 @@ func (s *store) Changes(from, to string) ([]archive.Change, error) {
 }
 
 func (s *store) DiffSize(from, to string) (int64, error) {
-	var res int64 = -1
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) (int64, bool, error) {
 		if store.Exists(to) {
-			var err error
-			res, err = store.DiffSize(from, to)
-			return true, err
+			res, err := store.DiffSize(from, to)
+			return res, true, err
 		}
-		return false, nil
+		return -1, false, nil
 	}); done {
-		return res, err
+		if err != nil {
+			return -1, err
+		}
+		return res, nil
 	}
 	return -1, ErrLayerUnknown
 }
@@ -2895,16 +2887,16 @@ func (s *store) ApplyDiff(to string, diff io.Reader) (int64, error) {
 
 func (s *store) layersByMappedDigest(m func(roLayerStore, digest.Digest) ([]Layer, error), d digest.Digest) ([]Layer, error) {
 	var layers []Layer
-	if _, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if _, _, err := readAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
 		storeLayers, err := m(store, d)
 		if err != nil {
 			if !errors.Is(err, ErrLayerUnknown) {
-				return true, err
+				return struct{}{}, true, err
 			}
-			return false, nil
+			return struct{}{}, false, nil
 		}
 		layers = append(layers, storeLayers...)
-		return false, nil
+		return struct{}{}, false, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -2929,16 +2921,17 @@ func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 }
 
 func (s *store) LayerSize(id string) (int64, error) {
-	var res int64 = -1
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) (int64, bool, error) {
 		if store.Exists(id) {
-			var err error
-			res, err = store.Size(id)
-			return true, err
+			res, err := store.Size(id)
+			return res, true, err
 		}
-		return false, nil
+		return -1, false, nil
 	}); done {
-		return res, err
+		if err != nil {
+			return -1, err
+		}
+		return res, nil
 	}
 	return -1, ErrLayerUnknown
 }
@@ -2983,13 +2976,13 @@ func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
 
 func (s *store) Layers() ([]Layer, error) {
 	var layers []Layer
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if _, done, err := readAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
 		storeLayers, err := store.Layers()
 		if err != nil {
-			return true, err
+			return struct{}{}, true, err
 		}
 		layers = append(layers, storeLayers...)
-		return false, nil
+		return struct{}{}, false, nil
 	}); done {
 		return nil, err
 	}
@@ -3021,14 +3014,12 @@ func (s *store) Containers() ([]Container, error) {
 }
 
 func (s *store) Layer(id string) (*Layer, error) {
-	var res *Layer
-	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if res, done, err := readAllLayerStores(s, func(store roLayerStore) (*Layer, bool, error) {
 		layer, err := store.Get(id)
 		if err == nil {
-			res = layer
-			return true, nil
+			return layer, true, nil
 		}
-		return false, nil
+		return nil, false, nil
 	}); done {
 		return res, err
 	}

@@ -160,10 +160,10 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 
 	// Walk the list of layer stores, looking at each layer that we didn't see in a
 	// previously-visited store.
-	if errored, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if _, _, err := readAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
 		layers, err := store.Layers()
 		if err != nil {
-			return true, err
+			return struct{}{}, true, err
 		}
 		isReadWrite := roLayerStoreIsReallyReadWrite(store)
 		readWriteDesc := ""
@@ -337,7 +337,7 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 		// At this point we're out of things that we can be sure will work in read-only
 		// stores, so skip the rest for any stores that aren't also read-write stores.
 		if !isReadWrite {
-			return false, nil
+			return struct{}{}, false, nil
 		}
 		// Content and mount checks are also things that we can only be sure will work in
 		// read-write stores.
@@ -439,8 +439,8 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 			err := fmt.Errorf("%slayer %s: %w", readWriteDesc, parent, ErrLayerMissing)
 			report.Layers[id] = append(report.Layers[id], err)
 		}
-		return false, nil
-	}); errored {
+		return struct{}{}, false, nil
+	}); err != nil {
 		return CheckReport{}, err
 	}
 
@@ -630,13 +630,13 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 	// Now go back through all of the layer stores, and flag any layers which don't belong
 	// to an image or a container, and has been around longer than we can reasonably expect
 	// such a layer to be present before a corresponding image record is added.
-	if errored, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
+	if _, _, err := readAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
 		if isReadWrite := roLayerStoreIsReallyReadWrite(store); !isReadWrite {
-			return false, nil
+			return struct{}{}, false, nil
 		}
 		layers, err := store.Layers()
 		if err != nil {
-			return true, err
+			return struct{}{}, true, err
 		}
 		for _, layer := range layers {
 			maximumAge := defaultMaximumUnreferencedLayerAge
@@ -654,8 +654,8 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 				}
 			}
 		}
-		return false, nil
-	}); errored {
+		return struct{}{}, false, nil
+	}); err != nil {
 		return CheckReport{}, err
 	}
 
