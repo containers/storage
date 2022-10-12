@@ -1072,11 +1072,10 @@ func (s *store) readAllImageStores(fn func(store roImageStore) (bool, error)) (b
 	}
 	for _, s := range ImageStores {
 		store := s
-		store.RLock()
-		defer store.Unlock()
-		if err := store.ReloadIfChanged(); err != nil {
+		if err := store.startReading(); err != nil {
 			return true, err
 		}
+		defer store.stopReading()
 		if done, err := fn(store); done {
 			return true, err
 		}
@@ -1488,12 +1487,15 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			store := s
 			if store == istore {
 				store.Lock()
+				defer store.Unlock()
+				if err := store.ReloadIfChanged(); err != nil {
+					return nil, err
+				}
 			} else {
-				store.RLock()
-			}
-			defer store.Unlock()
-			if err := store.ReloadIfChanged(); err != nil {
-				return nil, err
+				if err := store.startReading(); err != nil {
+					return nil, err
+				}
+				defer store.stopReading()
 			}
 			cimage, err = store.Get(image)
 			if err == nil {
@@ -1823,11 +1825,10 @@ func (s *store) ImageSize(id string) (int64, error) {
 	var image *Image
 	for _, s := range imageStores {
 		store := s
-		store.RLock()
-		defer store.Unlock()
-		if err := store.ReloadIfChanged(); err != nil {
+		if err := store.startReading(); err != nil {
 			return -1, err
 		}
+		defer store.stopReading()
 		if image, err = store.Get(id); err == nil {
 			imageStore = store
 			break
@@ -2133,11 +2134,10 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 	}
 	for _, s := range ristores {
 		store := s
-		store.RLock()
-		defer store.Unlock()
-		if err := store.ReloadIfChanged(); err != nil {
+		if err := store.startReading(); err != nil {
 			return err
 		}
+		defer store.stopReading()
 		if i, err := store.Get(id); err == nil {
 			if len(deduped) > 1 {
 				// Do not want to create image name in R/W storage

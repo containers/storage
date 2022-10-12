@@ -111,8 +111,12 @@ type roImageStore interface {
 	// - if the lock counter is corrupted
 	Unlock()
 
-	// Acquire a reader lock.
-	RLock()
+	// startReading makes sure the store is fresh, and locks it for reading.
+	// If this succeeds, the caller MUST call stopReading().
+	startReading() error
+
+	// stopReading releases locks obtained by startReading.
+	stopReading()
 
 	// Touch records, for others sharing the lock, that the caller was the
 	// last writer.  It should only be called with the lock held.
@@ -222,6 +226,30 @@ func copyImageSlice(slice []*Image) []*Image {
 		return cp
 	}
 	return nil
+}
+
+// startReading makes sure the store is fresh, and locks it for reading.
+// If this succeeds, the caller MUST call stopReading().
+func (r *imageStore) startReading() error {
+	r.lockfile.RLock()
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			r.lockfile.Unlock()
+		}
+	}()
+
+	if err := r.ReloadIfChanged(); err != nil {
+		return err
+	}
+
+	succeeded = true
+	return nil
+}
+
+// stopReading releases locks obtained by startReading.
+func (r *imageStore) stopReading() {
+	r.lockfile.Unlock()
 }
 
 func (r *imageStore) Images() ([]Image, error) {
