@@ -1119,11 +1119,10 @@ func (s *store) writeToContainerStore(fn func(store rwContainerStore) error) err
 		return err
 	}
 
-	store.Lock()
-	defer store.Unlock()
-	if err := store.ReloadIfChanged(); err != nil {
+	if err := store.startWriting(); err != nil {
 		return err
 	}
+	defer store.stopWriting()
 	return fn(store)
 }
 
@@ -1154,11 +1153,10 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 	if err := ristore.ReloadIfChanged(); err != nil {
 		return err
 	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if err := rcstore.ReloadIfChanged(); err != nil {
+	if err := rcstore.startWriting(); err != nil {
 		return err
 	}
+	defer rcstore.stopWriting()
 
 	return fn(rlstore, ristore, rcstore)
 }
@@ -1195,11 +1193,10 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 	if err := rlstore.ReloadIfChanged(); err != nil {
 		return nil, -1, err
 	}
-	rcstore.Lock()
-	defer rcstore.Unlock()
-	if err := rcstore.ReloadIfChanged(); err != nil {
+	if err := rcstore.startWriting(); err != nil {
 		return nil, -1, err
 	}
+	defer rcstore.stopWriting()
 	if options == nil {
 		options = &LayerOptions{}
 	}
