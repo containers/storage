@@ -86,11 +86,6 @@ type rwContainerStore interface {
 	// stopReading releases locks obtained by startReading.
 	stopReading()
 
-	// Save saves the contents of the store to disk.  It should be called with
-	// the lock held, and Touch() should be called afterward before releasing the
-	// lock.
-	Save() error
-
 	// Create creates a container that has a specified ID (or generates a
 	// random one if an empty value is supplied) and optional names,
 	// based on the specified image, using the specified layer as its
@@ -289,6 +284,8 @@ func (r *containerStore) Load() error {
 	return nil
 }
 
+// Save saves the contents of the store to disk.  It should be called with
+// the lock held.
 func (r *containerStore) Save() error {
 	if !r.lockfile.Locked() {
 		return errors.New("container store is not locked")
