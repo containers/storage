@@ -981,11 +981,10 @@ func (s *store) writeToLayerStore(fn func(store rwLayerStore) error) error {
 		return err
 	}
 
-	store.Lock()
-	defer store.Unlock()
-	if err := store.ReloadIfChanged(); err != nil {
+	if err := store.startWriting(); err != nil {
 		return err
 	}
+	defer store.stopWriting()
 	return fn(store)
 }
 
@@ -1117,11 +1116,10 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 		return err
 	}
 
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if err := rlstore.ReloadIfChanged(); err != nil {
+	if err := rlstore.startWriting(); err != nil {
 		return err
 	}
+	defer rlstore.stopWriting()
 	if err := ristore.startWriting(); err != nil {
 		return err
 	}
@@ -1161,11 +1159,10 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 	if err != nil {
 		return nil, -1, err
 	}
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if err := rlstore.ReloadIfChanged(); err != nil {
+	if err := rlstore.startWriting(); err != nil {
 		return nil, -1, err
 	}
+	defer rlstore.stopWriting()
 	if err := rcstore.startWriting(); err != nil {
 		return nil, -1, err
 	}
@@ -1441,11 +1438,10 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		if err != nil {
 			return nil, err
 		}
-		rlstore.Lock()
-		defer rlstore.Unlock()
-		if err := rlstore.ReloadIfChanged(); err != nil {
+		if err := rlstore.startWriting(); err != nil {
 			return nil, err
 		}
+		defer rlstore.stopWriting()
 		for _, s := range lstores {
 			store := s
 			if err := store.startReading(); err != nil {
@@ -1509,11 +1505,10 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			}
 		}
 	} else {
-		rlstore.Lock()
-		defer rlstore.Unlock()
-		if err := rlstore.ReloadIfChanged(); err != nil {
+		if err := rlstore.startWriting(); err != nil {
 			return nil, err
 		}
+		defer rlstore.stopWriting()
 		if !options.HostUIDMapping && len(options.UIDMap) == 0 {
 			uidMap = s.uidMap
 		}
@@ -2508,11 +2503,10 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if err := rlstore.ReloadIfChanged(); err != nil {
+	if err := rlstore.startWriting(); err != nil {
 		return "", err
 	}
+	defer rlstore.stopWriting()
 
 	modified, err := s.graphLock.Modified()
 	if err != nil {
@@ -2949,11 +2943,10 @@ func (al *additionalLayer) PutAs(id, parent string, names []string) (*Layer, err
 	if err != nil {
 		return nil, err
 	}
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if err := rlstore.ReloadIfChanged(); err != nil {
+	if err := rlstore.startWriting(); err != nil {
 		return nil, err
 	}
+	defer rlstore.stopWriting()
 	rlstores, err := al.s.getROLayerStores()
 	if err != nil {
 		return nil, err
@@ -3193,11 +3186,10 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
 
-	rlstore.Lock()
-	defer rlstore.Unlock()
-	if err := rlstore.ReloadIfChanged(); err != nil {
+	if err := rlstore.startWriting(); err != nil {
 		return nil, err
 	}
+	defer rlstore.stopWriting()
 
 	layers, err := rlstore.Layers()
 	if err != nil {

@@ -144,17 +144,12 @@ type roLayerStore interface {
 	roMetadataStore
 	roLayerBigDataStore
 
-	// Acquire a writer lock.
-	// The default unix implementation panics if:
-	// - opening the lockfile failed
-	// - tried to lock a read-only lock-file
-	Lock()
+	// startWriting makes sure the store is fresh, and locks it for writing.
+	// If this succeeds, the caller MUST call stopWriting().
+	startWriting() error
 
-	// Unlock the lock.
-	// The default unix implementation panics if:
-	// - unlocking an unlocked lock
-	// - if the lock counter is corrupted
-	Unlock()
+	// stopWriting releases locks obtained by startWriting.
+	stopWriting()
 
 	// startReading makes sure the store is fresh, and locks it for reading.
 	// If this succeeds, the caller MUST call stopReading().
@@ -348,6 +343,30 @@ func copyLayer(l *Layer) *Layer {
 		UIDs:               copyUint32Slice(l.UIDs),
 		GIDs:               copyUint32Slice(l.GIDs),
 	}
+}
+
+// startWriting makes sure the store is fresh, and locks it for writing.
+// If this succeeds, the caller MUST call stopWriting().
+func (r *layerStore) startWriting() error {
+	r.lockfile.Lock()
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			r.lockfile.Unlock()
+		}
+	}()
+
+	if err := r.ReloadIfChanged(); err != nil {
+		return err
+	}
+
+	succeeded = true
+	return nil
+}
+
+// stopWriting releases locks obtained by startWriting.
+func (r *layerStore) stopWriting() {
+	r.lockfile.Unlock()
 }
 
 // startReading makes sure the store is fresh, and locks it for reading.
