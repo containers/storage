@@ -84,8 +84,12 @@ type rwContainerStore interface {
 	// - if the lock counter is corrupted
 	Unlock()
 
-	// Acquire a reader lock.
-	RLock()
+	// startReading makes sure the store is fresh, and locks it for reading.
+	// If this succeeds, the caller MUST call stopReading().
+	startReading() error
+
+	// stopReading releases locks obtained by startReading.
+	stopReading()
 
 	// Touch records, for others sharing the lock, that the caller was the
 	// last writer.  It should only be called with the lock held.
@@ -203,6 +207,30 @@ func (c *Container) MountOpts() []string {
 	default:
 		return nil
 	}
+}
+
+// startReading makes sure the store is fresh, and locks it for reading.
+// If this succeeds, the caller MUST call stopReading().
+func (r *containerStore) startReading() error {
+	r.lockfile.RLock()
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			r.lockfile.Unlock()
+		}
+	}()
+
+	if err := r.ReloadIfChanged(); err != nil {
+		return err
+	}
+
+	succeeded = true
+	return nil
+}
+
+// stopReading releases locks obtained by startReading.
+func (r *containerStore) stopReading() {
+	r.lockfile.Unlock()
 }
 
 func (r *containerStore) Containers() ([]Container, error) {
@@ -640,10 +668,6 @@ func (r *containerStore) Wipe() error {
 
 func (r *containerStore) Lock() {
 	r.lockfile.Lock()
-}
-
-func (r *containerStore) RLock() {
-	r.lockfile.RLock()
 }
 
 func (r *containerStore) Unlock() {
