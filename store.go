@@ -50,29 +50,6 @@ var (
 	storesLock sync.Mutex
 )
 
-// roFileBasedStore wraps up the methods of the various types of file-based
-// data stores that we implement which are needed for both read-only and
-// read-write files.
-type roFileBasedStore interface {
-	Locker
-
-	// Load reloads the contents of the store from disk.  It should be called
-	// with the lock held.
-	Load() error
-
-	// ReloadIfChanged reloads the contents of the store from disk if it is changed.
-	ReloadIfChanged() error
-}
-
-// rwFileBasedStore wraps up the methods of various types of file-based data
-// stores that we implement using read-write files.
-type rwFileBasedStore interface {
-	// Save saves the contents of the store to disk.  It should be called with
-	// the lock held, and Touch() should be called afterward before releasing the
-	// lock.
-	Save() error
-}
-
 // roMetadataStore wraps a method for reading metadata associated with an ID.
 type roMetadataStore interface {
 	// Metadata reads metadata associated with an item with the specified ID.
