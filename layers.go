@@ -211,11 +211,6 @@ type rwLayerStore interface {
 	// stopWriting releases locks obtained by startWriting.
 	stopWriting()
 
-	// Save saves the contents of the store to disk.  It should be called with
-	// the lock held, and Touch() should be called afterward before releasing the
-	// lock.
-	Save() error
-
 	// Create creates a new layer, optionally giving it a specified ID rather than
 	// a randomly-generated one, either inheriting data from another specified
 	// layer or the empty base layer.  The new layer can optionally be given names
@@ -517,6 +512,8 @@ func (r *layerStore) loadMounts() error {
 	return err
 }
 
+// Save saves the contents of the store to disk.  It should be called with
+// the lock held.
 func (r *layerStore) Save() error {
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
