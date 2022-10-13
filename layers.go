@@ -137,13 +137,13 @@ type DiffOptions struct {
 	Compression *archive.Compression
 }
 
-// ROLayerStore wraps a graph driver, adding the ability to refer to layers by
+// roLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
-type ROLayerStore interface {
-	ROFileBasedStore
-	ROMetadataStore
-	ROLayerBigDataStore
+type roLayerStore interface {
+	roFileBasedStore
+	roMetadataStore
+	roLayerBigDataStore
 
 	// Exists checks if a layer with the specified name or ID is known.
 	Exists(id string) bool
@@ -177,10 +177,6 @@ type ROLayerStore interface {
 	// found, it returns an error.
 	Size(name string) (int64, error)
 
-	// Lookup attempts to translate a name to an ID.  Most methods do this
-	// implicitly.
-	Lookup(name string) (string, error)
-
 	// LayersByCompressedDigest returns a slice of the layers with the
 	// specified compressed digest value recorded for them.
 	LayersByCompressedDigest(d digest.Digest) ([]Layer, error)
@@ -193,15 +189,15 @@ type ROLayerStore interface {
 	Layers() ([]Layer, error)
 }
 
-// LayerStore wraps a graph driver, adding the ability to refer to layers by
+// rwLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
-type LayerStore interface {
-	ROLayerStore
-	RWFileBasedStore
-	RWMetadataStore
-	FlaggableStore
-	RWLayerBigDataStore
+type rwLayerStore interface {
+	roLayerStore
+	rwFileBasedStore
+	rwMetadataStore
+	flaggableStore
+	rwLayerBigDataStore
 
 	// Create creates a new layer, optionally giving it a specified ID rather than
 	// a randomly-generated one, either inheriting data from another specified
@@ -269,10 +265,6 @@ type LayerStore interface {
 
 	// DifferTarget gets the location where files are stored for the layer.
 	DifferTarget(id string) (string, error)
-
-	// LoadLocked wraps Load in a locked state. This means it loads the store
-	// and cleans-up invalid layers if needed.
-	LoadLocked() error
 
 	// PutAdditionalLayer creates a layer using the diff contained in the additional layer
 	// store.
@@ -433,12 +425,6 @@ func (r *layerStore) Load() error {
 	return err
 }
 
-func (r *layerStore) LoadLocked() error {
-	r.lockfile.Lock()
-	defer r.lockfile.Unlock()
-	return r.Load()
-}
-
 func (r *layerStore) loadMounts() error {
 	mounts := make(map[string]*Layer)
 	mpath := r.mountspath()
@@ -540,7 +526,7 @@ func (r *layerStore) saveMounts() error {
 	return r.loadMounts()
 }
 
-func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Driver) (LayerStore, error) {
+func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Driver) (rwLayerStore, error) {
 	if err := os.MkdirAll(rundir, 0700); err != nil {
 		return nil, err
 	}
@@ -575,7 +561,7 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 	return &rlstore, nil
 }
 
-func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (ROLayerStore, error) {
+func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roLayerStore, error) {
 	lockfile, err := GetROLockfile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
@@ -1373,13 +1359,6 @@ func (r *layerStore) Delete(id string) error {
 		return err
 	}
 	return r.Save()
-}
-
-func (r *layerStore) Lookup(name string) (id string, err error) {
-	if layer, ok := r.lookup(name); ok {
-		return layer.ID, nil
-	}
-	return "", ErrLayerUnknown
 }
 
 func (r *layerStore) Exists(id string) bool {

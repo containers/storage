@@ -8,14 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTestImageStore(t *testing.T) ImageStore {
+func newTestImageStore(t *testing.T) rwImageStore {
 	t.Helper()
 	store, err := newImageStore(t.TempDir())
 	require.Nil(t, err)
 	return store
 }
 
-func addTestImage(t *testing.T, store ImageStore, id string, names []string) {
+func addTestImage(t *testing.T, store rwImageStore, id string, names []string) {
 	store.Lock()
 	defer store.Unlock()
 

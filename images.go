@@ -94,21 +94,17 @@ type Image struct {
 	Flags map[string]interface{} `json:"flags,omitempty"`
 }
 
-// ROImageStore provides bookkeeping for information about Images.
-type ROImageStore interface {
-	ROFileBasedStore
-	ROMetadataStore
-	ROBigDataStore
+// roImageStore provides bookkeeping for information about Images.
+type roImageStore interface {
+	roFileBasedStore
+	roMetadataStore
+	roBigDataStore
 
 	// Exists checks if there is an image with the given ID or name.
 	Exists(id string) bool
 
 	// Get retrieves information about an image given an ID or name.
 	Get(id string) (*Image, error)
-
-	// Lookup attempts to translate a name to an ID.  Most methods do this
-	// implicitly.
-	Lookup(name string) (string, error)
 
 	// Images returns a slice enumerating the known images.
 	Images() ([]Image, error)
@@ -120,13 +116,13 @@ type ROImageStore interface {
 	ByDigest(d digest.Digest) ([]*Image, error)
 }
 
-// ImageStore provides bookkeeping for information about Images.
-type ImageStore interface {
-	ROImageStore
-	RWFileBasedStore
-	RWMetadataStore
-	RWImageBigDataStore
-	FlaggableStore
+// rwImageStore provides bookkeeping for information about Images.
+type rwImageStore interface {
+	roImageStore
+	rwFileBasedStore
+	rwMetadataStore
+	rwImageBigDataStore
+	flaggableStore
 
 	// Create creates an image that has a specified ID (or a random one) and
 	// optional names, using the specified layer as its topmost (hopefully
@@ -330,7 +326,7 @@ func (r *imageStore) Save() error {
 	return r.Touch()
 }
 
-func newImageStore(dir string) (ImageStore, error) {
+func newImageStore(dir string) (rwImageStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
@@ -354,7 +350,7 @@ func newImageStore(dir string) (ImageStore, error) {
 	return &istore, nil
 }
 
-func newROImageStore(dir string) (ROImageStore, error) {
+func newROImageStore(dir string) (roImageStore, error) {
 	lockfile, err := GetROLockfile(filepath.Join(dir, "images.lock"))
 	if err != nil {
 		return nil, err
@@ -612,13 +608,6 @@ func (r *imageStore) Get(id string) (*Image, error) {
 		return copyImage(image), nil
 	}
 	return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
-}
-
-func (r *imageStore) Lookup(name string) (id string, err error) {
-	if image, ok := r.lookup(name); ok {
-		return image.ID, nil
-	}
-	return "", fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
 func (r *imageStore) Exists(id string) bool {
