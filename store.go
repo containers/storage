@@ -2504,68 +2504,72 @@ func (s *store) DeleteContainer(id string) error {
 		return err
 	}
 
-	if rcstore.Exists(id) {
-		if container, err := rcstore.Get(id); err == nil {
-			errChan := make(chan error)
-			var wg sync.WaitGroup
+	if !rcstore.Exists(id) {
+		return ErrNotAContainer
+	}
 
-			if rlstore.Exists(container.LayerID) {
-				wg.Add(1)
-				go func() {
-					errChan <- rlstore.Delete(container.LayerID)
-					wg.Done()
-				}()
-			}
-			wg.Add(1)
-			go func() {
-				errChan <- rcstore.Delete(id)
-				wg.Done()
-			}()
+	container, err := rcstore.Get(id)
+	if err != nil {
+		return ErrNotAContainer
+	}
 
-			middleDir := s.graphDriverName + "-containers"
-			gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				// attempt a simple rm -rf first
-				err := os.RemoveAll(gcpath)
-				if err == nil {
-					errChan <- nil
-					return
-				}
-				// and if it fails get to the more complicated cleanup
-				errChan <- system.EnsureRemoveAll(gcpath)
-			}()
+	errChan := make(chan error)
+	var wg sync.WaitGroup
 
-			rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				// attempt a simple rm -rf first
-				err := os.RemoveAll(rcpath)
-				if err == nil {
-					errChan <- nil
-					return
-				}
-				// and if it fails get to the more complicated cleanup
-				errChan <- system.EnsureRemoveAll(rcpath)
-			}()
+	if rlstore.Exists(container.LayerID) {
+		wg.Add(1)
+		go func() {
+			errChan <- rlstore.Delete(container.LayerID)
+			wg.Done()
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		errChan <- rcstore.Delete(id)
+		wg.Done()
+	}()
 
-			go func() {
-				wg.Wait()
-				close(errChan)
-			}()
+	middleDir := s.graphDriverName + "-containers"
+	gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// attempt a simple rm -rf first
+		err := os.RemoveAll(gcpath)
+		if err == nil {
+			errChan <- nil
+			return
+		}
+		// and if it fails get to the more complicated cleanup
+		errChan <- system.EnsureRemoveAll(gcpath)
+	}()
 
-			var errors []error
-			for err := range errChan {
-				if err != nil {
-					errors = append(errors, err)
-				}
-			}
-			return multierror.Append(nil, errors...).ErrorOrNil()
+	rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// attempt a simple rm -rf first
+		err := os.RemoveAll(rcpath)
+		if err == nil {
+			errChan <- nil
+			return
+		}
+		// and if it fails get to the more complicated cleanup
+		errChan <- system.EnsureRemoveAll(rcpath)
+	}()
+
+	go func() {
+		wg.Wait()
+		close(errChan)
+	}()
+
+	var errors []error
+	for err := range errChan {
+		if err != nil {
+			errors = append(errors, err)
 		}
 	}
-	return ErrNotAContainer
+	return multierror.Append(nil, errors...).ErrorOrNil()
 }
 
 func (s *store) Delete(id string) error {
