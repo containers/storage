@@ -285,8 +285,6 @@ type layerStore struct {
 	bymount            map[string]*Layer
 	bycompressedsum    map[digest.Digest][]string
 	byuncompressedsum  map[digest.Digest][]string
-	uidMap             []idtools.IDMap
-	gidMap             []idtools.IDMap
 	loadMut            sync.Mutex
 	layerspathModified time.Time
 }
@@ -550,8 +548,6 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 		byid:           make(map[string]*Layer),
 		bymount:        make(map[string]*Layer),
 		byname:         make(map[string]*Layer),
-		uidMap:         copyIDMap(s.uidMap),
-		gidMap:         copyIDMap(s.gidMap),
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()

@@ -2907,10 +2907,8 @@ func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffO
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	if modified, err := rlstore.Modified(); modified || err != nil {
-		if err = rlstore.Load(); err != nil {
-			return err
-		}
+	if err := rlstore.ReloadIfChanged(); err != nil {
+		return err
 	}
 	if !rlstore.Exists(to) {
 		return ErrLayerUnknown
@@ -2925,10 +2923,8 @@ func (s *store) CleanupStagingDirectory(stagingDirectory string) error {
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	if modified, err := rlstore.Modified(); modified || err != nil {
-		if err = rlstore.Load(); err != nil {
-			return err
-		}
+	if err := rlstore.ReloadIfChanged(); err != nil {
+		return err
 	}
 	return rlstore.CleanupStagingDirectory(stagingDirectory)
 }
@@ -2940,10 +2936,8 @@ func (s *store) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, d
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	if modified, err := rlstore.Modified(); modified || err != nil {
-		if err = rlstore.Load(); err != nil {
-			return nil, err
-		}
+	if err := rlstore.ReloadIfChanged(); err != nil {
+		return nil, err
 	}
 	if to != "" && !rlstore.Exists(to) {
 		return nil, ErrLayerUnknown
@@ -2958,10 +2952,8 @@ func (s *store) DifferTarget(id string) (string, error) {
 	}
 	rlstore.Lock()
 	defer rlstore.Unlock()
-	if modified, err := rlstore.Modified(); modified || err != nil {
-		if err = rlstore.Load(); err != nil {
-			return "", err
-		}
+	if err := rlstore.ReloadIfChanged(); err != nil {
+		return "", err
 	}
 	if rlstore.Exists(id) {
 		return rlstore.DifferTarget(id)
