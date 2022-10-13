@@ -386,6 +386,52 @@ func (r *layerStore) stopReading() {
 	r.lockfile.Unlock()
 }
 
+// Modified() checks if the most recent writer was a party other than the
+// last recorded writer.  It should only be called with the lock held.
+func (r *layerStore) Modified() (bool, error) {
+	var mmodified, tmodified bool
+	lmodified, err := r.lockfile.Modified()
+	if err != nil {
+		return lmodified, err
+	}
+	if r.lockfile.IsReadWrite() {
+		r.mountsLockfile.RLock()
+		defer r.mountsLockfile.Unlock()
+		mmodified, err = r.mountsLockfile.Modified()
+		if err != nil {
+			return lmodified, err
+		}
+	}
+
+	if lmodified || mmodified {
+		return true, nil
+	}
+
+	// If the layers.json file has been modified manually, then we have to
+	// reload the storage in any case.
+	info, err := os.Stat(r.layerspath())
+	if err != nil && !os.IsNotExist(err) {
+		return false, fmt.Errorf("stat layers file: %w", err)
+	}
+	if info != nil {
+		tmodified = info.ModTime() != r.layerspathModified
+	}
+
+	return tmodified, nil
+}
+
+// ReloadIfChanged reloads the contents of the store from disk if it is changed.
+func (r *layerStore) ReloadIfChanged() error {
+	r.loadMut.Lock()
+	defer r.loadMut.Unlock()
+
+	modified, err := r.Modified()
+	if err == nil && modified {
+		return r.Load()
+	}
+	return err
+}
+
 func (r *layerStore) Layers() ([]Layer, error) {
 	layers := make([]Layer, len(r.layers))
 	for i := range r.layers {
@@ -1955,52 +2001,6 @@ func (r *layerStore) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) 
 
 func (r *layerStore) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 	return r.layersByDigestMap(r.byuncompressedsum, d)
-}
-
-// Modified() checks if the most recent writer was a party other than the
-// last recorded writer.  It should only be called with the lock held.
-func (r *layerStore) Modified() (bool, error) {
-	var mmodified, tmodified bool
-	lmodified, err := r.lockfile.Modified()
-	if err != nil {
-		return lmodified, err
-	}
-	if r.lockfile.IsReadWrite() {
-		r.mountsLockfile.RLock()
-		defer r.mountsLockfile.Unlock()
-		mmodified, err = r.mountsLockfile.Modified()
-		if err != nil {
-			return lmodified, err
-		}
-	}
-
-	if lmodified || mmodified {
-		return true, nil
-	}
-
-	// If the layers.json file has been modified manually, then we have to
-	// reload the storage in any case.
-	info, err := os.Stat(r.layerspath())
-	if err != nil && !os.IsNotExist(err) {
-		return false, fmt.Errorf("stat layers file: %w", err)
-	}
-	if info != nil {
-		tmodified = info.ModTime() != r.layerspathModified
-	}
-
-	return tmodified, nil
-}
-
-// ReloadIfChanged reloads the contents of the store from disk if it is changed.
-func (r *layerStore) ReloadIfChanged() error {
-	r.loadMut.Lock()
-	defer r.loadMut.Unlock()
-
-	modified, err := r.Modified()
-	if err == nil && modified {
-		return r.Load()
-	}
-	return err
 }
 
 func closeAll(closes ...func() error) (rErr error) {
