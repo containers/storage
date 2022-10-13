@@ -2946,40 +2946,16 @@ func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
 }
 
 func (s *store) Layers() ([]Layer, error) {
-	lstore, err := s.getLayerStore()
-	if err != nil {
-		return nil, err
-	}
-
-	layers, err := func() ([]Layer, error) {
-		lstore.Lock()
-		defer lstore.Unlock()
-		if err := lstore.Load(); err != nil {
-			return nil, err
-		}
-		return lstore.Layers()
-	}()
-	if err != nil {
-		return nil, err
-	}
-
-	lstores, err := s.getROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, s := range lstores {
-		store := s
-		store.RLock()
-		defer store.Unlock()
-		if err := store.ReloadIfChanged(); err != nil {
-			return nil, err
-		}
+	var layers []Layer
+	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
 		storeLayers, err := store.Layers()
 		if err != nil {
-			return nil, err
+			return true, err
 		}
 		layers = append(layers, storeLayers...)
+		return false, nil
+	}); done {
+		return nil, err
 	}
 	return layers, nil
 }
