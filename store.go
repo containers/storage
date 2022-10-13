@@ -1286,22 +1286,14 @@ func (s *store) CreateLayer(id, parent string, names []string, mountLabel string
 
 func (s *store) CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error) {
 	if layer != "" {
-		lstore, err := s.getLayerStore()
-		if err != nil {
-			return nil, err
-		}
-		lstores, err := s.getROLayerStores()
+		layerStores, err := s.allLayerStores()
 		if err != nil {
 			return nil, err
 		}
 		var ilayer *Layer
-		for _, s := range append([]roLayerStore{lstore}, lstores...) {
+		for _, s := range layerStores {
 			store := s
-			if store == lstore {
-				store.Lock()
-			} else {
-				store.RLock()
-			}
+			store.RLock()
 			defer store.Unlock()
 			err := store.ReloadIfChanged()
 			if err != nil {
