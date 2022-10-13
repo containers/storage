@@ -24,7 +24,7 @@ func addTestImage(t *testing.T, store rwImageStore, id string, names []string) {
 	)
 
 	require.Nil(t, err)
-	require.Nil(t, store.SetNames(id, names))
+	require.Nil(t, store.updateNames(id, names, setNames))
 }
 
 func TestAddNameToHistorySuccess(t *testing.T) {
@@ -72,7 +72,7 @@ func TestHistoryNames(t *testing.T) {
 	// And When
 	store.Lock()
 	defer store.Unlock()
-	require.Nil(t, store.SetNames(firstImageID, []string{"1", "2", "3", "4"}))
+	require.Nil(t, store.updateNames(firstImageID, []string{"1", "2", "3", "4"}, setNames))
 
 	// Then
 	firstImage, err = store.Get(firstImageID)
@@ -91,13 +91,13 @@ func TestHistoryNames(t *testing.T) {
 	require.Equal(t, secondImage.NamesHistory[1], "2")
 
 	// test independent add and remove operations
-	require.Nil(t, store.AddNames(firstImageID, []string{"5"}))
+	require.Nil(t, store.updateNames(firstImageID, []string{"5"}, addNames))
 	firstImage, err = store.Get(firstImageID)
 	require.Nil(t, err)
 	require.Equal(t, firstImage.NamesHistory, []string{"4", "3", "2", "1", "5"})
 
 	// history should still contain old values
-	require.Nil(t, store.RemoveNames(firstImageID, []string{"5"}))
+	require.Nil(t, store.updateNames(firstImageID, []string{"5"}, removeNames))
 	firstImage, err = store.Get(firstImageID)
 	require.Nil(t, err)
 	require.Equal(t, firstImage.NamesHistory, []string{"4", "3", "2", "1", "5"})
