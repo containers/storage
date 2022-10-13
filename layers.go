@@ -151,10 +151,6 @@ type roLayerStore interface {
 	// stopReading releases locks obtained by startReading.
 	stopReading()
 
-	// Modified() checks if the most recent writer was a party other than the
-	// last recorded writer.  It should only be called with the lock held.
-	Modified() (bool, error)
-
 	// Load reloads the contents of the store from disk.  It should be called
 	// with the lock held.
 	Load() error
@@ -1955,6 +1951,8 @@ func (r *layerStore) Unlock() {
 	r.lockfile.Unlock()
 }
 
+// Modified() checks if the most recent writer was a party other than the
+// last recorded writer.  It should only be called with the lock held.
 func (r *layerStore) Modified() (bool, error) {
 	var mmodified, tmodified bool
 	lmodified, err := r.lockfile.Modified()
