@@ -3313,7 +3313,6 @@ func (s *store) FromContainerRunDirectory(id, file string) ([]byte, error) {
 
 func (s *store) Shutdown(force bool) ([]string, error) {
 	mounted := []string{}
-	modified := false
 
 	rlstore, err := s.getLayerStore()
 	if err != nil {
@@ -3347,7 +3346,6 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 					}
 					break
 				}
-				modified = true
 			}
 		}
 	}
@@ -3361,16 +3359,6 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 				err = err2
 			} else {
 				err = fmt.Errorf("(graphLock.Touch failed: %v) %w", err2, err)
-			}
-		}
-		modified = true
-	}
-	if modified {
-		if err2 := rlstore.Touch(); err2 != nil {
-			if err == nil {
-				err = err2
-			} else {
-				err = fmt.Errorf("rlstore.Touch failed: %v) %w", err2, err)
 			}
 		}
 	}
