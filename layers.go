@@ -316,9 +316,12 @@ func copyLayer(l *Layer) *Layer {
 	}
 }
 
-// startWriting makes sure the store is fresh, and locks it for writing.
+// startWritingWithReload makes sure the store is fresh if canReload, and locks it for writing.
 // If this succeeds, the caller MUST call stopWriting().
-func (r *layerStore) startWriting() error {
+//
+// This is an internal implementation detail of layerStore construction, every other caller
+// should use startWriting() instead.
+func (r *layerStore) startWritingWithReload(canReload bool) error {
 	r.lockfile.Lock()
 	succeeded := false
 	defer func() {
@@ -327,12 +330,20 @@ func (r *layerStore) startWriting() error {
 		}
 	}()
 
-	if err := r.ReloadIfChanged(); err != nil {
-		return err
+	if canReload {
+		if err := r.ReloadIfChanged(); err != nil {
+			return err
+		}
 	}
 
 	succeeded = true
 	return nil
+}
+
+// startWriting makes sure the store is fresh, and locks it for writing.
+// If this succeeds, the caller MUST call stopWriting().
+func (r *layerStore) startWriting() error {
+	return r.startWritingWithReload(false)
 }
 
 // stopWriting releases locks obtained by startWriting.
@@ -340,9 +351,12 @@ func (r *layerStore) stopWriting() {
 	r.lockfile.Unlock()
 }
 
-// startReading makes sure the store is fresh, and locks it for reading.
+// startReadingWithReload makes sure the store is fresh if canReload, and locks it for reading.
 // If this succeeds, the caller MUST call stopReading().
-func (r *layerStore) startReading() error {
+//
+// This is an internal implementation detail of layerStore construction, every other caller
+// should use startReading() instead.
+func (r *layerStore) startReadingWithReload(canReload bool) error {
 	r.lockfile.RLock()
 	succeeded := false
 	defer func() {
@@ -351,12 +365,20 @@ func (r *layerStore) startReading() error {
 		}
 	}()
 
-	if err := r.ReloadIfChanged(); err != nil {
-		return err
+	if canReload {
+		if err := r.ReloadIfChanged(); err != nil {
+			return err
+		}
 	}
 
 	succeeded = true
 	return nil
+}
+
+// startReading makes sure the store is fresh, and locks it for reading.
+// If this succeeds, the caller MUST call stopReading().
+func (r *layerStore) startReading() error {
+	return r.startReadingWithReload(true)
 }
 
 // stopReading releases locks obtained by startReading.
@@ -603,8 +625,10 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 		bymount:        make(map[string]*Layer),
 		byname:         make(map[string]*Layer),
 	}
-	rlstore.Lock()
-	defer rlstore.Unlock()
+	if err := rlstore.startWritingWithReload(false); err != nil {
+		return nil, err
+	}
+	defer rlstore.stopWriting()
 	if err := rlstore.Load(); err != nil {
 		return nil, err
 	}
@@ -626,8 +650,10 @@ func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roL
 		bymount:        make(map[string]*Layer),
 		byname:         make(map[string]*Layer),
 	}
-	rlstore.RLock()
-	defer rlstore.Unlock()
+	if err := rlstore.startReadingWithReload(false); err != nil {
+		return nil, err
+	}
+	defer rlstore.stopReading()
 	if err := rlstore.Load(); err != nil {
 		return nil, err
 	}
@@ -1929,18 +1955,6 @@ func (r *layerStore) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) 
 
 func (r *layerStore) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 	return r.layersByDigestMap(r.byuncompressedsum, d)
-}
-
-func (r *layerStore) Lock() {
-	r.lockfile.Lock()
-}
-
-func (r *layerStore) RLock() {
-	r.lockfile.RLock()
-}
-
-func (r *layerStore) Unlock() {
-	r.lockfile.Unlock()
 }
 
 // Modified() checks if the most recent writer was a party other than the
