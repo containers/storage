@@ -151,13 +151,6 @@ type roLayerStore interface {
 	// stopReading releases locks obtained by startReading.
 	stopReading()
 
-	// Load reloads the contents of the store from disk.  It should be called
-	// with the lock held.
-	Load() error
-
-	// ReloadIfChanged reloads the contents of the store from disk if it is changed.
-	ReloadIfChanged() error
-
 	// Exists checks if a layer with the specified name or ID is known.
 	Exists(id string) bool
 
@@ -392,6 +385,8 @@ func (r *layerStore) layerspath() string {
 	return filepath.Join(r.layerdir, "layers.json")
 }
 
+// Load reloads the contents of the store from disk.  It should be called
+// with the lock held.
 func (r *layerStore) Load() error {
 	shouldSave := false
 	rpath := r.layerspath()
@@ -1985,6 +1980,7 @@ func (r *layerStore) Modified() (bool, error) {
 	return tmodified, nil
 }
 
+// ReloadIfChanged reloads the contents of the store from disk if it is changed.
 func (r *layerStore) ReloadIfChanged() error {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
