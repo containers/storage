@@ -2129,16 +2129,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 			return nil
 		}
 		layerFound = true
-		switch op {
-		case setNames:
-			return rlstore.SetNames(id, deduped)
-		case removeNames:
-			return rlstore.RemoveNames(id, deduped)
-		case addNames:
-			return rlstore.AddNames(id, deduped)
-		default:
-			return errInvalidUpdateNameOperation
-		}
+		return rlstore.updateNames(id, deduped, op)
 	}); err != nil || layerFound {
 		return err
 	}
@@ -2153,16 +2144,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 		return err
 	}
 	if ristore.Exists(id) {
-		switch op {
-		case setNames:
-			return ristore.SetNames(id, deduped)
-		case removeNames:
-			return ristore.RemoveNames(id, deduped)
-		case addNames:
-			return ristore.AddNames(id, deduped)
-		default:
-			return errInvalidUpdateNameOperation
-		}
+		return ristore.updateNames(id, deduped, op)
 	}
 
 	// Check is id refers to a RO Store
@@ -2196,16 +2178,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 			return nil
 		}
 		containerFound = true
-		switch op {
-		case setNames:
-			return rcstore.SetNames(id, deduped)
-		case removeNames:
-			return rcstore.RemoveNames(id, deduped)
-		case addNames:
-			return rcstore.AddNames(id, deduped)
-		default:
-			return errInvalidUpdateNameOperation
-		}
+		return rcstore.updateNames(id, deduped, op)
 	}); err != nil || containerFound {
 		return err
 	}
