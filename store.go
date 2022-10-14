@@ -1332,6 +1332,11 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	return res, err
 }
 
+// imageTopLayerForMapping does ???
+// On entry:
+// - ristore must be locked EITHER for reading or writing
+// - rlstore must be locked for writing
+// - lstores must all be locked for reading
 func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, createMappedLayer bool, rlstore rwLayerStore, lstores []roLayerStore, options types.IDMappingOptions) (*Layer, error) {
 	layerMatchesMappingOptions := func(layer *Layer, options types.IDMappingOptions) bool {
 		// If the driver supports shifting and the layer has no mappings, we can use it.
@@ -1353,13 +1358,6 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, crea
 	// Locate the image's top layer and its parent, if it has one.
 	for _, s := range allStores {
 		store := s
-		if store != rlstore {
-			store.RLock()
-			defer store.Unlock()
-			if err := store.ReloadIfChanged(); err != nil {
-				return nil, err
-			}
-		}
 		// Walk the top layer list.
 		for _, candidate := range append([]string{image.TopLayer}, image.MappedTopLayers...) {
 			if cLayer, err := store.Get(candidate); err == nil {
@@ -1472,11 +1470,11 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		defer s.usernsLock.Unlock()
 	}
 
-	var imageHomeStore roImageStore
-	var istore rwImageStore
-	var istores []roImageStore
-	var lstores []roLayerStore
-	var cimage *Image
+	var imageHomeStore roImageStore // Set if image != ""
+	var istore rwImageStore         // Set, and locked read-write, if image != ""
+	var istores []roImageStore      // Set, and NOT NECESSARILY ALL locked read-only, if image != ""
+	var lstores []roLayerStore      // Set, and locked read-only, if image != ""
+	var cimage *Image               // Set if image != ""
 	if image != "" {
 		var err error
 		lstores, err = s.getROLayerStores()
@@ -1495,6 +1493,14 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		defer rlstore.Unlock()
 		if err := rlstore.ReloadIfChanged(); err != nil {
 			return nil, err
+		}
+		for _, s := range lstores {
+			store := s
+			store.RLock()
+			defer store.Unlock()
+			if err := store.ReloadIfChanged(); err != nil {
+				return nil, err
+			}
 		}
 		for _, s := range append([]roImageStore{istore}, istores...) {
 			store := s
@@ -1521,7 +1527,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 
 	if options.AutoUserNs {
 		var err error
-		options.UIDMap, options.GIDMap, err = s.getAutoUserNS(&options.AutoUserNsOpts, cimage)
+		options.UIDMap, options.GIDMap, err = s.getAutoUserNS(&options.AutoUserNsOpts, cimage, rlstore, lstores)
 		if err != nil {
 			return nil, err
 		}
