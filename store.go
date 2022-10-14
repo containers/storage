@@ -1286,22 +1286,14 @@ func (s *store) CreateLayer(id, parent string, names []string, mountLabel string
 
 func (s *store) CreateImage(id string, names []string, layer, metadata string, options *ImageOptions) (*Image, error) {
 	if layer != "" {
-		lstore, err := s.getLayerStore()
-		if err != nil {
-			return nil, err
-		}
-		lstores, err := s.getROLayerStores()
+		layerStores, err := s.allLayerStores()
 		if err != nil {
 			return nil, err
 		}
 		var ilayer *Layer
-		for _, s := range append([]roLayerStore{lstore}, lstores...) {
+		for _, s := range layerStores {
 			store := s
-			if store == lstore {
-				store.Lock()
-			} else {
-				store.RLock()
-			}
+			store.RLock()
 			defer store.Unlock()
 			err := store.ReloadIfChanged()
 			if err != nil {
@@ -2137,16 +2129,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 			return nil
 		}
 		layerFound = true
-		switch op {
-		case setNames:
-			return rlstore.SetNames(id, deduped)
-		case removeNames:
-			return rlstore.RemoveNames(id, deduped)
-		case addNames:
-			return rlstore.AddNames(id, deduped)
-		default:
-			return errInvalidUpdateNameOperation
-		}
+		return rlstore.updateNames(id, deduped, op)
 	}); err != nil || layerFound {
 		return err
 	}
@@ -2161,16 +2144,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 		return err
 	}
 	if ristore.Exists(id) {
-		switch op {
-		case setNames:
-			return ristore.SetNames(id, deduped)
-		case removeNames:
-			return ristore.RemoveNames(id, deduped)
-		case addNames:
-			return ristore.AddNames(id, deduped)
-		default:
-			return errInvalidUpdateNameOperation
-		}
+		return ristore.updateNames(id, deduped, op)
 	}
 
 	// Check is id refers to a RO Store
@@ -2204,16 +2178,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 			return nil
 		}
 		containerFound = true
-		switch op {
-		case setNames:
-			return rcstore.SetNames(id, deduped)
-		case removeNames:
-			return rcstore.RemoveNames(id, deduped)
-		case addNames:
-			return rcstore.AddNames(id, deduped)
-		default:
-			return errInvalidUpdateNameOperation
-		}
+		return rcstore.updateNames(id, deduped, op)
 	}); err != nil || containerFound {
 		return err
 	}
@@ -2946,40 +2911,16 @@ func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
 }
 
 func (s *store) Layers() ([]Layer, error) {
-	lstore, err := s.getLayerStore()
-	if err != nil {
-		return nil, err
-	}
-
-	layers, err := func() ([]Layer, error) {
-		lstore.Lock()
-		defer lstore.Unlock()
-		if err := lstore.Load(); err != nil {
-			return nil, err
-		}
-		return lstore.Layers()
-	}()
-	if err != nil {
-		return nil, err
-	}
-
-	lstores, err := s.getROLayerStores()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, s := range lstores {
-		store := s
-		store.RLock()
-		defer store.Unlock()
-		if err := store.ReloadIfChanged(); err != nil {
-			return nil, err
-		}
+	var layers []Layer
+	if done, err := s.readAllLayerStores(func(store roLayerStore) (bool, error) {
 		storeLayers, err := store.Layers()
 		if err != nil {
-			return nil, err
+			return true, err
 		}
 		layers = append(layers, storeLayers...)
+		return false, nil
+	}); done {
+		return nil, err
 	}
 	return layers, nil
 }
@@ -3314,7 +3255,6 @@ func (s *store) FromContainerRunDirectory(id, file string) ([]byte, error) {
 
 func (s *store) Shutdown(force bool) ([]string, error) {
 	mounted := []string{}
-	modified := false
 
 	rlstore, err := s.getLayerStore()
 	if err != nil {
@@ -3348,7 +3288,6 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 					}
 					break
 				}
-				modified = true
 			}
 		}
 	}
@@ -3362,16 +3301,6 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 				err = err2
 			} else {
 				err = fmt.Errorf("(graphLock.Touch failed: %v) %w", err2, err)
-			}
-		}
-		modified = true
-	}
-	if modified {
-		if err2 := rlstore.Touch(); err2 != nil {
-			if err == nil {
-				err = err2
-			} else {
-				err = fmt.Errorf("rlstore.Touch failed: %v) %w", err2, err)
 			}
 		}
 	}
