@@ -251,9 +251,10 @@ func (l *lockfile) Modified() (bool, error) {
 	if err != nil {
 		return true, err
 	}
-	if n != len(l.lw) {
-		return true, nil
-	}
+	// It is important to handle the partial read case, because
+	// the initial size of the lock file is zero, which is a valid
+	// state (no writes yet)
+	currentLW = currentLW[:n]
 	oldLW := l.lw
 	l.lw = currentLW
 	return !bytes.Equal(currentLW, oldLW), nil
