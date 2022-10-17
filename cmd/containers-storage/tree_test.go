@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func TestTree(*testing.T) {
+func TestTree(_ *testing.T) {
 	nodes := []treeNode{
 		{"F", "H", []string{}},
 		{"F", "I", []string{}},

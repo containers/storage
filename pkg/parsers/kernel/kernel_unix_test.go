@@ -1,3 +1,4 @@
+//go:build !windows
 // +build !windows
 
 package kernel
@@ -41,7 +42,7 @@ func TestParseRelease(t *testing.T) {
 	for _, invalid := range invalids {
 		expectedMessage := fmt.Sprintf("Can't parse kernel version %v", invalid)
 		if _, err := ParseRelease(invalid); err == nil || err.Error() != expectedMessage {
-
+			t.Fatalf("Parsing %q, got %#v", invalid, err)
 		}
 	}
 }

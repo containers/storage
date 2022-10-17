@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"gotest.tools/assert"
 )
 
@@ -115,7 +116,8 @@ func TestReloadConfigurationFile(t *testing.T) {
 	content := bytes.NewBufferString("")
 	logrus.SetOutput(content)
 	var storageOpts StoreOptions
-	ReloadConfigurationFile("./storage_broken.conf", &storageOpts)
+	err := ReloadConfigurationFile("./storage_broken.conf", &storageOpts)
+	require.NoError(t, err)
 	assert.Equal(t, storageOpts.RunRoot, "/run/containers/test")
 	logrus.SetOutput(os.Stderr)
 

@@ -15,7 +15,7 @@ func TestHole(t *testing.T) {
 		reader:    bufio.NewReader(bytes.NewReader(data)),
 	}
 
-	hole, _, err := hf.ReadByte()
+	hole, _, err := hf.readByte()
 	if err != nil {
 		t.Errorf("got error: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestHole(t *testing.T) {
 		t.Error("expected hole not found")
 	}
 
-	if _, _, err := hf.ReadByte(); err != io.EOF {
+	if _, _, err := hf.readByte(); err != io.EOF {
 		t.Errorf("EOF not found")
 	}
 
@@ -32,18 +32,18 @@ func TestHole(t *testing.T) {
 		reader:    bufio.NewReader(bytes.NewReader(data)),
 	}
 	for i := 0; i < 5; i++ {
-		hole, byte, err := hf.ReadByte()
+		hole, b, err := hf.readByte()
 		if err != nil {
 			t.Errorf("got error: %v", err)
 		}
 		if hole != 0 {
 			t.Error("hole found")
 		}
-		if byte != 0 {
+		if b != 0 {
 			t.Error("wrong read")
 		}
 	}
-	if _, _, err := hf.ReadByte(); err != io.EOF {
+	if _, _, err := hf.readByte(); err != io.EOF {
 		t.Error("didn't receive EOF")
 	}
 }
@@ -56,7 +56,7 @@ func TestTwoHoles(t *testing.T) {
 		reader:    bufio.NewReader(bytes.NewReader(data)),
 	}
 
-	hole, _, err := hf.ReadByte()
+	hole, _, err := hf.readByte()
 	if err != nil {
 		t.Errorf("got error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestTwoHoles(t *testing.T) {
 	}
 
 	for _, e := range []byte("FOO") {
-		hole, c, err := hf.ReadByte()
+		hole, c, err := hf.readByte()
 		if err != nil {
 			t.Errorf("got error: %v", err)
 		}
@@ -76,7 +76,7 @@ func TestTwoHoles(t *testing.T) {
 			t.Errorf("wrong byte read %v instead of %v", c, e)
 		}
 	}
-	hole, _, err = hf.ReadByte()
+	hole, _, err = hf.readByte()
 	if err != nil {
 		t.Errorf("got error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestTwoHoles(t *testing.T) {
 		t.Error("expected hole not found")
 	}
 
-	if _, _, err := hf.ReadByte(); err != io.EOF {
+	if _, _, err := hf.readByte(); err != io.EOF {
 		t.Error("didn't receive EOF")
 	}
 }

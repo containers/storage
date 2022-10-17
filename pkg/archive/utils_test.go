@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 var testUntarFns = map[string]func(string, io.Reader) error{
@@ -61,11 +63,12 @@ func testBreakout(t *testing.T, untarFn string, headers []*tar.Header) error {
 
 	reader, writer := io.Pipe()
 	go func() {
-		t := tar.NewWriter(writer)
+		tw := tar.NewWriter(writer)
 		for _, hdr := range headers {
-			t.WriteHeader(hdr)
+			err := tw.WriteHeader(hdr)
+			require.NoError(t, err)
 		}
-		t.Close()
+		tw.Close()
 	}()
 
 	untar := testUntarFns[untarFn]

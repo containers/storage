@@ -147,12 +147,12 @@ func (c *Container) ProcessLabel() string {
 }
 
 func (c *Container) MountOpts() []string {
-	switch c.Flags[mountOptsFlag].(type) {
+	switch value := c.Flags[mountOptsFlag].(type) {
 	case []string:
-		return c.Flags[mountOptsFlag].([]string)
+		return value
 	case []interface{}:
 		var mountOpts []string
-		for _, v := range c.Flags[mountOptsFlag].([]interface{}) {
+		for _, v := range value {
 			if flag, ok := v.(string); ok {
 				mountOpts = append(mountOpts, flag)
 			}

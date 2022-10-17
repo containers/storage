@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -19,7 +18,7 @@ type mountPointError struct {
 	Error string `json:"error"`
 }
 
-func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	moes := []mountPointOrError{}
 	for _, arg := range args {
 		if paramReadOnly {
@@ -39,7 +38,9 @@ func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(moes)
+		if _, err := outputJSON(moes); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, mountOrError := range moes {
 			if mountOrError.Error != "" {
@@ -50,13 +51,13 @@ func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 	}
 	for _, mountOrErr := range moes {
 		if mountOrErr.Error != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	mes := []mountPointError{}
 	errors := false
 	for _, arg := range args {
@@ -77,7 +78,9 @@ func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		mes = append(mes, mountPointError{arg, errText})
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(mes)
+		if _, err := outputJSON(mes); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, me := range mes {
 			if me.Error != "" {
@@ -86,12 +89,12 @@ func unmount(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		}
 	}
 	if errors {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
-func mounted(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func mounted(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	mes := []mountPointError{}
 	errors := false
 	for _, arg := range args {
@@ -108,7 +111,9 @@ func mounted(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		mes = append(mes, mountPointError{arg, errText})
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(mes)
+		if _, err := outputJSON(mes); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, me := range mes {
 			if me.Error != "" {
@@ -117,9 +122,9 @@ func mounted(flags *mflag.FlagSet, action string, m storage.Store, args []string
 		}
 	}
 	if errors {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

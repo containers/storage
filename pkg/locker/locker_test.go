@@ -4,6 +4,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestLockCounter(t *testing.T) {
@@ -76,7 +78,8 @@ func TestLockerUnlock(t *testing.T) {
 	l := New()
 
 	l.Lock("test")
-	l.Unlock("test")
+	err := l.Unlock("test")
+	require.NoError(t, err)
 
 	chDone := make(chan struct{})
 	go func() {
@@ -100,7 +103,8 @@ func TestLockerConcurrency(t *testing.T) {
 		go func() {
 			l.Lock("test")
 			// if there is a concurrency issue, will very likely panic here
-			l.Unlock("test")
+			err := l.Unlock("test")
+			require.NoError(t, err)
 			wg.Done()
 		}()
 	}

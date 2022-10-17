@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -14,11 +13,10 @@ var (
 	paramContainerDataFile = ""
 )
 
-func container(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func container(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images, err := m.Images()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	matches := []*storage.Container{}
 	for _, arg := range args {
@@ -27,7 +25,9 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(matches)
+		if _, err := outputJSON(matches); err != nil {
+			return 1, err
+		}
 	} else {
 		for _, container := range matches {
 			fmt.Printf("ID: %s\n", container.ID)
@@ -56,140 +56,125 @@ func container(flags *mflag.FlagSet, action string, m storage.Store, args []stri
 		}
 	}
 	if len(matches) != len(args) {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
-func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func listContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	d, err := m.ListContainerBigData(container.ID)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(d)
-	} else {
-		for _, name := range d {
-			fmt.Printf("%s\n", name)
-		}
+		return outputJSON(d)
 	}
-	return 0
+	for _, name := range d {
+		fmt.Printf("%s\n", name)
+	}
+	return 0, nil
 }
 
-func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	output := os.Stdout
 	if paramContainerDataFile != "" {
 		f, err := os.Create(paramContainerDataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		output = f
 	}
 	b, err := m.ContainerBigData(container.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	output.Write(b)
+	if _, err := output.Write(b); err != nil {
+		return 1, err
+	}
 	output.Close()
-	return 0
+	return 0, nil
 }
 
-func getContainerBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getContainerBigDataSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	size, err := m.ContainerBigDataSize(container.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	fmt.Fprintf(os.Stdout, "%d\n", size)
-	return 0
+	return 0, nil
 }
 
-func getContainerBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getContainerBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	d, err := m.ContainerBigDataDigest(container.ID, args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	if d.Validate() != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", d.Validate())
-		return 1
+	if err := d.Validate(); err != nil {
+		return 1, err
 	}
 	fmt.Fprintf(os.Stdout, "%s\n", d.String())
-	return 0
+	return 0, nil
 }
 
-func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func setContainerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	container, err := m.Container(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	input := os.Stdin
 	if paramContainerDataFile != "" {
 		f, err := os.Open(paramContainerDataFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%v\n", err)
-			return 1
+			return 1, err
 		}
 		input = f
 	}
 	b, err := io.ReadAll(input)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		return 1
+		return 1, err
 	}
 	err = m.SetContainerBigData(container.ID, args[1], b)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	return 0
+	return 0, nil
 }
 
-func getContainerDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getContainerDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	path, err := m.ContainerDirectory(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	fmt.Printf("%s\n", path)
-	return 0
+	return 0, nil
 }
 
-func getContainerRunDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func getContainerRunDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	path, err := m.ContainerRunDirectory(args[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	fmt.Printf("%s\n", path)
-	return 0
+	return 0, nil
 }
 
-func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	matched := []*storage.Container{}
 	for _, arg := range args {
 		if container, err := m.Container(arg); err == nil {
@@ -199,8 +184,7 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 	for _, container := range matched {
 		uids, gids, err := m.ContainerParentOwners(container.ID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "ContainerParentOwner: %+v\n", err)
-			return 1
+			return 1, fmt.Errorf("ContainerParentOwner: %+v", err)
 		}
 		if jsonOutput {
 			mappings := struct {
@@ -212,7 +196,9 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 				UIDs: uids,
 				GIDs: gids,
 			}
-			json.NewEncoder(os.Stdout).Encode(mappings)
+			if _, err := outputJSON(mappings); err != nil {
+				return 1, err
+			}
 		} else {
 			fmt.Printf("ID: %s\n", container.ID)
 			fmt.Printf("UIDs: %v\n", uids)
@@ -220,9 +206,9 @@ func containerParentOwners(flags *mflag.FlagSet, action string, m storage.Store,
 		}
 	}
 	if len(matched) != len(args) {
-		return 1
+		return 1, nil
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

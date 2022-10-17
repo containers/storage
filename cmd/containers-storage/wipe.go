@@ -1,31 +1,25 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
 )
 
-func wipe(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func wipe(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	err := m.Wipe()
-	if jsonOutput {
-		if err == nil {
-			json.NewEncoder(os.Stdout).Encode(string(""))
-		} else {
-			json.NewEncoder(os.Stdout).Encode(err)
-		}
-	} else {
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %+v\n", action, err)
-		}
-	}
 	if err != nil {
-		return 1
+		if jsonOutput {
+			_, err2 := outputJSON(err)
+			return 1, err2 // Note that err2 is usually nil
+		}
+		return 1, fmt.Errorf("%s: %+v", action, err)
 	}
-	return 0
+	if jsonOutput {
+		return outputJSON(string(""))
+	}
+	return 0, nil
 }
 
 func init() {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -11,9 +10,9 @@ import (
 
 var testDeleteImage = false
 
-func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]string)
 	for _, what := range args {
@@ -25,7 +24,9 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if _, err := outputJSON(deleted); err != nil {
+			return 1, err
+		}
 	} else {
 		for what, err := range deleted {
 			if err != "" {
@@ -35,15 +36,15 @@ func deleteThing(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	for _, err := range deleted {
 		if err != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]string)
 	for _, what := range args {
@@ -55,7 +56,9 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if _, err := outputJSON(deleted); err != nil {
+			return 1, err
+		}
 	} else {
 		for what, err := range deleted {
 			if err != "" {
@@ -65,10 +68,10 @@ func deleteLayer(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	for _, err := range deleted {
 		if err != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 type deletedImage struct {
@@ -76,9 +79,9 @@ type deletedImage struct {
 	Error         string   `json:"error,omitempty"`
 }
 
-func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]deletedImage)
 	for _, what := range args {
@@ -93,7 +96,9 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if _, err := outputJSON(deleted); err != nil {
+			return 1, err
+		}
 	} else {
 		for what, record := range deleted {
 			if record.Error != "" {
@@ -107,15 +112,15 @@ func deleteImage(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	}
 	for _, record := range deleted {
 		if record.Error != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	deleted := make(map[string]string)
 	for _, what := range args {
@@ -127,7 +132,9 @@ func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 		}
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(deleted)
+		if _, err := outputJSON(deleted); err != nil {
+			return 1, err
+		}
 	} else {
 		for what, err := range deleted {
 			if err != "" {
@@ -137,10 +144,10 @@ func deleteContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 	}
 	for _, err := range deleted {
 		if err != "" {
-			return 1
+			return 1, nil
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

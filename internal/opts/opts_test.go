@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateIPAddress(t *testing.T) {
@@ -32,12 +35,14 @@ func TestValidateIPAddress(t *testing.T) {
 func TestMapOpts(t *testing.T) {
 	tmpMap := make(map[string]string)
 	o := NewMapOpts(tmpMap, logOptsValidator)
-	o.Set("max-size=1")
+	err := o.Set("max-size=1")
+	require.NoError(t, err)
 	if o.String() != "map[max-size:1]" {
 		t.Errorf("%s != [map[max-size:1]", o.String())
 	}
 
-	o.Set("max-file=2")
+	err = o.Set("max-file=2")
+	require.NoError(t, err)
 	if len(tmpMap) != 2 {
 		t.Errorf("map length %d != 2", len(tmpMap))
 	}
@@ -56,15 +61,18 @@ func TestMapOpts(t *testing.T) {
 
 func TestListOptsWithoutValidator(t *testing.T) {
 	o := NewListOpts(nil)
-	o.Set("foo")
+	err := o.Set("foo")
+	require.NoError(t, err)
 	if o.String() != "[foo]" {
 		t.Errorf("%s != [foo]", o.String())
 	}
-	o.Set("bar")
+	err = o.Set("bar")
+	require.NoError(t, err)
 	if o.Len() != 2 {
 		t.Errorf("%d != 2", o.Len())
 	}
-	o.Set("bar")
+	err = o.Set("bar")
+	require.NoError(t, err)
 	if o.Len() != 3 {
 		t.Errorf("%d != 3", o.Len())
 	}
@@ -92,15 +100,18 @@ func TestListOptsWithoutValidator(t *testing.T) {
 func TestListOptsWithValidator(t *testing.T) {
 	// Re-using logOptsvalidator (used by MapOpts)
 	o := NewListOpts(logOptsValidator)
-	o.Set("foo")
+	err := o.Set("foo")
+	assert.EqualError(t, err, "invalid key foo")
 	if o.String() != "[]" {
 		t.Errorf("%s != []", o.String())
 	}
-	o.Set("foo=bar")
+	err = o.Set("foo=bar")
+	assert.EqualError(t, err, "invalid key foo")
 	if o.String() != "[]" {
 		t.Errorf("%s != []", o.String())
 	}
-	o.Set("max-file=2")
+	err = o.Set("max-file=2")
+	require.NoError(t, err)
 	if o.Len() != 1 {
 		t.Errorf("%d != 1", o.Len())
 	}
@@ -203,7 +214,8 @@ func TestNamedListOpts(t *testing.T) {
 	var v []string
 	o := NewNamedListOptsRef("foo-name", &v, nil)
 
-	o.Set("foo")
+	err := o.Set("foo")
+	require.NoError(t, err)
 	if o.String() != "[foo]" {
 		t.Errorf("%s != [foo]", o.String())
 	}
@@ -219,7 +231,8 @@ func TestNamedMapOpts(t *testing.T) {
 	tmpMap := make(map[string]string)
 	o := NewNamedMapOpts("max-name", tmpMap, nil)
 
-	o.Set("max-size=1")
+	err := o.Set("max-size=1")
+	require.NoError(t, err)
 	if o.String() != "map[max-size:1]" {
 		t.Errorf("%s != [map[max-size:1]", o.String())
 	}

@@ -253,7 +253,7 @@ func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, d
 		}
 
 		b.StopTimer()
-		if bytes.Compare(c, content) != 0 {
+		if !bytes.Equal(c, content) {
 			b.Fatalf("Wrong content in file %v, expected %v", c, content)
 		}
 		b.StartTimer()

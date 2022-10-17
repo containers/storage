@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -19,7 +20,7 @@ type command struct {
 	maxArgs     int
 	usage       string
 	addFlags    func(*mflag.FlagSet, *command)
-	action      func(*mflag.FlagSet, string, storage.Store, []string) int
+	action      func(*mflag.FlagSet, string, storage.Store, []string) (int, error)
 }
 
 var (
@@ -122,11 +123,24 @@ func main() {
 					os.Exit(1)
 				}
 				store.Free()
-				os.Exit(command.action(flags, cmd, store, args))
+				res, err := command.action(flags, cmd, store, args)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%+v\n", err)
+				}
+				os.Exit(res)
 				break
 			}
 		}
 	}
 	fmt.Printf("%s: unrecognized command.\n", cmd)
 	os.Exit(1)
+}
+
+// outputJSON formats its input as JSON to stdout, and returns values suitable
+// for directly returning from command.action
+func outputJSON(data interface{}) (int, error) {
+	if err := json.NewEncoder(os.Stdout).Encode(data); err != nil {
+		return 1, err
+	}
+	return 0, nil
 }

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
@@ -14,69 +12,64 @@ var (
 	imagesQuiet = false
 )
 
-func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images, err := m.Images()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(images)
-	} else {
-		for _, image := range images {
-			fmt.Printf("%s\n", image.ID)
-			if imagesQuiet {
-				continue
-			}
-			for _, name := range image.Names {
-				fmt.Printf("\tname: %s\n", name)
-			}
-			for _, digest := range image.Digests {
-				fmt.Printf("\tdigest: %s\n", digest.String())
-			}
-			for _, name := range image.BigDataNames {
-				fmt.Printf("\tdata: %s\n", name)
-			}
+		return outputJSON(images)
+	}
+	for _, image := range images {
+		fmt.Printf("%s\n", image.ID)
+		if imagesQuiet {
+			continue
+		}
+		for _, name := range image.Names {
+			fmt.Printf("\tname: %s\n", name)
+		}
+		for _, digest := range image.Digests {
+			fmt.Printf("\tdigest: %s\n", digest.String())
+		}
+		for _, name := range image.BigDataNames {
+			fmt.Printf("\tdata: %s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
-func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func imagesByDigest(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images := []*storage.Image{}
 	for _, arg := range args {
 		d := digest.Digest(arg)
 		if err := d.Validate(); err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %v\n", arg, err)
-			return 1
+			return 1, err
 		}
 		matched, err := m.ImagesByDigest(d)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
-			return 1
+			return 1, err
 		}
 		images = append(images, matched...)
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(images)
-	} else {
-		for _, image := range images {
-			fmt.Printf("%s\n", image.ID)
-			if imagesQuiet {
-				continue
-			}
-			for _, name := range image.Names {
-				fmt.Printf("\tname: %s\n", name)
-			}
-			for _, digest := range image.Digests {
-				fmt.Printf("\tdigest: %s\n", digest.String())
-			}
-			for _, name := range image.BigDataNames {
-				fmt.Printf("\tdata: %s\n", name)
-			}
+		return outputJSON(images)
+	}
+	for _, image := range images {
+		fmt.Printf("%s\n", image.ID)
+		if imagesQuiet {
+			continue
+		}
+		for _, name := range image.Names {
+			fmt.Printf("\tname: %s\n", name)
+		}
+		for _, digest := range image.Digests {
+			fmt.Printf("\tdigest: %s\n", digest.String())
+		}
+		for _, name := range image.BigDataNames {
+			fmt.Printf("\tdata: %s\n", name)
 		}
 	}
-	return 0
+	return 0, nil
 }
 
 func init() {

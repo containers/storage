@@ -6,15 +6,22 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestBytesPipeRead(t *testing.T) {
 	buf := NewBytesPipe()
-	buf.Write([]byte("12"))
-	buf.Write([]byte("34"))
-	buf.Write([]byte("56"))
-	buf.Write([]byte("78"))
-	buf.Write([]byte("90"))
+	_, err := buf.Write([]byte("12"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("34"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("56"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("78"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("90"))
+	require.NoError(t, err)
 	rd := make([]byte, 4)
 	n, err := buf.Read(rd)
 	if err != nil {
@@ -50,11 +57,16 @@ func TestBytesPipeRead(t *testing.T) {
 
 func TestBytesPipeWrite(t *testing.T) {
 	buf := NewBytesPipe()
-	buf.Write([]byte("12"))
-	buf.Write([]byte("34"))
-	buf.Write([]byte("56"))
-	buf.Write([]byte("78"))
-	buf.Write([]byte("90"))
+	_, err := buf.Write([]byte("12"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("34"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("56"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("78"))
+	require.NoError(t, err)
+	_, err = buf.Write([]byte("90"))
+	require.NoError(t, err)
 	if buf.buf[0].String() != "1234567890" {
 		t.Fatalf("Buffer %q, must be %q", buf.buf[0].String(), "1234567890")
 	}
@@ -108,7 +120,8 @@ func TestBytesPipeWriteRandomChunks(t *testing.T) {
 
 		for i := 0; i < c.iterations; i++ {
 			for w := 0; w < c.writesPerLoop; w++ {
-				buf.Write(testMessage[:writeChunks[(i*c.writesPerLoop+w)%len(writeChunks)]])
+				_, err := buf.Write(testMessage[:writeChunks[(i*c.writesPerLoop+w)%len(writeChunks)]])
+				require.NoError(t, err)
 			}
 		}
 		buf.Close()
@@ -135,7 +148,8 @@ func BenchmarkBytesPipeWrite(b *testing.B) {
 			}
 		}()
 		for j := 0; j < 1000; j++ {
-			buf.Write(testData)
+			_, err := buf.Write(testData)
+			require.NoError(b, err)
 		}
 		buf.Close()
 	}
@@ -147,7 +161,8 @@ func BenchmarkBytesPipeRead(b *testing.B) {
 		b.StopTimer()
 		buf := NewBytesPipe()
 		for j := 0; j < 500; j++ {
-			buf.Write(make([]byte, 1024))
+			_, err := buf.Write(make([]byte, 1024))
+			require.NoError(b, err)
 		}
 		b.StartTimer()
 		for j := 0; j < 1000; j++ {

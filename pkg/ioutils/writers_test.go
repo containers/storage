@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestWriteCloserWrapperClose(t *testing.T) {
@@ -52,8 +54,10 @@ func TestWriteCounter(t *testing.T) {
 	var buffer bytes.Buffer
 	wc := NewWriteCounter(&buffer)
 
-	reader1.WriteTo(wc)
-	reader2.WriteTo(wc)
+	_, err := reader1.WriteTo(wc)
+	require.NoError(t, err)
+	_, err = reader2.WriteTo(wc)
+	require.NoError(t, err)
 
 	if wc.Count != totalLength {
 		t.Errorf("Wrong count: %d vs. %d", wc.Count, totalLength)

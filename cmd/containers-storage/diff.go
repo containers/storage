@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -20,9 +19,9 @@ var (
 	diffXz           = false
 )
 
-func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	to := args[0]
 	from := ""
@@ -31,31 +30,29 @@ func changes(flags *mflag.FlagSet, action string, m storage.Store, args []string
 	}
 	changes, err := m.Changes(from, to)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	if jsonOutput {
-		json.NewEncoder(os.Stdout).Encode(changes)
-	} else {
-		for _, change := range changes {
-			what := "?"
-			switch change.Kind {
-			case archive.ChangeAdd:
-				what = "Add"
-			case archive.ChangeModify:
-				what = "Modify"
-			case archive.ChangeDelete:
-				what = "Delete"
-			}
-			fmt.Printf("%s %q\n", what, change.Path)
-		}
+		return outputJSON(changes)
 	}
-	return 0
+	for _, change := range changes {
+		what := "?"
+		switch change.Kind {
+		case archive.ChangeAdd:
+			what = "Add"
+		case archive.ChangeModify:
+			what = "Modify"
+		case archive.ChangeDelete:
+			what = "Delete"
+		}
+		fmt.Printf("%s %q\n", what, change.Path)
+	}
+	return 0, nil
 }
 
-func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	to := args[0]
 	from := ""
@@ -66,8 +63,7 @@ func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) i
 	if diffFile != "" {
 		f, err := os.Create(diffFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
-			return 1
+			return 1, err
 		}
 		diffStream = f
 		defer f.Close()
@@ -90,43 +86,39 @@ func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) i
 
 	reader, err := m.Diff(from, to, &options)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	_, err = io.Copy(diffStream, reader)
 	reader.Close()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	return 0
+	return 0, nil
 }
 
-func applyDiff(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func applyDiff(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	diffStream := io.Reader(os.Stdin)
 	if applyDiffFile != "" {
 		f, err := os.Open(applyDiffFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%+v\n", err)
-			return 1
+			return 1, err
 		}
 		diffStream = f
 		defer f.Close()
 	}
 	_, err := m.ApplyDiff(args[0], diffStream)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
-	return 0
+	return 0, nil
 }
 
-func diffSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) int {
+func diffSize(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
-		return 1
+		return 1, nil
 	}
 	to := args[0]
 	from := ""
@@ -135,11 +127,10 @@ func diffSize(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	}
 	n, err := m.DiffSize(from, to)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
-		return 1
+		return 1, err
 	}
 	fmt.Printf("%d\n", n)
-	return 0
+	return 0, nil
 }
 
 func init() {
