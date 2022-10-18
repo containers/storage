@@ -269,8 +269,7 @@ func TestDefaultStoreOpts(t *testing.T) {
 }
 
 func TestStorageConfOverrideEnvironmentDefaultConfigFileRootless(t *testing.T) {
-	os.Setenv("CONTAINERS_STORAGE_CONF", "default_override_test.conf")
-	defer os.Unsetenv("CONTAINERS_STORAGE_CONF")
+	t.Setenv("CONTAINERS_STORAGE_CONF", "default_override_test.conf")
 	defaultFile, err := DefaultConfigFile(true)
 
 	expectedPath := "default_override_test.conf"
@@ -280,8 +279,7 @@ func TestStorageConfOverrideEnvironmentDefaultConfigFileRootless(t *testing.T) {
 }
 
 func TestStorageConfOverrideEnvironmentDefaultConfigFileRoot(t *testing.T) {
-	os.Setenv("CONTAINERS_STORAGE_CONF", "default_override_test.conf")
-	defer os.Unsetenv("CONTAINERS_STORAGE_CONF")
+	t.Setenv("CONTAINERS_STORAGE_CONF", "default_override_test.conf")
 	defaultFile, err := DefaultConfigFile(false)
 
 	expectedPath := "default_override_test.conf"
