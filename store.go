@@ -664,10 +664,8 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil {
 		return nil, err
 	}
-	for _, subdir := range []string{"mounts", "tmp", options.GraphDriverName} {
-		if err := os.MkdirAll(filepath.Join(options.GraphRoot, subdir), 0700); err != nil {
-			return nil, err
-		}
+	if err := os.MkdirAll(filepath.Join(options.GraphRoot, options.GraphDriverName), 0700); err != nil {
+		return nil, err
 	}
 
 	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
