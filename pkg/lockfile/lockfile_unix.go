@@ -213,13 +213,6 @@ func (l *lockfile) Unlock() {
 	l.stateMutex.Unlock()
 }
 
-// Locked checks if lockfile is locked for writing by a thread in this process.
-func (l *lockfile) Locked() bool {
-	l.stateMutex.Lock()
-	defer l.stateMutex.Unlock()
-	return l.locked && (l.locktype == unix.F_WRLCK)
-}
-
 func (l *lockfile) AssertLocked() {
 	// DO NOT provide a variant that returns the value of l.locked.
 	//

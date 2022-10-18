@@ -47,10 +47,6 @@ func (l *lockfile) Unlock() {
 	l.mu.Unlock()
 }
 
-func (l *lockfile) Locked() bool {
-	return l.locked
-}
-
 func (l *lockfile) AssertLocked() {
 	// DO NOT provide a variant that returns the value of l.locked.
 	//
