@@ -605,3 +605,59 @@ func TestLockfileMultiprocessMixed(t *testing.T) {
 	assert.True(t, rhighest > 1, "expected to have more than one reader lock active at a time at least once, only had %d", rhighest)
 	assert.True(t, whighest == 1, "expected to have no more than one writer lock active at a time, had %d", whighest)
 }
+
+func TestLockfileMultiprocessModified(t *testing.T) {
+	lock, err := getTempLockfile()
+	require.NoError(t, err, "creating lock")
+
+	// Lock hasn't been touched yet - initial state.
+	lock.Lock()
+	modified, err := lock.Modified()
+	lock.Unlock()
+	assert.NoError(t, err, "checking if lock was modified")
+	assert.True(t, modified, "expected Modified() to be true before anyone Touched it")
+
+	lock.Lock()
+	modified, err = lock.Modified()
+	lock.Unlock()
+	assert.NoError(t, err, "checking if lock was modified")
+	assert.False(t, modified, "expected Modified() to be false after we check the first time, before anyone Touched it")
+
+	// Take a read lock somewhere, then see if we incorrectly detect changes.
+	cmd, wc, rc1, err := subLock(lock)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+
+	lock.Lock()
+	modified, err = lock.Modified()
+	lock.Unlock()
+	assert.NoError(t, err, "checking if lock was modified")
+	assert.False(t, modified, "expected Modified() to be false after someone else locked but did not Touch it")
+
+	// Take a write lock somewhere, then see if we correctly detect changes.
+	cmd, wc, rc1, rc2, err := subTouch(lock)
+	wc.Close()
+	cmd.Wait()
+	rc1.Close()
+	rc2.Close()
+
+	lock.Lock()
+	modified, err = lock.Modified()
+	lock.Unlock()
+	assert.NoError(t, err, "checking if lock was modified")
+	assert.True(t, modified, "expected Modified() to be true after someone else Touched it")
+
+	// Take a read lock somewhere, then see if we incorrectly detect changes.
+	cmd, wc, rc1, err = subLock(lock)
+	wc.Close()
+	cmd.Wait()
+	rc1.Close()
+
+	lock.Lock()
+	modified, err = lock.Modified()
+	lock.Unlock()
+	assert.NoError(t, err, "checking if lock was modified")
+	assert.False(t, modified, "expected Modified() to be false after someone else locked but did not Touch it")
+}
