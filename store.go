@@ -1445,7 +1445,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			if err := store.startReading(); err != nil {
 				return nil, err
 			}
-			store.stopReading()
+			defer store.stopReading()
 		}
 		if err := istore.startWriting(); err != nil {
 			return nil, err
