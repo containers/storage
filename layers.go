@@ -343,7 +343,7 @@ func (r *layerStore) startWritingWithReload(canReload bool) error {
 // startWriting makes sure the store is fresh, and locks it for writing.
 // If this succeeds, the caller MUST call stopWriting().
 func (r *layerStore) startWriting() error {
-	return r.startWritingWithReload(false)
+	return r.startWritingWithReload(true)
 }
 
 // stopWriting releases locks obtained by startWriting.
