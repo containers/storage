@@ -626,7 +626,8 @@ func TestLockfileMultiprocessModified(t *testing.T) {
 	// Take a read lock somewhere, then see if we incorrectly detect changes.
 	cmd, wc, rc1, err := subLock(lock)
 	wc.Close()
-	cmd.Wait()
+	err = cmd.Wait()
+	require.NoError(t, err)
 	rc1.Close()
 
 	lock.Lock()
