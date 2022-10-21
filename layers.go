@@ -529,6 +529,7 @@ func (r *layerStore) load(lockedForWriting bool) error {
 		// Last step: as we’re writable, try to remove anything that a previous
 		// user of this storage area marked for deletion but didn't manage to
 		// actually delete.
+		var incompleteDeletionErrors error // = nil
 		if lockedForWriting {
 			for _, layer := range r.layers {
 				if layer.Flags == nil {
@@ -538,14 +539,23 @@ func (r *layerStore) load(lockedForWriting bool) error {
 					logrus.Warnf("Found incomplete layer %#v, deleting it", layer.ID)
 					err = r.deleteInternal(layer.ID)
 					if err != nil {
-						break
+						// Don't return the error immediately, because deleteInternal does not saveLayers();
+						// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
+						// deleted incomplete layers have their metadata correctly removed.
+						incompleteDeletionErrors = multierror.Append(incompleteDeletionErrors,
+							fmt.Errorf("deleting layer %#v: %w", layer.ID, err))
 					}
 					shouldSave = true
 				}
 			}
 		}
 		if shouldSave {
-			return r.saveLayers()
+			if err := r.saveLayers(); err != nil {
+				return err
+			}
+		}
+		if incompleteDeletionErrors != nil {
+			return incompleteDeletionErrors
 		}
 	}
 	return nil
