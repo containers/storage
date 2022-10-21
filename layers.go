@@ -459,7 +459,6 @@ func (r *layerStore) layerspath() string {
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
 func (r *layerStore) load(lockedForWriting bool) error {
-	shouldSave := false
 	rpath := r.layerspath()
 	info, err := os.Stat(rpath)
 	if err != nil {
@@ -485,6 +484,7 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	names := make(map[string]*Layer)
 	compressedsums := make(map[digest.Digest][]string)
 	uncompressedsums := make(map[digest.Digest][]string)
+	var errorToResolveBySaving error // == nil
 	if r.lockfile.IsReadWrite() {
 		selinux.ClearLabels()
 	}
@@ -494,7 +494,7 @@ func (r *layerStore) load(lockedForWriting bool) error {
 		for _, name := range layer.Names {
 			if conflict, ok := names[name]; ok {
 				r.removeName(conflict, name)
-				shouldSave = true
+				errorToResolveBySaving = ErrDuplicateLayerNames
 			}
 			names[name] = layers[n]
 		}
@@ -510,9 +510,9 @@ func (r *layerStore) load(lockedForWriting bool) error {
 		layer.ReadOnly = !r.lockfile.IsReadWrite()
 	}
 
-	if shouldSave && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
+	if errorToResolveBySaving != nil && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
 		// Eventually, the callers should be modified to retry with a write lock if IsReadWrite && !lockedForWriting, instead.
-		return ErrDuplicateLayerNames
+		return errorToResolveBySaving
 	}
 	r.layers = layers
 	r.idindex = truncindex.NewTruncIndex(idlist) // Invalid values in idlist are ignored: they are not a reason to refuse processing the whole store.
@@ -548,11 +548,11 @@ func (r *layerStore) load(lockedForWriting bool) error {
 						incompleteDeletionErrors = multierror.Append(incompleteDeletionErrors,
 							fmt.Errorf("deleting layer %#v: %w", layer.ID, err))
 					}
-					shouldSave = true
+					errorToResolveBySaving = errors.New("incomplete layer") // Essentially just "yes, do save", for now.
 				}
 			}
 		}
-		if shouldSave {
+		if errorToResolveBySaving != nil {
 			if err := r.saveLayers(); err != nil {
 				return err
 			}

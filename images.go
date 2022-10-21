@@ -346,7 +346,6 @@ func (i *Image) recomputeDigests() error {
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
 func (r *imageStore) load(lockedForWriting bool) error {
-	shouldSave := false
 	rpath := r.imagespath()
 	data, err := os.ReadFile(rpath)
 	if err != nil && !os.IsNotExist(err) {
@@ -363,13 +362,14 @@ func (r *imageStore) load(lockedForWriting bool) error {
 	ids := make(map[string]*Image)
 	names := make(map[string]*Image)
 	digests := make(map[digest.Digest][]*Image)
+	var errorToResolveBySaving error // == nil
 	for n, image := range images {
 		ids[image.ID] = images[n]
 		idlist = append(idlist, image.ID)
 		for _, name := range image.Names {
 			if conflict, ok := names[name]; ok {
 				r.removeName(conflict, name)
-				shouldSave = true
+				errorToResolveBySaving = ErrDuplicateImageNames
 			}
 		}
 		// Compute the digest list.
@@ -386,16 +386,16 @@ func (r *imageStore) load(lockedForWriting bool) error {
 		image.ReadOnly = !r.lockfile.IsReadWrite()
 	}
 
-	if shouldSave && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
+	if errorToResolveBySaving != nil && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
 		// Eventually, the callers should be modified to retry with a write lock if IsReadWrite && !lockedForWriting, instead.
-		return ErrDuplicateImageNames
+		return errorToResolveBySaving
 	}
 	r.images = images
 	r.idindex = truncindex.NewTruncIndex(idlist) // Invalid values in idlist are ignored: they are not a reason to refuse processing the whole store.
 	r.byid = ids
 	r.byname = names
 	r.bydigest = digests
-	if shouldSave {
+	if errorToResolveBySaving != nil {
 		return r.Save()
 	}
 	return nil
