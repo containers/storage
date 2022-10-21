@@ -484,7 +484,7 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	names := make(map[string]*Layer)
 	compressedsums := make(map[digest.Digest][]string)
 	uncompressedsums := make(map[digest.Digest][]string)
-	var errorToResolveBySaving error // == nil
+	var errorToResolveBySaving error // == nil; if there are multiple errors, this is one of them.
 	if r.lockfile.IsReadWrite() {
 		selinux.ClearLabels()
 	}
@@ -508,6 +508,13 @@ func (r *layerStore) load(lockedForWriting bool) error {
 			selinux.ReserveLabel(layer.MountLabel)
 		}
 		layer.ReadOnly = !r.lockfile.IsReadWrite()
+		// The r.lockfile.IsReadWrite() condition maintains past practice:
+		// Incomplete layers in a read-only store are not treated as a reason to refuse to use other layers from that store
+		// (OTOH creating child layers on top would probably lead to problems?).
+		// We do remove incomplete layers in read-write stores so that we don’t build on top of them.
+		if layerHasIncompleteFlag(layer) && r.lockfile.IsReadWrite() {
+			errorToResolveBySaving = errors.New("an incomplete layer exists and can't be cleaned up")
+		}
 	}
 
 	if errorToResolveBySaving != nil && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
@@ -528,34 +535,34 @@ func (r *layerStore) load(lockedForWriting bool) error {
 		if err := r.loadMounts(); err != nil {
 			return err
 		}
+	}
 
-		// Last step: as we’re writable, try to remove anything that a previous
+	if errorToResolveBySaving != nil {
+		if !r.lockfile.IsReadWrite() {
+			return fmt.Errorf("internal error: layerStore.load has shouldSave but !r.lockfile.IsReadWrite")
+		}
+		// Last step: try to remove anything that a previous
 		// user of this storage area marked for deletion but didn't manage to
 		// actually delete.
 		var incompleteDeletionErrors error // = nil
-		if lockedForWriting {
-			for _, layer := range r.layers {
-				if layer.Flags == nil {
-					layer.Flags = make(map[string]interface{})
-				}
-				if layerHasIncompleteFlag(layer) {
-					logrus.Warnf("Found incomplete layer %#v, deleting it", layer.ID)
-					err = r.deleteInternal(layer.ID)
-					if err != nil {
-						// Don't return the error immediately, because deleteInternal does not saveLayers();
-						// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
-						// deleted incomplete layers have their metadata correctly removed.
-						incompleteDeletionErrors = multierror.Append(incompleteDeletionErrors,
-							fmt.Errorf("deleting layer %#v: %w", layer.ID, err))
-					}
-					errorToResolveBySaving = errors.New("incomplete layer") // Essentially just "yes, do save", for now.
+		for _, layer := range r.layers {
+			if layer.Flags == nil {
+				layer.Flags = make(map[string]interface{})
+			}
+			if layerHasIncompleteFlag(layer) {
+				logrus.Warnf("Found incomplete layer %#v, deleting it", layer.ID)
+				err = r.deleteInternal(layer.ID)
+				if err != nil {
+					// Don't return the error immediately, because deleteInternal does not saveLayers();
+					// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
+					// deleted incomplete layers have their metadata correctly removed.
+					incompleteDeletionErrors = multierror.Append(incompleteDeletionErrors,
+						fmt.Errorf("deleting layer %#v: %w", layer.ID, err))
 				}
 			}
 		}
-		if errorToResolveBySaving != nil {
-			if err := r.saveLayers(); err != nil {
-				return err
-			}
+		if err := r.saveLayers(); err != nil {
+			return err
 		}
 		if incompleteDeletionErrors != nil {
 			return incompleteDeletionErrors
