@@ -349,37 +349,40 @@ func (r *imageStore) load(lockedForWriting bool) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+
 	images := []*Image{}
-	idlist := []string{}
+	if len(data) != 0 {
+		if err := json.Unmarshal(data, &images); err != nil {
+			return fmt.Errorf("loading %q: %w", rpath, err)
+		}
+	}
+	idlist := make([]string, 0, len(images))
 	ids := make(map[string]*Image)
 	names := make(map[string]*Image)
 	digests := make(map[digest.Digest][]*Image)
-	if err = json.Unmarshal(data, &images); len(data) == 0 || err == nil {
-		idlist = make([]string, 0, len(images))
-		for n, image := range images {
-			ids[image.ID] = images[n]
-			idlist = append(idlist, image.ID)
-			for _, name := range image.Names {
-				if conflict, ok := names[name]; ok {
-					r.removeName(conflict, name)
-					shouldSave = true
-				}
+	for n, image := range images {
+		ids[image.ID] = images[n]
+		idlist = append(idlist, image.ID)
+		for _, name := range image.Names {
+			if conflict, ok := names[name]; ok {
+				r.removeName(conflict, name)
+				shouldSave = true
 			}
-			// Compute the digest list.
-			err = image.recomputeDigests()
-			if err != nil {
-				return fmt.Errorf("computing digests for image with ID %q (%v): %w", image.ID, image.Names, err)
-			}
-			for _, name := range image.Names {
-				names[name] = image
-			}
-			for _, digest := range image.Digests {
-				list := digests[digest]
-				digests[digest] = append(list, image)
-			}
-			image.ReadOnly = !r.lockfile.IsReadWrite()
 		}
+		// Compute the digest list.
+		if err := image.recomputeDigests(); err != nil {
+			return fmt.Errorf("computing digests for image with ID %q (%v): %w", image.ID, image.Names, err)
+		}
+		for _, name := range image.Names {
+			names[name] = image
+		}
+		for _, digest := range image.Digests {
+			list := digests[digest]
+			digests[digest] = append(list, image)
+		}
+		image.ReadOnly = !r.lockfile.IsReadWrite()
 	}
+
 	if shouldSave && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
 		// Eventually, the callers should be modified to retry with a write lock if IsReadWrite && !lockedForWriting, instead.
 		return ErrDuplicateImageNames

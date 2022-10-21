@@ -470,8 +470,14 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+
 	layers := []*Layer{}
-	idlist := []string{}
+	if len(data) != 0 {
+		if err := json.Unmarshal(data, &layers); err != nil {
+			return fmt.Errorf("loading %q: %w", rpath, err)
+		}
+	}
+	idlist := make([]string, 0, len(layers))
 	ids := make(map[string]*Layer)
 	names := make(map[string]*Layer)
 	compressedsums := make(map[digest.Digest][]string)
@@ -479,31 +485,28 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	if r.lockfile.IsReadWrite() {
 		selinux.ClearLabels()
 	}
-	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
-		idlist = make([]string, 0, len(layers))
-		for n, layer := range layers {
-			ids[layer.ID] = layers[n]
-			idlist = append(idlist, layer.ID)
-			for _, name := range layer.Names {
-				if conflict, ok := names[name]; ok {
-					r.removeName(conflict, name)
-					shouldSave = true
-				}
-				names[name] = layers[n]
+	for n, layer := range layers {
+		ids[layer.ID] = layers[n]
+		idlist = append(idlist, layer.ID)
+		for _, name := range layer.Names {
+			if conflict, ok := names[name]; ok {
+				r.removeName(conflict, name)
+				shouldSave = true
 			}
-			if layer.CompressedDigest != "" {
-				compressedsums[layer.CompressedDigest] = append(compressedsums[layer.CompressedDigest], layer.ID)
-			}
-			if layer.UncompressedDigest != "" {
-				uncompressedsums[layer.UncompressedDigest] = append(uncompressedsums[layer.UncompressedDigest], layer.ID)
-			}
-			if layer.MountLabel != "" {
-				selinux.ReserveLabel(layer.MountLabel)
-			}
-			layer.ReadOnly = !r.lockfile.IsReadWrite()
+			names[name] = layers[n]
 		}
-		err = nil
+		if layer.CompressedDigest != "" {
+			compressedsums[layer.CompressedDigest] = append(compressedsums[layer.CompressedDigest], layer.ID)
+		}
+		if layer.UncompressedDigest != "" {
+			uncompressedsums[layer.UncompressedDigest] = append(uncompressedsums[layer.UncompressedDigest], layer.ID)
+		}
+		if layer.MountLabel != "" {
+			selinux.ReserveLabel(layer.MountLabel)
+		}
+		layer.ReadOnly = !r.lockfile.IsReadWrite()
 	}
+
 	if shouldSave && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
 		// Eventually, the callers should be modified to retry with a write lock if IsReadWrite && !lockedForWriting, instead.
 		return ErrDuplicateLayerNames
@@ -519,7 +522,7 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	if r.lockfile.IsReadWrite() {
 		r.mountsLockfile.RLock()
 		defer r.mountsLockfile.Unlock()
-		if err = r.loadMounts(); err != nil {
+		if err := r.loadMounts(); err != nil {
 			return err
 		}
 
@@ -545,8 +548,7 @@ func (r *layerStore) load(lockedForWriting bool) error {
 			return r.saveLayers()
 		}
 	}
-
-	return err
+	return nil
 }
 
 func (r *layerStore) loadMounts() error {
