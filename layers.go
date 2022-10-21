@@ -429,10 +429,13 @@ func (r *layerStore) reloadIfChanged(lockedForWriting bool) error {
 	defer r.loadMut.Unlock()
 
 	modified, err := r.Modified()
-	if err == nil && modified {
+	if err != nil {
+		return err
+	}
+	if modified {
 		return r.load(lockedForWriting)
 	}
-	return err
+	return nil
 }
 
 func (r *layerStore) Layers() ([]Layer, error) {

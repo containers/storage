@@ -272,10 +272,13 @@ func (r *imageStore) reloadIfChanged(lockedForWriting bool) error {
 	defer r.loadMut.Unlock()
 
 	modified, err := r.lockfile.Modified()
-	if err == nil && modified {
+	if err != nil {
+		return err
+	}
+	if modified {
 		return r.load(lockedForWriting)
 	}
-	return err
+	return nil
 }
 
 func (r *imageStore) Images() ([]Image, error) {
