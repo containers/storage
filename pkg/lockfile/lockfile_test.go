@@ -633,6 +633,7 @@ func TestLockfileMultiprocessModified(t *testing.T) {
 
 	// Take a read lock somewhere, then see if we incorrectly detect changes.
 	cmd, wc, rc1, err := subLock(lock)
+	require.NoError(t, err)
 	wc.Close()
 	err = cmd.Wait()
 	require.NoError(t, err)
@@ -646,6 +647,7 @@ func TestLockfileMultiprocessModified(t *testing.T) {
 
 	// Take a write lock somewhere, then see if we correctly detect changes.
 	cmd, wc, rc1, rc2, err := subTouch(lock)
+	require.NoError(t, err)
 	wc.Close()
 	err = cmd.Wait()
 	require.NoError(t, err)
@@ -660,6 +662,7 @@ func TestLockfileMultiprocessModified(t *testing.T) {
 
 	// Take a read lock somewhere, then see if we incorrectly detect changes.
 	cmd, wc, rc1, err = subLock(lock)
+	require.NoError(t, err)
 	wc.Close()
 	err = cmd.Wait()
 	require.NoError(t, err)
