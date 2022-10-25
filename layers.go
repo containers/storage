@@ -1848,13 +1848,11 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 		return -1, err
 	}
 	compressor.Close()
-	if err == nil {
-		if err := os.MkdirAll(filepath.Dir(r.tspath(layer.ID)), 0700); err != nil {
-			return -1, err
-		}
-		if err := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); err != nil {
-			return -1, err
-		}
+	if err := os.MkdirAll(filepath.Dir(r.tspath(layer.ID)), 0700); err != nil {
+		return -1, err
+	}
+	if err := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); err != nil {
+		return -1, err
 	}
 	if compressedDigester != nil {
 		compressedDigest = compressedDigester.Digest()

@@ -430,33 +430,31 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	if err := hasOverlappingRanges(options.GIDMap); err != nil {
 		return nil, err
 	}
-	if err == nil {
-		container = &Container{
-			ID:             id,
-			Names:          names,
-			ImageID:        image,
-			LayerID:        layer,
-			Metadata:       metadata,
-			BigDataNames:   []string{},
-			BigDataSizes:   make(map[string]int64),
-			BigDataDigests: make(map[string]digest.Digest),
-			Created:        time.Now().UTC(),
-			Flags:          copyStringInterfaceMap(options.Flags),
-			UIDMap:         copyIDMap(options.UIDMap),
-			GIDMap:         copyIDMap(options.GIDMap),
-		}
-		r.containers = append(r.containers, container)
-		r.byid[id] = container
-		// This can only fail on duplicate IDs, which shouldn’t happen — and in that case the index is already in the desired state anyway.
-		// Implementing recovery from an unlikely and unimportant failure here would be too risky.
-		_ = r.idindex.Add(id)
-		r.bylayer[layer] = container
-		for _, name := range names {
-			r.byname[name] = container
-		}
-		err = r.Save()
-		container = copyContainer(container)
+	container = &Container{
+		ID:             id,
+		Names:          names,
+		ImageID:        image,
+		LayerID:        layer,
+		Metadata:       metadata,
+		BigDataNames:   []string{},
+		BigDataSizes:   make(map[string]int64),
+		BigDataDigests: make(map[string]digest.Digest),
+		Created:        time.Now().UTC(),
+		Flags:          copyStringInterfaceMap(options.Flags),
+		UIDMap:         copyIDMap(options.UIDMap),
+		GIDMap:         copyIDMap(options.GIDMap),
 	}
+	r.containers = append(r.containers, container)
+	r.byid[id] = container
+	// This can only fail on duplicate IDs, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+	// Implementing recovery from an unlikely and unimportant failure here would be too risky.
+	_ = r.idindex.Add(id)
+	r.bylayer[layer] = container
+	for _, name := range names {
+		r.byname[name] = container
+	}
+	err = r.Save()
+	container = copyContainer(container)
 	return container, err
 }
 
