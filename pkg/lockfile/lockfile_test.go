@@ -201,16 +201,20 @@ func TestLockfileName(t *testing.T) {
 
 	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
 
-	assert.False(t, l.Locked(), "Locked() said we have a write lock")
+	// l.Assert* are NOT usable for determining lock state if there are concurrent users of the lock.
+	// It’s just about acceptable for these smoke tests.
+	assert.Panics(t, l.AssertLocked)
 
 	l.RLock()
-	assert.False(t, l.Locked(), "Locked() said we have a write lock")
+	l.AssertLocked()
+	assert.Panics(t, l.AssertLockedForWriting)
 	l.Unlock()
 
 	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
 
 	l.Lock()
-	assert.True(t, l.Locked(), "Locked() said we didn't have a write lock")
+	l.AssertLocked()
+	l.AssertLockedForWriting()
 	l.Unlock()
 
 	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
@@ -222,7 +226,8 @@ func TestLockfileRead(t *testing.T) {
 	defer os.Remove(l.name)
 
 	l.RLock()
-	assert.False(t, l.Locked(), "Locked() said we have a write lock")
+	l.AssertLocked()
+	assert.Panics(t, l.AssertLockedForWriting)
 	l.Unlock()
 }
 
@@ -232,7 +237,8 @@ func TestROLockfileRead(t *testing.T) {
 	defer os.Remove(l.name)
 
 	l.RLock()
-	assert.False(t, l.Locked(), "Locked() said we have a write lock")
+	l.AssertLocked()
+	assert.Panics(t, l.AssertLockedForWriting)
 	l.Unlock()
 }
 
@@ -242,7 +248,8 @@ func TestLockfileWrite(t *testing.T) {
 	defer os.Remove(l.name)
 
 	l.Lock()
-	assert.True(t, l.Locked(), "Locked() said we didn't have a write lock")
+	l.AssertLocked()
+	l.AssertLockedForWriting()
 	l.Unlock()
 }
 
@@ -255,7 +262,8 @@ func TestROLockfileWrite(t *testing.T) {
 		assert.NotNil(t, recover(), "Should have panicked trying to take a write lock using a read lock")
 	}()
 	l.Lock()
-	assert.False(t, l.Locked(), "Locked() said we have a write lock")
+	l.AssertLocked()
+	assert.Panics(t, l.AssertLockedForWriting)
 	l.Unlock()
 }
 
