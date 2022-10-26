@@ -281,26 +281,30 @@ func (r *containerStore) load(lockedForWriting bool) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+
 	containers := []*Container{}
-	layers := make(map[string]*Container)
-	idlist := []string{}
-	ids := make(map[string]*Container)
-	names := make(map[string]*Container)
-	if err = json.Unmarshal(data, &containers); len(data) == 0 || err == nil {
-		idlist = make([]string, 0, len(containers))
-		for n, container := range containers {
-			idlist = append(idlist, container.ID)
-			ids[container.ID] = containers[n]
-			layers[container.LayerID] = containers[n]
-			for _, name := range container.Names {
-				if conflict, ok := names[name]; ok {
-					r.removeName(conflict, name)
-					needSave = true
-				}
-				names[name] = containers[n]
-			}
+	if len(data) != 0 {
+		if err := json.Unmarshal(data, &containers); err != nil {
+			return fmt.Errorf("loading %q: %w", rpath, err)
 		}
 	}
+	idlist := make([]string, 0, len(containers))
+	layers := make(map[string]*Container)
+	ids := make(map[string]*Container)
+	names := make(map[string]*Container)
+	for n, container := range containers {
+		idlist = append(idlist, container.ID)
+		ids[container.ID] = containers[n]
+		layers[container.LayerID] = containers[n]
+		for _, name := range container.Names {
+			if conflict, ok := names[name]; ok {
+				r.removeName(conflict, name)
+				needSave = true
+			}
+			names[name] = containers[n]
+		}
+	}
+
 	r.containers = containers
 	r.idindex = truncindex.NewTruncIndex(idlist) // Invalid values in idlist are ignored: they are not a reason to refuse processing the whole store.
 	r.byid = ids
@@ -426,33 +430,31 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	if err := hasOverlappingRanges(options.GIDMap); err != nil {
 		return nil, err
 	}
-	if err == nil {
-		container = &Container{
-			ID:             id,
-			Names:          names,
-			ImageID:        image,
-			LayerID:        layer,
-			Metadata:       metadata,
-			BigDataNames:   []string{},
-			BigDataSizes:   make(map[string]int64),
-			BigDataDigests: make(map[string]digest.Digest),
-			Created:        time.Now().UTC(),
-			Flags:          copyStringInterfaceMap(options.Flags),
-			UIDMap:         copyIDMap(options.UIDMap),
-			GIDMap:         copyIDMap(options.GIDMap),
-		}
-		r.containers = append(r.containers, container)
-		r.byid[id] = container
-		// This can only fail on duplicate IDs, which shouldn’t happen — and in that case the index is already in the desired state anyway.
-		// Implementing recovery from an unlikely and unimportant failure here would be too risky.
-		_ = r.idindex.Add(id)
-		r.bylayer[layer] = container
-		for _, name := range names {
-			r.byname[name] = container
-		}
-		err = r.Save()
-		container = copyContainer(container)
+	container = &Container{
+		ID:             id,
+		Names:          names,
+		ImageID:        image,
+		LayerID:        layer,
+		Metadata:       metadata,
+		BigDataNames:   []string{},
+		BigDataSizes:   make(map[string]int64),
+		BigDataDigests: make(map[string]digest.Digest),
+		Created:        time.Now().UTC(),
+		Flags:          copyStringInterfaceMap(options.Flags),
+		UIDMap:         copyIDMap(options.UIDMap),
+		GIDMap:         copyIDMap(options.GIDMap),
 	}
+	r.containers = append(r.containers, container)
+	r.byid[id] = container
+	// This can only fail on duplicate IDs, which shouldn’t happen — and in that case the index is already in the desired state anyway.
+	// Implementing recovery from an unlikely and unimportant failure here would be too risky.
+	_ = r.idindex.Add(id)
+	r.bylayer[layer] = container
+	for _, name := range names {
+		r.byname[name] = container
+	}
+	err = r.Save()
+	container = copyContainer(container)
 	return container, err
 }
 

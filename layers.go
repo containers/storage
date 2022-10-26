@@ -470,8 +470,14 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+
 	layers := []*Layer{}
-	idlist := []string{}
+	if len(data) != 0 {
+		if err := json.Unmarshal(data, &layers); err != nil {
+			return fmt.Errorf("loading %q: %w", rpath, err)
+		}
+	}
+	idlist := make([]string, 0, len(layers))
 	ids := make(map[string]*Layer)
 	names := make(map[string]*Layer)
 	compressedsums := make(map[digest.Digest][]string)
@@ -479,31 +485,28 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	if r.lockfile.IsReadWrite() {
 		selinux.ClearLabels()
 	}
-	if err = json.Unmarshal(data, &layers); len(data) == 0 || err == nil {
-		idlist = make([]string, 0, len(layers))
-		for n, layer := range layers {
-			ids[layer.ID] = layers[n]
-			idlist = append(idlist, layer.ID)
-			for _, name := range layer.Names {
-				if conflict, ok := names[name]; ok {
-					r.removeName(conflict, name)
-					shouldSave = true
-				}
-				names[name] = layers[n]
+	for n, layer := range layers {
+		ids[layer.ID] = layers[n]
+		idlist = append(idlist, layer.ID)
+		for _, name := range layer.Names {
+			if conflict, ok := names[name]; ok {
+				r.removeName(conflict, name)
+				shouldSave = true
 			}
-			if layer.CompressedDigest != "" {
-				compressedsums[layer.CompressedDigest] = append(compressedsums[layer.CompressedDigest], layer.ID)
-			}
-			if layer.UncompressedDigest != "" {
-				uncompressedsums[layer.UncompressedDigest] = append(uncompressedsums[layer.UncompressedDigest], layer.ID)
-			}
-			if layer.MountLabel != "" {
-				selinux.ReserveLabel(layer.MountLabel)
-			}
-			layer.ReadOnly = !r.lockfile.IsReadWrite()
+			names[name] = layers[n]
 		}
-		err = nil
+		if layer.CompressedDigest != "" {
+			compressedsums[layer.CompressedDigest] = append(compressedsums[layer.CompressedDigest], layer.ID)
+		}
+		if layer.UncompressedDigest != "" {
+			uncompressedsums[layer.UncompressedDigest] = append(uncompressedsums[layer.UncompressedDigest], layer.ID)
+		}
+		if layer.MountLabel != "" {
+			selinux.ReserveLabel(layer.MountLabel)
+		}
+		layer.ReadOnly = !r.lockfile.IsReadWrite()
 	}
+
 	if shouldSave && (!r.lockfile.IsReadWrite() || !lockedForWriting) {
 		// Eventually, the callers should be modified to retry with a write lock if IsReadWrite && !lockedForWriting, instead.
 		return ErrDuplicateLayerNames
@@ -519,13 +522,14 @@ func (r *layerStore) load(lockedForWriting bool) error {
 	if r.lockfile.IsReadWrite() {
 		r.mountsLockfile.RLock()
 		defer r.mountsLockfile.Unlock()
-		if err = r.loadMounts(); err != nil {
+		if err := r.loadMounts(); err != nil {
 			return err
 		}
 
 		// Last step: as we’re writable, try to remove anything that a previous
 		// user of this storage area marked for deletion but didn't manage to
 		// actually delete.
+		var incompleteDeletionErrors error // = nil
 		if lockedForWriting {
 			for _, layer := range r.layers {
 				if layer.Flags == nil {
@@ -535,18 +539,26 @@ func (r *layerStore) load(lockedForWriting bool) error {
 					logrus.Warnf("Found incomplete layer %#v, deleting it", layer.ID)
 					err = r.deleteInternal(layer.ID)
 					if err != nil {
-						break
+						// Don't return the error immediately, because deleteInternal does not saveLayers();
+						// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
+						// deleted incomplete layers have their metadata correctly removed.
+						incompleteDeletionErrors = multierror.Append(incompleteDeletionErrors,
+							fmt.Errorf("deleting layer %#v: %w", layer.ID, err))
 					}
 					shouldSave = true
 				}
 			}
 		}
 		if shouldSave {
-			return r.saveLayers()
+			if err := r.saveLayers(); err != nil {
+				return err
+			}
+		}
+		if incompleteDeletionErrors != nil {
+			return incompleteDeletionErrors
 		}
 	}
-
-	return err
+	return nil
 }
 
 func (r *layerStore) loadMounts() error {
@@ -1836,13 +1848,11 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 		return -1, err
 	}
 	compressor.Close()
-	if err == nil {
-		if err := os.MkdirAll(filepath.Dir(r.tspath(layer.ID)), 0700); err != nil {
-			return -1, err
-		}
-		if err := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); err != nil {
-			return -1, err
-		}
+	if err := os.MkdirAll(filepath.Dir(r.tspath(layer.ID)), 0700); err != nil {
+		return -1, err
+	}
+	if err := ioutils.AtomicWriteFile(r.tspath(layer.ID), tsdata.Bytes(), 0600); err != nil {
+		return -1, err
 	}
 	if compressedDigester != nil {
 		compressedDigest = compressedDigester.Digest()
