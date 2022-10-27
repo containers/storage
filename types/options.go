@@ -38,6 +38,11 @@ var (
 	once                       sync.Once
 	storeOptions               StoreOptions
 	storeError                 error
+	defaultConfigFileSet       bool
+	// defaultConfigFile path to the system wide storage.conf file
+	defaultConfigFile = SystemConfigFile
+	// DefaultStoreOptions is a reasonable default set of options.
+	defaultStoreOptions StoreOptions
 )
 
 func loadDefaultStoreOptions() {
