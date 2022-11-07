@@ -15,6 +15,22 @@ import (
 	digest "github.com/opencontainers/go-digest"
 )
 
+type containerLocations uint8
+
+// The backing store is split in two json files, one (the volatile)
+// that is written without fsync() meaning it isn't as robust to
+// unclean shutdown
+const (
+	stableContainerLocation containerLocations = 1 << iota
+	volatileContainerLocation
+
+	numContainerLocationIndex = iota
+)
+
+func containerLocationFromIndex(index int) containerLocations {
+	return 1 << index
+}
+
 // A Container is a reference to a read-write layer with metadata.
 type Container struct {
 	// ID is either one which was specified at create-time, or a random
@@ -64,6 +80,9 @@ type Container struct {
 	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
 
 	Flags map[string]interface{} `json:"flags,omitempty"`
+
+	// volatileStore is true if the container is from the volatile json file
+	volatileStore bool `json:"-"`
 }
 
 // rwContainerStore provides bookkeeping for information about Containers.
@@ -120,6 +139,7 @@ type rwContainerStore interface {
 type containerStore struct {
 	lockfile   Locker
 	dir        string
+	jsonPath   [numContainerLocationIndex]string
 	containers []*Container
 	idindex    *truncindex.TruncIndex
 	byid       map[string]*Container
@@ -142,6 +162,7 @@ func copyContainer(c *Container) *Container {
 		UIDMap:         copyIDMap(c.UIDMap),
 		GIDMap:         copyIDMap(c.GIDMap),
 		Flags:          copyStringInterfaceMap(c.Flags),
+		volatileStore:  c.volatileStore,
 	}
 }
 
@@ -174,6 +195,13 @@ func (c *Container) MountOpts() []string {
 	default:
 		return nil
 	}
+}
+
+func containerLocation(c *Container) containerLocations {
+	if c.volatileStore {
+		return volatileContainerLocation
+	}
+	return stableContainerLocation
 }
 
 // startWritingWithReload makes sure the store is fresh if canReload, and locks it for writing.
@@ -289,10 +317,6 @@ func (r *containerStore) Containers() ([]Container, error) {
 	return containers, nil
 }
 
-func (r *containerStore) containerspath() string {
-	return filepath.Join(r.dir, "containers.json")
-}
-
 func (r *containerStore) datadir(id string) string {
 	return filepath.Join(r.dir, id)
 }
@@ -309,31 +333,53 @@ func (r *containerStore) datapath(id, key string) string {
 // If !lockedForWriting and this function fails, the return value indicates whether
 // retrying with lockedForWriting could succeed.
 func (r *containerStore) load(lockedForWriting bool) (bool, error) {
-	rpath := r.containerspath()
-	data, err := os.ReadFile(rpath)
-	if err != nil && !os.IsNotExist(err) {
-		return false, err
-	}
-
+	var modifiedLocations containerLocations
 	containers := []*Container{}
-	if len(data) != 0 {
-		if err := json.Unmarshal(data, &containers); err != nil {
-			return false, fmt.Errorf("loading %q: %w", rpath, err)
+
+	ids := make(map[string]*Container)
+
+	for locationIndex := 0; locationIndex < numContainerLocationIndex; locationIndex++ {
+		location := containerLocationFromIndex(locationIndex)
+		rpath := r.jsonPath[locationIndex]
+
+		data, err := os.ReadFile(rpath)
+		if err != nil && !os.IsNotExist(err) {
+			return false, err
+		}
+
+		locationContainers := []*Container{}
+		if len(data) != 0 {
+			if err := json.Unmarshal(data, &locationContainers); err != nil {
+				return false, fmt.Errorf("loading %q: %w", rpath, err)
+			}
+		}
+
+		for _, container := range locationContainers {
+			// There should be no duplicated ids between json files, but lets check to be sure
+			if ids[container.ID] != nil {
+				continue // skip invalid duplicated container
+			}
+			// Remember where the container came from
+			if location == volatileContainerLocation {
+				container.volatileStore = true
+			}
+			containers = append(containers, container)
+			ids[container.ID] = container
 		}
 	}
+
 	idlist := make([]string, 0, len(containers))
 	layers := make(map[string]*Container)
-	ids := make(map[string]*Container)
 	names := make(map[string]*Container)
 	var errorToResolveBySaving error // == nil
 	for n, container := range containers {
 		idlist = append(idlist, container.ID)
-		ids[container.ID] = containers[n]
 		layers[container.LayerID] = containers[n]
 		for _, name := range container.Names {
 			if conflict, ok := names[name]; ok {
 				r.removeName(conflict, name)
 				errorToResolveBySaving = errors.New("container store is inconsistent and the current caller does not hold a write lock")
+				modifiedLocations |= containerLocation(container)
 			}
 			names[name] = containers[n]
 		}
@@ -348,34 +394,64 @@ func (r *containerStore) load(lockedForWriting bool) (bool, error) {
 		if !lockedForWriting {
 			return true, errorToResolveBySaving
 		}
-		return false, r.Save()
+		return false, r.save(modifiedLocations)
 	}
 	return false, nil
 }
 
 // Save saves the contents of the store to disk.  It should be called with
 // the lock held, locked for writing.
-func (r *containerStore) Save() error {
+func (r *containerStore) save(saveLocations containerLocations) error {
 	r.lockfile.AssertLockedForWriting()
-	rpath := r.containerspath()
-	if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {
-		return err
-	}
-	jdata, err := json.Marshal(&r.containers)
-	if err != nil {
-		return err
-	}
-	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
-		return err
+	for locationIndex := 0; locationIndex < numContainerLocationIndex; locationIndex++ {
+		location := containerLocationFromIndex(locationIndex)
+		if location&saveLocations == 0 {
+			continue
+		}
+		rpath := r.jsonPath[locationIndex]
+		if err := os.MkdirAll(filepath.Dir(rpath), 0700); err != nil {
+			return err
+		}
+		subsetContainers := make([]*Container, 0, len(r.containers))
+		for _, container := range r.containers {
+			if containerLocation(container) == location {
+				subsetContainers = append(subsetContainers, container)
+			}
+		}
+
+		jdata, err := json.Marshal(&subsetContainers)
+		if err != nil {
+			return err
+		}
+		var opts *ioutils.AtomicFileWriterOptions
+		if location == volatileContainerLocation {
+			opts = &ioutils.AtomicFileWriterOptions{
+				NoSync: true,
+			}
+		}
+		if err := ioutils.AtomicWriteFileWithOpts(rpath, jdata, 0600, opts); err != nil {
+			return err
+		}
 	}
 	return r.lockfile.Touch()
 }
 
-func newContainerStore(dir string) (rwContainerStore, error) {
+func (r *containerStore) saveFor(modifiedContainer *Container) error {
+	return r.save(containerLocation(modifiedContainer))
+}
+
+func newContainerStore(dir string, runDir string, transient bool) (rwContainerStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "containers.lock"))
+	volatileDir := dir
+	if transient {
+		if err := os.MkdirAll(runDir, 0700); err != nil {
+			return nil, err
+		}
+		volatileDir = runDir
+	}
+	lockfile, err := GetLockfile(filepath.Join(volatileDir, "containers.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +462,12 @@ func newContainerStore(dir string) (rwContainerStore, error) {
 		byid:       make(map[string]*Container),
 		bylayer:    make(map[string]*Container),
 		byname:     make(map[string]*Container),
+		jsonPath: [numContainerLocationIndex]string{
+			filepath.Join(dir, "containers.json"),
+			filepath.Join(volatileDir, "volatile-containers.json"),
+		},
 	}
+
 	if err := cstore.startWritingWithReload(false); err != nil {
 		return nil, err
 	}
@@ -418,7 +499,7 @@ func (r *containerStore) ClearFlag(id string, flag string) error {
 		return ErrContainerUnknown
 	}
 	delete(container.Flags, flag)
-	return r.Save()
+	return r.saveFor(container)
 }
 
 func (r *containerStore) SetFlag(id string, flag string, value interface{}) error {
@@ -430,7 +511,7 @@ func (r *containerStore) SetFlag(id string, flag string, value interface{}) erro
 		container.Flags = make(map[string]interface{})
 	}
 	container.Flags[flag] = value
-	return r.Save()
+	return r.saveFor(container)
 }
 
 func (r *containerStore) Create(id string, names []string, image, layer, metadata string, options *ContainerOptions) (container *Container, err error) {
@@ -476,6 +557,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 		Flags:          copyStringInterfaceMap(options.Flags),
 		UIDMap:         copyIDMap(options.UIDMap),
 		GIDMap:         copyIDMap(options.GIDMap),
+		volatileStore:  options.Volatile,
 	}
 	r.containers = append(r.containers, container)
 	r.byid[id] = container
@@ -486,7 +568,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	for _, name := range names {
 		r.byname[name] = container
 	}
-	err = r.Save()
+	err = r.saveFor(container)
 	container = copyContainer(container)
 	return container, err
 }
@@ -501,7 +583,7 @@ func (r *containerStore) Metadata(id string) (string, error) {
 func (r *containerStore) SetMetadata(id, metadata string) error {
 	if container, ok := r.lookup(id); ok {
 		container.Metadata = metadata
-		return r.Save()
+		return r.saveFor(container)
 	}
 	return ErrContainerUnknown
 }
@@ -530,7 +612,7 @@ func (r *containerStore) updateNames(id string, names []string, op updateNameOpe
 		r.byname[name] = container
 	}
 	container.Names = names
-	return r.Save()
+	return r.saveFor(container)
 }
 
 func (r *containerStore) Delete(id string) error {
@@ -562,7 +644,7 @@ func (r *containerStore) Delete(id string) error {
 			r.containers = append(r.containers[:toDeleteIndex], r.containers[toDeleteIndex+1:]...)
 		}
 	}
-	if err := r.Save(); err != nil {
+	if err := r.saveFor(container); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(r.datadir(id)); err != nil {
@@ -705,7 +787,7 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 			save = true
 		}
 		if save {
-			err = r.Save()
+			err = r.saveFor(c)
 		}
 	}
 	return err

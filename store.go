@@ -801,14 +801,16 @@ func (s *store) load() error {
 	if err := os.MkdirAll(gcpath, 0700); err != nil {
 		return err
 	}
-	rcs, err := newContainerStore(gcpath)
-	if err != nil {
-		return err
-	}
 	rcpath := filepath.Join(s.runRoot, driverPrefix+"containers")
 	if err := os.MkdirAll(rcpath, 0700); err != nil {
 		return err
 	}
+
+	rcs, err := newContainerStore(gcpath, rcpath, s.transientStore)
+	if err != nil {
+		return err
+	}
+
 	s.containerStore = rcs
 
 	for _, store := range driver.AdditionalImageStores() {
@@ -1563,6 +1565,11 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		return nil, err
 	}
 	layer = clayer.ID
+
+	// Normally only `--rm` containers are volatile, but in transient store mode all containers are volatile
+	if s.transientStore {
+		options.Volatile = true
+	}
 
 	var container *Container
 	err = s.writeToContainerStore(func(rcstore rwContainerStore) error {
