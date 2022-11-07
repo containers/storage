@@ -141,6 +141,7 @@ type Store interface {
 	// settings that were passed to GetStore() when the object was created.
 	RunRoot() string
 	GraphRoot() string
+	TransientStore() bool
 	GraphDriverName() string
 	GraphOptions() []string
 	PullOptions() map[string]string
@@ -594,6 +595,7 @@ type store struct {
 	containerStore  rwContainerStore
 	digestLockRoot  string
 	disableVolatile bool
+	transientStore  bool
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -701,6 +703,7 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		additionalGIDs:  nil,
 		usernsLock:      usernsLock,
 		disableVolatile: options.DisableVolatile,
+		transientStore:  options.TransientStore,
 		pullOptions:     options.PullOptions,
 	}
 	if err := s.load(); err != nil {
@@ -746,6 +749,10 @@ func (s *store) GraphDriverName() string {
 
 func (s *store) GraphRoot() string {
 	return s.graphRoot
+}
+
+func (s *store) TransientStore() bool {
+	return s.transientStore
 }
 
 func (s *store) GraphOptions() []string {
