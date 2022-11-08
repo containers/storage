@@ -629,6 +629,7 @@ func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	return -1, ErrSizeUnknown
 }
 
+// Requires startWriting. Yes, really, WRITING (see SetBigData).
 func (r *containerStore) BigDataDigest(id, key string) (digest.Digest, error) {
 	if key == "" {
 		return "", fmt.Errorf("can't retrieve digest of container big data value with empty name: %w", ErrInvalidBigDataName)

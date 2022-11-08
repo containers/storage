@@ -1968,15 +1968,13 @@ func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
 }
 
 func (s *store) ContainerBigDataDigest(id, key string) (digest.Digest, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return "", err
-	}
-	if err := rcstore.startReading(); err != nil {
-		return "", err
-	}
-	defer rcstore.stopReading()
-	return rcstore.BigDataDigest(id, key)
+	var res digest.Digest
+	err := s.writeToContainerStore(func(store rwContainerStore) error { // Yes, BigDataDigest requires a write lock.
+		var err error
+		res, err = store.BigDataDigest(id, key)
+		return err
+	})
+	return res, err
 }
 
 func (s *store) ContainerBigData(id, key string) ([]byte, error) {
