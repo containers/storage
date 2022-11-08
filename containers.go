@@ -315,6 +315,7 @@ func (r *containerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	return false, nil
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) Containers() ([]Container, error) {
 	containers := make([]Container, len(r.containers))
 	for i := range r.containers {
@@ -326,6 +327,7 @@ func (r *containerStore) Containers() ([]Container, error) {
 // This looks for datadirs in the store directory that are not referenced
 // by the json file and removes it. These can happen in the case of unclean
 // shutdowns or regular restarts in transient store mode.
+// Requires startReading.
 func (r *containerStore) GarbageCollect() error {
 	entries, err := os.ReadDir(r.dir)
 	if err != nil {
@@ -529,6 +531,7 @@ func newContainerStore(dir string, runDir string, transient bool) (rwContainerSt
 	return &cstore, nil
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) lookup(id string) (*Container, bool) {
 	if container, ok := r.byid[id]; ok {
 		return container, ok
@@ -544,6 +547,7 @@ func (r *containerStore) lookup(id string) (*Container, bool) {
 	return nil, false
 }
 
+// Requires startWriting.
 func (r *containerStore) ClearFlag(id string, flag string) error {
 	container, ok := r.lookup(id)
 	if !ok {
@@ -553,6 +557,7 @@ func (r *containerStore) ClearFlag(id string, flag string) error {
 	return r.saveFor(container)
 }
 
+// Requires startWriting.
 func (r *containerStore) SetFlag(id string, flag string, value interface{}) error {
 	container, ok := r.lookup(id)
 	if !ok {
@@ -565,6 +570,7 @@ func (r *containerStore) SetFlag(id string, flag string, value interface{}) erro
 	return r.saveFor(container)
 }
 
+// Requires startWriting.
 func (r *containerStore) Create(id string, names []string, image, layer, metadata string, options *ContainerOptions) (container *Container, err error) {
 	if id == "" {
 		id = stringid.GenerateRandomID()
@@ -624,6 +630,7 @@ func (r *containerStore) Create(id string, names []string, image, layer, metadat
 	return container, err
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) Metadata(id string) (string, error) {
 	if container, ok := r.lookup(id); ok {
 		return container.Metadata, nil
@@ -631,6 +638,7 @@ func (r *containerStore) Metadata(id string) (string, error) {
 	return "", ErrContainerUnknown
 }
 
+// Requires startWriting.
 func (r *containerStore) SetMetadata(id, metadata string) error {
 	if container, ok := r.lookup(id); ok {
 		container.Metadata = metadata
@@ -643,6 +651,7 @@ func (r *containerStore) removeName(container *Container, name string) {
 	container.Names = stringSliceWithoutValue(container.Names, name)
 }
 
+// Requires startWriting.
 func (r *containerStore) updateNames(id string, names []string, op updateNameOperation) error {
 	container, ok := r.lookup(id)
 	if !ok {
@@ -666,6 +675,7 @@ func (r *containerStore) updateNames(id string, names []string, op updateNameOpe
 	return r.saveFor(container)
 }
 
+// Requires startWriting.
 func (r *containerStore) Delete(id string) error {
 	container, ok := r.lookup(id)
 	if !ok {
@@ -704,6 +714,7 @@ func (r *containerStore) Delete(id string) error {
 	return nil
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) Get(id string) (*Container, error) {
 	if container, ok := r.lookup(id); ok {
 		return copyContainer(container), nil
@@ -711,6 +722,7 @@ func (r *containerStore) Get(id string) (*Container, error) {
 	return nil, ErrContainerUnknown
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) Lookup(name string) (id string, err error) {
 	if container, ok := r.lookup(name); ok {
 		return container.ID, nil
@@ -718,11 +730,13 @@ func (r *containerStore) Lookup(name string) (id string, err error) {
 	return "", ErrContainerUnknown
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) Exists(id string) bool {
 	_, ok := r.lookup(id)
 	return ok
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) BigData(id, key string) ([]byte, error) {
 	if key == "" {
 		return nil, fmt.Errorf("can't retrieve container big data value for empty name: %w", ErrInvalidBigDataName)
@@ -790,6 +804,7 @@ func (r *containerStore) BigDataDigest(id, key string) (digest.Digest, error) {
 	return "", ErrDigestUnknown
 }
 
+// Requires startReading or startWriting.
 func (r *containerStore) BigDataNames(id string) ([]string, error) {
 	c, ok := r.lookup(id)
 	if !ok {
@@ -798,6 +813,7 @@ func (r *containerStore) BigDataNames(id string) ([]string, error) {
 	return copyStringSlice(c.BigDataNames), nil
 }
 
+// Requires startWriting.
 func (r *containerStore) SetBigData(id, key string, data []byte) error {
 	if key == "" {
 		return fmt.Errorf("can't set empty name for container big data item: %w", ErrInvalidBigDataName)
@@ -844,6 +860,7 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 	return err
 }
 
+// Requires startWriting.
 func (r *containerStore) Wipe() error {
 	ids := make([]string, 0, len(r.byid))
 	for id := range r.byid {
