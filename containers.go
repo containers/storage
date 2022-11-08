@@ -601,6 +601,7 @@ func (r *containerStore) BigData(id, key string) ([]byte, error) {
 	return os.ReadFile(r.datapath(c.ID, key))
 }
 
+// Requires startWriting. Yes, really, WRITING (see SetBigData).
 func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	if key == "" {
 		return -1, fmt.Errorf("can't retrieve size of container big data with empty name: %w", ErrInvalidBigDataName)

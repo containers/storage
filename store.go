@@ -1888,63 +1888,59 @@ func (s *store) ContainerSize(id string) (int64, error) {
 		return -1, err
 	}
 
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return -1, err
-	}
-	if err := rcstore.startReading(); err != nil {
-		return -1, err
-	}
-	defer rcstore.stopReading()
-
-	// Read the container record.
-	container, err := rcstore.Get(id)
-	if err != nil {
-		return -1, err
-	}
-
-	// Read the container's layer's size.
-	var layer *Layer
-	var size int64
-	for _, store := range layerStores {
-		if layer, err = store.Get(container.LayerID); err == nil {
-			size, err = store.DiffSize("", layer.ID)
-			if err != nil {
-				return -1, fmt.Errorf("determining size of layer with ID %q: %w", layer.ID, err)
-			}
-			break
-		}
-	}
-	if layer == nil {
-		return -1, fmt.Errorf("locating layer with ID %q: %w", container.LayerID, ErrLayerUnknown)
-	}
-
-	// Count big data items.
-	names, err := rcstore.BigDataNames(id)
-	if err != nil {
-		return -1, fmt.Errorf("reading list of big data items for container %q: %w", container.ID, err)
-	}
-	for _, name := range names {
-		n, err := rcstore.BigDataSize(id, name)
+	var res int64 = -1
+	err = s.writeToContainerStore(func(rcstore rwContainerStore) error { // Yes, rcstore.BigDataSize requires a write lock.
+		// Read the container record.
+		container, err := rcstore.Get(id)
 		if err != nil {
-			return -1, fmt.Errorf("reading size of big data item %q for container %q: %w", name, id, err)
+			return err
+		}
+
+		// Read the container's layer's size.
+		var layer *Layer
+		var size int64
+		for _, store := range layerStores {
+			if layer, err = store.Get(container.LayerID); err == nil {
+				size, err = store.DiffSize("", layer.ID)
+				if err != nil {
+					return fmt.Errorf("determining size of layer with ID %q: %w", layer.ID, err)
+				}
+				break
+			}
+		}
+		if layer == nil {
+			return fmt.Errorf("locating layer with ID %q: %w", container.LayerID, ErrLayerUnknown)
+		}
+
+		// Count big data items.
+		names, err := rcstore.BigDataNames(id)
+		if err != nil {
+			return fmt.Errorf("reading list of big data items for container %q: %w", container.ID, err)
+		}
+		for _, name := range names {
+			n, err := rcstore.BigDataSize(id, name)
+			if err != nil {
+				return fmt.Errorf("reading size of big data item %q for container %q: %w", name, id, err)
+			}
+			size += n
+		}
+
+		// Count the size of our container directory and container run directory.
+		n, err := directory.Size(cdir)
+		if err != nil {
+			return err
 		}
 		size += n
-	}
+		n, err = directory.Size(rdir)
+		if err != nil {
+			return err
+		}
+		size += n
 
-	// Count the size of our container directory and container run directory.
-	n, err := directory.Size(cdir)
-	if err != nil {
-		return -1, err
-	}
-	size += n
-	n, err = directory.Size(rdir)
-	if err != nil {
-		return -1, err
-	}
-	size += n
-
-	return size, nil
+		res = size
+		return nil
+	})
+	return res, err
 }
 
 func (s *store) ListContainerBigData(id string) ([]string, error) {
@@ -1962,15 +1958,13 @@ func (s *store) ListContainerBigData(id string) ([]string, error) {
 }
 
 func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return -1, err
-	}
-	if err := rcstore.startReading(); err != nil {
-		return -1, err
-	}
-	defer rcstore.stopReading()
-	return rcstore.BigDataSize(id, key)
+	var res int64 = -1
+	err := s.writeToContainerStore(func(store rwContainerStore) error { // Yes, BigDataSize requires a write lock.
+		var err error
+		res, err = store.BigDataSize(id, key)
+		return err
+	})
+	return res, err
 }
 
 func (s *store) ContainerBigDataDigest(id, key string) (digest.Digest, error) {
