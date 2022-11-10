@@ -5,7 +5,7 @@ package kernel
 
 import (
 	"fmt"
-	"runtime'
+	"runtime"
 )
 
 // A stub called by kernel_unix.go .
