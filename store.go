@@ -546,6 +546,8 @@ type LayerOptions struct {
 	// and reliably known by the caller.
 	// Use the default "" if this fields is not applicable or the value is not known.
 	UncompressedDigest digest.Digest
+	// True is the layer info can be treated as volatile
+	Volatile bool
 }
 
 // ImageOptions is used for passing options to a Store's CreateImage() method.
@@ -892,7 +894,7 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 	if err := os.MkdirAll(glpath, 0700); err != nil {
 		return nil, err
 	}
-	rls, err := s.newLayerStore(rlpath, glpath, driver)
+	rls, err := s.newLayerStore(rlpath, glpath, driver, s.transientStore)
 	if err != nil {
 		return nil, err
 	}
@@ -1521,25 +1523,28 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			gidMap = s.gidMap
 		}
 	}
-	var layerOptions *LayerOptions
+	layerOptions := &LayerOptions{
+		// Normally layers for containers are volatile only if the container is.
+		// But in transient store mode, all container layers are volatile.
+		Volatile: options.Volatile || s.transientStore,
+	}
 	if s.canUseShifting(uidMap, gidMap) {
-		layerOptions = &LayerOptions{
-			IDMappingOptions: types.IDMappingOptions{
+		layerOptions.IDMappingOptions =
+			types.IDMappingOptions{
 				HostUIDMapping: true,
 				HostGIDMapping: true,
 				UIDMap:         nil,
 				GIDMap:         nil,
-			},
-		}
+			}
 	} else {
-		layerOptions = &LayerOptions{
-			IDMappingOptions: types.IDMappingOptions{
+		layerOptions.IDMappingOptions =
+			types.IDMappingOptions{
 				HostUIDMapping: idMappingsOptions.HostUIDMapping,
 				HostGIDMapping: idMappingsOptions.HostGIDMapping,
 				UIDMap:         copyIDMap(uidMap),
 				GIDMap:         copyIDMap(gidMap),
-			},
-		}
+			}
+
 	}
 	if options.Flags == nil {
 		options.Flags = make(map[string]interface{})
