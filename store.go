@@ -503,6 +503,11 @@ type Store interface {
 	// Releasing AdditionalLayer handler is caller's responsibility.
 	// This API is experimental and can be changed without bumping the major version number.
 	LookupAdditionalLayer(d digest.Digest, imageref string) (AdditionalLayer, error)
+
+	// Tries to clean up remainders of previous containers or layers that are not
+	// references in the json files. These can happen in the case of unclean
+	// shutdowns or regular restarts in transient store mode.
+	GarbageCollect() error
 }
 
 // AdditionalLayer reprents a layer that is contained in the additional layer store
@@ -3364,4 +3369,21 @@ func (s *store) Free() {
 			return
 		}
 	}
+}
+
+// Tries to clean up old unreferenced container leftovers. returns the first error
+// but continues as far as it can
+func (s *store) GarbageCollect() error {
+	firstErr := s.writeToContainerStore(func(rcstore rwContainerStore) error {
+		return rcstore.GarbageCollect()
+	})
+
+	moreErr := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+		return rlstore.GarbageCollect()
+	})
+	if firstErr == nil {
+		firstErr = moreErr
+	}
+
+	return firstErr
 }

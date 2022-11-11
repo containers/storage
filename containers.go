@@ -134,6 +134,9 @@ type rwContainerStore interface {
 
 	// Containers returns a slice enumerating the known containers.
 	Containers() ([]Container, error)
+
+	// Clean up unreferenced datadirs
+	GarbageCollect() error
 }
 
 type containerStore struct {
@@ -315,6 +318,39 @@ func (r *containerStore) Containers() ([]Container, error) {
 		containers[i] = *copyContainer(r.containers[i])
 	}
 	return containers, nil
+}
+
+// This looks for datadirs in the store directory that are not referenced
+// by the json file and removes it. These can happen in the case of unclean
+// shutdowns or regular restarts in transient store mode.
+func (r *containerStore) GarbageCollect() error {
+	entries, err := os.ReadDir(r.dir)
+	if err != nil {
+		// Unexpected, don't try any GC
+		return err
+	}
+
+	for _, entry := range entries {
+		id := entry.Name()
+		// Does it look like a datadir directory?
+		if !entry.IsDir() || !nameLooksLikeID(id) {
+			continue
+		}
+
+		// Should the id be there?
+		if r.byid[id] != nil {
+			continue
+		}
+
+		// Otherwise remove datadir
+		moreErr := os.RemoveAll(filepath.Join(r.dir, id))
+		// Propagate first error
+		if moreErr != nil && err == nil {
+			err = moreErr
+		}
+	}
+
+	return err
 }
 
 func (r *containerStore) datadir(id string) string {

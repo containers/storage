@@ -295,6 +295,9 @@ type rwLayerStore interface {
 	// store.
 	// This API is experimental and can be changed without bumping the major version number.
 	PutAdditionalLayer(id string, parentLayer *Layer, names []string, aLayer drivers.AdditionalLayer) (layer *Layer, err error)
+
+	// Clean up unreferenced layers
+	GarbageCollect() error
 }
 
 type layerStore struct {
@@ -510,6 +513,33 @@ func (r *layerStore) Layers() ([]Layer, error) {
 		layers[i] = *copyLayer(r.layers[i])
 	}
 	return layers, nil
+}
+
+func (r *layerStore) GarbageCollect() error {
+	layers, err := r.driver.ListLayers()
+
+	if err != nil {
+		if errors.Is(err, drivers.ErrNotSupported) {
+			return nil
+		}
+		return err
+	}
+
+	for _, id := range layers {
+		// Is the id still referenced
+		if r.byid[id] != nil {
+			continue
+		}
+
+		// Remove layer and any related data of unreferenced id
+		if err := r.driver.Remove(id); err != nil {
+			return err
+		}
+
+		os.Remove(r.tspath(id))
+		os.RemoveAll(r.datadir(id))
+	}
+	return nil
 }
 
 func (r *layerStore) mountspath() string {
