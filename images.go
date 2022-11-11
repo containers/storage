@@ -157,15 +157,20 @@ type rwImageStore interface {
 }
 
 type imageStore struct {
-	lockfile  *lockfile.LockFile // lockfile.IsReadWrite can be used to distinguish between read-write and read-only image stores.
-	dir       string
+	// The following fields are only set when constructing imageStore, and must never be modified afterwards.
+	// They are safe to access without any other locking.
+	lockfile *lockfile.LockFile // lockfile.IsReadWrite can be used to distinguish between read-write and read-only image stores.
+	dir      string
+
+	inProcessLock sync.RWMutex // Can _only_ be obtained with lockfile held.
+	// The following fields can only be read/written with read/write ownership of inProcessLock, respectively.
+	// Almost all users should use startReading() or startWriting().
 	lastWrite lockfile.LastWrite
 	images    []*Image
 	idindex   *truncindex.TruncIndex
 	byid      map[string]*Image
 	byname    map[string]*Image
 	bydigest  map[digest.Digest][]*Image
-	loadMut   sync.Mutex
 }
 
 func copyImage(i *Image) *Image {
@@ -205,9 +210,11 @@ func copyImageSlice(slice []*Image) []*Image {
 // should use startReading() instead.
 func (r *imageStore) startWritingWithReload(canReload bool) error {
 	r.lockfile.Lock()
+	r.inProcessLock.Lock()
 	succeeded := false
 	defer func() {
 		if !succeeded {
+			r.inProcessLock.Unlock()
 			r.lockfile.Unlock()
 		}
 	}()
@@ -230,6 +237,7 @@ func (r *imageStore) startWriting() error {
 
 // stopWriting releases locks obtained by startWriting.
 func (r *imageStore) stopWriting() {
+	r.inProcessLock.Unlock()
 	r.lockfile.Unlock()
 }
 
@@ -239,6 +247,13 @@ func (r *imageStore) stopWriting() {
 // This is an internal implementation detail of imageStore construction, every other caller
 // should use startReading() instead.
 func (r *imageStore) startReadingWithReload(canReload bool) error {
+	// inProcessLocked calls the nested function with r.inProcessLock held for writing.
+	inProcessLocked := func(fn func() error) error {
+		r.inProcessLock.Lock()
+		defer r.inProcessLock.Unlock()
+		return fn()
+	}
+
 	r.lockfile.RLock()
 	unlockFn := r.lockfile.Unlock // A function to call to clean up, or nil
 	defer func() {
@@ -248,7 +263,12 @@ func (r *imageStore) startReadingWithReload(canReload bool) error {
 	}()
 
 	if canReload {
-		if tryLockedForWriting, err := r.reloadIfChanged(false); err != nil {
+		var tryLockedForWriting bool
+		if err := inProcessLocked(func() error {
+			var err error
+			tryLockedForWriting, err = r.reloadIfChanged(false)
+			return err
+		}); err != nil {
 			if !tryLockedForWriting {
 				return err
 			}
@@ -257,7 +277,10 @@ func (r *imageStore) startReadingWithReload(canReload bool) error {
 
 			r.lockfile.Lock()
 			unlockFn = r.lockfile.Unlock
-			if _, err := r.reloadIfChanged(true); err != nil {
+			if err := inProcessLocked(func() error {
+				_, err := r.reloadIfChanged(true)
+				return err
+			}); err != nil {
 				return err
 			}
 			unlockFn()
@@ -270,13 +293,24 @@ func (r *imageStore) startReadingWithReload(canReload bool) error {
 			// If that, _again_, finds inconsistent state, just give up.
 			// We could, plausibly, retry a few times, but that inconsistent state (duplicate image names)
 			// shouldn’t be saved (by correct implementations) in the first place.
-			if _, err := r.reloadIfChanged(false); err != nil {
+			if err := inProcessLocked(func() error {
+				_, err := r.reloadIfChanged(false)
+				return err
+			}); err != nil {
 				return fmt.Errorf("(even after successfully cleaning up once:) %w", err)
 			}
 		}
 	}
 
+	// NOTE that we hold neither a read nor write inProcessLock at this point. That’s fine in ordinary operation, because
+	// the on-filesystem r.lockfile should protect us against (cooperating) writers, and any use of r.inProcessLock
+	// protects us against in-process writers modifying data.
+	// In presence of non-cooperating writers, we just ensure that 1) the in-memory data is not clearly out-of-date
+	// and 2) access to the in-memory data is not racy;
+	// but we can’t protect against those out-of-process writers modifying _files_ while we are assuming they are in a consistent state.
+
 	unlockFn = nil
+	r.inProcessLock.RLock()
 	return nil
 }
 
@@ -288,6 +322,7 @@ func (r *imageStore) startReading() error {
 
 // stopReading releases locks obtained by startReading.
 func (r *imageStore) stopReading() {
+	r.inProcessLock.RUnlock()
 	r.lockfile.Unlock()
 }
 
@@ -296,16 +331,20 @@ func (r *imageStore) stopReading() {
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
 //
+// The caller must hold r.inProcessLock for WRITING.
+//
 // If !lockedForWriting and this function fails, the return value indicates whether
 // reloadIfChanged() with lockedForWriting could succeed.
 func (r *imageStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
-	r.loadMut.Lock()
-	defer r.loadMut.Unlock()
-
 	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
 		return false, err
 	}
+	// We require callers to always hold r.inProcessLock for WRITING, even if they might not end up calling r.load()
+	// and modify no fields, to ensure they see fresh data:
+	// r.lockfile.Modified() only returns true once per change.  Without an exclusive lock,
+	// one goroutine might see r.lockfile.Modified() == true and decide to load, and in the meanwhile another one could
+	// see r.lockfile.Modified() == false and proceed to use in-memory data without noticing it is stale.
 	if modified {
 		if tryLockedForWriting, err := r.load(lockedForWriting); err != nil {
 			return tryLockedForWriting, err // r.lastWrite is unchanged, so we will load the next time again.
@@ -346,6 +385,7 @@ func bigDataNameIsManifest(name string) bool {
 
 // recomputeDigests takes a fixed digest and a name-to-digest map and builds a
 // list of the unique values that would identify the image.
+// The caller must hold r.inProcessLock for writing.
 func (i *Image) recomputeDigests() error {
 	validDigests := make([]digest.Digest, 0, len(i.BigDataDigests)+1)
 	digests := make(map[digest.Digest]struct{})
@@ -383,6 +423,7 @@ func (i *Image) recomputeDigests() error {
 //
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
+// The caller must hold r.inProcessLock for WRITING.
 //
 // If !lockedForWriting and this function fails, the return value indicates whether
 // retrying with lockedForWriting could succeed.
@@ -446,8 +487,9 @@ func (r *imageStore) load(lockedForWriting bool) (bool, error) {
 	return false, nil
 }
 
-// Save saves the contents of the store to disk.  It should be called with
-// the lock held, locked for writing.
+// Save saves the contents of the store to disk.
+// The caller must hold r.lockfile locked for writing.
+// The caller must hold r.inProcessLock for reading (but usually holds it for writing in order to make the desired changes).
 func (r *imageStore) Save() error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to modify the image store at %q: %w", r.imagespath(), ErrStoreIsReadOnly)
@@ -483,6 +525,7 @@ func newImageStore(dir string) (rwImageStore, error) {
 	istore := imageStore{
 		lockfile: lockfile,
 		dir:      dir,
+
 		images:   []*Image{},
 		byid:     make(map[string]*Image),
 		byname:   make(map[string]*Image),
@@ -510,6 +553,7 @@ func newROImageStore(dir string) (roImageStore, error) {
 	istore := imageStore{
 		lockfile: lockfile,
 		dir:      dir,
+
 		images:   []*Image{},
 		byid:     make(map[string]*Image),
 		byname:   make(map[string]*Image),
@@ -674,10 +718,12 @@ func (r *imageStore) SetMetadata(id, metadata string) error {
 	return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 }
 
+// The caller must hold r.inProcessLock for writing.
 func (r *imageStore) removeName(image *Image, name string) {
 	image.Names = stringSliceWithoutValue(image.Names, name)
 }
 
+// The caller must hold r.inProcessLock for writing.
 func (i *Image) addNameToHistory(name string) {
 	i.NamesHistory = dedupeNames(append([]string{name}, i.NamesHistory...))
 }
