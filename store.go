@@ -1352,44 +1352,41 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, prim
 		return layer, nil
 	}
 	// The top layer's mappings don't match the ones we want, and it's in an image store
-	// that lets us edit image metadata...
-	if istore, ok := ristore.(*imageStore); ok {
-		// ... so create a duplicate of the layer with the desired mappings, and
-		// register it as an alternate top layer in the image.
-		var layerOptions LayerOptions
-		if s.canUseShifting(options.UIDMap, options.GIDMap) {
-			layerOptions = LayerOptions{
-				IDMappingOptions: types.IDMappingOptions{
-					HostUIDMapping: true,
-					HostGIDMapping: true,
-					UIDMap:         nil,
-					GIDMap:         nil,
-				},
-			}
-		} else {
-			layerOptions = LayerOptions{
-				IDMappingOptions: types.IDMappingOptions{
-					HostUIDMapping: options.HostUIDMapping,
-					HostGIDMapping: options.HostGIDMapping,
-					UIDMap:         copyIDMap(options.UIDMap),
-					GIDMap:         copyIDMap(options.GIDMap),
-				},
-			}
+	// that lets us edit image metadata, so create a duplicate of the layer with the desired
+	// mappings, and register it as an alternate top layer in the image.
+	var layerOptions LayerOptions
+	if s.canUseShifting(options.UIDMap, options.GIDMap) {
+		layerOptions = LayerOptions{
+			IDMappingOptions: types.IDMappingOptions{
+				HostUIDMapping: true,
+				HostGIDMapping: true,
+				UIDMap:         nil,
+				GIDMap:         nil,
+			},
 		}
-		layerOptions.TemplateLayer = layer.ID
-		mappedLayer, _, err := rlstore.Put("", parentLayer, nil, layer.MountLabel, nil, &layerOptions, false, nil, nil)
-		if err != nil {
-			return nil, fmt.Errorf("creating an ID-mapped copy of layer %q: %w", layer.ID, err)
+	} else {
+		layerOptions = LayerOptions{
+			IDMappingOptions: types.IDMappingOptions{
+				HostUIDMapping: options.HostUIDMapping,
+				HostGIDMapping: options.HostGIDMapping,
+				UIDMap:         copyIDMap(options.UIDMap),
+				GIDMap:         copyIDMap(options.GIDMap),
+			},
 		}
-		if err = istore.addMappedTopLayer(image.ID, mappedLayer.ID); err != nil {
-			if err2 := rlstore.Delete(mappedLayer.ID); err2 != nil {
-				err = fmt.Errorf("deleting layer %q: %v: %w", mappedLayer.ID, err2, err)
-			}
-			return nil, fmt.Errorf("registering ID-mapped layer with image %q: %w", image.ID, err)
-		}
-		layer = mappedLayer
 	}
-	return layer, nil
+	layerOptions.TemplateLayer = layer.ID
+	mappedLayer, _, err := rlstore.Put("", parentLayer, nil, layer.MountLabel, nil, &layerOptions, false, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating an ID-mapped copy of layer %q: %w", layer.ID, err)
+	}
+	// By construction, createMappedLayer can only be true if ristore == primaryImageStore.
+	if err = primaryImageStore.addMappedTopLayer(image.ID, mappedLayer.ID); err != nil {
+		if err2 := rlstore.Delete(mappedLayer.ID); err2 != nil {
+			err = fmt.Errorf("deleting layer %q: %v: %w", mappedLayer.ID, err2, err)
+		}
+		return nil, fmt.Errorf("registering ID-mapped layer with image %q: %w", image.ID, err)
+	}
+	return mappedLayer, nil
 }
 
 func (s *store) CreateContainer(id string, names []string, image, layer, metadata string, options *ContainerOptions) (*Container, error) {
@@ -2215,12 +2212,6 @@ func (s *store) DeleteLayer(id string) error {
 				if image.TopLayer == id {
 					return fmt.Errorf("layer %v used by image %v: %w", id, image.ID, ErrLayerUsedByImage)
 				}
-				if stringutils.InSlice(image.MappedTopLayers, id) {
-					// No write access to the image store, fail before the layer is deleted
-					if _, ok := ristore.(*imageStore); !ok {
-						return fmt.Errorf("layer %v used by image %v: %w", id, image.ID, ErrLayerUsedByImage)
-					}
-				}
 			}
 			containers, err := rcstore.Containers()
 			if err != nil {
@@ -2235,14 +2226,10 @@ func (s *store) DeleteLayer(id string) error {
 				return fmt.Errorf("delete layer %v: %w", id, err)
 			}
 
-			// The check here is used to avoid iterating the images if we don't need to.
-			// There is already a check above for the imageStore to be writeable when the layer is part of MappedTopLayers.
-			if istore, ok := ristore.(*imageStore); ok {
-				for _, image := range images {
-					if stringutils.InSlice(image.MappedTopLayers, id) {
-						if err = istore.removeMappedTopLayer(image.ID, id); err != nil {
-							return fmt.Errorf("remove mapped top layer %v from image %v: %w", id, image.ID, err)
-						}
+			for _, image := range images {
+				if stringutils.InSlice(image.MappedTopLayers, id) {
+					if err = ristore.removeMappedTopLayer(image.ID, id); err != nil {
+						return fmt.Errorf("remove mapped top layer %v from image %v: %w", id, image.ID, err)
 					}
 				}
 			}

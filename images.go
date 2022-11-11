@@ -148,6 +148,9 @@ type rwImageStore interface {
 	// Delete removes the record of the image.
 	Delete(id string) error
 
+	addMappedTopLayer(id, layer string) error
+	removeMappedTopLayer(id, layer string) error
+
 	// Wipe removes records of all images.
 	Wipe() error
 }
