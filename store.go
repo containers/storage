@@ -1282,9 +1282,10 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 // imageTopLayerForMapping does ???
 // On entry:
 // - ristore must be locked EITHER for reading or writing
+// - primaryImageStore must be locked for writing; it might be identical to ristore.
 // - rlstore must be locked for writing
 // - lstores must all be locked for reading
-func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, createMappedLayer bool, rlstore rwLayerStore, lstores []roLayerStore, options types.IDMappingOptions) (*Layer, error) {
+func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, primaryImageStore rwImageStore, rlstore rwLayerStore, lstores []roLayerStore, options types.IDMappingOptions) (*Layer, error) {
 	layerMatchesMappingOptions := func(layer *Layer, options types.IDMappingOptions) bool {
 		// If the driver supports shifting and the layer has no mappings, we can use it.
 		if s.canUseShifting(options.UIDMap, options.GIDMap) && len(layer.UIDMap) == 0 && len(layer.GIDMap) == 0 {
@@ -1303,6 +1304,7 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, crea
 	var layer, parentLayer *Layer
 	allStores := append([]roLayerStore{rlstore}, lstores...)
 	// Locate the image's top layer and its parent, if it has one.
+	createMappedLayer := ristore == primaryImageStore
 	for _, s := range allStores {
 		store := s
 		// Walk the top layer list.
@@ -1488,8 +1490,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	idMappingsOptions := options.IDMappingOptions
 	if image != "" {
 		if cimage.TopLayer != "" {
-			createMappedLayer := imageHomeStore == istore
-			ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, createMappedLayer, rlstore, lstores, idMappingsOptions)
+			ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, istore, rlstore, lstores, idMappingsOptions)
 			if err != nil {
 				return nil, err
 			}
