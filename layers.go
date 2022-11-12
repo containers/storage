@@ -325,12 +325,17 @@ type rwLayerStore interface {
 }
 
 type layerStore struct {
-	lockfile            *lockfile.LockFile
-	mountsLockfile      *lockfile.LockFile
-	rundir              string
-	jsonPath            [numLayerLocationIndex]string
-	driver              drivers.Driver
-	layerdir            string
+	// The following fields are only set when constructing layerStore, and must never be modified afterwards.
+	// They are safe to access without any other locking.
+	lockfile       *lockfile.LockFile // lockfile.IsReadWrite can be used to distinguish between read-write and read-only layer stores.
+	mountsLockfile *lockfile.LockFile // Can _only_ be obtained with inProcessLock held.
+	rundir         string
+	jsonPath       [numLayerLocationIndex]string
+	layerdir       string
+
+	inProcessLock sync.RWMutex // Can _only_ be obtained with lockfile held.
+	// The following fields can only be read/written with read/write ownership of inProcessLock, respectively.
+	// Almost all users should use startReading() or startWriting().
 	lastWrite           lockfile.LastWrite
 	mountsLastWrite     lockfile.LastWrite // Only valid if lockfile.IsReadWrite()
 	layers              []*Layer
@@ -340,10 +345,14 @@ type layerStore struct {
 	bymount             map[string]*Layer
 	bycompressedsum     map[digest.Digest][]string
 	byuncompressedsum   map[digest.Digest][]string
-	loadMut             sync.Mutex
 	layerspathsModified [numLayerLocationIndex]time.Time
+
+	// FIXME: This field is only set when constructing layerStore, but locking rules of the driver
+	// interface itself are not documented here.
+	driver drivers.Driver
 }
 
+// The caller must hold r.inProcessLock for reading.
 func layerLocation(l *Layer) layerLocations {
 	if l.volatileStore {
 		return volatileLayerLocation
@@ -384,9 +393,11 @@ func copyLayer(l *Layer) *Layer {
 // should use startWriting() instead.
 func (r *layerStore) startWritingWithReload(canReload bool) error {
 	r.lockfile.Lock()
+	r.inProcessLock.Lock()
 	succeeded := false
 	defer func() {
 		if !succeeded {
+			r.inProcessLock.Unlock()
 			r.lockfile.Unlock()
 		}
 	}()
@@ -409,6 +420,7 @@ func (r *layerStore) startWriting() error {
 
 // stopWriting releases locks obtained by startWriting.
 func (r *layerStore) stopWriting() {
+	r.inProcessLock.Unlock()
 	r.lockfile.Unlock()
 }
 
@@ -418,6 +430,13 @@ func (r *layerStore) stopWriting() {
 // This is an internal implementation detail of layerStore construction, every other caller
 // should use startReading() instead.
 func (r *layerStore) startReadingWithReload(canReload bool) error {
+	// inProcessLocked calls the nested function with r.inProcessLock held for writing.
+	inProcessLocked := func(fn func() error) error {
+		r.inProcessLock.Lock()
+		defer r.inProcessLock.Unlock()
+		return fn()
+	}
+
 	r.lockfile.RLock()
 	unlockFn := r.lockfile.Unlock // A function to call to clean up, or nil
 	defer func() {
@@ -429,7 +448,12 @@ func (r *layerStore) startReadingWithReload(canReload bool) error {
 	if canReload {
 		cleanupsDone := 0
 		for {
-			tryLockedForWriting, err := r.reloadIfChanged(false)
+			var tryLockedForWriting bool
+			err := inProcessLocked(func() error {
+				var err error
+				tryLockedForWriting, err = r.reloadIfChanged(false)
+				return err
+			})
 			if err == nil {
 				break
 			}
@@ -444,7 +468,10 @@ func (r *layerStore) startReadingWithReload(canReload bool) error {
 
 			r.lockfile.Lock()
 			unlockFn = r.lockfile.Unlock
-			if _, err := r.reloadIfChanged(true); err != nil {
+			if err := inProcessLocked(func() error {
+				_, err := r.reloadIfChanged(true)
+				return err
+			}); err != nil {
 				return err
 			}
 			unlockFn()
@@ -458,7 +485,15 @@ func (r *layerStore) startReadingWithReload(canReload bool) error {
 		}
 	}
 
+	// NOTE that we hold neither a read nor write inProcessLock at this point. That’s fine in ordinary operation, because
+	// the on-filesystem r.lockfile should protect us against (cooperating) writers, and any use of r.inProcessLock
+	// protects us against in-process writers modifying data.
+	// In presence of non-cooperating writers, we just ensure that 1) the in-memory data is not clearly out-of-date
+	// and 2) access to the in-memory data is not racy;
+	// but we can’t protect against those out-of-process writers modifying _files_ while we are assuming they are in a consistent state.
+
 	unlockFn = nil
+	r.inProcessLock.RLock()
 	return nil
 }
 
@@ -470,6 +505,7 @@ func (r *layerStore) startReading() error {
 
 // stopReading releases locks obtained by startReading.
 func (r *layerStore) stopReading() {
+	r.inProcessLock.RUnlock()
 	r.lockfile.Unlock()
 }
 
@@ -477,6 +513,7 @@ func (r *layerStore) stopReading() {
 // last recorded writer. If so, it returns a lockfile.LastWrite value to record on a successful
 // reload.
 // It should only be called with the lock held.
+// The caller must hold r.inProcessLock for reading.
 func (r *layerStore) layersModified() (lockfile.LastWrite, bool, error) {
 	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
@@ -508,12 +545,11 @@ func (r *layerStore) layersModified() (lockfile.LastWrite, bool, error) {
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
 //
+// The caller must hold r.inProcessLock for WRITING.
+//
 // If !lockedForWriting and this function fails, the return value indicates whether
 // reloadIfChanged() with lockedForWriting could succeed.
 func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
-	r.loadMut.Lock()
-	defer r.loadMut.Unlock()
-
 	lastWrite, layersModified, err := r.layersModified()
 	if err != nil {
 		return false, err
@@ -603,6 +639,7 @@ func (r *layerStore) mountspath() string {
 //
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
+// The caller must hold r.inProcessLock for WRITING.
 //
 // If !lockedForWriting and this function fails, the return value indicates whether
 // retrying with lockedForWriting could succeed.
@@ -758,6 +795,8 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 	return false, nil
 }
 
+// The caller must hold r.mountsLockfile for reading or writing.
+// The caller must hold r.inProcessLock for WRITING.
 func (r *layerStore) loadMounts() error {
 	mounts := make(map[string]*Layer)
 	mpath := r.mountspath()
@@ -795,8 +834,9 @@ func (r *layerStore) loadMounts() error {
 	return err
 }
 
-// Save saves the contents of the store to disk.  It should be called with
-// the lock held, locked for writing.
+// save saves the contents of the store to disk.
+// The caller must hold r.lockfile locked for writing.
+// The caller must hold r.inProcessLock for WRITING.
 func (r *layerStore) save(saveLocations layerLocations) error {
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
@@ -806,10 +846,15 @@ func (r *layerStore) save(saveLocations layerLocations) error {
 	return r.saveMounts()
 }
 
+// saveFor saves the contents of the store relevant for modifiedLayer to disk.
+// The caller must hold r.lockfile locked for writing.
+// The caller must hold r.inProcessLock for WRITING.
 func (r *layerStore) saveFor(modifiedLayer *Layer) error {
 	return r.save(layerLocation(modifiedLayer))
 }
 
+// The caller must hold r.lockfile locked for writing.
+// The caller must hold r.inProcessLock for WRITING.
 func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to modify the layer store at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -853,6 +898,8 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 	return nil
 }
 
+// The caller must hold r.mountsLockfile for writing.
+// The caller must hold r.inProcessLock for WRITING.
 func (r *layerStore) saveMounts() error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to modify the layer store at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -914,16 +961,18 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 	rlstore := layerStore{
 		lockfile:       lockFile,
 		mountsLockfile: mountsLockfile,
-		driver:         driver,
 		rundir:         rundir,
-		layerdir:       layerdir,
-		byid:           make(map[string]*Layer),
-		bymount:        make(map[string]*Layer),
-		byname:         make(map[string]*Layer),
 		jsonPath: [numLayerLocationIndex]string{
 			filepath.Join(layerdir, "layers.json"),
 			filepath.Join(volatileDir, "volatile-layers.json"),
 		},
+		layerdir: layerdir,
+
+		byid:    make(map[string]*Layer),
+		byname:  make(map[string]*Layer),
+		bymount: make(map[string]*Layer),
+
+		driver: driver,
 	}
 	if err := rlstore.startWritingWithReload(false); err != nil {
 		return nil, err
@@ -949,16 +998,18 @@ func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roL
 	rlstore := layerStore{
 		lockfile:       lockfile,
 		mountsLockfile: nil,
-		driver:         driver,
 		rundir:         rundir,
-		layerdir:       layerdir,
-		byid:           make(map[string]*Layer),
-		bymount:        make(map[string]*Layer),
-		byname:         make(map[string]*Layer),
 		jsonPath: [numLayerLocationIndex]string{
 			filepath.Join(layerdir, "layers.json"),
 			filepath.Join(layerdir, "volatile-layers.json"),
 		},
+		layerdir: layerdir,
+
+		byid:    make(map[string]*Layer),
+		byname:  make(map[string]*Layer),
+		bymount: make(map[string]*Layer),
+
+		driver: driver,
 	}
 	if err := rlstore.startReadingWithReload(false); err != nil {
 		return nil, err
@@ -1003,6 +1054,7 @@ func (r *layerStore) Size(name string) (int64, error) {
 	return -1, nil
 }
 
+// Requires startWriting.
 func (r *layerStore) ClearFlag(id string, flag string) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to clear flags on layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1015,6 +1067,7 @@ func (r *layerStore) ClearFlag(id string, flag string) error {
 	return r.saveFor(layer)
 }
 
+// Requires startWriting.
 func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to set flags on layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1034,6 +1087,7 @@ func (r *layerStore) Status() ([][2]string, error) {
 	return r.driver.Status(), nil
 }
 
+// Requires startWriting.
 func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []string, aLayer drivers.AdditionalLayer) (layer *Layer, err error) {
 	if duplicateLayer, idInUse := r.byid[id]; idInUse {
 		return duplicateLayer, ErrDuplicateID
@@ -1090,6 +1144,7 @@ func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []s
 	return copyLayer(layer), nil
 }
 
+// Requires startWriting.
 func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}, diff io.Reader) (*Layer, int64, error) {
 	if !r.lockfile.IsReadWrite() {
 		return nil, -1, fmt.Errorf("not allowed to create new layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1287,11 +1342,13 @@ func (r *layerStore) Put(id string, parentLayer *Layer, names []string, mountLab
 	return layer, size, err
 }
 
+// Requires startWriting.
 func (r *layerStore) CreateWithFlags(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, flags map[string]interface{}) (layer *Layer, err error) {
 	layer, _, err = r.Put(id, parent, names, mountLabel, options, moreOptions, writeable, flags, nil)
 	return layer, err
 }
 
+// Requires startWriting.
 func (r *layerStore) Create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool) (layer *Layer, err error) {
 	return r.CreateWithFlags(id, parent, names, mountLabel, options, moreOptions, writeable, nil)
 }
@@ -1502,10 +1559,12 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	return uids, gids, nil
 }
 
+// Requires startWriting.
 func (r *layerStore) removeName(layer *Layer, name string) {
 	layer.Names = stringSliceWithoutValue(layer.Names, name)
 }
 
+// Requires startWriting.
 func (r *layerStore) updateNames(id string, names []string, op updateNameOperation) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to change layer name assignments at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1552,6 +1611,7 @@ func (r *layerStore) BigData(id, key string) (io.ReadCloser, error) {
 	return os.Open(r.datapath(layer.ID, key))
 }
 
+// Requires startWriting.
 func (r *layerStore) SetBigData(id, key string, data io.Reader) error {
 	if key == "" {
 		return fmt.Errorf("can't set empty name for layer big data item: %w", ErrInvalidBigDataName)
@@ -1616,6 +1676,7 @@ func (r *layerStore) Metadata(id string) (string, error) {
 	return "", ErrLayerUnknown
 }
 
+// Requires startWriting.
 func (r *layerStore) SetMetadata(id, metadata string) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to modify layer metadata at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1632,6 +1693,7 @@ func (r *layerStore) tspath(id string) string {
 }
 
 // layerHasIncompleteFlag returns true if layer.Flags contains an incompleteFlag set to true
+// The caller must hold r.inProcessLock for reading.
 func layerHasIncompleteFlag(layer *Layer) bool {
 	// layer.Flags[…] is defined to succeed and return ok == false if Flags == nil
 	if flagValue, ok := layer.Flags[incompleteFlag]; ok {
@@ -1642,6 +1704,7 @@ func layerHasIncompleteFlag(layer *Layer) bool {
 	return false
 }
 
+// Requires startWriting.
 func (r *layerStore) deleteInternal(id string) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to delete layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1712,6 +1775,7 @@ func (r *layerStore) deleteInternal(id string) error {
 	return nil
 }
 
+// Requires startWriting.
 func (r *layerStore) deleteInDigestMap(id string) {
 	for digest, layers := range r.bycompressedsum {
 		for i, layerID := range layers {
@@ -1733,6 +1797,7 @@ func (r *layerStore) deleteInDigestMap(id string) {
 	}
 }
 
+// Requires startWriting.
 func (r *layerStore) Delete(id string) error {
 	layer, ok := r.lookup(id)
 	if !ok {
@@ -1771,6 +1836,7 @@ func (r *layerStore) Get(id string) (*Layer, error) {
 	return nil, ErrLayerUnknown
 }
 
+// Requires startWriting.
 func (r *layerStore) Wipe() error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to delete layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1815,6 +1881,7 @@ func (r *layerStore) findParentAndLayer(from, to string) (fromID string, toID st
 	return from, to, fromLayer, toLayer, nil
 }
 
+// The caller must hold r.inProcessLock for reading.
 func (r *layerStore) layerMappings(layer *Layer) *idtools.IDMappings {
 	if layer == nil {
 		return &idtools.IDMappings{}
@@ -2040,10 +2107,12 @@ func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	return r.driver.DiffSize(to, r.layerMappings(toLayer), from, r.layerMappings(fromLayer), toLayer.MountLabel)
 }
 
+// Requires startWriting.
 func (r *layerStore) ApplyDiff(to string, diff io.Reader) (size int64, err error) {
 	return r.applyDiffWithOptions(to, nil, diff)
 }
 
+// Requires startWriting.
 func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions, diff io.Reader) (size int64, err error) {
 	if !r.lockfile.IsReadWrite() {
 		return -1, fmt.Errorf("not allowed to modify layer contents at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -2203,6 +2272,7 @@ func (r *layerStore) DifferTarget(id string) (string, error) {
 	return ddriver.DifferTarget(layer.ID)
 }
 
+// Requires startWriting.
 func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
@@ -2241,6 +2311,7 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 	return err
 }
 
+// Requires startWriting.
 func (r *layerStore) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
