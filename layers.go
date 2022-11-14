@@ -1308,6 +1308,12 @@ func (r *layerStore) Mounted(id string) (int, error) {
 }
 
 func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error) {
+	// LOCKING BUG: This is reachable via store.Diff → layerStore.Diff → layerStore.newFileGetter
+	// (with btrfs and zfs graph drivers) holding layerStore only locked for reading, while it modifies
+	// - r.layers[].MountCount (directly and via loadMounts / saveMounts)
+	// - r.layers[].MountPoint (directly and via loadMounts / saveMounts)
+	// - r.bymount (via loadMounts / saveMounts)
+
 	// check whether options include ro option
 	hasReadOnlyOpt := func(opts []string) bool {
 		for _, item := range opts {
@@ -1368,6 +1374,12 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 }
 
 func (r *layerStore) unmount(id string, force bool, conditional bool) (bool, error) {
+	// LOCKING BUG: This is reachable via store.Diff → layerStore.Diff → layerStore.newFileGetter → simpleGetCloser.Close()
+	// (with btrfs and zfs graph drivers) holding layerStore only locked for reading, while it modifies
+	// - r.layers[].MountCount (directly and via loadMounts / saveMounts)
+	// - r.layers[].MountPoint (directly and via loadMounts / saveMounts)
+	// - r.bymount (via loadMounts / saveMounts)
+
 	if !r.lockfile.IsReadWrite() {
 		return false, fmt.Errorf("not allowed to update mount locations for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
@@ -1814,11 +1826,13 @@ func (s *simpleGetCloser) Get(path string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(s.path, path))
 }
 
+// LOCKING BUG: See the comments in layerStore.Diff
 func (s *simpleGetCloser) Close() error {
 	_, err := s.r.unmount(s.id, false, false)
 	return err
 }
 
+// LOCKING BUG: See the comments in layerStore.Diff
 func (r *layerStore) newFileGetter(id string) (drivers.FileGetCloser, error) {
 	if getter, ok := r.driver.(drivers.DiffGetterDriver); ok {
 		return getter.DiffGetter(id)
@@ -1963,6 +1977,8 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 
 	metadata = storage.NewJSONUnpacker(decompressor)
 
+	// LOCKING BUG: With btrfs and zfs graph drivers), this uses r.Mount() and r.unmount() holding layerStore only locked for reading
+	// but they modify in-memory state.
 	fgetter, err := r.newFileGetter(to)
 	if err != nil {
 		errs := multierror.Append(nil, fmt.Errorf("creating file-getter: %w", err))
