@@ -601,6 +601,7 @@ func (r *containerStore) BigData(id, key string) ([]byte, error) {
 	return os.ReadFile(r.datapath(c.ID, key))
 }
 
+// Requires startWriting. Yes, really, WRITING (see SetBigData).
 func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	if key == "" {
 		return -1, fmt.Errorf("can't retrieve size of container big data with empty name: %w", ErrInvalidBigDataName)
@@ -609,10 +610,7 @@ func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	if !ok {
 		return -1, ErrContainerUnknown
 	}
-	if c.BigDataSizes == nil {
-		c.BigDataSizes = make(map[string]int64)
-	}
-	if size, ok := c.BigDataSizes[key]; ok {
+	if size, ok := c.BigDataSizes[key]; ok { // This is valid, and returns ok == false, for BigDataSizes == nil.
 		return size, nil
 	}
 	if data, err := r.BigData(id, key); err == nil && data != nil {
@@ -631,6 +629,7 @@ func (r *containerStore) BigDataSize(id, key string) (int64, error) {
 	return -1, ErrSizeUnknown
 }
 
+// Requires startWriting. Yes, really, WRITING (see SetBigData).
 func (r *containerStore) BigDataDigest(id, key string) (digest.Digest, error) {
 	if key == "" {
 		return "", fmt.Errorf("can't retrieve digest of container big data value with empty name: %w", ErrInvalidBigDataName)
@@ -639,10 +638,7 @@ func (r *containerStore) BigDataDigest(id, key string) (digest.Digest, error) {
 	if !ok {
 		return "", ErrContainerUnknown
 	}
-	if c.BigDataDigests == nil {
-		c.BigDataDigests = make(map[string]digest.Digest)
-	}
-	if d, ok := c.BigDataDigests[key]; ok {
+	if d, ok := c.BigDataDigests[key]; ok { // This is valid, and returns ok == false, for BigDataSizes == nil.
 		return d, nil
 	}
 	if data, err := r.BigData(id, key); err == nil && data != nil {
