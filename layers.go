@@ -83,13 +83,26 @@ type Layer struct {
 	MountLabel string `json:"mountlabel,omitempty"`
 
 	// MountPoint is the path where the layer is mounted, or where it was most
-	// recently mounted.  This can change between subsequent Unmount() and
-	// Mount() calls, so the caller should consult this value after Mount()
-	// succeeds to find the location of the container's root filesystem.
+	// recently mounted.
+	//
+	// WARNING: This field is a snapshot in time: (except for users inside c/storage that
+	// hold the mount lock) the true value can change between subsequent
+	// calls to c/storage API.
+	//
+	// Users that need to handle concurrent mount/unmount attempts should not access this
+	// field at all, and should only use the path returned by .Mount() (and that’s only
+	// assuming no other user will concurrently decide to unmount that mount point).
 	MountPoint string `json:"-"`
 
 	// MountCount is used as a reference count for the container's layer being
 	// mounted at the mount point.
+	//
+	// WARNING: This field is a snapshot in time; (except for users inside c/storage that
+	// hold the mount lock) the true value can change between subsequent
+	// calls to c/storage API.
+	//
+	// In situations where concurrent mount/unmount attempts can happen, this field
+	// should not be used for any decisions, maybe apart from heuristic user warnings.
 	MountCount int `json:"-"`
 
 	// Created is the datestamp for when this layer was created.  Older
@@ -701,6 +714,11 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 			return false, err
 		}
 		r.mountsLastWrite = mountsLastWrite
+		// NOTE: We will release mountsLockfile when this function returns, so unlike most of the layer data, the
+		// r.layers[].MountPoint, r.layers[].MountCount, and r.bymount values might not reflect
+		// true on-filesystem state already by the time this function returns.
+		// Code that needs the state to be accurate must lock r.mountsLockfile again,
+		// and possibly loadMounts() again.
 	}
 
 	if errorToResolveBySaving != nil {
@@ -1278,15 +1296,14 @@ func (r *layerStore) Mounted(id string) (int, error) {
 	if !r.lockfile.IsReadWrite() {
 		return 0, fmt.Errorf("no mount information for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
-	r.mountsLockfile.RLock()
-	defer r.mountsLockfile.Unlock()
-	if err := r.reloadMountsIfChanged(); err != nil {
-		return 0, err
-	}
 	layer, ok := r.lookup(id)
 	if !ok {
 		return 0, ErrLayerUnknown
 	}
+	// NOTE: The caller of this function is not holding (currently cannot hold) r.mountsLockfile,
+	// so the data is necessarily obsolete by the time this function returns. So, we don’t even
+	// try to reload it in this function, we just rely on r.load() that happened during
+	// r.startReading() or r.startWriting().
 	return layer.MountCount, nil
 }
 
@@ -1395,9 +1412,9 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	}
 	r.mountsLockfile.RLock()
 	defer r.mountsLockfile.Unlock()
-	if err := r.reloadMountsIfChanged(); err != nil {
-		return nil, nil, err
-	}
+	// We are not checking r.mountsLockfile.Modified() and calling r.loadMounts here because the store
+	// is only locked for reading = we are not allowed to modify layer data.
+	// Holding r.mountsLockfile protects us against concurrent mount/unmount operations.
 	layer, ok := r.lookup(id)
 	if !ok {
 		return nil, nil, ErrLayerUnknown
@@ -1408,6 +1425,13 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	}
 	if layer.MountPoint == "" {
 		// We don't know which directories to examine.
+		return nil, nil, ErrLayerNotMounted
+	}
+	// Holding r.mountsLockfile protects us against concurrent mount/unmount operations, but we didn’t
+	// hold it continuously since the time we loaded the mount data; so it’s possible the layer
+	// was unmounted in the meantime, or mounted elsewhere. Treat that as if we were run after the unmount,
+	// = a missing mount, not a filesystem error.
+	if _, err := system.Lstat(layer.MountPoint); errors.Is(err, os.ErrNotExist) {
 		return nil, nil, ErrLayerNotMounted
 	}
 	rootuid, rootgid, err := idtools.GetRootUIDGID(layer.UIDMap, layer.GIDMap)

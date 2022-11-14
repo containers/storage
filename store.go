@@ -272,6 +272,10 @@ type Store interface {
 	Unmount(id string, force bool) (bool, error)
 
 	// Mounted returns number of times the layer has been mounted.
+	//
+	// WARNING: This value might already be obsolete by the time it is returned;
+	// In situations where concurrent mount/unmount attempts can happen, this field
+	// should not be used for any decisions, maybe apart from heuristic user warnings.
 	Mounted(id string) (int, error)
 
 	// Changes returns a summary of the changes which would need to be made
