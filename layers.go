@@ -265,8 +265,15 @@ type rwLayerStore interface {
 	// The mappings used by the container can be specified.
 	Mount(id string, options drivers.MountOpts) (string, error)
 
-	// Unmount unmounts a layer when it is no longer in use.
-	Unmount(id string, force bool) (bool, error)
+	// unmount unmounts a layer when it is no longer in use.
+	// If conditional is set, it will fail with ErrLayerNotMounted if the layer is not mounted (without conditional, the caller is
+	// making a promise that the layer is actually mounted).
+	// If force is set, it will physically try to unmount it even if it is mounted multple times, or even if (!conditional and)
+	// there are no records of it being mounted in the first place.
+	// It returns whether the layer was still mounted at the time this function returned.
+	// WARNING: The return value may already be obsolete by the time it is available
+	// to the caller, so it can be used for heuristic sanity checks at best. It should almost always be ignored.
+	unmount(id string, force bool, conditional bool) (bool, error)
 
 	// Mounted returns number of times the layer has been mounted.
 	Mounted(id string) (int, error)
@@ -1343,7 +1350,7 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 	return mountpoint, err
 }
 
-func (r *layerStore) Unmount(id string, force bool) (bool, error) {
+func (r *layerStore) unmount(id string, force bool, conditional bool) (bool, error) {
 	if !r.lockfile.IsReadWrite() {
 		return false, fmt.Errorf("not allowed to update mount locations for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
@@ -1359,6 +1366,9 @@ func (r *layerStore) Unmount(id string, force bool) (bool, error) {
 			return false, ErrLayerUnknown
 		}
 		layer = layerByMount
+	}
+	if conditional && layer.MountCount == 0 {
+		return false, ErrLayerNotMounted
 	}
 	if force {
 		layer.MountCount = 1
@@ -1685,17 +1695,13 @@ func (r *layerStore) Delete(id string) error {
 	// The layer may already have been explicitly unmounted, but if not, we
 	// should try to clean that up before we start deleting anything at the
 	// driver level.
-	mountCount, err := r.Mounted(id)
-	if err != nil {
-		return fmt.Errorf("checking if layer %q is still mounted: %w", id, err)
-	}
-	for mountCount > 0 {
-		if _, err := r.Unmount(id, false); err != nil {
-			return err
+	for {
+		_, err := r.unmount(id, false, true)
+		if err == ErrLayerNotMounted {
+			break
 		}
-		mountCount, err = r.Mounted(id)
 		if err != nil {
-			return fmt.Errorf("checking if layer %q is still mounted: %w", id, err)
+			return err
 		}
 	}
 	if err := r.deleteInternal(id); err != nil {
@@ -1785,7 +1791,7 @@ func (s *simpleGetCloser) Get(path string) (io.ReadCloser, error) {
 }
 
 func (s *simpleGetCloser) Close() error {
-	_, err := s.r.Unmount(s.id, false)
+	_, err := s.r.unmount(s.id, false, false)
 	return err
 }
 
