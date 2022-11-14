@@ -40,7 +40,7 @@ load helpers
 	[ "$output" != "" ]
 	firstcontainer=${output%%	*}
 
-	firstwriter=$(cat ${TESTDIR}/root/${STORAGE_DRIVER}-containers/containers.lock)
+	firstwriter=$(cat ${TESTDIR}/${CONTAINERS_LOCK_ROOT}/${STORAGE_DRIVER}-containers/containers.lock)
 	[ "$firstwriter" != "" ]
 
 	# Check that the container can be found.
@@ -52,7 +52,7 @@ load helpers
 	[ "$output" != "" ]
 	secondcontainer=${output%%	*}
 
-	secondwriter=$(cat ${TESTDIR}/root/${STORAGE_DRIVER}-containers/containers.lock)
+	secondwriter=$(cat ${TESTDIR}/${CONTAINERS_LOCK_ROOT}/${STORAGE_DRIVER}-containers/containers.lock)
 	[ "$secondwriter" != "" ]
 	[ "$firstwriter" != "$secondwriter" ]
 

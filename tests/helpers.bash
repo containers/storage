@@ -3,9 +3,17 @@
 STORAGE_BINARY=${STORAGE_BINARY:-$(dirname ${BASH_SOURCE})/../containers-storage}
 TESTSDIR=${TESTSDIR:-$(dirname ${BASH_SOURCE})}
 STORAGE_DRIVER=${STORAGE_DRIVER:-vfs}
+STORAGE_TRANSIENT=${STORAGE_TRANSIENT:-}
 STORAGE_OPTION=${STORAGE_OPTION:-}
 PATH=$(dirname ${BASH_SOURCE})/..:${PATH}
 OS=$(uname -s)
+if [ "$STORAGE_TRANSIENT" -eq 1 ]; then
+    CONTAINERS_LOCK_ROOT=runroot
+    STORAGE_TRANSIENT_OPT=--transient-store
+else
+    CONTAINERS_LOCK_ROOT=root
+    STORAGE_TRANSIENT_OPT=""
+fi
 
 # Create a unique root directory and a runroot directory.
 function setup() {
@@ -39,7 +47,7 @@ function createrandom() {
 
 # Run the CLI with the specified options.
 function storage() {
-	${STORAGE_BINARY} --debug --graph ${TESTDIR}/root --run ${TESTDIR}/runroot --storage-driver ${STORAGE_DRIVER} ${STORAGE_OPTION:+--storage-opt=${STORAGE_OPTION}} "$@"
+	${STORAGE_BINARY} --debug --graph ${TESTDIR}/root --run ${TESTDIR}/runroot ${STORAGE_TRANSIENT_OPT} --storage-driver ${STORAGE_DRIVER} ${STORAGE_OPTION:+--storage-opt=${STORAGE_OPTION}} "$@"
 }
 
 # Run the CLI with the specified options, and sort its output lines.
