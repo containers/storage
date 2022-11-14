@@ -553,6 +553,7 @@ func (r *layerStore) reloadMountsIfChanged() error {
 	return nil
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Layers() ([]Layer, error) {
 	layers := make([]Layer, len(r.layers))
 	for i := range r.layers {
@@ -561,6 +562,7 @@ func (r *layerStore) Layers() ([]Layer, error) {
 	return layers, nil
 }
 
+// Requires startWriting.
 func (r *layerStore) GarbageCollect() error {
 	layers, err := r.driver.ListLayers()
 
@@ -973,6 +975,7 @@ func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roL
 	return &rlstore, nil
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) lookup(id string) (*Layer, bool) {
 	if layer, ok := r.byid[id]; ok {
 		return layer, ok
@@ -985,6 +988,7 @@ func (r *layerStore) lookup(id string) (*Layer, bool) {
 	return nil, false
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Size(name string) (int64, error) {
 	layer, ok := r.lookup(name)
 	if !ok {
@@ -1292,6 +1296,7 @@ func (r *layerStore) Create(id string, parent *Layer, names []string, mountLabel
 	return r.CreateWithFlags(id, parent, names, mountLabel, options, moreOptions, writeable, nil)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Mounted(id string) (int, error) {
 	if !r.lockfile.IsReadWrite() {
 		return 0, fmt.Errorf("no mount information for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
@@ -1307,6 +1312,7 @@ func (r *layerStore) Mounted(id string) (int, error) {
 	return layer.MountCount, nil
 }
 
+// Requires startWriting.
 func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error) {
 	// LOCKING BUG: This is reachable via store.Diff → layerStore.Diff → layerStore.newFileGetter
 	// (with btrfs and zfs graph drivers) holding layerStore only locked for reading, while it modifies
@@ -1373,6 +1379,7 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 	return mountpoint, err
 }
 
+// Requires startWriting.
 func (r *layerStore) unmount(id string, force bool, conditional bool) (bool, error) {
 	// LOCKING BUG: This is reachable via store.Diff → layerStore.Diff → layerStore.newFileGetter → simpleGetCloser.Close()
 	// (with btrfs and zfs graph drivers) holding layerStore only locked for reading, while it modifies
@@ -1418,6 +1425,7 @@ func (r *layerStore) unmount(id string, force bool, conditional bool) (bool, err
 	return true, err
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	if !r.lockfile.IsReadWrite() {
 		return nil, nil, fmt.Errorf("no mount information for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
@@ -1532,6 +1540,7 @@ func (r *layerStore) datapath(id, key string) string {
 	return filepath.Join(r.datadir(id), makeBigDataBaseName(key))
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) BigData(id, key string) (io.ReadCloser, error) {
 	if key == "" {
 		return nil, fmt.Errorf("can't retrieve layer big data value for empty name: %w", ErrInvalidBigDataName)
@@ -1590,6 +1599,7 @@ func (r *layerStore) SetBigData(id, key string, data io.Reader) error {
 	return nil
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) BigDataNames(id string) ([]string, error) {
 	layer, ok := r.lookup(id)
 	if !ok {
@@ -1598,6 +1608,7 @@ func (r *layerStore) BigDataNames(id string) ([]string, error) {
 	return copyStringSlice(layer.BigDataNames), nil
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Metadata(id string) (string, error) {
 	if layer, ok := r.lookup(id); ok {
 		return layer.Metadata, nil
@@ -1746,11 +1757,13 @@ func (r *layerStore) Delete(id string) error {
 	return r.saveFor(layer)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Exists(id string) bool {
 	_, ok := r.lookup(id)
 	return ok
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Get(id string) (*Layer, error) {
 	if layer, ok := r.lookup(id); ok {
 		return copyLayer(layer), nil
@@ -1777,6 +1790,7 @@ func (r *layerStore) Wipe() error {
 	return nil
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) findParentAndLayer(from, to string) (fromID string, toID string, fromLayer, toLayer *Layer, err error) {
 	var ok bool
 	toLayer, ok = r.lookup(to)
@@ -1808,6 +1822,7 @@ func (r *layerStore) layerMappings(layer *Layer) *idtools.IDMappings {
 	return idtools.NewIDMappingsFromMaps(layer.UIDMap, layer.GIDMap)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Changes(from, to string) ([]archive.Change, error) {
 	from, to, fromLayer, toLayer, err := r.findParentAndLayer(from, to)
 	if err != nil {
@@ -1866,6 +1881,7 @@ func writeCompressedDataGoroutine(pwriter *io.PipeWriter, compressor io.WriteClo
 	err = writeCompressedData(compressor, source)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
 	var metadata storage.Unpacker
 
@@ -2014,6 +2030,7 @@ func (r *layerStore) Diff(from, to string, options *DiffOptions) (io.ReadCloser,
 	return maybeCompressReadCloser(rc)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) DiffSize(from, to string) (size int64, err error) {
 	var fromLayer, toLayer *Layer
 	from, to, fromLayer, toLayer, err = r.findParentAndLayer(from, to)
@@ -2173,6 +2190,7 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 	return size, err
 }
 
+// Requires (startReading or?) startWriting.
 func (r *layerStore) DifferTarget(id string) (string, error) {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
@@ -2262,6 +2280,7 @@ func (r *layerStore) CleanupStagingDirectory(stagingDirectory string) error {
 	return ddriver.CleanupStagingDirectory(stagingDirectory)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) layersByDigestMap(m map[digest.Digest][]string, d digest.Digest) ([]Layer, error) {
 	var layers []Layer
 	for _, layerID := range m[d] {
@@ -2274,10 +2293,12 @@ func (r *layerStore) layersByDigestMap(m map[digest.Digest][]string, d digest.Di
 	return layers, nil
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) LayersByCompressedDigest(d digest.Digest) ([]Layer, error) {
 	return r.layersByDigestMap(r.bycompressedsum, d)
 }
 
+// Requires startReading or startWriting.
 func (r *layerStore) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 	return r.layersByDigestMap(r.byuncompressedsum, d)
 }
