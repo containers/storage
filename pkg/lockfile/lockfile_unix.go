@@ -371,7 +371,9 @@ func (l *LockFile) ModifiedSince(previous LastWrite) (LastWrite, bool, error) {
 	return currentLW, modified, nil
 }
 
-// Touch updates the lock file with the UID of the user.
+// Touch updates the lock file with to record that the current lock holder has modified the lock-protected data.
+//
+// Deprecated: Use *LockFile.RecordWrite.
 func (l *LockFile) Touch() error {
 	lw, err := l.RecordWrite()
 	if err != nil {
@@ -391,6 +393,8 @@ func (l *LockFile) Touch() error {
 // NOTE: Unlike ModifiedSince, this returns true the first time it is called on a *LockFile.
 // Callers cannot, in general, rely on this, because that might have happened for some other
 // owner of the same *LockFile who created it previously.
+//
+// Deprecated: Use *LockFile.ModifiedSince.
 func (l *LockFile) Modified() (bool, error) {
 	l.stateMutex.Lock()
 	if !l.locked {

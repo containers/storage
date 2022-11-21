@@ -129,9 +129,12 @@ func (l *LockFile) ModifiedSince(previous LastWrite) (LastWrite, bool, error) {
 	return LastWrite{}, false, nil
 }
 
+// Deprecated: Use *LockFile.ModifiedSince.
 func (l *LockFile) Modified() (bool, error) {
 	return false, nil
 }
+
+// Deprecated: Use *LockFile.RecordWrite.
 func (l *LockFile) Touch() error {
 	return nil
 }

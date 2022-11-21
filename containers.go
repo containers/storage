@@ -144,6 +144,7 @@ type containerStore struct {
 	lockfile   *lockfile.LockFile
 	dir        string
 	jsonPath   [numContainerLocationIndex]string
+	lastWrite  lockfile.LastWrite
 	containers []*Container
 	idindex    *truncindex.TruncIndex
 	byid       map[string]*Container
@@ -303,10 +304,11 @@ func (r *containerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
 
-	modified, err := r.lockfile.Modified()
+	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
 		return false, err
 	}
+	r.lastWrite = lastWrite
 	if modified {
 		return r.load(lockedForWriting)
 	}
@@ -470,7 +472,12 @@ func (r *containerStore) save(saveLocations containerLocations) error {
 			return err
 		}
 	}
-	return r.lockfile.Touch()
+	lw, err := r.lockfile.RecordWrite()
+	if err != nil {
+		return err
+	}
+	r.lastWrite = lw
+	return nil
 }
 
 func (r *containerStore) saveFor(modifiedContainer *Container) error {
@@ -506,6 +513,10 @@ func newContainerStore(dir string, runDir string, transient bool) (rwContainerSt
 	}
 
 	if err := cstore.startWritingWithReload(false); err != nil {
+		return nil, err
+	}
+	cstore.lastWrite, err = cstore.lockfile.GetLastWrite()
+	if err != nil {
 		return nil, err
 	}
 	defer cstore.stopWriting()

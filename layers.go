@@ -308,6 +308,8 @@ type layerStore struct {
 	jsonPath            [numLayerLocationIndex]string
 	driver              drivers.Driver
 	layerdir            string
+	lastWrite           lockfile.LastWrite
+	mountsLastWrite     lockfile.LastWrite // Only valid if lockfile.IsReadWrite()
 	layers              []*Layer
 	idindex             *truncindex.TruncIndex
 	byid                map[string]*Layer
@@ -452,17 +454,20 @@ func (r *layerStore) stopReading() {
 // last recorded writer.  It should only be called with the lock held.
 func (r *layerStore) Modified() (bool, error) {
 	var mmodified bool
-	lmodified, err := r.lockfile.Modified()
+	lastWrite, lmodified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
 		return lmodified, err
 	}
+	r.lastWrite = lastWrite
 	if r.lockfile.IsReadWrite() {
 		r.mountsLockfile.RLock()
 		defer r.mountsLockfile.Unlock()
-		mmodified, err = r.mountsLockfile.Modified()
+		var mountsLastWrite lockfile.LastWrite
+		mountsLastWrite, mmodified, err = r.mountsLockfile.ModifiedSince(r.mountsLastWrite)
 		if err != nil {
 			return lmodified, err
 		}
+		r.mountsLastWrite = mountsLastWrite
 	}
 
 	if lmodified || mmodified {
@@ -512,7 +517,12 @@ func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 //
 // The caller must hold r.mountsLockFile for reading or writing.
 func (r *layerStore) reloadMountsIfChanged() error {
-	if modified, err := r.mountsLockfile.Modified(); modified || err != nil {
+	lastWrite, modified, err := r.mountsLockfile.ModifiedSince(r.mountsLastWrite)
+	if err != nil {
+		return err
+	}
+	r.mountsLastWrite = lastWrite
+	if modified {
 		if err = r.loadMounts(); err != nil {
 			return err
 		}
@@ -793,7 +803,12 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 			return err
 		}
 	}
-	return r.lockfile.Touch()
+	lw, err := r.lockfile.RecordWrite()
+	if err != nil {
+		return err
+	}
+	r.lastWrite = lw
+	return nil
 }
 
 func (r *layerStore) saveMounts() error {
@@ -822,9 +837,11 @@ func (r *layerStore) saveMounts() error {
 	if err = ioutils.AtomicWriteFile(mpath, jmdata, 0600); err != nil {
 		return err
 	}
-	if err := r.mountsLockfile.Touch(); err != nil {
+	lw, err := r.mountsLockfile.RecordWrite()
+	if err != nil {
 		return err
 	}
+	r.mountsLastWrite = lw
 	return r.loadMounts()
 }
 
@@ -870,6 +887,23 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 		return nil, err
 	}
 	defer rlstore.stopWriting()
+	lw, err := rlstore.lockfile.GetLastWrite()
+	if err != nil {
+		return nil, err
+	}
+	rlstore.lastWrite = lw
+	if err := func() error { // A scope for defer
+		rlstore.mountsLockfile.RLock()
+		defer rlstore.mountsLockfile.Unlock()
+		lw, err = rlstore.mountsLockfile.GetLastWrite()
+		if err != nil {
+			return err
+		}
+		rlstore.mountsLastWrite = lw
+		return nil
+	}(); err != nil {
+		return nil, err
+	}
 	if _, err := rlstore.load(true); err != nil {
 		return nil, err
 	}
@@ -899,6 +933,11 @@ func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roL
 		return nil, err
 	}
 	defer rlstore.stopReading()
+	lw, err := rlstore.lockfile.GetLastWrite()
+	if err != nil {
+		return nil, err
+	}
+	rlstore.lastWrite = lw
 	if _, err := rlstore.load(false); err != nil {
 		return nil, err
 	}

@@ -157,14 +157,15 @@ type rwImageStore interface {
 }
 
 type imageStore struct {
-	lockfile *lockfile.LockFile // lockfile.IsReadWrite can be used to distinguish between read-write and read-only image stores.
-	dir      string
-	images   []*Image
-	idindex  *truncindex.TruncIndex
-	byid     map[string]*Image
-	byname   map[string]*Image
-	bydigest map[digest.Digest][]*Image
-	loadMut  sync.Mutex
+	lockfile  *lockfile.LockFile // lockfile.IsReadWrite can be used to distinguish between read-write and read-only image stores.
+	dir       string
+	lastWrite lockfile.LastWrite
+	images    []*Image
+	idindex   *truncindex.TruncIndex
+	byid      map[string]*Image
+	byname    map[string]*Image
+	bydigest  map[digest.Digest][]*Image
+	loadMut   sync.Mutex
 }
 
 func copyImage(i *Image) *Image {
@@ -303,10 +304,11 @@ func (r *imageStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
 
-	modified, err := r.lockfile.Modified()
+	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
 		return false, err
 	}
+	r.lastWrite = lastWrite
 	if modified {
 		return r.load(lockedForWriting)
 	}
@@ -458,7 +460,12 @@ func (r *imageStore) Save() error {
 	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
 		return err
 	}
-	return r.lockfile.Touch()
+	lw, err := r.lockfile.RecordWrite()
+	if err != nil {
+		return err
+	}
+	r.lastWrite = lw
+	return nil
 }
 
 func newImageStore(dir string) (rwImageStore, error) {
@@ -481,6 +488,10 @@ func newImageStore(dir string) (rwImageStore, error) {
 		return nil, err
 	}
 	defer istore.stopWriting()
+	istore.lastWrite, err = istore.lockfile.GetLastWrite()
+	if err != nil {
+		return nil, err
+	}
 	if _, err := istore.load(true); err != nil {
 		return nil, err
 	}
@@ -504,6 +515,10 @@ func newROImageStore(dir string) (roImageStore, error) {
 		return nil, err
 	}
 	defer istore.stopReading()
+	istore.lastWrite, err = istore.lockfile.GetLastWrite()
+	if err != nil {
+		return nil, err
+	}
 	if _, err := istore.load(false); err != nil {
 		return nil, err
 	}

@@ -580,30 +580,31 @@ type ContainerOptions struct {
 }
 
 type store struct {
-	lastLoaded      time.Time
-	runRoot         string
-	graphLock       *lockfile.LockFile
-	usernsLock      *lockfile.LockFile
-	graphRoot       string
-	graphDriverName string
-	graphOptions    []string
-	pullOptions     map[string]string
-	uidMap          []idtools.IDMap
-	gidMap          []idtools.IDMap
-	autoUsernsUser  string
-	additionalUIDs  *idSet // Set by getAvailableIDs()
-	additionalGIDs  *idSet // Set by getAvailableIDs()
-	autoNsMinSize   uint32
-	autoNsMaxSize   uint32
-	graphDriver     drivers.Driver
-	layerStore      rwLayerStore
-	roLayerStores   []roLayerStore
-	imageStore      rwImageStore
-	roImageStores   []roImageStore
-	containerStore  rwContainerStore
-	digestLockRoot  string
-	disableVolatile bool
-	transientStore  bool
+	lastLoaded         time.Time
+	runRoot            string
+	graphLock          *lockfile.LockFile
+	usernsLock         *lockfile.LockFile
+	graphRoot          string
+	graphDriverName    string
+	graphOptions       []string
+	pullOptions        map[string]string
+	uidMap             []idtools.IDMap
+	gidMap             []idtools.IDMap
+	autoUsernsUser     string
+	additionalUIDs     *idSet // Set by getAvailableIDs()
+	additionalGIDs     *idSet // Set by getAvailableIDs()
+	autoNsMinSize      uint32
+	autoNsMaxSize      uint32
+	graphLockLastWrite lockfile.LastWrite
+	graphDriver        drivers.Driver
+	layerStore         rwLayerStore
+	roLayerStores      []roLayerStore
+	imageStore         rwImageStore
+	roImageStores      []roImageStore
+	containerStore     rwContainerStore
+	digestLockRoot     string
+	disableVolatile    bool
+	transientStore     bool
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -713,6 +714,18 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		disableVolatile: options.DisableVolatile,
 		transientStore:  options.TransientStore,
 		pullOptions:     options.PullOptions,
+	}
+	if err := func() error { // A scope for defer
+		s.graphLock.Lock()
+		defer s.graphLock.Unlock()
+		lastWrite, err := s.graphLock.GetLastWrite()
+		if err != nil {
+			return err
+		}
+		s.graphLockLastWrite = lastWrite
+		return nil
+	}(); err != nil {
+		return nil, err
 	}
 	if err := s.load(); err != nil {
 		return nil, err
@@ -2511,10 +2524,11 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 	}
 	defer rlstore.stopWriting()
 
-	modified, err := s.graphLock.Modified()
+	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
 	if err != nil {
 		return "", err
 	}
+	s.graphLockLastWrite = lastWrite
 
 	/* We need to make sure the home mount is present when the Mount is done.  */
 	if modified {
@@ -2658,10 +2672,11 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
 
-	modified, err := s.graphLock.Modified()
+	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
 	if err != nil {
 		return nil, err
 	}
+	s.graphLockLastWrite = lastWrite
 
 	// We need to make sure the home mount is present when the Mount is done.
 	if modified {
@@ -3220,11 +3235,14 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 	}
 	if err == nil {
 		err = s.graphDriver.Cleanup()
-		if err2 := s.graphLock.Touch(); err2 != nil {
+		// We don’t retain the lastWrite value, and treat this update as if someone else did the .Cleanup(),
+		// so that we reload after a .Shutdown() the same way other processes would.
+		// Shutdown() is basically an error path, so reliability is more important than performance.
+		if _, err2 := s.graphLock.RecordWrite(); err2 != nil {
 			if err == nil {
 				err = err2
 			} else {
-				err = fmt.Errorf("(graphLock.Touch failed: %v) %w", err2, err)
+				err = fmt.Errorf("(graphLock.RecordWrite failed: %v) %w", err2, err)
 			}
 		}
 	}

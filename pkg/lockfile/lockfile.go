@@ -30,10 +30,13 @@ type Locker interface {
 
 	// Touch records, for others sharing the lock, that the caller was the
 	// last writer.  It should only be called with the lock held.
+	//
+	// Deprecated: Use *LockFile.RecordWrite.
 	Touch() error
 
 	// Modified() checks if the most recent writer was a party other than the
 	// last recorded writer.  It should only be called with the lock held.
+	// Deprecated: Use *LockFile.ModifiedSince.
 	Modified() (bool, error)
 
 	// TouchedSince() checks if the most recent writer modified the file (likely using Touch()) after the specified time.
