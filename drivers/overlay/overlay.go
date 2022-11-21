@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"unicode"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
@@ -1695,6 +1696,40 @@ func (d *Driver) Put(id string) error {
 func (d *Driver) Exists(id string) bool {
 	_, err := os.Stat(d.dir(id))
 	return err == nil
+}
+
+func nameLooksLikeID(name string) bool {
+	if len(name) != 64 {
+		return false
+	}
+	for _, c := range name {
+		if !unicode.Is(unicode.ASCII_Hex_Digit, c) {
+			return false
+		}
+	}
+	return true
+}
+
+// List layers (not including additional image stores)
+func (d *Driver) ListLayers() ([]string, error) {
+	entries, err := os.ReadDir(d.home)
+	if err != nil {
+		return nil, err
+	}
+
+	layers := make([]string, 0)
+
+	for _, entry := range entries {
+		id := entry.Name()
+		// Does it look like a datadir directory?
+		if !entry.IsDir() || !nameLooksLikeID(id) {
+			continue
+		}
+
+		layers = append(layers, id)
+	}
+
+	return layers, err
 }
 
 // isParent returns if the passed in parent is the direct parent of the passed in layer

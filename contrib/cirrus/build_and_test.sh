@@ -13,6 +13,9 @@ case $TEST_DRIVER in
     overlay)
         showrun make STORAGE_DRIVER=overlay local-test-integration local-test-unit
         ;;
+    overlay-transient)
+        showrun make STORAGE_DRIVER=overlay STORAGE_TRANSIENT=1 local-test-integration local-test-unit
+        ;;
     fuse-overlay)
         showrun make STORAGE_DRIVER=overlay STORAGE_OPTION=overlay.mount_program=/usr/bin/fuse-overlayfs local-test-integration local-test-unit
         ;;

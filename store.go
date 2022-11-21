@@ -141,6 +141,7 @@ type Store interface {
 	// settings that were passed to GetStore() when the object was created.
 	RunRoot() string
 	GraphRoot() string
+	TransientStore() bool
 	GraphDriverName() string
 	GraphOptions() []string
 	PullOptions() map[string]string
@@ -502,6 +503,11 @@ type Store interface {
 	// Releasing AdditionalLayer handler is caller's responsibility.
 	// This API is experimental and can be changed without bumping the major version number.
 	LookupAdditionalLayer(d digest.Digest, imageref string) (AdditionalLayer, error)
+
+	// Tries to clean up remainders of previous containers or layers that are not
+	// references in the json files. These can happen in the case of unclean
+	// shutdowns or regular restarts in transient store mode.
+	GarbageCollect() error
 }
 
 // AdditionalLayer reprents a layer that is contained in the additional layer store
@@ -545,6 +551,8 @@ type LayerOptions struct {
 	// and reliably known by the caller.
 	// Use the default "" if this fields is not applicable or the value is not known.
 	UncompressedDigest digest.Digest
+	// True is the layer info can be treated as volatile
+	Volatile bool
 }
 
 // ImageOptions is used for passing options to a Store's CreateImage() method.
@@ -594,6 +602,7 @@ type store struct {
 	containerStore  rwContainerStore
 	digestLockRoot  string
 	disableVolatile bool
+	transientStore  bool
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -701,6 +710,7 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		additionalGIDs:  nil,
 		usernsLock:      usernsLock,
 		disableVolatile: options.DisableVolatile,
+		transientStore:  options.TransientStore,
 		pullOptions:     options.PullOptions,
 	}
 	if err := s.load(); err != nil {
@@ -746,6 +756,10 @@ func (s *store) GraphDriverName() string {
 
 func (s *store) GraphRoot() string {
 	return s.graphRoot
+}
+
+func (s *store) TransientStore() bool {
+	return s.transientStore
 }
 
 func (s *store) GraphOptions() []string {
@@ -794,14 +808,16 @@ func (s *store) load() error {
 	if err := os.MkdirAll(gcpath, 0700); err != nil {
 		return err
 	}
-	rcs, err := newContainerStore(gcpath)
-	if err != nil {
-		return err
-	}
 	rcpath := filepath.Join(s.runRoot, driverPrefix+"containers")
 	if err := os.MkdirAll(rcpath, 0700); err != nil {
 		return err
 	}
+
+	rcs, err := newContainerStore(gcpath, rcpath, s.transientStore)
+	if err != nil {
+		return err
+	}
+
 	s.containerStore = rcs
 
 	for _, store := range driver.AdditionalImageStores() {
@@ -883,7 +899,7 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 	if err := os.MkdirAll(glpath, 0700); err != nil {
 		return nil, err
 	}
-	rls, err := s.newLayerStore(rlpath, glpath, driver)
+	rls, err := s.newLayerStore(rlpath, glpath, driver, s.transientStore)
 	if err != nil {
 		return nil, err
 	}
@@ -1512,25 +1528,28 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			gidMap = s.gidMap
 		}
 	}
-	var layerOptions *LayerOptions
+	layerOptions := &LayerOptions{
+		// Normally layers for containers are volatile only if the container is.
+		// But in transient store mode, all container layers are volatile.
+		Volatile: options.Volatile || s.transientStore,
+	}
 	if s.canUseShifting(uidMap, gidMap) {
-		layerOptions = &LayerOptions{
-			IDMappingOptions: types.IDMappingOptions{
+		layerOptions.IDMappingOptions =
+			types.IDMappingOptions{
 				HostUIDMapping: true,
 				HostGIDMapping: true,
 				UIDMap:         nil,
 				GIDMap:         nil,
-			},
-		}
+			}
 	} else {
-		layerOptions = &LayerOptions{
-			IDMappingOptions: types.IDMappingOptions{
+		layerOptions.IDMappingOptions =
+			types.IDMappingOptions{
 				HostUIDMapping: idMappingsOptions.HostUIDMapping,
 				HostGIDMapping: idMappingsOptions.HostGIDMapping,
 				UIDMap:         copyIDMap(uidMap),
 				GIDMap:         copyIDMap(gidMap),
-			},
-		}
+			}
+
 	}
 	if options.Flags == nil {
 		options.Flags = make(map[string]interface{})
@@ -1556,6 +1575,11 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		return nil, err
 	}
 	layer = clayer.ID
+
+	// Normally only `--rm` containers are volatile, but in transient store mode all containers are volatile
+	if s.transientStore {
+		options.Volatile = true
+	}
 
 	var container *Container
 	err = s.writeToContainerStore(func(rcstore rwContainerStore) error {
@@ -3345,4 +3369,21 @@ func (s *store) Free() {
 			return
 		}
 	}
+}
+
+// Tries to clean up old unreferenced container leftovers. returns the first error
+// but continues as far as it can
+func (s *store) GarbageCollect() error {
+	firstErr := s.writeToContainerStore(func(rcstore rwContainerStore) error {
+		return rcstore.GarbageCollect()
+	})
+
+	moreErr := s.writeToLayerStore(func(rlstore rwLayerStore) error {
+		return rlstore.GarbageCollect()
+	})
+	if firstErr == nil {
+		firstErr = moreErr
+	}
+
+	return firstErr
 }
