@@ -450,27 +450,15 @@ func (r *layerStore) stopReading() {
 	r.lockfile.Unlock()
 }
 
-// Modified() checks if the most recent writer was a party other than the
+// layersModified() checks if the most recent writer to r.jsonPath[] was a party other than the
 // last recorded writer.  It should only be called with the lock held.
-func (r *layerStore) Modified() (bool, error) {
-	var mmodified bool
-	lastWrite, lmodified, err := r.lockfile.ModifiedSince(r.lastWrite)
+func (r *layerStore) layersModified() (bool, error) {
+	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
-		return lmodified, err
+		return modified, err
 	}
 	r.lastWrite = lastWrite
-	if r.lockfile.IsReadWrite() {
-		r.mountsLockfile.RLock()
-		defer r.mountsLockfile.Unlock()
-		var mountsLastWrite lockfile.LastWrite
-		mountsLastWrite, mmodified, err = r.mountsLockfile.ModifiedSince(r.mountsLastWrite)
-		if err != nil {
-			return lmodified, err
-		}
-		r.mountsLastWrite = mountsLastWrite
-	}
-
-	if lmodified || mmodified {
+	if modified {
 		return true, nil
 	}
 
@@ -503,12 +491,20 @@ func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
 
-	modified, err := r.Modified()
+	layersModified, err := r.layersModified()
 	if err != nil {
 		return false, err
 	}
-	if modified {
+	if layersModified {
+		// r.load also reloads mounts data
 		return r.load(lockedForWriting)
+	}
+	if r.lockfile.IsReadWrite() {
+		r.mountsLockfile.RLock()
+		defer r.mountsLockfile.Unlock()
+		if err := r.reloadMountsIfChanged(); err != nil {
+			return false, err
+		}
 	}
 	return false, nil
 }
