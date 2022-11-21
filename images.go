@@ -257,7 +257,7 @@ func (r *imageStore) startReadingWithReload(canReload bool) error {
 
 			r.lockfile.Lock()
 			unlockFn = r.lockfile.Unlock
-			if _, err := r.load(true); err != nil {
+			if _, err := r.reloadIfChanged(true); err != nil {
 				return err
 			}
 			unlockFn()
@@ -297,9 +297,7 @@ func (r *imageStore) stopReading() {
 // if it is held for writing.
 //
 // If !lockedForWriting and this function fails, the return value indicates whether
-// retrying with lockedForWriting could succeed. In that case the caller MUST
-// call load(), not reloadIfChanged() (because the “if changed” state will not
-// be detected again).
+// reloadIfChanged() with lockedForWriting could succeed.
 func (r *imageStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
@@ -308,9 +306,11 @@ func (r *imageStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	r.lastWrite = lastWrite
 	if modified {
-		return r.load(lockedForWriting)
+		if tryLockedForWriting, err := r.load(lockedForWriting); err != nil {
+			return tryLockedForWriting, err // r.lastWrite is unchanged, so we will load the next time again.
+		}
+		r.lastWrite = lastWrite
 	}
 	return false, nil
 }
@@ -376,6 +376,9 @@ func (i *Image) recomputeDigests() error {
 }
 
 // load reloads the contents of the store from disk.
+//
+// Most callers should call reloadIfChanged() instead, to avoid overhead and to correctly
+// manage r.lastWrite.
 //
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.

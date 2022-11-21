@@ -421,7 +421,7 @@ func (r *layerStore) startReadingWithReload(canReload bool) error {
 
 			r.lockfile.Lock()
 			unlockFn = r.lockfile.Unlock
-			if _, err := r.load(true); err != nil {
+			if _, err := r.reloadIfChanged(true); err != nil {
 				return err
 			}
 			unlockFn()
@@ -451,15 +451,16 @@ func (r *layerStore) stopReading() {
 }
 
 // layersModified() checks if the most recent writer to r.jsonPath[] was a party other than the
-// last recorded writer.  It should only be called with the lock held.
-func (r *layerStore) layersModified() (bool, error) {
+// last recorded writer. If so, it returns a lockfile.LastWrite value to record on a successful
+// reload.
+// It should only be called with the lock held.
+func (r *layerStore) layersModified() (lockfile.LastWrite, bool, error) {
 	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
 	if err != nil {
-		return modified, err
+		return lockfile.LastWrite{}, modified, err
 	}
-	r.lastWrite = lastWrite
 	if modified {
-		return true, nil
+		return lastWrite, true, nil
 	}
 
 	// If the layers.json file or container-layers.json has been
@@ -468,14 +469,15 @@ func (r *layerStore) layersModified() (bool, error) {
 	for locationIndex := 0; locationIndex < numLayerLocationIndex; locationIndex++ {
 		info, err := os.Stat(r.jsonPath[locationIndex])
 		if err != nil && !os.IsNotExist(err) {
-			return false, fmt.Errorf("stat layers file: %w", err)
+			return lockfile.LastWrite{}, false, fmt.Errorf("stat layers file: %w", err)
 		}
 		if info != nil && info.ModTime() != r.layerspathsModified[locationIndex] {
-			return true, nil
+			// In this case the LastWrite value is equal to r.lastWrite; writing it back doesn’t hurt.
+			return lastWrite, true, nil
 		}
 	}
 
-	return false, nil
+	return lockfile.LastWrite{}, false, nil
 }
 
 // reloadIfChanged reloads the contents of the store from disk if it is changed.
@@ -484,20 +486,22 @@ func (r *layerStore) layersModified() (bool, error) {
 // if it is held for writing.
 //
 // If !lockedForWriting and this function fails, the return value indicates whether
-// retrying with lockedForWriting could succeed. In that case the caller MUST
-// call load(), not reloadIfChanged() (because the “if changed” state will not
-// be detected again).
+// reloadIfChanged() with lockedForWriting could succeed.
 func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	r.loadMut.Lock()
 	defer r.loadMut.Unlock()
 
-	layersModified, err := r.layersModified()
+	lastWrite, layersModified, err := r.layersModified()
 	if err != nil {
 		return false, err
 	}
 	if layersModified {
-		// r.load also reloads mounts data
-		return r.load(lockedForWriting)
+		// r.load also reloads mounts data; so, on this path, we don’t need to call reloadMountsIfChanged.
+		if tryLockedForWriting, err := r.load(lockedForWriting); err != nil {
+			return tryLockedForWriting, err // r.lastWrite is unchanged, so we will load the next time again.
+		}
+		r.lastWrite = lastWrite
+		return false, nil
 	}
 	if r.lockfile.IsReadWrite() {
 		r.mountsLockfile.RLock()
@@ -517,11 +521,11 @@ func (r *layerStore) reloadMountsIfChanged() error {
 	if err != nil {
 		return err
 	}
-	r.mountsLastWrite = lastWrite
 	if modified {
 		if err = r.loadMounts(); err != nil {
 			return err
 		}
+		r.mountsLastWrite = lastWrite
 	}
 	return nil
 }
@@ -566,6 +570,11 @@ func (r *layerStore) mountspath() string {
 }
 
 // load reloads the contents of the store from disk.
+//
+// Most callers should call reloadIfChanged() instead, to avoid overhead and to correctly
+// manage r.lastWrite.
+//
+// As a side effect, this sets r.mountsLastWrite.
 //
 // The caller must hold r.lockfile for reading _or_ writing; lockedForWriting is true
 // if it is held for writing.
@@ -671,9 +680,17 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 	if r.lockfile.IsReadWrite() {
 		r.mountsLockfile.RLock()
 		defer r.mountsLockfile.Unlock()
+		// We need to reload mounts unconditionally, becuause by creating r.layers from scratch, we have discarded the previous
+		// information, if any. So, obtain a fresh mountsLastWrite value so that we don’t unnecessarily reload the data
+		// afterwards.
+		mountsLastWrite, err := r.mountsLockfile.GetLastWrite()
+		if err != nil {
+			return false, err
+		}
 		if err := r.loadMounts(); err != nil {
 			return false, err
 		}
+		r.mountsLastWrite = mountsLastWrite
 	}
 
 	if errorToResolveBySaving != nil {
@@ -888,18 +905,7 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 		return nil, err
 	}
 	rlstore.lastWrite = lw
-	if err := func() error { // A scope for defer
-		rlstore.mountsLockfile.RLock()
-		defer rlstore.mountsLockfile.Unlock()
-		lw, err = rlstore.mountsLockfile.GetLastWrite()
-		if err != nil {
-			return err
-		}
-		rlstore.mountsLastWrite = lw
-		return nil
-	}(); err != nil {
-		return nil, err
-	}
+	// rlstore.mountsLastWrite is initialized inside rlstore.load().
 	if _, err := rlstore.load(true); err != nil {
 		return nil, err
 	}
