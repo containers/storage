@@ -31,7 +31,7 @@ func subTouchMain() {
 	if len(os.Args) != 2 {
 		logrus.Fatalf("expected two args, got %d", len(os.Args))
 	}
-	tf, err := GetLockfile(os.Args[1])
+	tf, err := GetLockFile(os.Args[1])
 	if err != nil {
 		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
 	}
@@ -54,7 +54,7 @@ func subTouchMain() {
 // that the child should Touch() the lock by closing the WriteCloser.  The
 // second ReadCloser will be closed when the child has finished.
 // The caller must call Wait() on the returned cmd.
-func subTouch(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
+func subTouch(l *namedLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subTouch", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
@@ -81,7 +81,7 @@ func subLockMain() {
 	if len(os.Args) != 2 {
 		logrus.Fatalf("expected two args, got %d", len(os.Args))
 	}
-	tf, err := GetLockfile(os.Args[1])
+	tf, err := GetLockFile(os.Args[1])
 	if err != nil {
 		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
 	}
@@ -99,7 +99,7 @@ func subLockMain() {
 // At that point, the child will have acquired the lock.  It can then signal
 // that the child should release the lock by closing the WriteCloser.
 // The caller must call Wait() on the returned cmd.
-func subLock(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
+func subLock(l *namedLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subLock", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
@@ -122,7 +122,7 @@ func subRLockMain() {
 	if len(os.Args) != 2 {
 		logrus.Fatalf("expected two args, got %d", len(os.Args))
 	}
-	tf, err := GetLockfile(os.Args[1])
+	tf, err := GetLockFile(os.Args[1])
 	if err != nil {
 		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
 	}
@@ -140,7 +140,7 @@ func subRLockMain() {
 // At that point, the child will have acquired a read lock.  It can then signal
 // that the child should release the lock by closing the WriteCloser.
 // The caller must call Wait() on the returned cmd.
-func subRLock(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
+func subRLock(l *namedLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subRLock", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
@@ -162,13 +162,13 @@ func init() {
 	reexec.Register("subLock", subLockMain)
 }
 
-type namedLocker struct {
-	Locker
+type namedLockFile struct {
+	*LockFile
 	name string
 }
 
-func getNamedLocker(ro bool) (*namedLocker, error) {
-	var l Locker
+func getNamedLockFile(ro bool) (*namedLockFile, error) {
+	var l *LockFile
 	tf, err := os.CreateTemp("", "lockfile")
 	if err != nil {
 		return nil, err
@@ -176,22 +176,22 @@ func getNamedLocker(ro bool) (*namedLocker, error) {
 	name := tf.Name()
 	tf.Close()
 	if ro {
-		l, err = GetROLockfile(name)
+		l, err = GetROLockFile(name)
 	} else {
-		l, err = GetLockfile(name)
+		l, err = GetLockFile(name)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &namedLocker{Locker: l, name: name}, nil
+	return &namedLockFile{LockFile: l, name: name}, nil
 }
 
-func getTempLockfile() (*namedLocker, error) {
-	return getNamedLocker(false)
+func getTempLockfile() (*namedLockFile, error) {
+	return getNamedLockFile(false)
 }
 
-func getTempROLockfile() (*namedLocker, error) {
-	return getNamedLocker(true)
+func getTempROLockfile() (*namedLockFile, error) {
+	return getNamedLockFile(true)
 }
 
 func TestLockfileName(t *testing.T) {
