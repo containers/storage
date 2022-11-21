@@ -507,6 +507,18 @@ func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	return false, nil
 }
 
+// reloadMountsIfChanged reloads the contents of mountsPath from disk if it is changed.
+//
+// The caller must hold r.mountsLockFile for reading or writing.
+func (r *layerStore) reloadMountsIfChanged() error {
+	if modified, err := r.mountsLockfile.Modified(); modified || err != nil {
+		if err = r.loadMounts(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *layerStore) Layers() ([]Layer, error) {
 	layers := make([]Layer, len(r.layers))
 	for i := range r.layers {
@@ -1217,10 +1229,8 @@ func (r *layerStore) Mounted(id string) (int, error) {
 	}
 	r.mountsLockfile.RLock()
 	defer r.mountsLockfile.Unlock()
-	if modified, err := r.mountsLockfile.Modified(); modified || err != nil {
-		if err = r.loadMounts(); err != nil {
-			return 0, err
-		}
+	if err := r.reloadMountsIfChanged(); err != nil {
+		return 0, err
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
@@ -1247,10 +1257,8 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 	}
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
-	if modified, err := r.mountsLockfile.Modified(); modified || err != nil {
-		if err = r.loadMounts(); err != nil {
-			return "", err
-		}
+	if err := r.reloadMountsIfChanged(); err != nil {
+		return "", err
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
@@ -1297,10 +1305,8 @@ func (r *layerStore) Unmount(id string, force bool) (bool, error) {
 	}
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
-	if modified, err := r.mountsLockfile.Modified(); modified || err != nil {
-		if err = r.loadMounts(); err != nil {
-			return false, err
-		}
+	if err := r.reloadMountsIfChanged(); err != nil {
+		return false, err
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
@@ -1335,10 +1341,8 @@ func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
 	}
 	r.mountsLockfile.RLock()
 	defer r.mountsLockfile.Unlock()
-	if modified, err := r.mountsLockfile.Modified(); modified || err != nil {
-		if err = r.loadMounts(); err != nil {
-			return nil, nil, err
-		}
+	if err := r.reloadMountsIfChanged(); err != nil {
+		return nil, nil, err
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
