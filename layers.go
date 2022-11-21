@@ -779,9 +779,8 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 		if err := ioutils.AtomicWriteFileWithOpts(rpath, jldata, 0600, opts); err != nil {
 			return err
 		}
-		return r.lockfile.Touch()
 	}
-	return nil
+	return r.lockfile.Touch()
 }
 
 func (r *layerStore) saveMounts() error {
