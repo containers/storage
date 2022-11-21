@@ -306,6 +306,55 @@ func TestLockfileTouch(t *testing.T) {
 	assert.True(t, m, "lock file failed to notice that someone else modified it")
 }
 
+func TestLockfileRecordWrite(t *testing.T) {
+	l, err := getTempLockfile()
+	require.NoError(t, err, "error getting temporary lock file")
+	defer os.Remove(l.name)
+
+	l.Lock()
+	state, err := l.GetLastWrite()
+	require.NoError(t, err)
+	state1, m, err := l.ModifiedSince(state)
+	require.NoError(t, err)
+	assert.False(t, m)
+
+	now := time.Now()
+	assert.False(t, l.TouchedSince(now), "file timestamp was updated for no reason")
+
+	// state1 = before write
+	time.Sleep(2 * time.Second)
+	state2, err := l.RecordWrite()
+	require.NoError(t, err)
+	assert.True(t, l.TouchedSince(now))
+	// state2 = outcome of the write
+
+	// It is possible, and valid, to retain earlier state values and compare them with the current state:
+	state3, m, err := l.ModifiedSince(state1)
+	require.NoError(t, err)
+	assert.True(t, m)
+	state4, m, err := l.ModifiedSince(state2)
+	require.NoError(t, err)
+	assert.False(t, m)
+	// Undocumented: the internals of LastWrite can be compared
+	assert.Equal(t, state4, state3)
+
+	cmd, stdin, stdout, stderr, err := subTouch(l)
+	require.Nil(t, err, "got an error starting a subprocess to touch the lockfile")
+	l.Unlock()
+	_, err = io.Copy(io.Discard, stdout)
+	require.NoError(t, err)
+	stdin.Close()
+	_, err = io.Copy(io.Discard, stderr)
+	require.NoError(t, err)
+	err = cmd.Wait()
+	require.NoError(t, err)
+	l.Lock()
+	_, m, err = l.ModifiedSince(state4)
+	l.Unlock()
+	require.NoError(t, err)
+	assert.True(t, m, "lock file failed to notice that someone else modified it")
+}
+
 func TestLockfileWriteConcurrent(t *testing.T) {
 	l, err := getTempLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
@@ -673,4 +722,67 @@ func TestLockfileMultiprocessModified(t *testing.T) {
 	lock.Unlock()
 	assert.NoError(t, err, "checking if lock was modified")
 	assert.False(t, modified, "expected Modified() to be false after someone else locked but did not Touch it")
+}
+
+func TestLockfileMultiprocessModifiedSince(t *testing.T) {
+	lock, err := getTempLockfile()
+	require.NoError(t, err, "creating lock")
+
+	// Lock hasn't been touched yet - initial state.
+	lock.Lock()
+	state, err := lock.GetLastWrite()
+	require.NoError(t, err)
+	state, modified, err := lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
+
+	lock.Lock()
+	state, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
+
+	// Take a read lock somewhere, then see if we incorrectly detect changes.
+	cmd, wc, rc1, err := subLock(lock)
+	require.NoError(t, err)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+
+	lock.Lock()
+	state, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
+
+	// Take a write lock somewhere, then see if we correctly detect changes.
+	cmd, wc, rc1, rc2, err := subTouch(lock)
+	require.NoError(t, err)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+	rc2.Close()
+
+	lock.Lock()
+	state, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.True(t, modified)
+
+	// Take a read lock somewhere, then see if we incorrectly detect changes.
+	cmd, wc, rc1, err = subLock(lock)
+	require.NoError(t, err)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+
+	lock.Lock()
+	_, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
 }
