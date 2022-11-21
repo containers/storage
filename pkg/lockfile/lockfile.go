@@ -11,7 +11,7 @@ import (
 // identifier of the last party that made changes to whatever's being protected
 // by the lock.
 //
-// Most users can refer to *LockFile, the provided implementation, instead.
+// Deprecated: Refer directly to *LockFile, the provided implementation, instead.
 type Locker interface {
 	// Acquire a writer lock.
 	// The default unix implementation panics if:

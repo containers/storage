@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/stringutils"
 	"github.com/containers/storage/pkg/truncindex"
@@ -156,7 +157,7 @@ type rwImageStore interface {
 }
 
 type imageStore struct {
-	lockfile Locker // lockfile.IsReadWrite can be used to distinguish between read-write and read-only image stores.
+	lockfile *lockfile.LockFile // lockfile.IsReadWrite can be used to distinguish between read-write and read-only image stores.
 	dir      string
 	images   []*Image
 	idindex  *truncindex.TruncIndex
@@ -464,7 +465,7 @@ func newImageStore(dir string) (rwImageStore, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, err
 	}
-	lockfile, err := GetLockfile(filepath.Join(dir, "images.lock"))
+	lockfile, err := lockfile.GetLockFile(filepath.Join(dir, "images.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -487,7 +488,7 @@ func newImageStore(dir string) (rwImageStore, error) {
 }
 
 func newROImageStore(dir string) (roImageStore, error) {
-	lockfile, err := GetROLockfile(filepath.Join(dir, "images.lock"))
+	lockfile, err := lockfile.GetROLockFile(filepath.Join(dir, "images.lock"))
 	if err != nil {
 		return nil, err
 	}

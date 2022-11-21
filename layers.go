@@ -18,6 +18,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
@@ -301,8 +302,8 @@ type rwLayerStore interface {
 }
 
 type layerStore struct {
-	lockfile            Locker
-	mountsLockfile      Locker
+	lockfile            *lockfile.LockFile
+	mountsLockfile      *lockfile.LockFile
 	rundir              string
 	jsonPath            [numLayerLocationIndex]string
 	driver              drivers.Driver
@@ -839,11 +840,11 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 	// layers.json might be used externally as a read-only layer (using e.g.
 	// additionalimagestores), and that would look for the lockfile in the
 	// same directory
-	lockfile, err := GetLockfile(filepath.Join(layerdir, "layers.lock"))
+	lockFile, err := lockfile.GetLockFile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}
-	mountsLockfile, err := GetLockfile(filepath.Join(rundir, "mountpoints.lock"))
+	mountsLockfile, err := lockfile.GetLockFile(filepath.Join(rundir, "mountpoints.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -852,7 +853,7 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 		volatileDir = rundir
 	}
 	rlstore := layerStore{
-		lockfile:       lockfile,
+		lockfile:       lockFile,
 		mountsLockfile: mountsLockfile,
 		driver:         driver,
 		rundir:         rundir,
@@ -876,7 +877,7 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 }
 
 func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roLayerStore, error) {
-	lockfile, err := GetROLockfile(filepath.Join(layerdir, "layers.lock"))
+	lockfile, err := lockfile.GetROLockFile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
@@ -140,7 +141,7 @@ type rwContainerStore interface {
 }
 
 type containerStore struct {
-	lockfile   Locker
+	lockfile   *lockfile.LockFile
 	dir        string
 	jsonPath   [numContainerLocationIndex]string
 	containers []*Container
@@ -487,7 +488,7 @@ func newContainerStore(dir string, runDir string, transient bool) (rwContainerSt
 		}
 		volatileDir = runDir
 	}
-	lockfile, err := GetLockfile(filepath.Join(volatileDir, "containers.lock"))
+	lockfile, err := lockfile.GetLockFile(filepath.Join(volatileDir, "containers.lock"))
 	if err != nil {
 		return nil, err
 	}

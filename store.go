@@ -20,6 +20,7 @@ import (
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/stringutils"
 	"github.com/containers/storage/pkg/system"
@@ -581,8 +582,8 @@ type ContainerOptions struct {
 type store struct {
 	lastLoaded      time.Time
 	runRoot         string
-	graphLock       Locker
-	usernsLock      Locker
+	graphLock       *lockfile.LockFile
+	usernsLock      *lockfile.LockFile
 	graphRoot       string
 	graphDriverName string
 	graphOptions    []string
@@ -677,12 +678,12 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		return nil, err
 	}
 
-	graphLock, err := GetLockfile(filepath.Join(options.GraphRoot, "storage.lock"))
+	graphLock, err := lockfile.GetLockFile(filepath.Join(options.GraphRoot, "storage.lock"))
 	if err != nil {
 		return nil, err
 	}
 
-	usernsLock, err := GetLockfile(filepath.Join(options.GraphRoot, "userns.lock"))
+	usernsLock, err := lockfile.GetLockFile(filepath.Join(options.GraphRoot, "userns.lock"))
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +840,7 @@ func (s *store) load() error {
 
 // GetDigestLock returns a digest-specific Locker.
 func (s *store) GetDigestLock(d digest.Digest) (Locker, error) {
-	return GetLockfile(filepath.Join(s.digestLockRoot, d.String()))
+	return lockfile.GetLockFile(filepath.Join(s.digestLockRoot, d.String()))
 }
 
 func (s *store) getGraphDriver() (drivers.Driver, error) {
