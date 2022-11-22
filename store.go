@@ -583,6 +583,7 @@ type store struct {
 	// The following fields are only set when constructing store, and must never be modified afterwards.
 	// They are safe to access without any other locking.
 	runRoot         string
+	graphDriverName string // Initially set to the user-requested value, possibly ""; updated during store construction, and does not change afterwards.
 	graphLock       *lockfile.LockFile
 	usernsLock      *lockfile.LockFile
 	graphRoot       string
@@ -602,7 +603,6 @@ type store struct {
 
 	// The following fields can only be accessed with graphLock held.
 	lastLoaded         time.Time
-	graphDriverName    string
 	graphLockLastWrite lockfile.LastWrite
 	graphDriver        drivers.Driver
 	layerStore         rwLayerStore
@@ -705,6 +705,7 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	}
 	s := &store{
 		runRoot:         options.RunRoot,
+		graphDriverName: options.GraphDriverName,
 		graphLock:       graphLock,
 		usernsLock:      usernsLock,
 		graphRoot:       options.GraphRoot,
@@ -717,8 +718,6 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		autoNsMaxSize:   autoNsMaxSize,
 		disableVolatile: options.DisableVolatile,
 		transientStore:  options.TransientStore,
-
-		graphDriverName: options.GraphDriverName,
 
 		additionalUIDs: nil,
 		additionalGIDs: nil,
@@ -806,12 +805,22 @@ func (s *store) GIDMap() []idtools.IDMap {
 
 // This must only be called when constructing store; it writes to fields that are assumed to be constant after constrution.
 func (s *store) load() error {
-	driver, err := s.GraphDriver()
-	if err != nil {
+	var driver drivers.Driver
+	if err := func() error { // A scope for defer
+		s.graphLock.Lock()
+		defer s.graphLock.Unlock()
+
+		var err error
+		driver, err = s.createGraphDriverLocked()
+		if err != nil {
+			return err
+		}
+		s.graphDriver = driver
+		s.graphDriverName = driver.String()
+		return nil
+	}(); err != nil {
 		return err
 	}
-	s.graphDriver = driver
-	s.graphDriverName = driver.String()
 	driverPrefix := s.graphDriverName + "-"
 
 	gipath := filepath.Join(s.graphRoot, driverPrefix+"images")
@@ -865,10 +874,10 @@ func (s *store) GetDigestLock(d digest.Digest) (Locker, error) {
 	return lockfile.GetLockFile(filepath.Join(s.digestLockRoot, d.String()))
 }
 
-func (s *store) getGraphDriver() (drivers.Driver, error) {
-	if s.graphDriver != nil {
-		return s.graphDriver, nil
-	}
+// createGraphDriverLocked creates a new instance of graph driver for s, and returns it.
+// Almost all users should use getGraphDriver instead.
+// The caller must hold s.graphLock.
+func (s *store) createGraphDriverLocked() (drivers.Driver, error) {
 	config := drivers.Options{
 		Root:          s.graphRoot,
 		RunRoot:       s.runRoot,
@@ -876,12 +885,34 @@ func (s *store) getGraphDriver() (drivers.Driver, error) {
 		UIDMaps:       s.uidMap,
 		GIDMaps:       s.gidMap,
 	}
-	driver, err := drivers.New(s.graphDriverName, config)
+	return drivers.New(s.graphDriverName, config)
+}
+
+// getGraphDriver returns a currently valid instance of a graph driver for s.
+// It only intended to be used on a fully-constructed store.
+// The caller must hold s.graphLock.
+func (s *store) getGraphDriver() (drivers.Driver, error) {
+	if s.graphDriver != nil {
+		return s.graphDriver, nil
+	}
+	driver, err := s.createGraphDriverLocked()
 	if err != nil {
 		return nil, err
 	}
+	// Our concurrency design requires s.graphDriverName not to be modified after
+	// store is constructed.
+	// It’s fine for driver.String() not to match the requested graph driver name
+	// (e.g. if the user asks for overlay2 and gets overlay), but it must be an idempotent
+	// mapping:
+	//	driver1 := drivers.New(userInput, config)
+	//	name1 := driver1.String()
+	//	name2 := drivers.New(name1, config).String()
+	//	assert(name1 == name2)
+	if s.graphDriverName != driver.String() {
+		return nil, fmt.Errorf("graph driver name changed from %q to %q during reload",
+			s.graphDriverName, driver.String())
+	}
 	s.graphDriver = driver
-	s.graphDriverName = driver.String()
 	return driver, nil
 }
 
