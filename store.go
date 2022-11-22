@@ -584,6 +584,15 @@ type store struct {
 	// They are safe to access without any other locking.
 	runRoot         string
 	graphDriverName string // Initially set to the user-requested value, possibly ""; updated during store construction, and does not change afterwards.
+	// graphLock:
+	// - Ensures that we always reload graphDriver, and the primary layer store, after any process does store.Shutdown. This is necessary
+	//   because (??) the Shutdown may forcibly unmount and clean up, affecting graph driver state in a way only a graph driver
+	//   and layer store reinitialization can notice.
+	// - Ensures that store.Shutdown is exclusive with mount operations. This is necessary at because some
+	//   graph drivers call mount.MakePrivate() during initialization, the mount operations require that, and the driver’s Cleanup() method
+	//   may undo that. So, holding graphLock is required throughout the duration of Shutdown(), and the duration of any mount
+	//   (but not unmount) calls.
+	// - Within this store object, protects access to some related in-memory state.
 	graphLock       *lockfile.LockFile
 	usernsLock      *lockfile.LockFile
 	graphRoot       string
@@ -603,9 +612,11 @@ type store struct {
 
 	// The following fields can only be accessed with graphLock held.
 	graphLockLastWrite lockfile.LastWrite
-	graphDriver        drivers.Driver
-	layerStore         rwLayerStore
-	roLayerStores      []roLayerStore
+	// FIXME: This field is only set when holding graphLock, but locking rules of the driver
+	// interface itself are not documented here. It is extensively used without holding graphLock.
+	graphDriver   drivers.Driver
+	layerStore    rwLayerStore
+	roLayerStores []roLayerStore
 
 	// FIXME: The following fields need locking, and don’t have it.
 	additionalUIDs *idSet // Set by getAvailableIDs()
@@ -864,6 +875,39 @@ func (s *store) GetDigestLock(d digest.Digest) (Locker, error) {
 	return lockfile.GetLockFile(filepath.Join(s.digestLockRoot, d.String()))
 }
 
+// startUsingGraphDriver obtains s.graphLock and ensures that s.graphDriver is set and fresh.
+// If this succeeds, the caller MUST call stopUsingGraphDriver().
+func (s *store) startUsingGraphDriver() error {
+	s.graphLock.Lock()
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			s.graphLock.Unlock()
+		}
+	}()
+
+	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
+	if err != nil {
+		return err
+	}
+	if modified {
+		s.graphDriver = nil
+		s.layerStore = nil
+		s.graphLockLastWrite = lastWrite
+	}
+	if _, err := s.getGraphDriver(); err != nil { // Ensures s.graphDriver is set
+		return err
+	}
+
+	succeeded = true
+	return nil
+}
+
+// stopUsingGraphDriver releases graphLock obtained by startUsingGraphDriver.
+func (s *store) stopUsingGraphDriver() {
+	s.graphLock.Unlock()
+}
+
 // createGraphDriverLocked creates a new instance of graph driver for s, and returns it.
 // Almost all users should use getGraphDriver instead.
 // The caller must hold s.graphLock.
@@ -907,40 +951,22 @@ func (s *store) getGraphDriver() (drivers.Driver, error) {
 }
 
 func (s *store) GraphDriver() (drivers.Driver, error) {
-	s.graphLock.Lock()
-	defer s.graphLock.Unlock()
-	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
-	if err != nil {
+	if err := s.startUsingGraphDriver(); err != nil {
 		return nil, err
 	}
-	if modified {
-		s.graphDriver = nil
-		s.layerStore = nil
-		s.graphLockLastWrite = lastWrite
-	}
-	return s.getGraphDriver()
+	defer s.stopUsingGraphDriver()
+	return s.graphDriver, nil
 }
 
 // getLayerStore obtains and returns a handle to the writeable layer store object
 // used by the Store.
 func (s *store) getLayerStore() (rwLayerStore, error) {
-	s.graphLock.Lock()
-	defer s.graphLock.Unlock()
-	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
-	if err != nil {
+	if err := s.startUsingGraphDriver(); err != nil {
 		return nil, err
 	}
-	if modified {
-		s.graphDriver = nil
-		s.layerStore = nil
-		s.graphLockLastWrite = lastWrite
-	}
+	defer s.stopUsingGraphDriver()
 	if s.layerStore != nil {
 		return s.layerStore, nil
-	}
-	driver, err := s.getGraphDriver()
-	if err != nil {
-		return nil, err
 	}
 	driverPrefix := s.graphDriverName + "-"
 	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
@@ -951,7 +977,7 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 	if err := os.MkdirAll(glpath, 0700); err != nil {
 		return nil, err
 	}
-	rls, err := s.newLayerStore(rlpath, glpath, driver, s.transientStore)
+	rls, err := s.newLayerStore(rlpath, glpath, s.graphDriver, s.transientStore)
 	if err != nil {
 		return nil, err
 	}
@@ -962,23 +988,21 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 // getROLayerStores obtains additional read/only layer store objects used by the
 // Store.
 func (s *store) getROLayerStores() ([]roLayerStore, error) {
-	s.graphLock.Lock()
-	defer s.graphLock.Unlock()
+	if err := s.startUsingGraphDriver(); err != nil {
+		return nil, err
+	}
+	defer s.stopUsingGraphDriver()
 	if s.roLayerStores != nil {
 		return s.roLayerStores, nil
-	}
-	driver, err := s.getGraphDriver()
-	if err != nil {
-		return nil, err
 	}
 	driverPrefix := s.graphDriverName + "-"
 	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(rlpath, 0700); err != nil {
 		return nil, err
 	}
-	for _, store := range driver.AdditionalImageStores() {
+	for _, store := range s.graphDriver.AdditionalImageStores() {
 		glpath := filepath.Join(store, driverPrefix+"layers")
-		rls, err := newROLayerStore(rlpath, glpath, driver)
+		rls, err := newROLayerStore(rlpath, glpath, s.graphDriver)
 		if err != nil {
 			return nil, err
 		}
@@ -2555,28 +2579,16 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 		return "", err
 	}
 
-	s.graphLock.Lock()
-	defer s.graphLock.Unlock()
+	// We need to make sure the home mount is present when the Mount is done, which happens by possibly reinitializing the graph driver
+	// in startUsingGraphDriver().
+	if err := s.startUsingGraphDriver(); err != nil {
+		return "", err
+	}
+	defer s.stopUsingGraphDriver()
 	if err := rlstore.startWriting(); err != nil {
 		return "", err
 	}
 	defer rlstore.stopWriting()
-
-	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
-	if err != nil {
-		return "", err
-	}
-	s.graphLockLastWrite = lastWrite
-
-	/* We need to make sure the home mount is present when the Mount is done.  */
-	if modified {
-		s.graphDriver = nil
-		s.layerStore = nil
-		s.graphDriver, err = s.getGraphDriver()
-		if err != nil {
-			return "", err
-		}
-	}
 
 	if options.UidMaps != nil || options.GidMaps != nil {
 		options.DisableShifting = !s.canUseShifting(options.UidMaps, options.GidMaps)
@@ -2706,24 +2718,12 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 
 	// NaiveDiff could cause mounts to happen without a lock, so be safe
 	// and treat the .Diff operation as a Mount.
-	s.graphLock.Lock()
-	defer s.graphLock.Unlock()
-
-	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
-	if err != nil {
+	// We need to make sure the home mount is present when the Mount is done, which happens by possibly reinitializing the graph driver
+	// in startUsingGraphDriver().
+	if err := s.startUsingGraphDriver(); err != nil {
 		return nil, err
 	}
-	s.graphLockLastWrite = lastWrite
-
-	// We need to make sure the home mount is present when the Mount is done.
-	if modified {
-		s.graphDriver = nil
-		s.layerStore = nil
-		s.graphDriver, err = s.getGraphDriver()
-		if err != nil {
-			return nil, err
-		}
-	}
+	defer s.stopUsingGraphDriver()
 
 	for _, s := range layerStores {
 		store := s
@@ -3237,8 +3237,10 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		return mounted, err
 	}
 
-	s.graphLock.Lock()
-	defer s.graphLock.Unlock()
+	if err := s.startUsingGraphDriver(); err != nil {
+		return mounted, err
+	}
+	defer s.stopUsingGraphDriver()
 
 	if err := rlstore.startWriting(); err != nil {
 		return nil, err
