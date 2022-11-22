@@ -1246,8 +1246,10 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 	return fn(rlstore, ristore, rcstore)
 }
 
-func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
-	if s.graphDriver == nil || !s.graphDriver.SupportsShifting() {
+// canUseShifting returns ???
+// store must be locked for writing.
+func canUseShifting(store rwLayerStore, uidmap, gidmap []idtools.IDMap) bool {
+	if !store.supportsShifting() {
 		return false
 	}
 	if uidmap != nil && !idtools.IsContiguous(uidmap) {
@@ -1335,7 +1337,7 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 		OriginalDigest:     options.OriginalDigest,
 		UncompressedDigest: options.UncompressedDigest,
 	}
-	if s.canUseShifting(uidMap, gidMap) {
+	if canUseShifting(rlstore, uidMap, gidMap) {
 		layerOptions.IDMappingOptions = types.IDMappingOptions{HostUIDMapping: true, HostGIDMapping: true, UIDMap: nil, GIDMap: nil}
 	} else {
 		layerOptions.IDMappingOptions = types.IDMappingOptions{
@@ -1400,7 +1402,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, primaryImageStore rwImageStore, rlstore rwLayerStore, lstores []roLayerStore, options types.IDMappingOptions) (*Layer, error) {
 	layerMatchesMappingOptions := func(layer *Layer, options types.IDMappingOptions) bool {
 		// If the driver supports shifting and the layer has no mappings, we can use it.
-		if s.canUseShifting(options.UIDMap, options.GIDMap) && len(layer.UIDMap) == 0 && len(layer.GIDMap) == 0 {
+		if canUseShifting(rlstore, options.UIDMap, options.GIDMap) && len(layer.UIDMap) == 0 && len(layer.GIDMap) == 0 {
 			return true
 		}
 		// If we want host mapping, and the layer uses mappings, it's not the best match.
@@ -1467,7 +1469,7 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, prim
 	// that lets us edit image metadata, so create a duplicate of the layer with the desired
 	// mappings, and register it as an alternate top layer in the image.
 	var layerOptions LayerOptions
-	if s.canUseShifting(options.UIDMap, options.GIDMap) {
+	if canUseShifting(rlstore, options.UIDMap, options.GIDMap) {
 		layerOptions = LayerOptions{
 			IDMappingOptions: types.IDMappingOptions{
 				HostUIDMapping: true,
@@ -1624,7 +1626,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		// But in transient store mode, all container layers are volatile.
 		Volatile: options.Volatile || s.transientStore,
 	}
-	if s.canUseShifting(uidMap, gidMap) {
+	if canUseShifting(rlstore, uidMap, gidMap) {
 		layerOptions.IDMappingOptions =
 			types.IDMappingOptions{
 				HostUIDMapping: true,
@@ -2606,7 +2608,7 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 	defer rlstore.stopWriting()
 
 	if options.UidMaps != nil || options.GidMaps != nil {
-		options.DisableShifting = !s.canUseShifting(options.UidMaps, options.GidMaps)
+		options.DisableShifting = !canUseShifting(rlstore, options.UidMaps, options.GidMaps)
 	}
 
 	if rlstore.Exists(id) {
