@@ -833,9 +833,6 @@ func (s *store) load() error {
 		return err
 	}
 	s.imageStore = ris
-	if _, err := s.getROImageStores(); err != nil {
-		return err
-	}
 
 	gcpath := filepath.Join(s.graphRoot, driverPrefix+"containers")
 	if err := os.MkdirAll(gcpath, 0700); err != nil {
@@ -1111,16 +1108,6 @@ func (s *store) getImageStore() (rwImageStore, error) {
 	return nil, ErrLoadError
 }
 
-// getROImageStores obtains additional read/only image store objects used by the
-// Store.
-func (s *store) getROImageStores() ([]roImageStore, error) {
-	if s.imageStore == nil {
-		return nil, ErrLoadError
-	}
-
-	return s.roImageStores, nil
-}
-
 // allImageStores returns a list of all image store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
 func (s *store) allImageStores() ([]roImageStore, error) {
@@ -1128,11 +1115,7 @@ func (s *store) allImageStores() ([]roImageStore, error) {
 	if err != nil {
 		return nil, fmt.Errorf("loading primary image store data: %w", err)
 	}
-	additional, err := s.getROImageStores()
-	if err != nil {
-		return nil, fmt.Errorf("loading additional image stores: %w", err)
-	}
-	return append([]roImageStore{primary}, additional...), nil
+	return append([]roImageStore{primary}, s.roImageStores...), nil
 }
 
 // readAllImageStores processes allImageStores() in order:
@@ -1511,15 +1494,11 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 
 	var imageHomeStore roImageStore // Set if image != ""
 	var istore rwImageStore         // Set, and locked read-write, if image != ""
-	var istores []roImageStore      // Set, and NOT NECESSARILY ALL locked read-only, if image != ""
-	var cimage *Image               // Set if image != ""
+	// s.roImageStores are NOT NECESSARILY ALL locked read-only if image != ""
+	var cimage *Image // Set if image != ""
 	if image != "" {
 		var err error
 		istore, err = s.getImageStore()
-		if err != nil {
-			return nil, err
-		}
-		istores, err = s.getROImageStores()
 		if err != nil {
 			return nil, err
 		}
@@ -1542,7 +1521,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		if err == nil {
 			imageHomeStore = istore
 		} else {
-			for _, s := range istores {
+			for _, s := range s.roImageStores {
 				store := s
 				if err := store.startReading(); err != nil {
 					return nil, err
@@ -2158,11 +2137,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 	}
 
 	// Check is id refers to a RO Store
-	ristores, err := s.getROImageStores()
-	if err != nil {
-		return err
-	}
-	for _, s := range ristores {
+	for _, s := range s.roImageStores {
 		store := s
 		if err := store.startReading(); err != nil {
 			return err
