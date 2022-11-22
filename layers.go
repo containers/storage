@@ -444,56 +444,75 @@ func (r *layerStore) startReadingWithReload(canReload bool) error {
 			unlockFn()
 		}
 	}()
+	r.inProcessLock.RLock()
+	unlockFn = r.stopReading
 
 	if canReload {
-		cleanupsDone := 0
-		for {
-			var tryLockedForWriting bool
-			err := inProcessLocked(func() error {
-				var err error
-				tryLockedForWriting, err = r.reloadIfChanged(false)
-				return err
-			})
-			if err == nil {
-				break
-			}
-			if !tryLockedForWriting {
-				return err
-			}
-			if cleanupsDone >= maxLayerStoreCleanupIterations {
-				return fmt.Errorf("(even after %d cleanup attempts:) %w", cleanupsDone, err)
-			}
-			unlockFn()
-			unlockFn = nil
-
-			r.lockfile.Lock()
+		// If we are lucky, we can just hold the read locks, check that we are fresh, and continue.
+		modified, err := r.modified()
+		if err != nil {
+			return err
+		}
+		if modified {
+			// We are unlucky, and need to reload.
+			// NOTE: Multiple goroutines can get to this place approximately simultaneously.
+			r.inProcessLock.RUnlock()
 			unlockFn = r.lockfile.Unlock
-			if err := inProcessLocked(func() error {
-				_, err := r.reloadIfChanged(true)
-				return err
-			}); err != nil {
-				return err
-			}
-			unlockFn()
-			unlockFn = nil
 
-			r.lockfile.RLock()
-			unlockFn = r.lockfile.Unlock
-			// We need to check for a reload reload again because the on-disk state could have been modified
-			// after we released the lock.
-			cleanupsDone++
+			cleanupsDone := 0
+			for {
+				// First try reloading with r.lockfile held for reading.
+				// r.inProcessLock will serialize all goroutines that got here;
+				// each will re-check on-disk state vs. r.lastWrite, and the first one will actually reload the data.
+				var tryLockedForWriting bool
+				err := inProcessLocked(func() error {
+					var err error
+					tryLockedForWriting, err = r.reloadIfChanged(false)
+					return err
+				})
+				if err == nil {
+					break
+				}
+				if !tryLockedForWriting {
+					return err
+				}
+				if cleanupsDone >= maxLayerStoreCleanupIterations {
+					return fmt.Errorf("(even after %d cleanup attempts:) %w", cleanupsDone, err)
+				}
+				// Not good enough, we need r.lockfile held for writing. So, let’s do that.
+				unlockFn()
+				unlockFn = nil
+
+				r.lockfile.Lock()
+				unlockFn = r.lockfile.Unlock
+				if err := inProcessLocked(func() error {
+					_, err := r.reloadIfChanged(true)
+					return err
+				}); err != nil {
+					return err
+				}
+				unlockFn()
+				unlockFn = nil
+
+				r.lockfile.RLock()
+				unlockFn = r.lockfile.Unlock
+				// We need to check for a reload again because the on-disk state could have been modified
+				// after we released the lock.
+				cleanupsDone++
+			}
+
+			// NOTE that we hold neither a read nor write inProcessLock at this point. That’s fine in ordinary operation, because
+			// the on-filesystem r.lockfile should protect us against (cooperating) writers, and any use of r.inProcessLock
+			// protects us against in-process writers modifying data.
+			// In presence of non-cooperating writers, we just ensure that 1) the in-memory data is not clearly out-of-date
+			// and 2) access to the in-memory data is not racy;
+			// but we can’t protect against those out-of-process writers modifying _files_ while we are assuming they are in a consistent state.
+
+			r.inProcessLock.RLock()
 		}
 	}
 
-	// NOTE that we hold neither a read nor write inProcessLock at this point. That’s fine in ordinary operation, because
-	// the on-filesystem r.lockfile should protect us against (cooperating) writers, and any use of r.inProcessLock
-	// protects us against in-process writers modifying data.
-	// In presence of non-cooperating writers, we just ensure that 1) the in-memory data is not clearly out-of-date
-	// and 2) access to the in-memory data is not racy;
-	// but we can’t protect against those out-of-process writers modifying _files_ while we are assuming they are in a consistent state.
-
 	unlockFn = nil
-	r.inProcessLock.RLock()
 	return nil
 }
 
@@ -507,6 +526,39 @@ func (r *layerStore) startReading() error {
 func (r *layerStore) stopReading() {
 	r.inProcessLock.RUnlock()
 	r.lockfile.Unlock()
+}
+
+// modified returns true if the on-disk state (of layers or mounts) has changed (ie if reloadIcHanged may need to modify the store)
+//
+// Note that unlike containerStore.modified and imageStore.modified, this function is not directly used in layerStore.reloadIfChanged();
+// it exists only to help the reader ensure it has fresh enough state.
+//
+// The caller must hold r.lockfile for reading _or_ writing.
+// The caller must hold r.inProcessLock for reading or writing.
+func (r *layerStore) modified() (bool, error) {
+	_, m, err := r.layersModified()
+	if err != nil {
+		return false, err
+	}
+	if m {
+		return true, nil
+	}
+	if r.lockfile.IsReadWrite() {
+		// This means we get, release, and re-obtain, r.mountsLockfile if we actually need to do any kind of reload.
+		// That’s a bit expensive, but hopefully most callers will be read-only and see no changes.
+		// We can’t eliminate these mountsLockfile accesses given the current assumption that Layer objects have _some_ not-very-obsolete
+		// mount data. Maybe we can segregate the mount-dependent and mount-independent operations better...
+		r.mountsLockfile.RLock()
+		defer r.mountsLockfile.Unlock()
+		_, m, err := r.mountsModified()
+		if err != nil {
+			return false, err
+		}
+		if m {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // layersModified() checks if the most recent writer to r.jsonPath[] was a party other than the
@@ -572,11 +624,20 @@ func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 	return false, nil
 }
 
+// mountsModified returns true if the on-disk mount state has changed (i.e. if reloadMountsIfChanged may need to modify the store),
+// and a lockfile.LastWrite value for that update.
+//
+// The caller must hold r.mountsLockfile for reading _or_ writing.
+// The caller must hold r.inProcessLock for reading or writing.
+func (r *layerStore) mountsModified() (lockfile.LastWrite, bool, error) {
+	return r.mountsLockfile.ModifiedSince(r.mountsLastWrite)
+}
+
 // reloadMountsIfChanged reloads the contents of mountsPath from disk if it is changed.
 //
 // The caller must hold r.mountsLockFile for reading or writing.
 func (r *layerStore) reloadMountsIfChanged() error {
-	lastWrite, modified, err := r.mountsLockfile.ModifiedSince(r.mountsLastWrite)
+	lastWrite, modified, err := r.mountsModified()
 	if err != nil {
 		return err
 	}
