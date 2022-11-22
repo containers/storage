@@ -1143,14 +1143,14 @@ func (s *store) readAllImageStores(fn func(store roImageStore) (bool, error)) (b
 }
 
 // writeToImageStore is a convenience helper for working with store.getImageStore():
-// It locks the store for writing, checks for updates, and calls fn()
+// It locks the store for writing, checks for updates, and calls fn(), which can then access store.imageStore.
 // It returns the return value of fn, or its own error initializing the store.
-func (s *store) writeToImageStore(fn func(store rwImageStore) error) error {
+func (s *store) writeToImageStore(fn func() error) error {
 	if err := s.imageStore.startWriting(); err != nil {
 		return err
 	}
 	defer s.imageStore.stopWriting()
-	return fn(s.imageStore)
+	return fn()
 }
 
 // writeToContainerStore is a convenience helper for working with store.getContainerStore():
@@ -1320,14 +1320,14 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, o
 	}
 
 	var res *Image
-	err := s.writeToImageStore(func(ristore rwImageStore) error {
+	err := s.writeToImageStore(func() error {
 		creationDate := time.Now().UTC()
 		if options != nil && !options.CreationDate.IsZero() {
 			creationDate = options.CreationDate
 		}
 
 		var err error
-		res, err = ristore.Create(id, names, layer, metadata, creationDate, options.Digest)
+		res, err = s.imageStore.Create(id, names, layer, metadata, creationDate, options.Digest)
 		return err
 	})
 	return res, err
@@ -1803,8 +1803,8 @@ func (s *store) SetLayerBigData(id, key string, data io.Reader) error {
 }
 
 func (s *store) SetImageBigData(id, key string, data []byte, digestManifest func([]byte) (digest.Digest, error)) error {
-	return s.writeToImageStore(func(ristore rwImageStore) error {
-		return ristore.SetBigData(id, key, data, digestManifest)
+	return s.writeToImageStore(func() error {
+		return s.imageStore.SetBigData(id, key, data, digestManifest)
 	})
 }
 
