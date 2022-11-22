@@ -876,6 +876,7 @@ func (s *store) GetDigestLock(d digest.Digest) (Locker, error) {
 }
 
 // startUsingGraphDriver obtains s.graphLock and ensures that s.graphDriver is set and fresh.
+// It only intended to be used on a fully-constructed store.
 // If this succeeds, the caller MUST call stopUsingGraphDriver().
 func (s *store) startUsingGraphDriver() error {
 	s.graphLock.Lock()
@@ -891,12 +892,26 @@ func (s *store) startUsingGraphDriver() error {
 		return err
 	}
 	if modified {
-		s.graphDriver = nil
+		driver, err := s.createGraphDriverLocked()
+		if err != nil {
+			return err
+		}
+		// Our concurrency design requires s.graphDriverName not to be modified after
+		// store is constructed.
+		// It’s fine for driver.String() not to match the requested graph driver name
+		// (e.g. if the user asks for overlay2 and gets overlay), but it must be an idempotent
+		// mapping:
+		//	driver1 := drivers.New(userInput, config)
+		//	name1 := driver1.String()
+		//	name2 := drivers.New(name1, config).String()
+		//	assert(name1 == name2)
+		if s.graphDriverName != driver.String() {
+			return fmt.Errorf("graph driver name changed from %q to %q during reload",
+				s.graphDriverName, driver.String())
+		}
+		s.graphDriver = driver
 		s.layerStore = nil
 		s.graphLockLastWrite = lastWrite
-	}
-	if _, err := s.getGraphDriver(); err != nil { // Ensures s.graphDriver is set
-		return err
 	}
 
 	succeeded = true
@@ -909,7 +924,7 @@ func (s *store) stopUsingGraphDriver() {
 }
 
 // createGraphDriverLocked creates a new instance of graph driver for s, and returns it.
-// Almost all users should use getGraphDriver instead.
+// Almost all users should use startUsingGraphDriver instead.
 // The caller must hold s.graphLock.
 func (s *store) createGraphDriverLocked() (drivers.Driver, error) {
 	config := drivers.Options{
@@ -920,34 +935,6 @@ func (s *store) createGraphDriverLocked() (drivers.Driver, error) {
 		GIDMaps:       s.gidMap,
 	}
 	return drivers.New(s.graphDriverName, config)
-}
-
-// getGraphDriver returns a currently valid instance of a graph driver for s.
-// It only intended to be used on a fully-constructed store.
-// The caller must hold s.graphLock.
-func (s *store) getGraphDriver() (drivers.Driver, error) {
-	if s.graphDriver != nil {
-		return s.graphDriver, nil
-	}
-	driver, err := s.createGraphDriverLocked()
-	if err != nil {
-		return nil, err
-	}
-	// Our concurrency design requires s.graphDriverName not to be modified after
-	// store is constructed.
-	// It’s fine for driver.String() not to match the requested graph driver name
-	// (e.g. if the user asks for overlay2 and gets overlay), but it must be an idempotent
-	// mapping:
-	//	driver1 := drivers.New(userInput, config)
-	//	name1 := driver1.String()
-	//	name2 := drivers.New(name1, config).String()
-	//	assert(name1 == name2)
-	if s.graphDriverName != driver.String() {
-		return nil, fmt.Errorf("graph driver name changed from %q to %q during reload",
-			s.graphDriverName, driver.String())
-	}
-	s.graphDriver = driver
-	return driver, nil
 }
 
 func (s *store) GraphDriver() (drivers.Driver, error) {
