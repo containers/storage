@@ -270,54 +270,77 @@ func (r *containerStore) startReading() error {
 			unlockFn()
 		}
 	}()
-
-	var tryLockedForWriting bool
-	if err := inProcessLocked(func() error {
-		var err error
-		tryLockedForWriting, err = r.reloadIfChanged(false)
-		return err
-	}); err != nil {
-		if !tryLockedForWriting {
-			return err
-		}
-		unlockFn()
-		unlockFn = nil
-
-		r.lockfile.Lock()
-		unlockFn = r.lockfile.Unlock
-		if err := inProcessLocked(func() error {
-			_, err := r.reloadIfChanged(true)
-			return err
-		}); err != nil {
-			return err
-		}
-		unlockFn()
-		unlockFn = nil
-
-		r.lockfile.RLock()
-		unlockFn = r.lockfile.Unlock
-		// We need to check for a reload once more because the on-disk state could have been modified
-		// after we released the lock.
-		// If that, _again_, finds inconsistent state, just give up.
-		// We could, plausibly, retry a few times, but that inconsistent state (duplicate container names)
-		// shouldn’t be saved (by correct implementations) in the first place.
-		if err := inProcessLocked(func() error {
-			_, err := r.reloadIfChanged(false)
-			return err
-		}); err != nil {
-			return fmt.Errorf("(even after successfully cleaning up once:) %w", err)
-		}
-	}
-
-	// NOTE that we hold neither a read nor write inProcessLock at this point. That’s fine in ordinary operation, because
-	// the on-filesystem r.lockfile should protect us against (cooperating) writers, and any use of r.inProcessLock
-	// protects us against in-process writers modifying data.
-	// In presence of non-cooperating writers, we just ensure that 1) the in-memory data is not clearly out-of-date
-	// and 2) access to the in-memory data is not racy;
-	// but we can’t protect against those out-of-process writers modifying _files_ while we are assuming they are in a consistent state.
-
-	unlockFn = nil
 	r.inProcessLock.RLock()
+	unlockFn = r.stopReading
+
+	// If we are lucky, we can just hold the read locks, check that we are fresh, and continue.
+	_, modified, err := r.modified()
+	if err != nil {
+		return err
+	}
+	if modified {
+		// We are unlucky, and need to reload.
+		// NOTE: Multiple goroutines can get to this place approximately simultaneously.
+		r.inProcessLock.RUnlock()
+		unlockFn = r.lockfile.Unlock
+
+		// r.lastWrite can change at this point if another goroutine reloads the store before us. That’s why we don’t unconditionally
+		// trigger a load below; we (lock and) reloadIfChanged() again.
+
+		// First try reloading with r.lockfile held for reading.
+		// r.inProcessLock will serialize all goroutines that got here;
+		// each will re-check on-disk state vs. r.lastWrite, and the first one will actually reload the data.
+		var tryLockedForWriting bool
+		if err := inProcessLocked(func() error {
+			// We could optimize this further: The r.lockfile.GetLastWrite() value shouldn’t change as long as we hold r.lockfile,
+			// so if r.lastWrite was already updated, we don’t need to actually read the on-filesystem lock.
+			var err error
+			tryLockedForWriting, err = r.reloadIfChanged(false)
+			return err
+		}); err != nil {
+			if !tryLockedForWriting {
+				return err
+			}
+			// Not good enough, we need r.lockfile held for writing. So, let’s do that.
+			unlockFn()
+			unlockFn = nil
+
+			r.lockfile.Lock()
+			unlockFn = r.lockfile.Unlock
+			if err := inProcessLocked(func() error {
+				_, err := r.reloadIfChanged(true)
+				return err
+			}); err != nil {
+				return err
+			}
+			unlockFn()
+			unlockFn = nil
+
+			r.lockfile.RLock()
+			unlockFn = r.lockfile.Unlock
+			// We need to check for a reload once more because the on-disk state could have been modified
+			// after we released the lock.
+			// If that, _again_, finds inconsistent state, just give up.
+			// We could, plausibly, retry a few times, but that inconsistent state (duplicate container names)
+			// shouldn’t be saved (by correct implementations) in the first place.
+			if err := inProcessLocked(func() error {
+				_, err := r.reloadIfChanged(false)
+				return err
+			}); err != nil {
+				return fmt.Errorf("(even after successfully cleaning up once:) %w", err)
+			}
+		}
+
+		// NOTE that we hold neither a read nor write inProcessLock at this point. That’s fine in ordinary operation, because
+		// the on-filesystem r.lockfile should protect us against (cooperating) writers, and any use of r.inProcessLock
+		// protects us against in-process writers modifying data.
+		// In presence of non-cooperating writers, we just ensure that 1) the in-memory data is not clearly out-of-date
+		// and 2) access to the in-memory data is not racy;
+		// but we can’t protect against those out-of-process writers modifying _files_ while we are assuming they are in a consistent state.
+
+		r.inProcessLock.RLock()
+	}
+	unlockFn = nil
 	return nil
 }
 
@@ -325,6 +348,15 @@ func (r *containerStore) startReading() error {
 func (r *containerStore) stopReading() {
 	r.inProcessLock.RUnlock()
 	r.lockfile.Unlock()
+}
+
+// modified returns true if the on-disk state has changed (i.e. if reloadIfChanged may need to modify the store),
+// and a lockfile.LastWrite value for that update.
+//
+// The caller must hold r.lockfile for reading _or_ writing.
+// The caller must hold r.inProcessLock for reading or writing.
+func (r *containerStore) modified() (lockfile.LastWrite, bool, error) {
+	return r.lockfile.ModifiedSince(r.lastWrite)
 }
 
 // reloadIfChanged reloads the contents of the store from disk if it is changed.
@@ -337,7 +369,7 @@ func (r *containerStore) stopReading() {
 // If !lockedForWriting and this function fails, the return value indicates whether
 // reloadIfChanged() with lockedForWriting could succeed.
 func (r *containerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
-	lastWrite, modified, err := r.lockfile.ModifiedSince(r.lastWrite)
+	lastWrite, modified, err := r.modified()
 	if err != nil {
 		return false, err
 	}
