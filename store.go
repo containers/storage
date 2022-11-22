@@ -602,7 +602,6 @@ type store struct {
 	transientStore  bool
 
 	// The following fields can only be accessed with graphLock held.
-	lastLoaded         time.Time
 	graphLockLastWrite lockfile.LastWrite
 	graphDriver        drivers.Driver
 	layerStore         rwLayerStore
@@ -919,10 +918,14 @@ func (s *store) getGraphDriver() (drivers.Driver, error) {
 func (s *store) GraphDriver() (drivers.Driver, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
-	if s.graphLock.TouchedSince(s.lastLoaded) {
+	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
+	if err != nil {
+		return nil, err
+	}
+	if modified {
 		s.graphDriver = nil
 		s.layerStore = nil
-		s.lastLoaded = time.Now()
+		s.graphLockLastWrite = lastWrite
 	}
 	return s.getGraphDriver()
 }
@@ -932,10 +935,14 @@ func (s *store) GraphDriver() (drivers.Driver, error) {
 func (s *store) getLayerStore() (rwLayerStore, error) {
 	s.graphLock.Lock()
 	defer s.graphLock.Unlock()
-	if s.graphLock.TouchedSince(s.lastLoaded) {
+	lastWrite, modified, err := s.graphLock.ModifiedSince(s.graphLockLastWrite)
+	if err != nil {
+		return nil, err
+	}
+	if modified {
 		s.graphDriver = nil
 		s.layerStore = nil
-		s.lastLoaded = time.Now()
+		s.graphLockLastWrite = lastWrite
 	}
 	if s.layerStore != nil {
 		return s.layerStore, nil
@@ -2578,7 +2585,6 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		s.lastLoaded = time.Now()
 	}
 
 	if options.UidMaps != nil || options.GidMaps != nil {
@@ -2726,7 +2732,6 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		if err != nil {
 			return nil, err
 		}
-		s.lastLoaded = time.Now()
 	}
 
 	for _, s := range layerStores {
