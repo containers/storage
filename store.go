@@ -980,13 +980,10 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 	return s.getLayerStoreLocked()
 }
 
-// getROLayerStores obtains additional read/only layer store objects used by the
+// getROLayerStoresLocked obtains additional read/only layer store objects used by the
 // Store.
-func (s *store) getROLayerStores() ([]roLayerStore, error) {
-	if err := s.startUsingGraphDriver(); err != nil {
-		return nil, err
-	}
-	defer s.stopUsingGraphDriver()
+// It must be called with s.graphLock held.
+func (s *store) getROLayerStoresLocked() ([]roLayerStore, error) {
 	if s.roLayerStores != nil {
 		return s.roLayerStores, nil
 	}
@@ -1006,14 +1003,29 @@ func (s *store) getROLayerStores() ([]roLayerStore, error) {
 	return s.roLayerStores, nil
 }
 
+// getROLayerStores obtains additional read/only layer store objects used by the
+// Store.
+// It must be called WITHOUT s.graphLock held.
+func (s *store) getROLayerStores() ([]roLayerStore, error) {
+	if err := s.startUsingGraphDriver(); err != nil {
+		return nil, err
+	}
+	defer s.stopUsingGraphDriver()
+	return s.getROLayerStoresLocked()
+}
+
 // allLayerStores returns a list of all layer store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
 func (s *store) allLayerStores() ([]roLayerStore, error) {
-	primary, err := s.getLayerStore()
+	if err := s.startUsingGraphDriver(); err != nil {
+		return nil, err
+	}
+	defer s.stopUsingGraphDriver()
+	primary, err := s.getLayerStoreLocked()
 	if err != nil {
 		return nil, fmt.Errorf("loading primary layer store data: %w", err)
 	}
-	additional, err := s.getROLayerStores()
+	additional, err := s.getROLayerStoresLocked()
 	if err != nil {
 		return nil, fmt.Errorf("loading additional layer stores: %w", err)
 	}
