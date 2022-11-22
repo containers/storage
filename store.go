@@ -614,9 +614,9 @@ type store struct {
 	graphLockLastWrite lockfile.LastWrite
 	// FIXME: This field is only set when holding graphLock, but locking rules of the driver
 	// interface itself are not documented here. It is extensively used without holding graphLock.
-	graphDriver   drivers.Driver
-	layerStore    rwLayerStore
-	roLayerStores []roLayerStore
+	graphDriver             drivers.Driver
+	layerStoreUseGetters    rwLayerStore   // Almost all users should use the provided accessors instead of accessing this field directly.
+	roLayerStoresUseGetters []roLayerStore // Almost all users should use the provided accessors instead of accessing this field directly.
 
 	// FIXME: The following fields need locking, and don’t have it.
 	additionalUIDs *idSet // Set by getAvailableIDs()
@@ -910,7 +910,7 @@ func (s *store) startUsingGraphDriver() error {
 				s.graphDriverName, driver.String())
 		}
 		s.graphDriver = driver
-		s.layerStore = nil
+		s.layerStoreUseGetters = nil
 		s.graphLockLastWrite = lastWrite
 	}
 
@@ -949,8 +949,8 @@ func (s *store) GraphDriver() (drivers.Driver, error) {
 // used by the Store.
 // It must be called with s.graphLock held.
 func (s *store) getLayerStoreLocked() (rwLayerStore, error) {
-	if s.layerStore != nil {
-		return s.layerStore, nil
+	if s.layerStoreUseGetters != nil {
+		return s.layerStoreUseGetters, nil
 	}
 	driverPrefix := s.graphDriverName + "-"
 	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
@@ -965,8 +965,8 @@ func (s *store) getLayerStoreLocked() (rwLayerStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.layerStore = rls
-	return s.layerStore, nil
+	s.layerStoreUseGetters = rls
+	return s.layerStoreUseGetters, nil
 }
 
 // getLayerStore obtains and returns a handle to the writeable layer store object
@@ -984,8 +984,8 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 // Store.
 // It must be called with s.graphLock held.
 func (s *store) getROLayerStoresLocked() ([]roLayerStore, error) {
-	if s.roLayerStores != nil {
-		return s.roLayerStores, nil
+	if s.roLayerStoresUseGetters != nil {
+		return s.roLayerStoresUseGetters, nil
 	}
 	driverPrefix := s.graphDriverName + "-"
 	rlpath := filepath.Join(s.runRoot, driverPrefix+"layers")
@@ -998,9 +998,9 @@ func (s *store) getROLayerStoresLocked() ([]roLayerStore, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.roLayerStores = append(s.roLayerStores, rls)
+		s.roLayerStoresUseGetters = append(s.roLayerStoresUseGetters, rls)
 	}
-	return s.roLayerStores, nil
+	return s.roLayerStoresUseGetters, nil
 }
 
 // bothLayerStoreKindsLocked returns the primary, and additional read-only, layer store objects used by the store.
