@@ -2941,9 +2941,20 @@ func (s *store) Layer(id string) (*Layer, error) {
 }
 
 func (s *store) LookupAdditionalLayer(d digest.Digest, imageref string) (AdditionalLayer, error) {
-	adriver, ok := s.graphDriver.(drivers.AdditionalLayerStoreDriver)
-	if !ok {
-		return nil, ErrLayerUnknown
+	var adriver drivers.AdditionalLayerStoreDriver
+	if err := func() error { // A scope for defer
+		if err := s.startUsingGraphDriver(); err != nil {
+			return err
+		}
+		defer s.stopUsingGraphDriver()
+		a, ok := s.graphDriver.(drivers.AdditionalLayerStoreDriver)
+		if !ok {
+			return ErrLayerUnknown
+		}
+		adriver = a
+		return nil
+	}(); err != nil {
+		return nil, err
 	}
 
 	al, err := adriver.LookupAdditionalLayer(d, imageref)
