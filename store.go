@@ -1101,8 +1101,8 @@ func (s *store) writeToLayerStore(fn func(store rwLayerStore) error) error {
 
 // allImageStores returns a list of all image store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
-func (s *store) allImageStores() ([]roImageStore, error) {
-	return append([]roImageStore{s.imageStore}, s.roImageStores...), nil
+func (s *store) allImageStores() []roImageStore {
+	return append([]roImageStore{s.imageStore}, s.roImageStores...)
 }
 
 // readAllImageStores processes allImageStores() in order:
@@ -1125,11 +1125,7 @@ func (s *store) allImageStores() ([]roImageStore, error) {
 //		return res, err
 //	}
 func (s *store) readAllImageStores(fn func(store roImageStore) (bool, error)) (bool, error) {
-	ImageStores, err := s.allImageStores()
-	if err != nil {
-		return true, err
-	}
-	for _, s := range ImageStores {
+	for _, s := range s.allImageStores() {
 		store := s
 		if err := store.startReading(); err != nil {
 			return true, err
@@ -1821,14 +1817,10 @@ func (s *store) ImageSize(id string) (int64, error) {
 		defer store.stopReading()
 	}
 
-	imageStores, err := s.allImageStores()
-	if err != nil {
-		return -1, err
-	}
 	// Look for the image's record.
 	var imageStore roBigDataStore
 	var image *Image
-	for _, s := range imageStores {
+	for _, s := range s.allImageStores() {
 		store := s
 		if err := store.startReading(); err != nil {
 			return -1, err
