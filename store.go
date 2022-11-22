@@ -580,31 +580,37 @@ type ContainerOptions struct {
 }
 
 type store struct {
+	// The following fields are only set when constructing store, and must never be modified afterwards.
+	// They are safe to access without any other locking.
+	runRoot         string
+	graphLock       *lockfile.LockFile
+	usernsLock      *lockfile.LockFile
+	graphRoot       string
+	graphOptions    []string
+	pullOptions     map[string]string
+	uidMap          []idtools.IDMap
+	gidMap          []idtools.IDMap
+	autoUsernsUser  string
+	autoNsMinSize   uint32
+	autoNsMaxSize   uint32
+	imageStore      rwImageStore
+	roImageStores   []roImageStore
+	containerStore  rwContainerStore
+	digestLockRoot  string
+	disableVolatile bool
+	transientStore  bool
+
+	// The following fields can only be accessed with graphLock held.
 	lastLoaded         time.Time
-	runRoot            string
-	graphLock          *lockfile.LockFile
-	usernsLock         *lockfile.LockFile
-	graphRoot          string
 	graphDriverName    string
-	graphOptions       []string
-	pullOptions        map[string]string
-	uidMap             []idtools.IDMap
-	gidMap             []idtools.IDMap
-	autoUsernsUser     string
-	additionalUIDs     *idSet // Set by getAvailableIDs()
-	additionalGIDs     *idSet // Set by getAvailableIDs()
-	autoNsMinSize      uint32
-	autoNsMaxSize      uint32
 	graphLockLastWrite lockfile.LastWrite
 	graphDriver        drivers.Driver
 	layerStore         rwLayerStore
 	roLayerStores      []roLayerStore
-	imageStore         rwImageStore
-	roImageStores      []roImageStore
-	containerStore     rwContainerStore
-	digestLockRoot     string
-	disableVolatile    bool
-	transientStore     bool
+
+	// FIXME: The following fields need locking, and don’t have it.
+	additionalUIDs *idSet // Set by getAvailableIDs()
+	additionalGIDs *idSet // Set by getAvailableIDs()
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -700,20 +706,22 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	s := &store{
 		runRoot:         options.RunRoot,
 		graphLock:       graphLock,
+		usernsLock:      usernsLock,
 		graphRoot:       options.GraphRoot,
-		graphDriverName: options.GraphDriverName,
 		graphOptions:    options.GraphDriverOptions,
+		pullOptions:     options.PullOptions,
 		uidMap:          copyIDMap(options.UIDMap),
 		gidMap:          copyIDMap(options.GIDMap),
 		autoUsernsUser:  options.RootAutoNsUser,
 		autoNsMinSize:   autoNsMinSize,
 		autoNsMaxSize:   autoNsMaxSize,
-		additionalUIDs:  nil,
-		additionalGIDs:  nil,
-		usernsLock:      usernsLock,
 		disableVolatile: options.DisableVolatile,
 		transientStore:  options.TransientStore,
-		pullOptions:     options.PullOptions,
+
+		graphDriverName: options.GraphDriverName,
+
+		additionalUIDs: nil,
+		additionalGIDs: nil,
 	}
 	if err := func() error { // A scope for defer
 		s.graphLock.Lock()
@@ -796,6 +804,7 @@ func (s *store) GIDMap() []idtools.IDMap {
 	return copyIDMap(s.gidMap)
 }
 
+// This must only be called when constructing store; it writes to fields that are assumed to be constant after constrution.
 func (s *store) load() error {
 	driver, err := s.GraphDriver()
 	if err != nil {
