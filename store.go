@@ -1003,28 +1003,37 @@ func (s *store) getROLayerStoresLocked() ([]roLayerStore, error) {
 	return s.roLayerStores, nil
 }
 
-// getROLayerStores obtains additional read/only layer store objects used by the
-// Store.
-// It must be called WITHOUT s.graphLock held.
-func (s *store) getROLayerStores() ([]roLayerStore, error) {
+// bothLayerStoreKindsLocked returns the primary, and additional read-only, layer store objects used by the store.
+// It must be called with s.graphLock held.
+func (s *store) bothLayerStoreKindsLocked() (rwLayerStore, []roLayerStore, error) {
+	primary, err := s.getLayerStoreLocked()
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading primary layer store data: %w", err)
+	}
+	additional, err := s.getROLayerStoresLocked()
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading additional layer stores: %w", err)
+	}
+	return primary, additional, nil
+}
+
+// bothLayerStoreKinds returns the primary, and additional read-only, layer store objects used by the store.
+// It must be called with s.graphLock held.
+func (s *store) bothLayerStoreKinds() (rwLayerStore, []roLayerStore, error) {
 	if err := s.startUsingGraphDriver(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer s.stopUsingGraphDriver()
-	return s.getROLayerStoresLocked()
+	return s.bothLayerStoreKindsLocked()
 }
 
 // allLayerStores returns a list of all layer store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
 // It must be called with s.graphLock held.
 func (s *store) allLayerStoresLocked() ([]roLayerStore, error) {
-	primary, err := s.getLayerStoreLocked()
+	primary, additional, err := s.bothLayerStoreKindsLocked()
 	if err != nil {
-		return nil, fmt.Errorf("loading primary layer store data: %w", err)
-	}
-	additional, err := s.getROLayerStoresLocked()
-	if err != nil {
-		return nil, fmt.Errorf("loading additional layer stores: %w", err)
+		return nil, err
 	}
 	return append([]roLayerStore{primary}, additional...), nil
 }
@@ -1252,11 +1261,7 @@ func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 
 func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, options *LayerOptions, diff io.Reader) (*Layer, int64, error) {
 	var parentLayer *Layer
-	rlstore, err := s.getLayerStore()
-	if err != nil {
-		return nil, -1, err
-	}
-	rlstores, err := s.getROLayerStores()
+	rlstore, rlstores, err := s.bothLayerStoreKinds()
 	if err != nil {
 		return nil, -1, err
 	}
@@ -1506,7 +1511,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	if options.HostGIDMapping {
 		options.GIDMap = nil
 	}
-	rlstore, err := s.getLayerStore()
+	rlstore, lstores, err := s.bothLayerStoreKinds() // lstores will be locked read-only if image != ""
 	if err != nil {
 		return nil, err
 	}
@@ -1526,14 +1531,9 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	var imageHomeStore roImageStore // Set if image != ""
 	var istore rwImageStore         // Set, and locked read-write, if image != ""
 	var istores []roImageStore      // Set, and NOT NECESSARILY ALL locked read-only, if image != ""
-	var lstores []roLayerStore      // Set, and locked read-only, if image != ""
 	var cimage *Image               // Set if image != ""
 	if image != "" {
 		var err error
-		lstores, err = s.getROLayerStores()
-		if err != nil {
-			return nil, err
-		}
 		istore, err = s.getImageStore()
 		if err != nil {
 			return nil, err
@@ -3019,7 +3019,7 @@ func (al *additionalLayer) CompressedSize() int64 {
 }
 
 func (al *additionalLayer) PutAs(id, parent string, names []string) (*Layer, error) {
-	rlstore, err := al.s.getLayerStore()
+	rlstore, rlstores, err := al.s.bothLayerStoreKinds()
 	if err != nil {
 		return nil, err
 	}
@@ -3027,10 +3027,6 @@ func (al *additionalLayer) PutAs(id, parent string, names []string) (*Layer, err
 		return nil, err
 	}
 	defer rlstore.stopWriting()
-	rlstores, err := al.s.getROLayerStores()
-	if err != nil {
-		return nil, err
-	}
 
 	var parentLayer *Layer
 	if parent != "" {
