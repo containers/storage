@@ -1099,23 +1099,10 @@ func (s *store) writeToLayerStore(fn func(store rwLayerStore) error) error {
 	return fn(store)
 }
 
-// getImageStore obtains and returns a handle to the writable image store object
-// used by the Store.
-func (s *store) getImageStore() (rwImageStore, error) {
-	if s.imageStore != nil {
-		return s.imageStore, nil
-	}
-	return nil, ErrLoadError
-}
-
 // allImageStores returns a list of all image store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
 func (s *store) allImageStores() ([]roImageStore, error) {
-	primary, err := s.getImageStore()
-	if err != nil {
-		return nil, fmt.Errorf("loading primary image store data: %w", err)
-	}
-	return append([]roImageStore{primary}, s.roImageStores...), nil
+	return append([]roImageStore{s.imageStore}, s.roImageStores...), nil
 }
 
 // readAllImageStores processes allImageStores() in order:
@@ -1159,16 +1146,11 @@ func (s *store) readAllImageStores(fn func(store roImageStore) (bool, error)) (b
 // It locks the store for writing, checks for updates, and calls fn()
 // It returns the return value of fn, or its own error initializing the store.
 func (s *store) writeToImageStore(fn func(store rwImageStore) error) error {
-	store, err := s.getImageStore()
-	if err != nil {
+	if err := s.imageStore.startWriting(); err != nil {
 		return err
 	}
-
-	if err := store.startWriting(); err != nil {
-		return err
-	}
-	defer store.stopWriting()
-	return fn(store)
+	defer s.imageStore.stopWriting()
+	return fn(s.imageStore)
 }
 
 // writeToContainerStore is a convenience helper for working with store.getContainerStore():
@@ -1191,25 +1173,21 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 	if err != nil {
 		return err
 	}
-	ristore, err := s.getImageStore()
-	if err != nil {
-		return err
-	}
 
 	if err := rlstore.startWriting(); err != nil {
 		return err
 	}
 	defer rlstore.stopWriting()
-	if err := ristore.startWriting(); err != nil {
+	if err := s.imageStore.startWriting(); err != nil {
 		return err
 	}
-	defer ristore.stopWriting()
+	defer s.imageStore.stopWriting()
 	if err := s.containerStore.startWriting(); err != nil {
 		return err
 	}
 	defer s.containerStore.stopWriting()
 
-	return fn(rlstore, ristore)
+	return fn(rlstore, s.imageStore)
 }
 
 // canUseShifting returns ???
@@ -1493,15 +1471,10 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	}
 
 	var imageHomeStore roImageStore // Set if image != ""
-	var istore rwImageStore         // Set, and locked read-write, if image != ""
+	// s.imageStore is locked read-write, if image != ""
 	// s.roImageStores are NOT NECESSARILY ALL locked read-only if image != ""
 	var cimage *Image // Set if image != ""
 	if image != "" {
-		var err error
-		istore, err = s.getImageStore()
-		if err != nil {
-			return nil, err
-		}
 		if err := rlstore.startWriting(); err != nil {
 			return nil, err
 		}
@@ -1513,13 +1486,13 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			}
 			defer store.stopReading()
 		}
-		if err := istore.startWriting(); err != nil {
+		if err := s.imageStore.startWriting(); err != nil {
 			return nil, err
 		}
-		defer istore.stopWriting()
-		cimage, err = istore.Get(image)
+		defer s.imageStore.stopWriting()
+		cimage, err = s.imageStore.Get(image)
 		if err == nil {
-			imageHomeStore = istore
+			imageHomeStore = s.imageStore
 		} else {
 			for _, s := range s.roImageStores {
 				store := s
@@ -1554,7 +1527,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	idMappingsOptions := options.IDMappingOptions
 	if image != "" {
 		if cimage.TopLayer != "" {
-			ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, istore, rlstore, lstores, idMappingsOptions)
+			ilayer, err := s.imageTopLayerForMapping(cimage, imageHomeStore, s.imageStore, rlstore, lstores, idMappingsOptions)
 			if err != nil {
 				return nil, err
 			}
@@ -2124,21 +2097,17 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 		return err
 	}
 
-	ristore, err := s.getImageStore()
-	if err != nil {
+	if err := s.imageStore.startWriting(); err != nil {
 		return err
 	}
-	if err := ristore.startWriting(); err != nil {
-		return err
-	}
-	defer ristore.stopWriting()
-	if ristore.Exists(id) {
-		return ristore.updateNames(id, deduped, op)
+	defer s.imageStore.stopWriting()
+	if s.imageStore.Exists(id) {
+		return s.imageStore.updateNames(id, deduped, op)
 	}
 
 	// Check is id refers to a RO Store
-	for _, s := range s.roImageStores {
-		store := s
+	for _, is := range s.roImageStores {
+		store := is
 		if err := store.startReading(); err != nil {
 			return err
 		}
@@ -2148,7 +2117,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 				// Do not want to create image name in R/W storage
 				deduped = deduped[1:]
 			}
-			_, err := ristore.Create(id, deduped, i.TopLayer, i.Metadata, i.Created, i.Digest)
+			_, err := s.imageStore.Create(id, deduped, i.TopLayer, i.Metadata, i.Created, i.Digest)
 			return err
 		}
 	}
