@@ -1188,29 +1188,15 @@ func (s *store) writeToImageStore(fn func(store rwImageStore) error) error {
 	return fn(store)
 }
 
-// getContainerStore obtains and returns a handle to the container store object
-// used by the Store.
-func (s *store) getContainerStore() (rwContainerStore, error) {
-	if s.containerStore != nil {
-		return s.containerStore, nil
-	}
-	return nil, ErrLoadError
-}
-
 // writeToContainerStore is a convenience helper for working with store.getContainerStore():
 // It locks the store for writing, checks for updates, and calls fn()
 // It returns the return value of fn, or its own error initializing the store.
 func (s *store) writeToContainerStore(fn func(store rwContainerStore) error) error {
-	store, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startWriting(); err != nil {
 		return err
 	}
-
-	if err := store.startWriting(); err != nil {
-		return err
-	}
-	defer store.stopWriting()
-	return fn(store)
+	defer s.containerStore.stopWriting()
+	return fn(s.containerStore)
 }
 
 // writeToAllStores is a convenience helper for writing to all three stores:
@@ -1225,10 +1211,6 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 	if err != nil {
 		return err
 	}
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return err
-	}
 
 	if err := rlstore.startWriting(); err != nil {
 		return err
@@ -1238,12 +1220,12 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 		return err
 	}
 	defer ristore.stopWriting()
-	if err := rcstore.startWriting(); err != nil {
+	if err := s.containerStore.startWriting(); err != nil {
 		return err
 	}
-	defer rcstore.stopWriting()
+	defer s.containerStore.stopWriting()
 
-	return fn(rlstore, ristore, rcstore)
+	return fn(rlstore, ristore, s.containerStore)
 }
 
 // canUseShifting returns ???
@@ -1267,18 +1249,14 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 	if err != nil {
 		return nil, -1, err
 	}
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return nil, -1, err
-	}
 	if err := rlstore.startWriting(); err != nil {
 		return nil, -1, err
 	}
 	defer rlstore.stopWriting()
-	if err := rcstore.startWriting(); err != nil {
+	if err := s.containerStore.startWriting(); err != nil {
 		return nil, -1, err
 	}
-	defer rcstore.stopWriting()
+	defer s.containerStore.stopWriting()
 	if options == nil {
 		options = &LayerOptions{}
 	}
@@ -1310,7 +1288,7 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 			return nil, -1, ErrLayerUnknown
 		}
 		parentLayer = ilayer
-		containers, err := rcstore.Containers()
+		containers, err := s.containerStore.Containers()
 		if err != nil {
 			return nil, -1, err
 		}
@@ -1738,16 +1716,12 @@ func (s *store) Metadata(id string) (string, error) {
 		return res, err
 	}
 
-	cstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return "", err
 	}
-	if err := cstore.startReading(); err != nil {
-		return "", err
-	}
-	defer cstore.stopReading()
-	if cstore.Exists(id) {
-		return cstore.Metadata(id)
+	defer s.containerStore.stopReading()
+	if s.containerStore.Exists(id) {
+		return s.containerStore.Metadata(id)
 	}
 	return "", ErrNotAnID
 }
@@ -2059,17 +2033,12 @@ func (s *store) ContainerSize(id string) (int64, error) {
 }
 
 func (s *store) ListContainerBigData(id string) ([]string, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, err
 	}
+	defer s.containerStore.stopReading()
 
-	if err := rcstore.startReading(); err != nil {
-		return nil, err
-	}
-	defer rcstore.stopReading()
-
-	return rcstore.BigDataNames(id)
+	return s.containerStore.BigDataNames(id)
 }
 
 func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
@@ -2093,15 +2062,11 @@ func (s *store) ContainerBigDataDigest(id, key string) (digest.Digest, error) {
 }
 
 func (s *store) ContainerBigData(id, key string) ([]byte, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, err
 	}
-	if err := rcstore.startReading(); err != nil {
-		return nil, err
-	}
-	defer rcstore.stopReading()
-	return rcstore.BigData(id, key)
+	defer s.containerStore.stopReading()
+	return s.containerStore.BigData(id, key)
 }
 
 func (s *store) SetContainerBigData(id, key string, data []byte) error {
@@ -2133,15 +2098,11 @@ func (s *store) Exists(id string) bool {
 		return res
 	}
 
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return false
 	}
-	if err := rcstore.startReading(); err != nil {
-		return false
-	}
-	defer rcstore.stopReading()
-	return rcstore.Exists(id)
+	defer s.containerStore.stopReading()
+	return s.containerStore.Exists(id)
 }
 
 func dedupeNames(names []string) []string {
@@ -2253,15 +2214,11 @@ func (s *store) Names(id string) ([]string, error) {
 		return res, err
 	}
 
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, err
 	}
-	if err := rcstore.startReading(); err != nil {
-		return nil, err
-	}
-	defer rcstore.stopReading()
-	if c, err := rcstore.Get(id); c != nil && err == nil {
+	defer s.containerStore.stopReading()
+	if c, err := s.containerStore.Get(id); c != nil && err == nil {
 		return c.Names, nil
 	}
 	return nil, ErrLayerUnknown
@@ -2290,15 +2247,11 @@ func (s *store) Lookup(name string) (string, error) {
 		return res, err
 	}
 
-	cstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return "", err
 	}
-	if err := cstore.startReading(); err != nil {
-		return "", err
-	}
-	defer cstore.stopReading()
-	if c, err := cstore.Get(name); c != nil && err == nil {
+	defer s.containerStore.stopReading()
+	if c, err := s.containerStore.Get(name); c != nil && err == nil {
 		return c.ID, nil
 	}
 
@@ -2889,19 +2842,15 @@ func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	rcstore, err := s.getContainerStore()
-	if err != nil {
-		return nil, nil, err
-	}
 	if err := rlstore.startReading(); err != nil {
 		return nil, nil, err
 	}
 	defer rlstore.stopReading()
-	if err := rcstore.startReading(); err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, nil, err
 	}
-	defer rcstore.stopReading()
-	container, err := rcstore.Get(id)
+	defer s.containerStore.stopReading()
+	container, err := s.containerStore.Get(id)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2942,17 +2891,12 @@ func (s *store) Images() ([]Image, error) {
 }
 
 func (s *store) Containers() ([]Container, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, err
 	}
+	defer s.containerStore.stopReading()
 
-	if err := rcstore.startReading(); err != nil {
-		return nil, err
-	}
-	defer rcstore.stopReading()
-
-	return rcstore.Containers()
+	return s.containerStore.Containers()
 }
 
 func (s *store) Layer(id string) (*Layer, error) {
@@ -3112,28 +3056,20 @@ func (s *store) ImagesByDigest(d digest.Digest) ([]*Image, error) {
 }
 
 func (s *store) Container(id string) (*Container, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, err
 	}
-	if err := rcstore.startReading(); err != nil {
-		return nil, err
-	}
-	defer rcstore.stopReading()
+	defer s.containerStore.stopReading()
 
-	return rcstore.Get(id)
+	return s.containerStore.Get(id)
 }
 
 func (s *store) ContainerLayerID(id string) (string, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return "", err
 	}
-	if err := rcstore.startReading(); err != nil {
-		return "", err
-	}
-	defer rcstore.stopReading()
-	container, err := rcstore.Get(id)
+	defer s.containerStore.stopReading()
+	container, err := s.containerStore.Get(id)
 	if err != nil {
 		return "", err
 	}
@@ -3145,15 +3081,11 @@ func (s *store) ContainerByLayer(id string) (*Container, error) {
 	if err != nil {
 		return nil, err
 	}
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return nil, err
 	}
-	if err := rcstore.startReading(); err != nil {
-		return nil, err
-	}
-	defer rcstore.stopReading()
-	containerList, err := rcstore.Containers()
+	defer s.containerStore.stopReading()
+	containerList, err := s.containerStore.Containers()
 	if err != nil {
 		return nil, err
 	}
@@ -3167,16 +3099,12 @@ func (s *store) ContainerByLayer(id string) (*Container, error) {
 }
 
 func (s *store) ContainerDirectory(id string) (string, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return "", err
 	}
-	if err := rcstore.startReading(); err != nil {
-		return "", err
-	}
-	defer rcstore.stopReading()
+	defer s.containerStore.stopReading()
 
-	id, err = rcstore.Lookup(id)
+	id, err := s.containerStore.Lookup(id)
 	if err != nil {
 		return "", err
 	}
@@ -3190,17 +3118,12 @@ func (s *store) ContainerDirectory(id string) (string, error) {
 }
 
 func (s *store) ContainerRunDirectory(id string) (string, error) {
-	rcstore, err := s.getContainerStore()
-	if err != nil {
+	if err := s.containerStore.startReading(); err != nil {
 		return "", err
 	}
+	defer s.containerStore.stopReading()
 
-	if err := rcstore.startReading(); err != nil {
-		return "", err
-	}
-	defer rcstore.stopReading()
-
-	id, err = rcstore.Lookup(id)
+	id, err := s.containerStore.Lookup(id)
 	if err != nil {
 		return "", err
 	}
