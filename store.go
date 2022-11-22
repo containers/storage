@@ -945,13 +945,10 @@ func (s *store) GraphDriver() (drivers.Driver, error) {
 	return s.graphDriver, nil
 }
 
-// getLayerStore obtains and returns a handle to the writeable layer store object
+// getLayerStoreLocked obtains and returns a handle to the writeable layer store object
 // used by the Store.
-func (s *store) getLayerStore() (rwLayerStore, error) {
-	if err := s.startUsingGraphDriver(); err != nil {
-		return nil, err
-	}
-	defer s.stopUsingGraphDriver()
+// It must be called with s.graphLock held.
+func (s *store) getLayerStoreLocked() (rwLayerStore, error) {
 	if s.layerStore != nil {
 		return s.layerStore, nil
 	}
@@ -970,6 +967,17 @@ func (s *store) getLayerStore() (rwLayerStore, error) {
 	}
 	s.layerStore = rls
 	return s.layerStore, nil
+}
+
+// getLayerStore obtains and returns a handle to the writeable layer store object
+// used by the store.
+// It must be called WITHOUT s.graphLock held.
+func (s *store) getLayerStore() (rwLayerStore, error) {
+	if err := s.startUsingGraphDriver(); err != nil {
+		return nil, err
+	}
+	defer s.stopUsingGraphDriver()
+	return s.getLayerStoreLocked()
 }
 
 // getROLayerStores obtains additional read/only layer store objects used by the
@@ -2561,17 +2569,17 @@ func (s *store) Version() ([][2]string, error) {
 }
 
 func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
-	rlstore, err := s.getLayerStore()
-	if err != nil {
-		return "", err
-	}
-
 	// We need to make sure the home mount is present when the Mount is done, which happens by possibly reinitializing the graph driver
 	// in startUsingGraphDriver().
 	if err := s.startUsingGraphDriver(); err != nil {
 		return "", err
 	}
 	defer s.stopUsingGraphDriver()
+
+	rlstore, err := s.getLayerStoreLocked()
+	if err != nil {
+		return "", err
+	}
 	if err := rlstore.startWriting(); err != nil {
 		return "", err
 	}
@@ -3230,16 +3238,15 @@ func (s *store) FromContainerRunDirectory(id, file string) ([]byte, error) {
 func (s *store) Shutdown(force bool) ([]string, error) {
 	mounted := []string{}
 
-	rlstore, err := s.getLayerStore()
-	if err != nil {
-		return mounted, err
-	}
-
 	if err := s.startUsingGraphDriver(); err != nil {
 		return mounted, err
 	}
 	defer s.stopUsingGraphDriver()
 
+	rlstore, err := s.getLayerStoreLocked()
+	if err != nil {
+		return mounted, err
+	}
 	if err := rlstore.startWriting(); err != nil {
 		return nil, err
 	}
