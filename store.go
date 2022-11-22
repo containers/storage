@@ -1016,11 +1016,8 @@ func (s *store) getROLayerStores() ([]roLayerStore, error) {
 
 // allLayerStores returns a list of all layer store objects used by the Store.
 // This is a convenience method for read-only users of the Store.
-func (s *store) allLayerStores() ([]roLayerStore, error) {
-	if err := s.startUsingGraphDriver(); err != nil {
-		return nil, err
-	}
-	defer s.stopUsingGraphDriver()
+// It must be called with s.graphLock held.
+func (s *store) allLayerStoresLocked() ([]roLayerStore, error) {
 	primary, err := s.getLayerStoreLocked()
 	if err != nil {
 		return nil, fmt.Errorf("loading primary layer store data: %w", err)
@@ -1030,6 +1027,17 @@ func (s *store) allLayerStores() ([]roLayerStore, error) {
 		return nil, fmt.Errorf("loading additional layer stores: %w", err)
 	}
 	return append([]roLayerStore{primary}, additional...), nil
+}
+
+// allLayerStores returns a list of all layer store objects used by the Store.
+// This is a convenience method for read-only users of the Store.
+// It must be called WITHOUT s.graphLock held.
+func (s *store) allLayerStores() ([]roLayerStore, error) {
+	if err := s.startUsingGraphDriver(); err != nil {
+		return nil, err
+	}
+	defer s.stopUsingGraphDriver()
+	return s.allLayerStoresLocked()
 }
 
 // readAllLayerStores processes allLayerStores() in order:
@@ -2718,11 +2726,6 @@ func (s *store) DiffSize(from, to string) (int64, error) {
 }
 
 func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, error) {
-	layerStores, err := s.allLayerStores()
-	if err != nil {
-		return nil, err
-	}
-
 	// NaiveDiff could cause mounts to happen without a lock, so be safe
 	// and treat the .Diff operation as a Mount.
 	// We need to make sure the home mount is present when the Mount is done, which happens by possibly reinitializing the graph driver
@@ -2731,6 +2734,11 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 		return nil, err
 	}
 	defer s.stopUsingGraphDriver()
+
+	layerStores, err := s.allLayerStoresLocked()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, s := range layerStores {
 		store := s
