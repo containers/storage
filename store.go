@@ -721,18 +721,6 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		additionalUIDs: nil,
 		additionalGIDs: nil,
 	}
-	if err := func() error { // A scope for defer
-		s.graphLock.Lock()
-		defer s.graphLock.Unlock()
-		lastWrite, err := s.graphLock.GetLastWrite()
-		if err != nil {
-			return err
-		}
-		s.graphLockLastWrite = lastWrite
-		return nil
-	}(); err != nil {
-		return nil, err
-	}
 	if err := s.load(); err != nil {
 		return nil, err
 	}
@@ -808,8 +796,11 @@ func (s *store) load() error {
 	if err := func() error { // A scope for defer
 		s.graphLock.Lock()
 		defer s.graphLock.Unlock()
-
-		var err error
+		lastWrite, err := s.graphLock.GetLastWrite()
+		if err != nil {
+			return err
+		}
+		s.graphLockLastWrite = lastWrite
 		driver, err = s.createGraphDriverLocked()
 		if err != nil {
 			return err
