@@ -1189,14 +1189,14 @@ func (s *store) writeToImageStore(fn func(store rwImageStore) error) error {
 }
 
 // writeToContainerStore is a convenience helper for working with store.getContainerStore():
-// It locks the store for writing, checks for updates, and calls fn()
+// It locks the store for writing, checks for updates, and calls fn(), which can then access store.containerStore.
 // It returns the return value of fn, or its own error initializing the store.
-func (s *store) writeToContainerStore(fn func(store rwContainerStore) error) error {
+func (s *store) writeToContainerStore(fn func() error) error {
 	if err := s.containerStore.startWriting(); err != nil {
 		return err
 	}
 	defer s.containerStore.stopWriting()
-	return fn(s.containerStore)
+	return fn()
 }
 
 // writeToAllStores is a convenience helper for writing to all three stores:
@@ -1225,7 +1225,7 @@ func (s *store) writeToAllStores(fn func(rlstore rwLayerStore, ristore rwImageSt
 	}
 	defer s.containerStore.stopWriting()
 
-	return fn(rlstore, ristore, s.containerStore)
+	return fn(rlstore, ristore, s.containerStore) // FIXME:
 }
 
 // canUseShifting returns ???
@@ -1653,7 +1653,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 	}
 
 	var container *Container
-	err = s.writeToContainerStore(func(rcstore rwContainerStore) error {
+	err = s.writeToContainerStore(func() error {
 		options.IDMappingOptions = types.IDMappingOptions{
 			HostUIDMapping: len(options.UIDMap) == 0,
 			HostGIDMapping: len(options.GIDMap) == 0,
@@ -1661,7 +1661,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 			GIDMap:         copyIDMap(options.GIDMap),
 		}
 		var err error
-		container, err = rcstore.Create(id, names, imageID, layer, metadata, options)
+		container, err = s.containerStore.Create(id, names, imageID, layer, metadata, options)
 		if err != nil || container == nil {
 			if err2 := rlstore.Delete(layer); err2 != nil {
 				if err == nil {
@@ -1978,9 +1978,9 @@ func (s *store) ContainerSize(id string) (int64, error) {
 	}
 
 	var res int64 = -1
-	err = s.writeToContainerStore(func(rcstore rwContainerStore) error { // Yes, rcstore.BigDataSize requires a write lock.
+	err = s.writeToContainerStore(func() error { // Yes, s.containerStore.BigDataSize requires a write lock.
 		// Read the container record.
-		container, err := rcstore.Get(id)
+		container, err := s.containerStore.Get(id)
 		if err != nil {
 			return err
 		}
@@ -2002,12 +2002,12 @@ func (s *store) ContainerSize(id string) (int64, error) {
 		}
 
 		// Count big data items.
-		names, err := rcstore.BigDataNames(id)
+		names, err := s.containerStore.BigDataNames(id)
 		if err != nil {
 			return fmt.Errorf("reading list of big data items for container %q: %w", container.ID, err)
 		}
 		for _, name := range names {
-			n, err := rcstore.BigDataSize(id, name)
+			n, err := s.containerStore.BigDataSize(id, name)
 			if err != nil {
 				return fmt.Errorf("reading size of big data item %q for container %q: %w", name, id, err)
 			}
@@ -2043,9 +2043,9 @@ func (s *store) ListContainerBigData(id string) ([]string, error) {
 
 func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
 	var res int64 = -1
-	err := s.writeToContainerStore(func(store rwContainerStore) error { // Yes, BigDataSize requires a write lock.
+	err := s.writeToContainerStore(func() error { // Yes, BigDataSize requires a write lock.
 		var err error
-		res, err = store.BigDataSize(id, key)
+		res, err = s.containerStore.BigDataSize(id, key)
 		return err
 	})
 	return res, err
@@ -2053,9 +2053,9 @@ func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
 
 func (s *store) ContainerBigDataDigest(id, key string) (digest.Digest, error) {
 	var res digest.Digest
-	err := s.writeToContainerStore(func(store rwContainerStore) error { // Yes, BigDataDigest requires a write lock.
+	err := s.writeToContainerStore(func() error { // Yes, BigDataDigest requires a write lock.
 		var err error
-		res, err = store.BigDataDigest(id, key)
+		res, err = s.containerStore.BigDataDigest(id, key)
 		return err
 	})
 	return res, err
@@ -2070,8 +2070,8 @@ func (s *store) ContainerBigData(id, key string) ([]byte, error) {
 }
 
 func (s *store) SetContainerBigData(id, key string, data []byte) error {
-	return s.writeToContainerStore(func(rcstore rwContainerStore) error {
-		return rcstore.SetBigData(id, key, data)
+	return s.writeToContainerStore(func() error {
+		return s.containerStore.SetBigData(id, key, data)
 	})
 }
 
@@ -2178,12 +2178,12 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 	}
 
 	containerFound := false
-	if err := s.writeToContainerStore(func(rcstore rwContainerStore) error {
-		if !rcstore.Exists(id) {
+	if err := s.writeToContainerStore(func() error {
+		if !s.containerStore.Exists(id) {
 			return nil
 		}
 		containerFound = true
-		return rcstore.updateNames(id, deduped, op)
+		return s.containerStore.updateNames(id, deduped, op)
 	}); err != nil || containerFound {
 		return err
 	}
@@ -3377,8 +3377,8 @@ func (s *store) Free() {
 // Tries to clean up old unreferenced container leftovers. returns the first error
 // but continues as far as it can
 func (s *store) GarbageCollect() error {
-	firstErr := s.writeToContainerStore(func(rcstore rwContainerStore) error {
-		return rcstore.GarbageCollect()
+	firstErr := s.writeToContainerStore(func() error {
+		return s.containerStore.GarbageCollect()
 	})
 
 	moreErr := s.writeToLayerStore(func(rlstore rwLayerStore) error {
