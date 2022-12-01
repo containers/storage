@@ -31,7 +31,7 @@ func subTouchMain() {
 	if len(os.Args) != 2 {
 		logrus.Fatalf("expected two args, got %d", len(os.Args))
 	}
-	tf, err := GetLockfile(os.Args[1])
+	tf, err := GetLockFile(os.Args[1])
 	if err != nil {
 		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
 	}
@@ -54,7 +54,7 @@ func subTouchMain() {
 // that the child should Touch() the lock by closing the WriteCloser.  The
 // second ReadCloser will be closed when the child has finished.
 // The caller must call Wait() on the returned cmd.
-func subTouch(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
+func subTouch(l *namedLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subTouch", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
@@ -81,7 +81,7 @@ func subLockMain() {
 	if len(os.Args) != 2 {
 		logrus.Fatalf("expected two args, got %d", len(os.Args))
 	}
-	tf, err := GetLockfile(os.Args[1])
+	tf, err := GetLockFile(os.Args[1])
 	if err != nil {
 		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
 	}
@@ -99,7 +99,7 @@ func subLockMain() {
 // At that point, the child will have acquired the lock.  It can then signal
 // that the child should release the lock by closing the WriteCloser.
 // The caller must call Wait() on the returned cmd.
-func subLock(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
+func subLock(l *namedLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subLock", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
@@ -122,7 +122,7 @@ func subRLockMain() {
 	if len(os.Args) != 2 {
 		logrus.Fatalf("expected two args, got %d", len(os.Args))
 	}
-	tf, err := GetLockfile(os.Args[1])
+	tf, err := GetLockFile(os.Args[1])
 	if err != nil {
 		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
 	}
@@ -140,7 +140,7 @@ func subRLockMain() {
 // At that point, the child will have acquired a read lock.  It can then signal
 // that the child should release the lock by closing the WriteCloser.
 // The caller must call Wait() on the returned cmd.
-func subRLock(l *namedLocker) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
+func subRLock(l *namedLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
 	cmd := reexec.Command("subRLock", l.name)
 	wc, err := cmd.StdinPipe()
 	if err != nil {
@@ -162,13 +162,13 @@ func init() {
 	reexec.Register("subLock", subLockMain)
 }
 
-type namedLocker struct {
-	Locker
+type namedLockFile struct {
+	*LockFile
 	name string
 }
 
-func getNamedLocker(ro bool) (*namedLocker, error) {
-	var l Locker
+func getNamedLockFile(ro bool) (*namedLockFile, error) {
+	var l *LockFile
 	tf, err := os.CreateTemp("", "lockfile")
 	if err != nil {
 		return nil, err
@@ -176,22 +176,22 @@ func getNamedLocker(ro bool) (*namedLocker, error) {
 	name := tf.Name()
 	tf.Close()
 	if ro {
-		l, err = GetROLockfile(name)
+		l, err = GetROLockFile(name)
 	} else {
-		l, err = GetLockfile(name)
+		l, err = GetLockFile(name)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &namedLocker{Locker: l, name: name}, nil
+	return &namedLockFile{LockFile: l, name: name}, nil
 }
 
-func getTempLockfile() (*namedLocker, error) {
-	return getNamedLocker(false)
+func getTempLockfile() (*namedLockFile, error) {
+	return getNamedLockFile(false)
 }
 
-func getTempROLockfile() (*namedLocker, error) {
-	return getNamedLocker(true)
+func getTempROLockfile() (*namedLockFile, error) {
+	return getNamedLockFile(true)
 }
 
 func TestLockfileName(t *testing.T) {
@@ -303,6 +303,55 @@ func TestLockfileTouch(t *testing.T) {
 	m, err = l.Modified()
 	l.Unlock()
 	require.Nil(t, err, "got an error from Modified()")
+	assert.True(t, m, "lock file failed to notice that someone else modified it")
+}
+
+func TestLockfileRecordWrite(t *testing.T) {
+	l, err := getTempLockfile()
+	require.NoError(t, err, "error getting temporary lock file")
+	defer os.Remove(l.name)
+
+	l.Lock()
+	state, err := l.GetLastWrite()
+	require.NoError(t, err)
+	state1, m, err := l.ModifiedSince(state)
+	require.NoError(t, err)
+	assert.False(t, m)
+
+	now := time.Now()
+	assert.False(t, l.TouchedSince(now), "file timestamp was updated for no reason")
+
+	// state1 = before write
+	time.Sleep(2 * time.Second)
+	state2, err := l.RecordWrite()
+	require.NoError(t, err)
+	assert.True(t, l.TouchedSince(now))
+	// state2 = outcome of the write
+
+	// It is possible, and valid, to retain earlier state values and compare them with the current state:
+	state3, m, err := l.ModifiedSince(state1)
+	require.NoError(t, err)
+	assert.True(t, m)
+	state4, m, err := l.ModifiedSince(state2)
+	require.NoError(t, err)
+	assert.False(t, m)
+	// Undocumented: the internals of LastWrite can be compared
+	assert.Equal(t, state4, state3)
+
+	cmd, stdin, stdout, stderr, err := subTouch(l)
+	require.Nil(t, err, "got an error starting a subprocess to touch the lockfile")
+	l.Unlock()
+	_, err = io.Copy(io.Discard, stdout)
+	require.NoError(t, err)
+	stdin.Close()
+	_, err = io.Copy(io.Discard, stderr)
+	require.NoError(t, err)
+	err = cmd.Wait()
+	require.NoError(t, err)
+	l.Lock()
+	_, m, err = l.ModifiedSince(state4)
+	l.Unlock()
+	require.NoError(t, err)
 	assert.True(t, m, "lock file failed to notice that someone else modified it")
 }
 
@@ -673,4 +722,67 @@ func TestLockfileMultiprocessModified(t *testing.T) {
 	lock.Unlock()
 	assert.NoError(t, err, "checking if lock was modified")
 	assert.False(t, modified, "expected Modified() to be false after someone else locked but did not Touch it")
+}
+
+func TestLockfileMultiprocessModifiedSince(t *testing.T) {
+	lock, err := getTempLockfile()
+	require.NoError(t, err, "creating lock")
+
+	// Lock hasn't been touched yet - initial state.
+	lock.Lock()
+	state, err := lock.GetLastWrite()
+	require.NoError(t, err)
+	state, modified, err := lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
+
+	lock.Lock()
+	state, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
+
+	// Take a read lock somewhere, then see if we incorrectly detect changes.
+	cmd, wc, rc1, err := subLock(lock)
+	require.NoError(t, err)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+
+	lock.Lock()
+	state, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
+
+	// Take a write lock somewhere, then see if we correctly detect changes.
+	cmd, wc, rc1, rc2, err := subTouch(lock)
+	require.NoError(t, err)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+	rc2.Close()
+
+	lock.Lock()
+	state, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.True(t, modified)
+
+	// Take a read lock somewhere, then see if we incorrectly detect changes.
+	cmd, wc, rc1, err = subLock(lock)
+	require.NoError(t, err)
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+	rc1.Close()
+
+	lock.Lock()
+	_, modified, err = lock.ModifiedSince(state)
+	lock.Unlock()
+	require.NoError(t, err)
+	assert.False(t, modified)
 }
