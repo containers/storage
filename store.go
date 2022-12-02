@@ -580,6 +580,15 @@ type ContainerOptions struct {
 }
 
 type store struct {
+	// # Locking hierarchy:
+	// These locks do not all need to be held simultaneously, but if some code does need to lock more than one, it MUST do so in this order:
+	// - graphLock
+	// - layerStore.start{Reading,Writing}
+	// - roLayerStores[].startReading (in the order of the items of the roLayerStores array)
+	// - imageStore.start{Reading,Writing}
+	// - roImageStores[].startReading (in the order of the items of the roImageStores array)
+	// - containerStore.start{Reading,Writing}
+
 	// The following fields are only set when constructing store, and must never be modified afterwards.
 	// They are safe to access without any other locking.
 	runRoot         string
