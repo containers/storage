@@ -809,15 +809,14 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 		if err != nil {
 			return err
 		}
-		var opts *ioutils.AtomicFileWriterOptions
+		opts := ioutils.AtomicFileWriterOptions{}
 		if location == volatileLayerLocation {
-			opts = &ioutils.AtomicFileWriterOptions{
-				NoSync: true,
-			}
+			opts.NoSync = true
 		}
-		if err := ioutils.AtomicWriteFileWithOpts(rpath, jldata, 0600, opts); err != nil {
+		if err := ioutils.AtomicWriteFileWithOpts(rpath, jldata, 0600, &opts); err != nil {
 			return err
 		}
+		r.layerspathsModified[locationIndex] = opts.ModTime
 	}
 	lw, err := r.lockfile.RecordWrite()
 	if err != nil {
