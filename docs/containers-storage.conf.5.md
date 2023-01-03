@@ -59,6 +59,11 @@ A common use case for this field is to provide a local storage directory when us
   container storage run dir (default: "/run/containers/storage")
 Default directory to store all temporary writable content created by container storage programs. The rootless runroot path supports environment variable substitutions (ie. `$HOME/containers/storage`)
 
+**driver_priority**=[]
+  Priority list for the storage drivers that will be tested one after the other to pick the storage driver if it is not defined. The first storage driver in this list that can be used, will be picked as the new one and all subsequent ones will not be tried. If all drivers in this list are not viable, then **all** known drivers will be tried and the first working one will be picked.
+By default, the storage driver is set via the `driver` option. If it is not defined, then the best driver will be picked according to the current platform. This option allows you to override this internal priority list with a custom one to prefer certain drivers.
+Setting this option only has an effect if the local storage has not been initialized yet and the driver name is not set.
+
 ### STORAGE OPTIONS TABLE
 
 The `storage.options` table supports the following options:
