@@ -387,10 +387,10 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) erro
 		logrus.Warnf("Switching default driver from overlay2 to the equivalent overlay driver")
 		storeOptions.GraphDriverName = overlayDriver
 	}
-	if storeOptions.GraphDriverName == "" {
-		logrus.Errorf("The storage 'driver' option must be set in %s to guarantee proper operation", configFile)
-	}
 	storeOptions.GraphDriverPriority = config.Storage.DriverPriority
+	if storeOptions.GraphDriverName == "" && len(storeOptions.GraphDriverPriority) == 0 {
+		logrus.Warnf("The storage 'driver' option should be set in %s. A driver was picked automatically.", configFile)
+	}
 	if config.Storage.RunRoot != "" {
 		storeOptions.RunRoot = config.Storage.RunRoot
 	}
