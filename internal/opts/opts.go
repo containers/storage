@@ -3,13 +3,7 @@ package opts
 import (
 	"fmt"
 	"net"
-	"regexp"
 	"strings"
-)
-
-var (
-	alphaRegexp  = regexp.MustCompile(`[a-zA-Z]`)
-	domainRegexp = regexp.MustCompile(`^(:?(:?[a-zA-Z0-9]|(:?[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9]))(:?\.(:?[a-zA-Z0-9]|(:?[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])))*)\.?\s*$`)
 )
 
 // ListOpts holds a list of values and a validation function.
@@ -134,7 +128,7 @@ func (o *NamedListOpts) Name() string {
 	return o.name
 }
 
-//MapOpts holds a map of values and a validation function.
+// MapOpts holds a map of values and a validation function.
 type MapOpts struct {
 	values    map[string]string
 	validator ValidatorFctType
@@ -220,26 +214,6 @@ func ValidateIPAddress(val string) (string, error) {
 		return ip.String(), nil
 	}
 	return "", fmt.Errorf("%s is not an ip address", val)
-}
-
-// ValidateDNSSearch validates domain for resolvconf search configuration.
-// A zero length domain is represented by a dot (.).
-func ValidateDNSSearch(val string) (string, error) {
-	if val = strings.Trim(val, " "); val == "." {
-		return val, nil
-	}
-	return validateDomain(val)
-}
-
-func validateDomain(val string) (string, error) {
-	if alphaRegexp.FindString(val) == "" {
-		return "", fmt.Errorf("%s is not a valid domain", val)
-	}
-	ns := domainRegexp.FindSubmatch([]byte(val))
-	if len(ns) > 0 && len(ns[1]) < 255 {
-		return string(ns[1]), nil
-	}
-	return "", fmt.Errorf("%s is not a valid domain", val)
 }
 
 // ValidateLabel validates that the specified string is a valid label, and returns it.
