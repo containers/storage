@@ -19,15 +19,25 @@ import (
 const shortLen = 12
 
 var (
-	validShortID = regexp.MustCompile("^[a-f0-9]{12}$")
-	validHex     = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	validShortID *regexp.Regexp
+	validHex     *regexp.Regexp
+	onceRegex    sync.Once
 
 	rngLock sync.Mutex
 	rng     *rand.Rand // A RNG with seeding properties we control. It can only be accessed with randLock held.
 )
 
+func initRegex() {
+	onceRegex.Do(func() {
+		validShortID = regexp.MustCompile("^[a-f0-9]{12}$")
+		validHex = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	})
+}
+
 // IsShortID determines if an arbitrary string *looks like* a short ID.
 func IsShortID(id string) bool {
+	initRegex()
+
 	return validShortID.MatchString(id)
 }
 
@@ -78,6 +88,8 @@ func GenerateNonCryptoID() string {
 
 // ValidateID checks whether an ID string is a valid image ID.
 func ValidateID(id string) error {
+	initRegex()
+
 	if ok := validHex.MatchString(id); !ok {
 		return fmt.Errorf("image ID %q is invalid", id)
 	}

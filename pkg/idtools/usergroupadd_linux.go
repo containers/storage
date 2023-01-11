@@ -24,7 +24,8 @@ var (
 		"usermod": "-%s %d-%d %s",
 	}
 
-	idOutRegexp = regexp.MustCompile(`uid=([0-9]+).*gid=([0-9]+)`)
+	idOutOnce   sync.Once
+	idOutRegexp *regexp.Regexp
 	// default length for a UID/GID subordinate range
 	defaultRangeLen   = 65536
 	defaultRangeStart = 100000
@@ -36,6 +37,10 @@ var (
 // /etc/sub{uid,gid} ranges which will be used for user namespace
 // mapping ranges in containers.
 func AddNamespaceRangesUser(name string) (int, int, error) {
+	idOutOnce.Do(func() {
+		idOutRegexp = regexp.MustCompile(`uid=([0-9]+).*gid=([0-9]+)`)
+	})
+
 	if err := addUser(name); err != nil {
 		return -1, -1, fmt.Errorf("adding user %q: %w", name, err)
 	}
