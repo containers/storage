@@ -127,63 +127,6 @@ func TestListOptsWithValidator(t *testing.T) {
 	}
 }
 
-func TestValidateDNSSearch(t *testing.T) {
-	valid := []string{
-		`.`,
-		`a`,
-		`a.`,
-		`1.foo`,
-		`17.foo`,
-		`foo.bar`,
-		`foo.bar.baz`,
-		`foo.bar.`,
-		`foo.bar.baz`,
-		`foo1.bar2`,
-		`foo1.bar2.baz`,
-		`1foo.2bar.`,
-		`1foo.2bar.baz`,
-		`foo-1.bar-2`,
-		`foo-1.bar-2.baz`,
-		`foo-1.bar-2.`,
-		`foo-1.bar-2.baz`,
-		`1-foo.2-bar`,
-		`1-foo.2-bar.baz`,
-		`1-foo.2-bar.`,
-		`1-foo.2-bar.baz`,
-	}
-
-	invalid := []string{
-		``,
-		` `,
-		`  `,
-		`17`,
-		`17.`,
-		`.17`,
-		`17-.`,
-		`17-.foo`,
-		`.foo`,
-		`foo-.bar`,
-		`-foo.bar`,
-		`foo.bar-`,
-		`foo.bar-.baz`,
-		`foo.-bar`,
-		`foo.-bar.baz`,
-		`foo.bar.baz.this.should.fail.on.long.name.because.it.is.longer.thanisshouldbethis.should.fail.on.long.name.because.it.is.longer.thanisshouldbethis.should.fail.on.long.name.because.it.is.longer.thanisshouldbethis.should.fail.on.long.name.because.it.is.longer.thanisshouldbe`,
-	}
-
-	for _, domain := range valid {
-		if ret, err := ValidateDNSSearch(domain); err != nil || ret == "" {
-			t.Fatalf("ValidateDNSSearch(`"+domain+"`) got %s %s", ret, err)
-		}
-	}
-
-	for _, domain := range invalid {
-		if ret, err := ValidateDNSSearch(domain); err == nil || ret != "" {
-			t.Fatalf("ValidateDNSSearch(`"+domain+"`) got %s %s", ret, err)
-		}
-	}
-}
-
 func TestValidateLabel(t *testing.T) {
 	if _, err := ValidateLabel("label"); err == nil || err.Error() != "bad attribute format: label" {
 		t.Fatalf("Expected an error [bad attribute format: label], go %v", err)
