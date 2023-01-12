@@ -2,11 +2,12 @@ package idtools
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/containers/storage/pkg/regexp"
 )
 
 // add a user and/or group to Linux /etc/passwd, /etc/group using standard
@@ -24,8 +25,7 @@ var (
 		"usermod": "-%s %d-%d %s",
 	}
 
-	idOutOnce   sync.Once
-	idOutRegexp *regexp.Regexp
+	idOutRegexp = regexp.Delayed(`uid=([0-9]+).*gid=([0-9]+)`)
 	// default length for a UID/GID subordinate range
 	defaultRangeLen   = 65536
 	defaultRangeStart = 100000
@@ -37,10 +37,6 @@ var (
 // /etc/sub{uid,gid} ranges which will be used for user namespace
 // mapping ranges in containers.
 func AddNamespaceRangesUser(name string) (int, int, error) {
-	idOutOnce.Do(func() {
-		idOutRegexp = regexp.MustCompile(`uid=([0-9]+).*gid=([0-9]+)`)
-	})
-
 	if err := addUser(name); err != nil {
 		return -1, -1, fmt.Errorf("adding user %q: %w", name, err)
 	}
