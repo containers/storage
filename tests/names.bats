@@ -404,6 +404,113 @@ check-for-name() {
 	[ "$status" -eq 0 ]
 }
 
+@test "add-names: ro-images" {
+	case "$STORAGE_DRIVER" in
+	overlay*|vfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+
+	mkdir ${TESTDIR}/{ro-root,ro-runroot}
+
+	# Create a layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	layer=$output
+
+	# Create an image with names that uses that layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-image -n fooimage -n barimage $layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	image=${output%%	*}
+
+	storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
+
+	# Check that we can find the image by ID and by its names.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i $image
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i fooimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i barimage
+	[ "$status" -eq 0 ]
+
+	# Add a pair of names to the image.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root add-names -n newimage -n otherimage $image
+	echo "add-names:" "$output"
+	[ "$status" -eq 0 ]
+
+	# Check that all of the names are resolveable.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root images
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i $image
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i fooimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i barimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i newimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i otherimage
+	[ "$status" -eq 0 ]
+}
+
+@test "remove-names: ro-images" {
+	case "$STORAGE_DRIVER" in
+	overlay*|vfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+
+	mkdir ${TESTDIR}/{ro-root,ro-runroot}
+
+	# Create a layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	layer=$output
+
+	# Create an image with names that uses that layer.
+	run storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot create-image -n fooimage -n barimage -n newimage -n otherimage $layer
+	[ "$status" -eq 0 ]
+	[ "$output" != "" ]
+	image=${output%%	*}
+
+	storage --debug=false --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
+
+	# Check that we can find the image by ID and by its names.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i $image
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i fooimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i barimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i newimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i otherimage
+	[ "$status" -eq 0 ]
+
+	# Remove one of the names from the image.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root remove-names -n newimage $image
+	echo "remove-names:" "$output"
+	[ "$status" -eq 0 ]
+
+	# Check that all of the names are still resolveable, except for the one we removed.
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i $image
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i fooimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i barimage
+	[ "$status" -eq 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i newimage
+	[ "$status" -ne 0 ]
+	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root exists -i otherimage
+	[ "$status" -eq 0 ]
+}
+
 @test "names at creation: containers" {
 	# Create a layer.
 	run storage --debug=false create-layer

@@ -18,4 +18,5 @@ command can be used to read the list of names for any of them.
 
 ## SEE ALSO
 containers-storage-add-names(1)
+containers-storage-remove-names(1)
 containers-storage-set-names(1)

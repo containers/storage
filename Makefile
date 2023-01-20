@@ -26,7 +26,7 @@ NATIVETAGS :=
 AUTOTAGS := $(shell ./hack/btrfs_tag.sh) $(shell ./hack/libdm_tag.sh) $(shell ./hack/libsubid_tag.sh)
 BUILDFLAGS := -tags "$(AUTOTAGS) $(TAGS)" $(FLAGS)
 GO ?= go
-TESTFLAGS := $(shell go test -race $(BUILDFLAGS) ./pkg/stringutils 2>&1 > /dev/null && echo -race)
+TESTFLAGS := $(shell $(GO) test -race $(BUILDFLAGS) ./pkg/stringutils 2>&1 > /dev/null && echo -race)
 
 # Go module support: set `-mod=vendor` to use the vendored sources
 ifeq ($(shell $(GO) help mod >/dev/null 2>&1 && echo true), true)
