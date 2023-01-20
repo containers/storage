@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"unicode"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
@@ -30,6 +29,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
+	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
@@ -1717,18 +1717,6 @@ func (d *Driver) Exists(id string) bool {
 	return err == nil
 }
 
-func nameLooksLikeID(name string) bool {
-	if len(name) != 64 {
-		return false
-	}
-	for _, c := range name {
-		if !unicode.Is(unicode.ASCII_Hex_Digit, c) {
-			return false
-		}
-	}
-	return true
-}
-
 // List layers (not including additional image stores)
 func (d *Driver) ListLayers() ([]string, error) {
 	entries, err := os.ReadDir(d.home)
@@ -1741,7 +1729,7 @@ func (d *Driver) ListLayers() ([]string, error) {
 	for _, entry := range entries {
 		id := entry.Name()
 		// Does it look like a datadir directory?
-		if !entry.IsDir() || !nameLooksLikeID(id) {
+		if !entry.IsDir() || stringid.ValidateID(id) != nil {
 			continue
 		}
 

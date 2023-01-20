@@ -411,7 +411,7 @@ func (r *containerStore) GarbageCollect() error {
 	for _, entry := range entries {
 		id := entry.Name()
 		// Does it look like a datadir directory?
-		if !entry.IsDir() || !nameLooksLikeID(id) {
+		if !entry.IsDir() || stringid.ValidateID(id) != nil {
 			continue
 		}
 
