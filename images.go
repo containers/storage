@@ -536,7 +536,10 @@ func (r *imageStore) Save() error {
 	if err != nil {
 		return err
 	}
-	if err := ioutils.AtomicWriteFile(rpath, jdata, 0600); err != nil {
+	opts := ioutils.AtomicFileWriterOptions{
+		PreAllocate: true,
+	}
+	if err := ioutils.AtomicWriteFileWithOpts(rpath, jdata, 0600, &opts); err != nil {
 		return err
 	}
 	lw, err := r.lockfile.RecordWrite()

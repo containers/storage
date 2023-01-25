@@ -541,13 +541,13 @@ func (r *containerStore) save(saveLocations containerLocations) error {
 		if err != nil {
 			return err
 		}
-		var opts *ioutils.AtomicFileWriterOptions
-		if location == volatileContainerLocation {
-			opts = &ioutils.AtomicFileWriterOptions{
-				NoSync: true,
-			}
+		opts := ioutils.AtomicFileWriterOptions{
+			PreAllocate: true,
 		}
-		if err := ioutils.AtomicWriteFileWithOpts(rpath, jdata, 0600, opts); err != nil {
+		if location == volatileContainerLocation {
+			opts.NoSync = true
+		}
+		if err := ioutils.AtomicWriteFileWithOpts(rpath, jdata, 0600, &opts); err != nil {
 			return err
 		}
 	}

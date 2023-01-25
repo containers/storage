@@ -942,7 +942,9 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 		if err != nil {
 			return err
 		}
-		opts := ioutils.AtomicFileWriterOptions{}
+		opts := ioutils.AtomicFileWriterOptions{
+			PreAllocate: true,
+		}
 		if location == volatileLayerLocation {
 			opts.NoSync = true
 		}
@@ -984,7 +986,10 @@ func (r *layerStore) saveMounts() error {
 	if err != nil {
 		return err
 	}
-	if err = ioutils.AtomicWriteFile(mpath, jmdata, 0600); err != nil {
+	opts := ioutils.AtomicFileWriterOptions{
+		PreAllocate: true,
+	}
+	if err = ioutils.AtomicWriteFileWithOpts(mpath, jmdata, 0600, &opts); err != nil {
 		return err
 	}
 	lw, err := r.mountsLockfile.RecordWrite()

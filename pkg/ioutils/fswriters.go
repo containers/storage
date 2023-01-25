@@ -2,8 +2,10 @@ package ioutils
 
 import (
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -17,6 +19,9 @@ type AtomicFileWriterOptions struct {
 	// On successful return from Close() this is set to the mtime of the
 	// newly written file.
 	ModTime time.Time
+	// Whenever an atomic file is successfully written create a temporary
+	// file of the same size in order to pre-allocate storage for the next write
+	PreAllocate bool
 }
 
 var defaultWriterOptions = AtomicFileWriterOptions{}
@@ -38,22 +43,33 @@ func NewAtomicFileWriterWithOpts(filename string, perm os.FileMode, opts *Atomic
 // temporary file and closing it atomically changes the temporary file to
 // destination path. Writing and closing concurrently is not allowed.
 func newAtomicFileWriter(filename string, perm os.FileMode, opts *AtomicFileWriterOptions) (*atomicFileWriter, error) {
-	f, err := os.CreateTemp(filepath.Dir(filename), ".tmp-"+filepath.Base(filename))
-	if err != nil {
-		return nil, err
-	}
+	dir := filepath.Dir(filename)
+	base := filepath.Base(filename)
 	if opts == nil {
 		opts = &defaultWriterOptions
+	}
+	random := ""
+	// need predictable name when pre-allocated
+	if !opts.PreAllocate {
+		random = strconv.FormatUint(rand.Uint64(), 36)
+	}
+	tmp := filepath.Join(dir, ".tmp"+random+"-"+base)
+	// if pre-allocated the temporary file exists and contains some data
+	// do not truncate it here, instead truncate at Close()
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE, perm)
+	if err != nil {
+		return nil, err
 	}
 	abspath, err := filepath.Abs(filename)
 	if err != nil {
 		return nil, err
 	}
 	return &atomicFileWriter{
-		f:      f,
-		fn:     abspath,
-		perm:   perm,
-		noSync: opts.NoSync,
+		f:           f,
+		fn:          abspath,
+		perm:        perm,
+		noSync:      opts.NoSync,
+		preAllocate: opts.PreAllocate,
 	}, nil
 }
 
@@ -91,12 +107,13 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 }
 
 type atomicFileWriter struct {
-	f        *os.File
-	fn       string
-	writeErr error
-	perm     os.FileMode
-	noSync   bool
-	modTime  time.Time
+	f           *os.File
+	fn          string
+	writeErr    error
+	perm        os.FileMode
+	noSync      bool
+	preAllocate bool
+	modTime     time.Time
 }
 
 func (w *atomicFileWriter) Write(dt []byte) (int, error) {
@@ -108,11 +125,22 @@ func (w *atomicFileWriter) Write(dt []byte) (int, error) {
 }
 
 func (w *atomicFileWriter) Close() (retErr error) {
-	defer func() {
-		if retErr != nil || w.writeErr != nil {
-			os.Remove(w.f.Name())
+	if !w.preAllocate {
+		defer func() {
+			if retErr != nil || w.writeErr != nil {
+				os.Remove(w.f.Name())
+			}
+		}()
+	} else {
+		truncateAt, err := w.f.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return err
 		}
-	}()
+		err = w.f.Truncate(truncateAt)
+		if err != nil {
+			return err
+		}
+	}
 	if !w.noSync {
 		if err := fdatasync(w.f); err != nil {
 			w.f.Close()
@@ -120,10 +148,12 @@ func (w *atomicFileWriter) Close() (retErr error) {
 		}
 	}
 
+	var size int64 = 0
 	// fstat before closing the fd
 	info, statErr := w.f.Stat()
 	if statErr == nil {
 		w.modTime = info.ModTime()
+		size = info.Size()
 	}
 	// We delay error reporting until after the real call to close()
 	// to match the traditional linux close() behaviour that an fd
@@ -138,11 +168,50 @@ func (w *atomicFileWriter) Close() (retErr error) {
 		return statErr
 	}
 
-	if err := os.Chmod(w.f.Name(), w.perm); err != nil {
+	tmpName := w.f.Name()
+	if err := os.Chmod(tmpName, w.perm); err != nil {
 		return err
 	}
 	if w.writeErr == nil {
-		return os.Rename(w.f.Name(), w.fn)
+		if w.preAllocate {
+			err := swapOrMove(tmpName, w.fn)
+			if err != nil {
+				return err
+			}
+			// ignore errors, this is a best effort operation
+			preAllocate(tmpName, size, w.perm)
+			return nil
+		}
+		return os.Rename(tmpName, w.fn)
+	}
+	return nil
+}
+
+// ensure that the file is of at least indicated size
+func preAllocate(filename string, size int64, perm os.FileMode) error {
+	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, perm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	extendBytes := size - info.Size()
+	if extendBytes > 0 {
+		var blockSize int64 = 65536
+		block := make([]byte, blockSize)
+		for extendBytes > 0 {
+			if blockSize > extendBytes {
+				blockSize = extendBytes
+			}
+			_, err := f.Write(block[:blockSize])
+			if err != nil {
+				return err
+			}
+			extendBytes -= blockSize
+		}
 	}
 	return nil
 }
