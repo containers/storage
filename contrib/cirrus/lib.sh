@@ -115,3 +115,14 @@ install_bats_from_git(){
     mkdir -p ~/.parallel
     touch ~/.parallel/will-cite
 }
+
+check_filesystem_supported(){
+    if ! grep -q "	$1\$" /proc/filesystems ; then
+        modprobe $1 > /dev/null 2> /dev/null || :en
+        if ! grep -q "	$1\$" /proc/filesystems ; then
+            echo "This CI VM does not support $TEST_DRIVER in its kernel"
+	    false
+        fi
+    fi
+    true
+}
