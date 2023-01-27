@@ -161,6 +161,7 @@ func init() {
 			usage:       "Examine a layer",
 			action:      layer,
 			minArgs:     1,
+			maxArgs:     -1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},
@@ -171,6 +172,7 @@ func init() {
 			usage:       "Compute the set of unmapped parent UIDs and GIDs of the layer",
 			action:      layerParentOwners,
 			minArgs:     1,
+			maxArgs:     -1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},
@@ -192,6 +194,7 @@ func init() {
 			usage:       "Get data that is attached to a layer",
 			action:      getLayerBigData,
 			minArgs:     2,
+			maxArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramLayerDataFile, []string{"-file", "f"}, paramLayerDataFile, "Write data to file")
 			},
@@ -202,6 +205,7 @@ func init() {
 			usage:       "Set data that is attached to a layer",
 			action:      setLayerBigData,
 			minArgs:     2,
+			maxArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramLayerDataFile, []string{"-file", "f"}, paramLayerDataFile, "Read data from file")
 			},

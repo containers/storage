@@ -34,6 +34,7 @@ func init() {
 		names:   []string{"status"},
 		usage:   "Check on graph driver status",
 		minArgs: 0,
+		maxArgs: 0,
 		action:  status,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")

@@ -219,6 +219,7 @@ func init() {
 			usage:       "Examine a container",
 			action:      container,
 			minArgs:     1,
+			maxArgs:     -1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},
@@ -240,6 +241,7 @@ func init() {
 			usage:       "Get data that is attached to an container",
 			action:      getContainerBigData,
 			minArgs:     2,
+			maxArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramContainerDataFile, []string{"-file", "f"}, paramContainerDataFile, "Write data to file")
 			},
@@ -250,6 +252,7 @@ func init() {
 			usage:       "Get size of data that is attached to an container",
 			action:      getContainerBigDataSize,
 			minArgs:     2,
+			maxArgs:     2,
 		},
 		command{
 			names:       []string{"get-container-data-digest", "getcontainerdatadigest"},
@@ -257,6 +260,7 @@ func init() {
 			usage:       "Get digest of data that is attached to an container",
 			action:      getContainerBigDataDigest,
 			minArgs:     2,
+			maxArgs:     2,
 		},
 		command{
 			names:       []string{"set-container-data", "setcontainerdata"},
@@ -264,6 +268,7 @@ func init() {
 			usage:       "Set data that is attached to an container",
 			action:      setContainerBigData,
 			minArgs:     2,
+			maxArgs:     2,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramContainerDataFile, []string{"-file", "f"}, paramContainerDataFile, "Read data from file")
 			},
@@ -274,6 +279,7 @@ func init() {
 			usage:       "Find the container's associated data directory",
 			action:      getContainerDir,
 			minArgs:     1,
+			maxArgs:     1,
 		},
 		command{
 			names:       []string{"get-container-run-dir", "getcontainerrundir"},
@@ -281,6 +287,7 @@ func init() {
 			usage:       "Find the container's associated runtime directory",
 			action:      getContainerRunDir,
 			minArgs:     1,
+			maxArgs:     1,
 		},
 		command{
 			names:       []string{"container-parent-owners"},
@@ -288,6 +295,7 @@ func init() {
 			usage:       "Compute the set of unmapped parent UIDs and GIDs of the container",
 			action:      containerParentOwners,
 			minArgs:     1,
+			maxArgs:     -1,
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 			},

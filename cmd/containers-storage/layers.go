@@ -102,6 +102,7 @@ func init() {
 		optionsHelp: "[options [...]]",
 		usage:       "List layers",
 		action:      layers,
+		minArgs:     0,
 		maxArgs:     0,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&listLayersTree, []string{"-tree", "t"}, listLayersTree, "Use a tree")

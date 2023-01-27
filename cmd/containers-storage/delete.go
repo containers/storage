@@ -156,6 +156,7 @@ func init() {
 		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
 		usage:       "Delete a layer or image or container, with no safety checks",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      deleteThing,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
@@ -166,6 +167,7 @@ func init() {
 		optionsHelp: "[LayerNameOrID [...]]",
 		usage:       "Delete a layer, with safety checks",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      deleteLayer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
@@ -176,6 +178,7 @@ func init() {
 		optionsHelp: "[ImageNameOrID [...]]",
 		usage:       "Delete an image, with safety checks",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      deleteImage,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&testDeleteImage, []string{"-test", "t"}, jsonOutput, "Only test removal")
@@ -187,6 +190,7 @@ func init() {
 		optionsHelp: "[ContainerNameOrID [...]]",
 		usage:       "Delete a container, with safety checks",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      deleteContainer,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")

@@ -75,6 +75,7 @@ func init() {
 		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
 		usage:       "Retrieve layer, image, or container metadata",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      metadata,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&metadataQuiet, []string{"-quiet", "q"}, metadataQuiet, "Omit names and IDs")

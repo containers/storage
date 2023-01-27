@@ -133,6 +133,7 @@ func init() {
 		optionsHelp: "[options [...]] LayerOrContainerNameOrID",
 		usage:       "Mount a layer or container",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      mount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&paramMountOptions, []string{"-opt", "o"}, "", "Mount Options")
@@ -146,6 +147,7 @@ func init() {
 		optionsHelp: "LayerOrContainerNameOrID",
 		usage:       "Unmount an image, layer or container",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      unmount,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
@@ -157,6 +159,7 @@ func init() {
 		optionsHelp: "LayerOrContainerNameOrID",
 		usage:       "Check if a file system is mounted",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      mounted,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")

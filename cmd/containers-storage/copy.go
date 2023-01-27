@@ -101,6 +101,7 @@ func init() {
 		usage:       "Copy files or directories into a layer, possibly from another layer",
 		optionsHelp: "[options [...]] [sourceLayerNameOrID:]/path [...] targetLayerNameOrID:/path",
 		minArgs:     2,
+		maxArgs:     -1,
 		action:      copyContent,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&chownOptions, []string{"-chown", ""}, chownOptions, "Set owner on new copies")

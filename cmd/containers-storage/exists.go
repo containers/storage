@@ -65,6 +65,7 @@ func init() {
 		optionsHelp: "[LayerOrImageOrContainerNameOrID [...]]",
 		usage:       "Check if a layer or image or container exists",
 		minArgs:     1,
+		maxArgs:     -1,
 		action:      exist,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&existQuiet, []string{"-quiet", "q"}, existQuiet, "Don't print names")
