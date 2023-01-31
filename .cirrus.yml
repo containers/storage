@@ -58,7 +58,7 @@ fedora_testing_task: &fedora_testing
     name: &std_test_name "${OS_NAME} ${TEST_DRIVER}"
     depends_on:
         - lint
-
+    only_if: $CIRRUS_CHANGE_TITLE !=~ '.*CI:DOCS.*'
     gce_instance:  # Only need to specify differences from defaults (above)
         image_name: "${VM_IMAGE}"
 
@@ -97,6 +97,7 @@ ubuntu_testing_task: &ubuntu_testing
     <<: *fedora_testing
     alias: ubuntu_testing
     name: *std_test_name
+    only_if: $CIRRUS_CHANGE_TITLE !=~ '.*CI:DOCS.*'
     env:
         OS_NAME: "${UBUNTU_NAME}"
         VM_IMAGE: "${UBUNTU_CACHE_IMAGE_NAME}"
