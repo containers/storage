@@ -21,6 +21,9 @@ function setup() {
 	TESTDIR=${BATS_TMPDIR}/tmp.${suffix}
 	rm -fr ${TESTDIR}
 	mkdir -p ${TESTDIR}/{root,runroot}
+        # disable idmapped mounts in the overlay driver, since that
+        # is the expectation in the idmaps.bats tests.
+        export _CONTAINERS_OVERLAY_DISABLE_IDMAP=yes
 }
 
 # Delete the unique root directory and a runroot directory.

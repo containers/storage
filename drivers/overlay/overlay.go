@@ -2098,6 +2098,9 @@ func (d *Driver) supportsIDmappedMounts() bool {
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
 func (d *Driver) SupportsShifting() bool {
+	if os.Getenv("_CONTAINERS_OVERLAY_DISABLE_IDMAP") == "yes" {
+		return false
+	}
 	if d.options.mountProgram != "" {
 		return true
 	}
