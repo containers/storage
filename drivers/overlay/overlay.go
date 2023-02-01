@@ -1505,7 +1505,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}
 
-	if d.supportsIDmappedMounts() && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 {
+	if !disableShifting && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 {
 		var newAbsDir []string
 		mappedRoot := filepath.Join(d.home, id, "mapped")
 		if err := os.MkdirAll(mappedRoot, 0700); err != nil {
@@ -2098,8 +2098,8 @@ func (d *Driver) supportsIDmappedMounts() bool {
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
 func (d *Driver) SupportsShifting() bool {
-	if os.Getenv("_TEST_FORCE_SUPPORT_SHIFTING") == "yes-please" {
-		return true
+	if os.Getenv("_CONTAINERS_OVERLAY_DISABLE_IDMAP") == "yes" {
+		return false
 	}
 	if d.options.mountProgram != "" {
 		return true

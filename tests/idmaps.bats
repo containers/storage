@@ -961,30 +961,6 @@ load helpers
 
 	imagename=idmappedimage-shifting
 	storage create-image --name=$imagename $lowerlayer
-
-	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false create-container --uidmap 0:1000:1000 --gidmap 0:1000:1000 $imagename
-	echo "$output"
-	[ "$status" -eq 0 ]
-	[ "$output" != "" ]
-
-	container="$output"
-
-	# Mount the container.
-	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false mount $container
-	echo "$output"
-	[ "$status" -eq 0 ]
-	dir="$output"
-	test "$(stat -c%u:%g $dir/file)" == "0:0"
-	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false unmount "$container"
-	[ "$status" -eq 0 ]
-
-	# Remove the container and image and check that all of the layers we used got removed.
-	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false delete-container $container
-	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false delete-image $imagename
-	_TEST_FORCE_SUPPORT_SHIFTING=yes-please run storage --debug=false layers
-	echo "$output"
-	[ "$status" -eq 0 ]
-	[ "$output" == "" ]
 }
 
 @test "idmaps-create-layer-from-another-image-store" {
