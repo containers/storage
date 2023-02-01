@@ -162,6 +162,12 @@ vendor_task:
     test_script: hack/tree_status.sh
 
 
+cross_task:
+    container:
+        image: golang:1.17
+    build_script: make cross
+
+
 # Represent overall pass/fail status from required dependent tasks
 success_task:
     depends_on:
@@ -170,6 +176,7 @@ success_task:
         - ubuntu_testing
         - meta
         - vendor
+        - cross
     container:
         image: golang:1.17
     clone_script: 'mkdir -p "$CIRRUS_WORKING_DIR"'  # Source code not needed
