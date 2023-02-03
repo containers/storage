@@ -51,6 +51,26 @@ case $TEST_DRIVER in
         mount -o loop $GOSRC/$TEST_DRIVER.img $tmpdir
         TMPDIR="$tmpdir" showrun make STORAGE_DRIVER=$TEST_DRIVER local-test-integration local-test-unit
         ;;
+    zfs)
+        # Ubuntu: install zfsutils-linux
+        if ! check_filesystem_supported $TEST_DRIVER ; then
+            die "This CI VM does not support $TEST_DRIVER in its kernel"
+        fi
+        if test -z "$(which zpool 2> /dev/null)" ; then
+            die "This CI VM does not have zpool installed"
+        fi
+        if test -z "$(which zfs 2> /dev/null)" ; then
+            die "This CI VM does not have zfs installed"
+        fi
+        tmpfile=$(mktemp -p $GOSRC)
+        truncate -s 0 $tmpfile
+        fallocate -l 1G $tmpfile
+        zpool=$(basename $tmpfile)
+        zpool create $zpool $tmpfile
+        trap "zfs destroy -Rf $zpool/tmp; zpool destroy -f $zpool; rm -f $tmpfile" EXIT
+        zfs create $zpool/tmp
+        TMPDIR="/$zpool/tmp" showrun make STORAGE_DRIVER=$TEST_DRIVER local-test-integration local-test-unit
+        ;;
     *)
         die "Unknown/Unsupported \$TEST_DRIVER=$TEST_DRIVER (see .cirrus.yml and $(basename $0))"
         ;;

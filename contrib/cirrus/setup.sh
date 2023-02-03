@@ -20,7 +20,7 @@ case "$OS_RELEASE_ID" in
         [[ -z "$DEBS_CONFLICTING" ]] || \
             $SHORT_APTGET -q remove $DEBS_CONFLICTING
         $SHORT_APTGET -q update
-        $SHORT_APTGET -q install zstd
+        $SHORT_APTGET -q install zstd zfsutils-linux
         ;;
     *)
         bad_os_id_ver

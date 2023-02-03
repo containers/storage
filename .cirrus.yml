@@ -112,6 +112,8 @@ ubuntu_testing_task: &ubuntu_testing
             TEST_DRIVER: "fuse-overlay-whiteout"
         - env:
             TEST_DRIVER: "btrfs"
+        - env:
+            TEST_DRIVER: "zfs"
 
 
 lint_task:
