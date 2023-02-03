@@ -24,7 +24,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
-	github.com/tchap/go-patricia v2.3.0+incompatible
+	github.com/tchap/go-patricia v2.3.1+incompatible
 	github.com/ulikunitz/xz v0.5.11
 	github.com/vbatts/tar-split v0.11.2
 	golang.org/x/net v0.5.0
