@@ -28,7 +28,7 @@ require (
 	github.com/ulikunitz/xz v0.5.11
 	github.com/vbatts/tar-split v0.11.2
 	golang.org/x/net v0.5.0
-	golang.org/x/sys v0.4.0
+	golang.org/x/sys v0.5.0
 	gotest.tools v2.2.0+incompatible
 )
 
