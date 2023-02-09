@@ -52,7 +52,7 @@ CIRRUS_REPO_NAME=${CIRRUS_REPO_NAME:-storage}
 # Cirrus only sets $CIRRUS_BASE_SHA properly for PRs, but $EPOCH_TEST_COMMIT
 # needs to be set from this value in order for `make validate` to run properly.
 # When running get_ci_vm.sh, most $CIRRUS_xyz variables are empty. Attempt
-# to accomidate both branch and get_ci_vm.sh testing by discovering the base
+# to accommodate both branch and get_ci_vm.sh testing by discovering the base
 # branch SHA value.
 if [[ -z "$CIRRUS_BASE_SHA" ]] && [[ -z "$CIRRUS_TAG" ]]
 then  # Operating on a branch, or under `get_ci_vm.sh`

@@ -1,7 +1,7 @@
 ## containers-storage-gc 1 "January 2023"
 
 ## NAME
-containers-storage gc - Garbage collect leftovers from partial layers/images/contianers
+containers-storage gc - Garbage collect leftovers from partial layers/images/containers
 
 ## SYNOPSIS
 **containers-storage** **gc**
