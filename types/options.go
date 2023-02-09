@@ -186,7 +186,7 @@ func loadStoreOptions(rootless bool, rootlessUID int) (StoreOptions, error) {
 	return defaultStoreOptionsIsolated(rootless, rootlessUID, storageConf)
 }
 
-// UpdateOptions should be called iff container engine recieved a SIGHUP,
+// UpdateOptions should be called iff container engine received a SIGHUP,
 // otherwise use DefaultStoreOptions
 func UpdateStoreOptions(rootless bool, rootlessUID int) (StoreOptions, error) {
 	storeOptions, storeError = loadStoreOptions(rootless, rootlessUID)
