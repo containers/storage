@@ -20,7 +20,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/runc v1.1.4
 	github.com/opencontainers/runtime-spec v1.1.0-rc.1
-	github.com/opencontainers/selinux v1.10.2
+	github.com/opencontainers/selinux v1.11.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
