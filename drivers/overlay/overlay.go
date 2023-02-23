@@ -47,8 +47,7 @@ var (
 )
 
 const (
-	defaultPerms     = os.FileMode(0555)
-	selinuxLabelTest = "system_u:object_r:container_file_t:s0"
+	defaultPerms = os.FileMode(0555)
 )
 
 // This backend uses the overlay union filesystem for containers
@@ -656,6 +655,8 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 
 func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
 	// We can try to modprobe overlay first
+
+	selinuxLabelTest := selinux.PrivContainerMountLabel()
 
 	exec.Command("modprobe", "overlay").Run()
 
