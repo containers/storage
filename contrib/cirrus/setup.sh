@@ -14,13 +14,10 @@ case "$OS_RELEASE_ID" in
     fedora)
         [[ -z "$RPMS_CONFLICTING" ]] || \
             $SHORT_DNFY erase $RPMS_CONFLICTING
-        $SHORT_DNFY install zstd
         ;;
-    ubuntu)
+    debian)
         [[ -z "$DEBS_CONFLICTING" ]] || \
             $SHORT_APTGET -q remove $DEBS_CONFLICTING
-        $SHORT_APTGET -q update
-        $SHORT_APTGET -q install zstd zfsutils-linux
         ;;
     *)
         bad_os_id_ver
