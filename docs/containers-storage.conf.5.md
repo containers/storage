@@ -64,6 +64,12 @@ Default directory to store all temporary writable content created by container s
 By default, the storage driver is set via the `driver` option. If it is not defined, then the best driver will be picked according to the current platform. This option allows you to override this internal priority list with a custom one to prefer certain drivers.
 Setting this option only has an effect if the local storage has not been initialized yet and the driver name is not set.
 
+**transient_store** = "false" | "true"
+
+Transient store mode makes all container metadata be saved in temporary storage
+(i.e. runroot above). This is faster, but doesn't persist across reboots.
+Additional garbage collection must also be performed at boot-time, so this option should remain disabled in most configurations. (default: false)
+
 ### STORAGE OPTIONS TABLE
 
 The `storage.options` table supports the following options:
