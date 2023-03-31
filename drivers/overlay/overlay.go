@@ -685,8 +685,11 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 
 		// Try a test mount in the specific location we're looking at using.
 		mergedDir := filepath.Join(layerDir, "merged")
+		mergedSubdir := filepath.Join(mergedDir, "subdir")
 		lower1Dir := filepath.Join(layerDir, "lower1")
 		lower2Dir := filepath.Join(layerDir, "lower2")
+		lower2Subdir := filepath.Join(lower2Dir, "subdir")
+		lower2SubdirFile := filepath.Join(lower2Subdir, "file")
 		upperDir := filepath.Join(layerDir, "upper")
 		workDir := filepath.Join(layerDir, "work")
 		defer func() {
@@ -700,8 +703,15 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		_ = idtools.MkdirAs(mergedDir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(lower1Dir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(lower2Dir, 0700, rootUID, rootGID)
+		_ = idtools.MkdirAs(lower2Subdir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(upperDir, 0700, rootUID, rootGID)
 		_ = idtools.MkdirAs(workDir, 0700, rootUID, rootGID)
+		f, err := os.Create(lower2SubdirFile)
+		if err != nil {
+			logrus.Debugf("Unable to create test file: %v", err)
+			return supportsDType, fmt.Errorf("unable to create test file: %w", err)
+		}
+		f.Close()
 		flags := fmt.Sprintf("lowerdir=%s:%s,upperdir=%s,workdir=%s", lower1Dir, lower2Dir, upperDir, workDir)
 		if selinux.GetEnabled() &&
 			selinux.SecurityCheckContext(selinuxLabelTest) == nil {
@@ -721,6 +731,10 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 		if len(flags) < unix.Getpagesize() {
 			err := unix.Mount("overlay", mergedDir, "overlay", 0, flags)
 			if err == nil {
+				if err = os.RemoveAll(mergedSubdir); err != nil {
+					logrus.StandardLogger().Logf(logLevel, "overlay: removing an item from the merged directory failed: %v", err)
+					return supportsDType, fmt.Errorf("kernel returned %v when we tried to delete an item in the merged directory: %w", err, graphdriver.ErrNotSupported)
+				}
 				logrus.Debugf("overlay: test mount with multiple lowers succeeded")
 				return supportsDType, nil
 			}
