@@ -37,18 +37,30 @@ func addNames(flags *mflag.FlagSet, action string, m storage.Store, args []strin
 	if err != nil {
 		return 1, err
 	}
-	oldnames, err := m.Names(id)
+	if err := m.AddNames(id, paramNames); err != nil {
+		return 1, err
+	}
+	names, err := m.Names(id)
 	if err != nil {
 		return 1, err
 	}
-	newNames := []string{}
-	if oldnames != nil {
-		newNames = append(newNames, oldnames...)
+	if jsonOutput {
+		if _, err := outputJSON(names); err != nil {
+			return 1, err
+		}
 	}
-	if paramNames != nil {
-		newNames = append(newNames, paramNames...)
+	return 0, nil
+}
+
+func removeNames(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
+	if len(args) < 1 {
+		return 1, nil
 	}
-	if err := m.SetNames(id, newNames); err != nil {
+	id, err := m.Lookup(args[0])
+	if err != nil {
+		return 1, err
+	}
+	if err := m.RemoveNames(id, paramNames); err != nil {
 		return 1, err
 	}
 	names, err := m.Names(id)
@@ -106,7 +118,19 @@ func init() {
 		maxArgs:     -1,
 		action:      addNames,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "New name")
+			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "Name to add")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+		},
+	})
+	commands = append(commands, command{
+		names:       []string{"remove-names", "removenames"},
+		optionsHelp: "[options [...]] imageOrContainerNameOrID",
+		usage:       "Remove layer, image, or container name or names",
+		minArgs:     1,
+		maxArgs:     -1,
+		action:      removeNames,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.Var(opts.NewListOptsRef(&paramNames, nil), []string{"-name", "n"}, "Name to remove")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})

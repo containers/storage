@@ -20,8 +20,12 @@ func addTestImage(t *testing.T, store rwImageStore, id string, names []string) {
 	require.NoError(t, err)
 	defer store.stopWriting()
 
-	_, err = store.Create(
-		id, []string{}, "", "", time.Now(), digest.FromString(""),
+	options := ImageOptions{
+		CreationDate: time.Now(),
+		Digest:       digest.FromString(""),
+	}
+	_, err = store.create(
+		id, []string{}, "", options,
 	)
 
 	require.Nil(t, err)
