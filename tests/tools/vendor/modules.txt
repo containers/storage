@@ -17,5 +17,5 @@ github.com/vbatts/git-validation/rules/dco
 github.com/vbatts/git-validation/rules/messageregexp
 github.com/vbatts/git-validation/rules/shortsubject
 github.com/vbatts/git-validation/validate
-# golang.org/x/sys v0.0.0-20180905080454-ebe1bf3edb33
+# golang.org/x/sys v0.5.0
 golang.org/x/sys/unix
