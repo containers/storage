@@ -661,6 +661,7 @@ type store struct {
 	usernsLock      *lockfile.LockFile
 	graphRoot       string
 	graphOptions    []string
+	imageStoreDir   string
 	pullOptions     map[string]string
 	uidMap          []idtools.IDMap
 	gidMap          []idtools.IDMap
@@ -755,8 +756,18 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	if err := os.MkdirAll(options.GraphRoot, 0700); err != nil {
 		return nil, err
 	}
+	if options.ImageStore != "" {
+		if err := os.MkdirAll(options.ImageStore, 0700); err != nil {
+			return nil, err
+		}
+	}
 	if err := os.MkdirAll(filepath.Join(options.GraphRoot, options.GraphDriverName), 0700); err != nil {
 		return nil, err
+	}
+	if options.ImageStore != "" {
+		if err := os.MkdirAll(filepath.Join(options.ImageStore, options.GraphDriverName), 0700); err != nil {
+			return nil, err
+		}
 	}
 
 	graphLock, err := lockfile.GetLockFile(filepath.Join(options.GraphRoot, "storage.lock"))
@@ -785,6 +796,7 @@ func GetStore(options types.StoreOptions) (Store, error) {
 		usernsLock:          usernsLock,
 		graphRoot:           options.GraphRoot,
 		graphOptions:        options.GraphDriverOptions,
+		imageStoreDir:       options.ImageStore,
 		pullOptions:         options.PullOptions,
 		uidMap:              copyIDMap(options.UIDMap),
 		gidMap:              copyIDMap(options.GIDMap),
@@ -889,7 +901,11 @@ func (s *store) load() error {
 	}
 	driverPrefix := s.graphDriverName + "-"
 
-	gipath := filepath.Join(s.graphRoot, driverPrefix+"images")
+	imgStoreRoot := s.imageStoreDir
+	if imgStoreRoot == "" {
+		imgStoreRoot = s.graphRoot
+	}
+	gipath := filepath.Join(imgStoreRoot, driverPrefix+"images")
 	if err := os.MkdirAll(gipath, 0700); err != nil {
 		return err
 	}
@@ -989,8 +1005,15 @@ func (s *store) stopUsingGraphDriver() {
 // Almost all users should use startUsingGraphDriver instead.
 // The caller must hold s.graphLock.
 func (s *store) createGraphDriverLocked() (drivers.Driver, error) {
+	driverRoot := s.imageStoreDir
+	imageStoreBase := s.graphRoot
+	if driverRoot == "" {
+		driverRoot = s.graphRoot
+		imageStoreBase = ""
+	}
 	config := drivers.Options{
-		Root:           s.graphRoot,
+		Root:           driverRoot,
+		ImageStore:     imageStoreBase,
 		RunRoot:        s.runRoot,
 		DriverPriority: s.graphDriverPriority,
 		DriverOptions:  s.graphOptions,
@@ -1020,7 +1043,11 @@ func (s *store) getLayerStoreLocked() (rwLayerStore, error) {
 	if err := os.MkdirAll(rlpath, 0700); err != nil {
 		return nil, err
 	}
-	glpath := filepath.Join(s.graphRoot, driverPrefix+"layers")
+	imgStoreRoot := s.imageStoreDir
+	if imgStoreRoot == "" {
+		imgStoreRoot = s.graphRoot
+	}
+	glpath := filepath.Join(imgStoreRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(glpath, 0700); err != nil {
 		return nil, err
 	}
