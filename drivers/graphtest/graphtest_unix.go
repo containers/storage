@@ -431,11 +431,11 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 	createOpts := &graphdriver.CreateOpts{}
 	createOpts.StorageOpt = make(map[string]string, 1)
 	createOpts.StorageOpt["size"] = "50M"
-	if err := driver.Create("zfsTest", "Base4", createOpts); err != nil {
+	if err := driver.Create("quotaTest", "Base4", createOpts); err != nil {
 		t.Fatal(err)
 	}
 
-	mountPath, err := driver.Get("zfsTest", graphdriver.MountOpts{})
+	mountPath, err := driver.Get("quotaTest", graphdriver.MountOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,6 +446,9 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 		t.Fatalf("expect write() to fail with %v, got %v", unix.EDQUOT, err)
 	}
 
+	if err := driver.Put("quotaTest"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // DriverTestEcho tests that we can diff a layer correctly, focusing on trouble spots that NaiveDiff doesn't have
