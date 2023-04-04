@@ -29,8 +29,8 @@ case $TEST_DRIVER in
         showrun make STORAGE_DRIVER=aufs local-test-integration local-test-unit
         ;;
     btrfs)
-        # Fedora: install btrfs-progs, btrfs-progs-devel
-        # Ubuntu: install btrfs-progs, libbtrfs-dev
+        # Fedora: Needs btrfs-progs, btrfs-progs-devel
+        # Debian: Needs btrfs-progs, libbtrfs-dev
         if [[ "$(./hack/btrfs_tag.sh)" =~ exclude_graphdriver_btrfs ]]; then
             die "Built without btrfs, so we can't test it"
         fi
@@ -52,7 +52,7 @@ case $TEST_DRIVER in
         TMPDIR="$tmpdir" showrun make STORAGE_DRIVER=$TEST_DRIVER local-test-integration local-test-unit
         ;;
     zfs)
-        # Ubuntu: install zfsutils-linux
+        # Debian: Needs zfsutils
         if ! check_filesystem_supported $TEST_DRIVER ; then
             die "This CI VM does not support $TEST_DRIVER in its kernel"
         fi
@@ -70,6 +70,8 @@ case $TEST_DRIVER in
         trap "zfs destroy -Rf $zpool/tmp; zpool destroy -f $zpool; rm -f $tmpfile" EXIT
         zfs create $zpool/tmp
         TMPDIR="/$zpool/tmp" showrun make STORAGE_DRIVER=$TEST_DRIVER local-test-integration local-test-unit
+        # Ensure no datasets are held open prior to `zfs destroy` trap.
+        kill $(lsns -J -t mnt --output-all | jq '.namespaces[]|select(.command=="sleep 1000s").pid')
         ;;
     *)
         die "Unknown/Unsupported \$TEST_DRIVER=$TEST_DRIVER (see .cirrus.yml and $(basename $0))"
