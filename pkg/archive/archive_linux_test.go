@@ -21,7 +21,8 @@ import (
 // ├── d2     # opaque, 0750
 // │   └── f1 # empty file, 0660
 // └── d3     # 0700
-//     └── f1 # whiteout, 0000
+//
+//	└── f1 # whiteout, 0000
 func setupOverlayTestDir(t *testing.T, src string) {
 	// Create opaque directory containing single file and permission 0700
 	err := os.Mkdir(filepath.Join(src, "d1"), 0700)

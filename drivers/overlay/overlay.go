@@ -546,6 +546,9 @@ func parseOptions(options []string) (*overlayOptions, error) {
 		case "skip_mount_home":
 			logrus.Debugf("overlay: skip_mount_home=%s", val)
 			o.skipMountHome, err = strconv.ParseBool(val)
+			if err != nil {
+				return nil, err
+			}
 		case "ignore_chown_errors":
 			logrus.Debugf("overlay: ignore_chown_errors=%s", val)
 			o.ignoreChownErrors, err = strconv.ParseBool(val)
@@ -1438,7 +1441,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 						perms = os.FileMode(st2.Mode())
 						permsKnown = true
 					}
-					l = lower
 					break
 				}
 				lower = ""
@@ -1826,7 +1828,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		idMappings = &idtools.IDMappings{}
 	}
 
-	applyDir := ""
+	var applyDir string
 
 	if id == "" {
 		err := os.MkdirAll(d.getStagingDir(), 0700)

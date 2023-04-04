@@ -35,7 +35,7 @@ $(BUILDDIR)/go-md2man:
 
 $(BUILDDIR)/golangci-lint:
 	export \
-		VERSION=v1.24.0 \
+		VERSION=v1.51.2 \
 		URL=https://raw.githubusercontent.com/golangci/golangci-lint \
 		BINDIR=$(BUILDDIR) && \
 	curl -sfL $$URL/$$VERSION/install.sh | sh -s $$VERSION
