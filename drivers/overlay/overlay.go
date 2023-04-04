@@ -1522,7 +1522,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}
 
-	if !disableShifting && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 {
+	if !disableShifting && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 && d.options.mountProgram == "" {
 		var newAbsDir []string
 		mappedRoot := filepath.Join(d.home, id, "mapped")
 		if err := os.MkdirAll(mappedRoot, 0700); err != nil {
