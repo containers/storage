@@ -14,16 +14,10 @@ import (
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/parsers"
-	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
-)
-
-var (
-	// CopyDir defines the copy method to use.
-	CopyDir = dirCopy
 )
 
 const defaultPerms = os.FileMode(0555)
@@ -42,11 +36,10 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	rootIDs := d.idMappings.RootPair()
-	if err := idtools.MkdirAllAndChown(home, 0700, rootIDs); err != nil {
+	if err := idtools.MkdirAllAndChown(filepath.Join(home, "dir"), 0700, rootIDs); err != nil {
 		return nil, err
 	}
 	for _, option := range options.DriverOptions {
-
 		key, val, err := parsers.ParseKeyValueOpt(option)
 		if err != nil {
 			return nil, err
@@ -268,7 +261,7 @@ func (d *Driver) Exists(id string) bool {
 
 // List layers (not including additional image stores)
 func (d *Driver) ListLayers() ([]string, error) {
-	entries, err := os.ReadDir(d.homes[0])
+	entries, err := os.ReadDir(filepath.Join(d.homes[0], "dir"))
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +271,7 @@ func (d *Driver) ListLayers() ([]string, error) {
 	for _, entry := range entries {
 		id := entry.Name()
 		// Does it look like a datadir directory?
-		if !entry.IsDir() || stringid.ValidateID(id) != nil {
+		if !entry.IsDir() {
 			continue
 		}
 

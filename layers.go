@@ -1922,6 +1922,18 @@ func (r *layerStore) Wipe() error {
 			return err
 		}
 	}
+	ids, err := r.driver.ListLayers()
+	if err != nil {
+		if !errors.Is(err, drivers.ErrNotSupported) {
+			return err
+		}
+		ids = nil
+	}
+	for _, id := range ids {
+		if err := r.driver.Remove(id); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

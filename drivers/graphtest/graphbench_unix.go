@@ -198,7 +198,7 @@ func DriverBenchDeepLayerDiff(b *testing.B, layerCount int, drivername string, d
 		b.Fatal(err)
 	}
 
-	topLayer, err := addManyLayers(driver, base, layerCount)
+	topLayer, err := addManyLayers(b, driver, base, layerCount)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, d
 		b.Fatal(err)
 	}
 
-	topLayer, err := addManyLayers(driver, base, layerCount)
+	topLayer, err := addManyLayers(b, driver, base, layerCount)
 	if err != nil {
 		b.Fatal(err)
 	}

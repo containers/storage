@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
@@ -27,8 +28,12 @@ var (
 )
 
 const (
-	defaultPerms  = os.FileMode(0555)
-	modifiedPerms = os.FileMode(0711)
+	defaultPerms       = os.FileMode(0o555)
+	modifiedPerms      = os.FileMode(0o711)
+	defaultSubdirPerms = os.FileMode(0o705)
+	defaultSubdirOwner = 1
+	defaultSubdirGroup = 2
+	defaultFilePerms   = os.FileMode(0o222)
 )
 
 // Driver conforms to graphdriver.Driver interface and
@@ -92,14 +97,12 @@ func PutDriver(t testing.TB) {
 // DriverTestCreateEmpty creates a new image and verifies it is empty and the right metadata
 func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 
 	err := driver.Create("empty", "", nil)
 	require.NoError(t, err)
-
-	defer func() {
-		require.NoError(t, driver.Remove("empty"))
-	}()
+	t.Cleanup(func() { removeLayer(t, driver, "empty") })
 
 	if !driver.Exists("empty") {
 		t.Fatal("Newly created image doesn't exist")
@@ -121,30 +124,24 @@ func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...str
 // DriverTestCreateBase create a base driver and verify.
 func DriverTestCreateBase(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 
 	createBase(t, driver, "Base1")
-	defer func() {
-		require.NoError(t, driver.Remove("Base1"))
-	}()
 	verifyBase(t, driver, "Base1", defaultPerms)
 }
 
 // DriverTestCreateSnap Create a driver and snap and verify.
 func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 
 	createBase(t, driver, "Base2")
-	defer func() {
-		require.NoError(t, driver.Remove("Base2"))
-	}()
 
 	err := driver.Create("Snap2", "Base2", nil)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, driver.Remove("Snap2"))
-	}()
+	t.Cleanup(func() { removeLayer(t, driver, "Snap2") })
 
 	verifyBase(t, driver, "Snap2", defaultPerms)
 
@@ -156,9 +153,7 @@ func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...stri
 
 	err = driver.Create("SecondSnap", "Snap2", nil)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, driver.Remove("SecondSnap"))
-	}()
+	t.Cleanup(func() { removeLayer(t, driver, "SecondSnap") })
 
 	verifyBase(t, driver, "SecondSnap", modifiedPerms)
 }
@@ -167,18 +162,15 @@ func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...stri
 // contents.
 func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 
 	createBase(t, driver, "Base3")
-	defer func() {
-		require.NoError(t, driver.Remove("Base3"))
-	}()
+	verifyBase(t, driver, "Base3", defaultPerms)
 
 	err := driver.Create("Snap3", "Base3", nil)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, driver.Remove("Snap3"))
-	}()
+	t.Cleanup(func() { removeLayer(t, driver, "Snap3") })
 
 	content := []byte("test content")
 	if err := addFile(driver, "Snap3", "testfile.txt", content); err != nil {
@@ -187,15 +179,10 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 
 	err = driver.CreateFromTemplate("FromTemplate", "Snap3", nil, "Base3", nil, nil, true)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, driver.Remove("FromTemplate"))
-	}()
-
+	t.Cleanup(func() { removeLayer(t, driver, "FromTemplate") })
 	err = driver.CreateFromTemplate("ROFromTemplate", "Snap3", nil, "Base3", nil, nil, false)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, driver.Remove("ROFromTemplate"))
-	}()
+	t.Cleanup(func() { removeLayer(t, driver, "ROFromTemplate") })
 
 	noChanges := []archive.Change{}
 
@@ -260,19 +247,21 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 // DriverTestDeepLayerRead reads a file from a lower layer under a given number of layers
 func DriverTestDeepLayerRead(t testing.TB, layerCount int, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 
 	base := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, base) })
 
 	content := []byte("test content")
 	if err := addFile(driver, base, "testfile.txt", content); err != nil {
 		t.Fatal(err)
 	}
 
-	topLayer, err := addManyLayers(driver, base, layerCount)
+	topLayer, err := addManyLayers(t, driver, base, layerCount)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,6 +279,7 @@ func DriverTestDeepLayerRead(t testing.TB, layerCount int, drivername string, dr
 // DriverTestDiffApply tests diffing and applying produces the same layer
 func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 	base := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
@@ -300,6 +290,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 	if err := driver.Create(base, "", nil); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, base) })
 
 	if err := addManyFiles(driver, base, fileCount, 3); err != nil {
 		t.Fatal(err)
@@ -316,6 +307,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 	if err := driver.Create(upper, base, nil); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, upper) })
 
 	if err := addManyFiles(driver, upper, fileCount, 6); err != nil {
 		t.Fatal(err)
@@ -334,6 +326,7 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 	if err := driver.Create(diff, base, nil); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, diff) })
 
 	if err := checkManyFiles(driver, diff, fileCount, 3); err != nil {
 		t.Fatal(err)
@@ -381,12 +374,15 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 // DriverTestChanges tests computed changes on a layer matches changes made
 func DriverTestChanges(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 	base := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
+
 	if err := driver.Create(base, "", nil); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, base) })
 
 	if err := addManyFiles(driver, base, 20, 3); err != nil {
 		t.Fatal(err)
@@ -395,6 +391,7 @@ func DriverTestChanges(t testing.TB, drivername string, driverOptions ...string)
 	if err := driver.Create(upper, base, nil); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, upper) })
 
 	expectedChanges, err := changeManyFiles(driver, upper, 20, 6)
 	if err != nil {
@@ -425,15 +422,19 @@ func writeRandomFile(path string, size uint64) error {
 // DriverTestSetQuota Create a driver and test setting quota.
 func DriverTestSetQuota(t *testing.T, drivername string) {
 	driver := GetDriver(t, drivername)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 
 	createBase(t, driver, "Base4")
+	verifyBase(t, driver, "Base4", defaultPerms)
+
 	createOpts := &graphdriver.CreateOpts{}
 	createOpts.StorageOpt = make(map[string]string, 1)
 	createOpts.StorageOpt["size"] = "50M"
 	if err := driver.Create("quotaTest", "Base4", createOpts); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { removeLayer(t, driver, "quotaTest") })
 
 	mountPath, err := driver.Get("quotaTest", graphdriver.MountOpts{})
 	if err != nil {
@@ -454,6 +455,7 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 // DriverTestEcho tests that we can diff a layer correctly, focusing on trouble spots that NaiveDiff doesn't have
 func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
 	defer PutDriver(t)
 	var err error
 	var root string
@@ -464,17 +466,19 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		second := stringid.GenerateRandomID()
 		third := stringid.GenerateRandomID()
 
-		if err := driver.Create(base, "", nil); err != nil {
-			t.Fatal(err)
-		}
+		createBase(t, driver, base)
+		verifyBase(t, driver, base, defaultPerms)
 
 		if root, err = driver.Get(base, graphdriver.MountOpts{}); err != nil {
 			t.Fatal(err)
 		}
 
+		expectedChanges := []archive.Change{
+			{Kind: archive.ChangeAdd, Path: "/a file"},
+			{Kind: archive.ChangeAdd, Path: "/a subdir"},
+		}
 		paths := []string{}
 		path := "/"
-		expectedChanges := []archive.Change{}
 		for i := 0; i < components-1; i++ {
 			path = filepath.Join(path, fmt.Sprintf("subdir%d", i+1))
 			paths = append(paths, path)
@@ -502,6 +506,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		if err := driver.Create(second, base, nil); err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { removeLayer(t, driver, second) })
 
 		if root, err = driver.Get(second, graphdriver.MountOpts{}); err != nil {
 			t.Fatal(err)
@@ -528,6 +533,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		if err = driver.Create(third, second, nil); err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { removeLayer(t, driver, third) })
 
 		if root, err = driver.Get(third, graphdriver.MountOpts{}); err != nil {
 			t.Fatal(err)
@@ -570,4 +576,46 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// DriverTestListLayers makes sure ListLayers() returns what we expected, nothing more, nothing less
+func DriverTestListLayers(t testing.TB, drivername string, driverOptions ...string) {
+	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
+	defer PutDriver(t)
+	base := stringid.GenerateRandomID()
+	mid := stringid.GenerateRandomID()
+	upper := stringid.GenerateRandomID()
+
+	createBase(t, driver, base)
+	verifyBase(t, driver, base, defaultPerms)
+
+	if err := addManyFiles(driver, base, 20, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := driver.Create(mid, base, nil); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { removeLayer(t, driver, mid) })
+
+	if err := addManyFiles(driver, mid, 20, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := driver.Create(upper, mid, nil); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { removeLayer(t, driver, upper) })
+
+	list, err := driver.ListLayers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(list)
+
+	expected := []string{base, mid, upper}
+	sort.Strings(expected)
+
+	assert.Equal(t, expected, list, "listed layers were not exactly what we created")
 }

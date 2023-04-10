@@ -29,7 +29,6 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
-	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
@@ -47,7 +46,9 @@ var (
 )
 
 const (
-	defaultPerms = os.FileMode(0555)
+	defaultPerms         = os.FileMode(0555)
+	selinuxLabelTest     = "system_u:object_r:container_file_t:s0"
+	mountProgramFlagFile = ".has-mount-program"
 )
 
 // This backend uses the overlay union filesystem for containers
@@ -78,9 +79,10 @@ const (
 // that mounts do not fail due to length.
 
 const (
-	linkDir   = "l"
-	lowerFile = "lower"
-	maxDepth  = 500
+	linkDir    = "l"
+	stagingDir = "staging"
+	lowerFile  = "lower"
+	maxDepth   = 500
 
 	// idLength represents the number of random characters
 	// which can be used to create the unique link identifier
@@ -124,7 +126,6 @@ type Driver struct {
 }
 
 type additionalLayerStore struct {
-
 	// path is the directory where this store is available on the host.
 	path string
 
@@ -175,7 +176,7 @@ func hasVolatileOption(opts []string) bool {
 }
 
 func getMountProgramFlagFile(path string) string {
-	return filepath.Join(path, ".has-mount-program")
+	return filepath.Join(path, mountProgramFlagFile)
 }
 
 func checkSupportVolatile(home, runhome string) (bool, error) {
@@ -958,7 +959,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 		return err
 	}
 	if parent != "" {
-		st, err := system.Stat(d.dir(parent))
+		st, err := system.Stat(filepath.Join(d.dir(parent), "diff"))
 		if err != nil {
 			return err
 		}
@@ -1725,20 +1726,23 @@ func (d *Driver) ListLayers() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	layers := make([]string, 0)
 
 	for _, entry := range entries {
 		id := entry.Name()
-		// Does it look like a datadir directory?
-		if !entry.IsDir() || stringid.ValidateID(id) != nil {
+		switch id {
+		case linkDir, stagingDir, quota.BackingFsBlockDeviceLink, mountProgramFlagFile:
+			// expected, but not a layer. skip it
 			continue
+		default:
+			// Does it look like a datadir directory?
+			if !entry.IsDir() {
+				continue
+			}
+			layers = append(layers, id)
 		}
-
-		layers = append(layers, id)
 	}
-
-	return layers, err
+	return layers, nil
 }
 
 // isParent returns if the passed in parent is the direct parent of the passed in layer
@@ -1795,7 +1799,7 @@ func (g *overlayFileGetter) Close() error {
 }
 
 func (d *Driver) getStagingDir() string {
-	return filepath.Join(d.home, "staging")
+	return filepath.Join(d.home, stagingDir)
 }
 
 // DiffGetter returns a FileGetCloser that can read files from the directory that
