@@ -1,13 +1,39 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/pkg/mflag"
 )
 
-var listLayersTree = false
+var (
+	listLayersTree  = false
+	listLayersQuick = false
+)
+
+func storageLayers(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
+	driver, err := m.GraphDriver()
+	if err != nil {
+		return 1, err
+	}
+	layers, err := driver.ListLayers()
+	if err != nil {
+		return 1, err
+	}
+	if jsonOutput {
+		if err := json.NewEncoder(os.Stdout).Encode(layers); err != nil {
+			return 1, err
+		}
+		return 0, nil
+	}
+	for _, layer := range layers {
+		fmt.Printf("%s\n", layer)
+	}
+	return 0, nil
+}
 
 func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	layers, err := m.Layers()
@@ -71,6 +97,9 @@ func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 			nodes = append(nodes, node)
 		} else {
 			fmt.Printf("%s\n", layer.ID)
+			if listLayersQuick {
+				continue
+			}
 			for _, name := range layer.Names {
 				fmt.Printf("\tname: %s\n", name)
 			}
@@ -106,6 +135,18 @@ func init() {
 		maxArgs:     0,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&listLayersTree, []string{"-tree", "t"}, listLayersTree, "Use a tree")
+			flags.BoolVar(&listLayersQuick, []string{"-quick", "q"}, listLayersTree, "Just the IDs")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+		},
+	})
+	commands = append(commands, command{
+		names:       []string{"storage-layers"},
+		optionsHelp: "[options [...]]",
+		usage:       "List storage layers",
+		action:      storageLayers,
+		minArgs:     0,
+		maxArgs:     0,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})

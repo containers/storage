@@ -104,7 +104,7 @@ func init() {
 		maxArgs:     -1,
 		action:      copyContent,
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
-			flags.StringVar(&chownOptions, []string{"-chown", ""}, chownOptions, "Set owner on new copies")
+			flags.StringVar(&chownOptions, []string{"-chown", "o"}, chownOptions, "Set owner on new copies")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})

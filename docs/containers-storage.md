@@ -68,6 +68,8 @@ The *containers-storage* command's features are broken down into several subcomm
 
  **containers-storage create-layer(1)**        Create a new layer
 
+ **containers-storage create-storage-layer(1)** Create a new layer in the lower-level storage driver
+
  **containers-storage delete(1)**              Delete a layer or image or container, with no safety checks
 
  **containers-storage delete-container(1)**    Delete a container, with safety checks
@@ -116,6 +118,8 @@ The *containers-storage* command's features are broken down into several subcomm
 
  **containers-storage unmount(1)**             Unmount a layer or container
 
+ **containers-storage unshare(1)**             Run a command in a user namespace
+
  **containers-storage version(1)**             Return containers-storage version information
 
  **containers-storage wipe(1)**                Wipe all layers, images, and containers
@@ -154,6 +158,11 @@ Set options which will be passed to the storage driver.  If not set, but
 *$STORAGE_OPTS* is set in the environment, its value is treated as a
 comma-separated list and used instead.  If the storage tree has previously been
 initialized, these need not be provided.
+
+**--unshare, -U**
+
+When started by a non-root user, run inside of a new user namespace configured
+using the system's default ID mappings for the non-root user.
 
 ## ENVIRONMENT OVERRIDES
 **CONTAINERS_STORAGE_CONF** 

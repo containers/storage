@@ -1,14 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/containers/storage"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/internal/opts"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mflag"
+	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/types"
 	digest "github.com/opencontainers/go-digest"
 )
@@ -69,6 +72,45 @@ func paramIDMapping() (*types.IDMappingOptions, error) {
 	options.UIDMap = append(options.UIDMap, parsedUIDMap...)
 	options.GIDMap = append(options.GIDMap, parsedGIDMap...)
 	return &options, nil
+}
+
+func createStorageLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
+	parent := ""
+	if len(args) > 0 {
+		parent = args[0]
+	}
+	mappings, err := paramIDMapping()
+	if err != nil {
+		return 1, err
+	}
+	driver, err := m.GraphDriver()
+	if err != nil {
+		return 1, err
+	}
+	opts := graphdriver.CreateOpts{
+		MountLabel: paramMountLabel,
+		IDMappings: idtools.NewIDMappingsFromMaps(mappings.UIDMap, mappings.GIDMap),
+	}
+	if paramID == "" {
+		paramID = stringid.GenerateNonCryptoID()
+	}
+	if paramCreateRO {
+		if err := driver.Create(paramID, parent, &opts); err != nil {
+			return 1, err
+		}
+	} else {
+		if err := driver.CreateReadWrite(paramID, parent, &opts); err != nil {
+			return 1, err
+		}
+	}
+	if jsonOutput {
+		if err := json.NewEncoder(os.Stdout).Encode(paramID); err != nil {
+			return 1, err
+		}
+	} else {
+		fmt.Printf("%s\n", paramID)
+	}
+	return 0, nil
 }
 
 func createLayer(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
@@ -194,6 +236,26 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 }
 
 func init() {
+	commands = append(commands, command{
+		names:       []string{"create-storage-layer"},
+		optionsHelp: "[options [...]] [parentLayerNameOrID]",
+		usage:       "Create a new layer only in the storage driver",
+		minArgs:     0,
+		maxArgs:     1,
+		action:      createStorageLayer,
+		addFlags: func(flags *mflag.FlagSet, cmd *command) {
+			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
+			flags.StringVar(&paramID, []string{"-id", "i"}, "", "Layer ID")
+			flags.BoolVar(&paramCreateRO, []string{"-readonly", "r"}, false, "Mark as read-only")
+			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
+			flags.BoolVar(&paramHostUIDMap, []string{"-hostuidmap"}, paramHostUIDMap, "Force host UID map")
+			flags.BoolVar(&paramHostGIDMap, []string{"-hostgidmap"}, paramHostGIDMap, "Force host GID map")
+			flags.StringVar(&paramUIDMap, []string{"-uidmap"}, "", "UID map")
+			flags.StringVar(&paramGIDMap, []string{"-gidmap"}, "", "GID map")
+			flags.StringVar(&paramSubUIDMap, []string{"-subuidmap"}, "", "subuid UID map for a user")
+			flags.StringVar(&paramSubGIDMap, []string{"-subgidmap"}, "", "subgid GID map for a group")
+		},
+	})
 	commands = append(commands, command{
 		names:       []string{"create-layer", "createlayer"},
 		optionsHelp: "[options [...]] [parentLayerNameOrID]",

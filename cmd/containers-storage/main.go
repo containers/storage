@@ -9,6 +9,7 @@ import (
 	"github.com/containers/storage/internal/opts"
 	"github.com/containers/storage/pkg/mflag"
 	"github.com/containers/storage/pkg/reexec"
+	"github.com/containers/storage/pkg/unshare"
 	"github.com/containers/storage/types"
 	"github.com/sirupsen/logrus"
 )
@@ -36,6 +37,7 @@ func main() {
 
 	options := types.StoreOptions{}
 	debug := false
+	doUnshare := false
 
 	makeFlags := func(command string, eh mflag.ErrorHandling) *mflag.FlagSet {
 		flags := mflag.NewFlagSet(command, eh)
@@ -45,6 +47,7 @@ func main() {
 		flags.StringVar(&options.GraphDriverName, []string{"-storage-driver", "s"}, options.GraphDriverName, "Storage driver to use ($STORAGE_DRIVER)")
 		flags.Var(opts.NewListOptsRef(&options.GraphDriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")
 		flags.BoolVar(&debug, []string{"-debug", "D"}, debug, "Print debugging information")
+		flags.BoolVar(&doUnshare, []string{"-unshare", "U"}, unshare.IsRootless(), fmt.Sprintf("Run in a user namespace (default %t)", unshare.IsRootless()))
 		return flags
 	}
 
@@ -68,7 +71,6 @@ func main() {
 		flags.Usage()
 		os.Exit(1)
 	}
-
 	if options.GraphRoot == "" && options.RunRoot == "" && options.GraphDriverName == "" && len(options.GraphDriverOptions) == 0 {
 		options, _ = types.DefaultStoreOptionsAutoDetectUID()
 	}
@@ -111,6 +113,9 @@ func main() {
 					fmt.Printf("%s: too many arguments (%s).\n", cmd, args)
 					flags.Usage()
 					os.Exit(1)
+				}
+				if doUnshare {
+					unshare.MaybeReexecUsingUserNamespace(true)
 				}
 				if debug {
 					logrus.SetLevel(logrus.DebugLevel)
