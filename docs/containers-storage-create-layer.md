@@ -20,14 +20,6 @@ returned.
 
 Sets the ID for the layer.  If none is specified, one is generated.
 
-**-m | --metadata** *metadata-value*
-
-Sets the metadata for the layer to the specified value.
-
-**-f | --metadata-file** *metadata-file*
-
-Sets the metadata for the layer to the contents of the specified file.
-
 **-l | --label** *mount-label*
 
 Sets the label which should be assigned as an SELinux context when mounting the

@@ -138,7 +138,7 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&paramMountOptions, []string{"-opt", "o"}, "", "Mount Options")
 			flags.StringVar(&paramMountLabel, []string{"-label", "l"}, "", "Mount Label")
-			flags.BoolVar(&paramReadOnly, []string{"-ro", "r"}, paramReadOnly, "Mount image readonly")
+			flags.BoolVar(&paramReadOnly, []string{"-read-only", "-ro", "r"}, paramReadOnly, "Mount image readonly")
 			flags.BoolVar(&jsonOutput, []string{"-json", "j"}, jsonOutput, "Prefer JSON output")
 		},
 	})
