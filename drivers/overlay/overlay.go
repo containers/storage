@@ -1478,7 +1478,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		absLowers = append(absLowers, path.Join(dir, "empty"))
 	}
 	// user namespace requires this to move a directory from lower to upper.
-	rootUID, rootGID, err := idtools.GetRootUIDGID(d.uidMaps, d.gidMaps)
+	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UidMaps, options.GidMaps)
 	if err != nil {
 		return "", err
 	}

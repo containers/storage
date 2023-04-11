@@ -853,6 +853,10 @@ load helpers
 		[ "$output" != "" ]
 		mount="$output"
 
+		uid=$(stat -c %u ${mount})
+		gid=$(stat -c %g ${mount})
+		test ${uid}:${gid} = ${uidrange[$i]}:${gidrange[$i]}
+
 		for j in $(seq $n) ; do
 			ownerids=$(stat -c %u:%g ${mount}/file$j)
 			echo on-disk IDs: "$ownerids"
