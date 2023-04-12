@@ -50,8 +50,8 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	d := &Driver{
 		DeviceSet: deviceSet,
 		home:      home,
-		uidMaps:   options.UIDMaps,
-		gidMaps:   options.GIDMaps,
+		uidMaps:   append([]idtools.IDMap{}, options.UIDMaps...),
+		gidMaps:   append([]idtools.IDMap{}, options.GIDMaps...),
 		ctr:       graphdriver.NewRefCounter(graphdriver.NewDefaultChecker()),
 		locker:    locker.New(),
 	}

@@ -130,8 +130,8 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	a := &Driver{
 		root:         home,
-		uidMaps:      options.UIDMaps,
-		gidMaps:      options.GIDMaps,
+		uidMaps:      append([]idtools.IDMap{}, options.UIDMaps...),
+		gidMaps:      append([]idtools.IDMap{}, options.GIDMaps...),
 		pathCache:    make(map[string]string),
 		ctr:          graphdriver.NewRefCounter(graphdriver.NewFsChecker(graphdriver.FsMagicAufs)),
 		locker:       locker.New(),

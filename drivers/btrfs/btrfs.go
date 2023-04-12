@@ -85,8 +85,8 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	driver := &Driver{
 		home:    home,
-		uidMaps: options.UIDMaps,
-		gidMaps: options.GIDMaps,
+		uidMaps: append([]idtools.IDMap{}, options.UIDMaps...),
+		gidMaps: append([]idtools.IDMap{}, options.GIDMaps...),
 		options: opt,
 	}
 

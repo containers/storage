@@ -118,8 +118,8 @@ func Init(base string, opt graphdriver.Options) (graphdriver.Driver, error) {
 		dataset:          rootDataset,
 		options:          options,
 		filesystemsCache: filesystemsCache,
-		uidMaps:          opt.UIDMaps,
-		gidMaps:          opt.GIDMaps,
+		uidMaps:          append([]idtools.IDMap{}, opt.UIDMaps...),
+		gidMaps:          append([]idtools.IDMap{}, opt.GIDMaps...),
 		ctr:              graphdriver.NewRefCounter(graphdriver.NewDefaultChecker()),
 	}
 	return graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d)), nil
