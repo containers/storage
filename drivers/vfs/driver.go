@@ -304,7 +304,16 @@ func (d *Driver) SupportsShifting() bool {
 // UpdateLayerIDMap updates ID mappings in a from matching the ones specified
 // by toContainer to those specified by toHost.
 func (d *Driver) UpdateLayerIDMap(id string, toContainer, toHost *idtools.IDMappings, mountLabel string) error {
-	return d.updater.UpdateLayerIDMap(id, toContainer, toHost, mountLabel)
+	if err := d.updater.UpdateLayerIDMap(id, toContainer, toHost, mountLabel); err != nil {
+		return err
+	}
+	dir := d.dir(id)
+	rootIDs, err := toHost.ToHost(idtools.IDPair{UID: 0, GID: 0})
+	if err != nil {
+		return err
+	}
+	return os.Chown(dir, rootIDs.UID, rootIDs.GID)
+
 }
 
 // Changes produces a list of changes between the specified layer
