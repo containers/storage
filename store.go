@@ -2542,63 +2542,45 @@ func (s *store) DeleteContainer(id string) error {
 			return ErrNotAContainer
 		}
 
-		errChan := make(chan error)
-		var wg sync.WaitGroup
-
+		// delete the layer first, separately, so that if we get an
+		// error while trying to do so, we don't go ahead and delete
+		// the container record that refers to it, effectively losing
+		// track of it
 		if rlstore.Exists(container.LayerID) {
-			wg.Add(1)
-			go func() {
-				errChan <- rlstore.Delete(container.LayerID)
-				wg.Done()
-			}()
+			if err := rlstore.Delete(container.LayerID); err != nil {
+				return err
+			}
 		}
-		wg.Add(1)
-		go func() {
-			errChan <- s.containerStore.Delete(id)
-			wg.Done()
-		}()
+
+		var wg multierror.Group
+		wg.Go(func() error { return s.containerStore.Delete(id) })
 
 		middleDir := s.graphDriverName + "-containers"
-		gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+
+		wg.Go(func() error {
+			gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
 			// attempt a simple rm -rf first
-			err := os.RemoveAll(gcpath)
-			if err == nil {
-				errChan <- nil
-				return
+			if err := os.RemoveAll(gcpath); err == nil {
+				return nil
 			}
 			// and if it fails get to the more complicated cleanup
-			errChan <- system.EnsureRemoveAll(gcpath)
-		}()
+			return system.EnsureRemoveAll(gcpath)
+		})
 
-		rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() error {
+			rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
 			// attempt a simple rm -rf first
-			err := os.RemoveAll(rcpath)
-			if err == nil {
-				errChan <- nil
-				return
+			if err := os.RemoveAll(rcpath); err == nil {
+				return nil
 			}
 			// and if it fails get to the more complicated cleanup
-			errChan <- system.EnsureRemoveAll(rcpath)
-		}()
+			return system.EnsureRemoveAll(rcpath)
+		})
 
-		go func() {
-			wg.Wait()
-			close(errChan)
-		}()
-
-		var errors []error
-		for err := range errChan {
-			if err != nil {
-				errors = append(errors, err)
-			}
+		if multierr := wg.Wait(); multierr != nil {
+			return multierr.ErrorOrNil()
 		}
-		return multierror.Append(nil, errors...).ErrorOrNil()
+		return nil
 	})
 }
 
