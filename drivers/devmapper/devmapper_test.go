@@ -91,12 +91,16 @@ func TestDevmapperCreateFromTemplate(t *testing.T) {
 	graphtest.DriverTestCreateFromTemplate(t, "devicemapper", "test=1")
 }
 
-func TestDevmapperTeardown(t *testing.T) {
-	graphtest.PutDriver(t)
-}
-
 func TestDevmapperEcho(t *testing.T) {
 	graphtest.DriverTestEcho(t, "devicemapper", "test=1")
+}
+
+func TestDevmapperListLayers(t *testing.T) {
+	graphtest.DriverTestListLayers(t, "devicemapper", "test=1")
+}
+
+func TestDevmapperTeardown(t *testing.T) {
+	graphtest.PutDriver(t)
 }
 
 func TestDevmapperReduceLoopBackSize(t *testing.T) {
@@ -130,7 +134,7 @@ func testChangeLoopBackSize(t *testing.T, delta, expectDataSize, expectMetaDataS
 	}
 	driver = d.(*graphdriver.NaiveDiffDriver).ProtoDriver.(*Driver)
 	if s := driver.DeviceSet.Status(); s.Data.Total != uint64(expectDataSize) || s.Metadata.Total != uint64(expectMetaDataSize) {
-		t.Fatal("data or metadata loop back size is incorrect")
+		t.Fatalf("data or metadata loop back size is incorrect (data actual/expected=%d/%d, metadata actual/expected = %d/%d)", s.Data.Total, expectDataSize, s.Metadata.Total, expectMetaDataSize)
 	}
 	if err := driver.Cleanup(); err != nil {
 		t.Fatal(err)

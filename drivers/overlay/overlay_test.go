@@ -67,12 +67,16 @@ func TestOverlayChanges(t *testing.T) {
 	graphtest.DriverTestChanges(t, driverName)
 }
 
-func TestOverlayTeardown(t *testing.T) {
-	graphtest.PutDriver(t)
-}
-
 func TestOverlayEcho(t *testing.T) {
 	graphtest.DriverTestEcho(t, driverName)
+}
+
+func TestOverlayListLayers(t *testing.T) {
+	graphtest.DriverTestListLayers(t, driverName)
+}
+
+func TestOverlayTeardown(t *testing.T) {
+	graphtest.PutDriver(t)
 }
 
 // Benchmarks should always setup new driver

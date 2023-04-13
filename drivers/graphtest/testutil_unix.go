@@ -39,17 +39,18 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 
 	err := driver.CreateReadWrite(name, "", nil)
 	require.NoError(t, err)
+	t.Cleanup(func() { removeLayer(t, driver, name) })
 
 	dir, err := driver.Get(name, graphdriver.MountOpts{})
 	require.NoError(t, err)
 	defer driver.Put(name)
 
 	subdir := path.Join(dir, "a subdir")
-	require.NoError(t, os.Mkdir(subdir, 0705|os.ModeSticky))
-	require.NoError(t, os.Chown(subdir, 1, 2))
+	require.NoError(t, os.Mkdir(subdir, defaultSubdirPerms|os.ModeSticky))
+	require.NoError(t, os.Chown(subdir, defaultSubdirOwner, defaultSubdirGroup))
 
 	file := path.Join(dir, "a file")
-	err = os.WriteFile(file, []byte("Some data"), 0222|os.ModeSetuid)
+	err = os.WriteFile(file, []byte("Some data"), defaultFilePerms|os.ModeSetuid)
 	require.NoError(t, err)
 }
 
@@ -61,10 +62,10 @@ func verifyBase(t testing.TB, driver graphdriver.Driver, name string, defaultPer
 	verifyFile(t, dir, defaultPerm|os.ModeDir, 0, 0)
 
 	subdir := path.Join(dir, "a subdir")
-	verifyFile(t, subdir, 0705|os.ModeDir|os.ModeSticky, 1, 2)
+	verifyFile(t, subdir, defaultSubdirPerms|os.ModeDir|os.ModeSticky, defaultSubdirOwner, defaultSubdirGroup)
 
 	file := path.Join(dir, "a file")
-	verifyFile(t, file, 0222|os.ModeSetuid, 0, 0)
+	verifyFile(t, file, defaultFilePerms|os.ModeSetuid, 0, 0)
 
 	files, err := readDir(dir)
 	require.NoError(t, err)

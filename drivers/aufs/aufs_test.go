@@ -824,3 +824,7 @@ func TestAufsCreateFromTemplate(t *testing.T) {
 func TestAufsEcho(t *testing.T) {
 	graphtest.DriverTestEcho(t, "aufs")
 }
+
+func TestAufsListLayers(t *testing.T) {
+	graphtest.DriverTestListLayers(t, "aufs")
+}

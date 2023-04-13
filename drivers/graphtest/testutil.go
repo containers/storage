@@ -13,10 +13,12 @@ import (
 	"os"
 	"path"
 	"sort"
+	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/stretchr/testify/require"
 )
 
 func randomContent(size int, seed int64) []byte {
@@ -282,13 +284,14 @@ func addLayerFiles(drv graphdriver.Driver, layer, parent string, i int) error {
 	return nil
 }
 
-func addManyLayers(drv graphdriver.Driver, baseLayer string, count int) (string, error) {
+func addManyLayers(t testing.TB, drv graphdriver.Driver, baseLayer string, count int) (string, error) {
 	lastLayer := baseLayer
 	for i := 1; i <= count; i++ {
 		nextLayer := stringid.GenerateRandomID()
 		if err := drv.Create(nextLayer, lastLayer, nil); err != nil {
 			return "", err
 		}
+		t.Cleanup(func() { removeLayer(t, drv, nextLayer) })
 		if err := addLayerFiles(drv, nextLayer, lastLayer, i); err != nil {
 			return "", err
 		}
@@ -350,4 +353,10 @@ func readDir(dir string) ([]os.DirEntry, error) {
 	}
 
 	return b, nil
+}
+
+// removeLayer tries to remove the layer
+func removeLayer(t testing.TB, driver graphdriver.Driver, name string) {
+	err := driver.Remove(name)
+	require.NoError(t, err)
 }

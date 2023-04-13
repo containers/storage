@@ -37,10 +37,6 @@ func TestVfsCreateFromTemplate(t *testing.T) {
 	graphtest.DriverTestCreateFromTemplate(t, "vfs")
 }
 
-func TestVfsTeardown(t *testing.T) {
-	graphtest.PutDriver(t)
-}
-
 func TestVfsDiffApply100Files(t *testing.T) {
 	graphtest.DriverTestDiffApply(t, 100, "vfs")
 }
@@ -51,4 +47,12 @@ func TestVfsChanges(t *testing.T) {
 
 func TestVfsEcho(t *testing.T) {
 	graphtest.DriverTestEcho(t, "vfs")
+}
+
+func TestVfsListLayers(t *testing.T) {
+	graphtest.DriverTestListLayers(t, "vfs")
+}
+
+func TestVfsTeardown(t *testing.T) {
+	graphtest.PutDriver(t)
 }
