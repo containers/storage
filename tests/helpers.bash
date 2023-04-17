@@ -28,8 +28,14 @@ function setup() {
 
 # Delete the unique root directory and a runroot directory.
 function teardown() {
-	storage wipe
-	storage shutdown
+	run storage wipe
+	if [[ $status -ne 0 ]] ; then
+		echo "$output"
+	fi
+	run storage shutdown
+	if [[ $status -ne 0 ]] ; then
+		echo "$output"
+	fi
 	rm -fr ${TESTDIR}
 }
 

@@ -58,6 +58,8 @@ The *containers-storage* command's features are broken down into several subcomm
 
  **containers-storage changes(1)**             Compare two layers
 
+ **containers-storage check(1)**               Check for and possibly remove damaged layers/images/containers
+
  **containers-storage container(1)**           Examine a container
 
  **containers-storage containers(1)**          List containers
