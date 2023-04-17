@@ -19,6 +19,27 @@ func TestGetRootlessStorageOpts(t *testing.T) {
 
 	const vfsDriver = "vfs"
 
+	t.Run("systemDriver=<unset>", func(t *testing.T) {
+		systemOpts := StoreOptions{}
+
+		td := t.TempDir()
+		home := filepath.Join(td, "unset-driver-home")
+		runhome := filepath.Join(td, "unset-driver-runhome")
+		defer os.RemoveAll(home)
+		defer os.RemoveAll(runhome)
+
+		systemOpts.GraphRoot = home
+		systemOpts.RunRoot = runhome
+		storageOpts, err := getRootlessStorageOpts(os.Geteuid(), systemOpts)
+
+		assert.NilError(t, err)
+		expectedDriver := vfsDriver
+		if canUseRootlessOverlay(home, runhome) {
+			expectedDriver = overlayDriver
+		}
+		assert.Equal(t, storageOpts.GraphDriverName, expectedDriver)
+	})
+
 	t.Run("systemDriver=btrfs", func(t *testing.T) {
 		systemOpts := StoreOptions{}
 		systemOpts.GraphDriverName = "btrfs"
