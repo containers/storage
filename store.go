@@ -1256,10 +1256,12 @@ func writeToImageStore[T any](s *store, fn func() (T, error)) (T, error) {
 
 // readContainerStore is a convenience helper for working with store.containerStore:
 // It locks the store for reading, checks for updates, and calls fn(), which can then access store.containerStore.
-// It returns the return value of fn, or its own error initializing the store.
-func (s *store) readContainerStore(fn func() (bool, error)) (bool, error) {
+// If reading the container store fails, it returns ({}, true, err).
+// Returns the return value of fn on success.
+func readContainerStore[T any](s *store, fn func() (T, bool, error)) (T, bool, error) {
 	if err := s.containerStore.startReading(); err != nil {
-		return true, err
+		var zeroRes T // A zero value of T
+		return zeroRes, true, err
 	}
 	defer s.containerStore.stopReading()
 	return fn()
@@ -1850,14 +1852,12 @@ func (s *store) Metadata(id string) (string, error) {
 		return res, err
 	}
 
-	var res string
-	if done, err := s.readContainerStore(func() (bool, error) {
+	if res, done, err := readContainerStore(s, func() (string, bool, error) {
 		if s.containerStore.Exists(id) {
-			var err error
-			res, err = s.containerStore.Metadata(id)
-			return true, err
+			res, err := s.containerStore.Metadata(id)
+			return res, true, err
 		}
-		return false, nil
+		return "", false, nil
 	}); done {
 		return res, err
 	}
@@ -2158,12 +2158,11 @@ func (s *store) ContainerSize(id string) (int64, error) {
 }
 
 func (s *store) ListContainerBigData(id string) ([]string, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return nil, err
-	}
-	defer s.containerStore.stopReading()
-
-	return s.containerStore.BigDataNames(id)
+	res, _, err := readContainerStore(s, func() ([]string, bool, error) {
+		res, err := s.containerStore.BigDataNames(id)
+		return res, true, err
+	})
+	return res, err
 }
 
 func (s *store) ContainerBigDataSize(id, key string) (int64, error) {
@@ -2179,11 +2178,11 @@ func (s *store) ContainerBigDataDigest(id, key string) (digest.Digest, error) {
 }
 
 func (s *store) ContainerBigData(id, key string) ([]byte, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return nil, err
-	}
-	defer s.containerStore.stopReading()
-	return s.containerStore.BigData(id, key)
+	res, _, err := readContainerStore(s, func() ([]byte, bool, error) {
+		res, err := s.containerStore.BigData(id, key)
+		return res, true, err
+	})
+	return res, err
 }
 
 func (s *store) SetContainerBigData(id, key string, data []byte) error {
@@ -2220,11 +2219,13 @@ func (s *store) Exists(id string) bool {
 		return true
 	}
 
-	if err := s.containerStore.startReading(); err != nil {
+	found, _, err = readContainerStore(s, func() (bool, bool, error) {
+		return s.containerStore.Exists(id), true, nil
+	})
+	if err != nil {
 		return false
 	}
-	defer s.containerStore.stopReading()
-	return s.containerStore.Exists(id)
+	return found
 }
 
 func dedupeStrings(names []string) []string {
@@ -2357,14 +2358,17 @@ func (s *store) Names(id string) ([]string, error) {
 		return res, err
 	}
 
-	if err := s.containerStore.startReading(); err != nil {
-		return nil, err
+	if res, done, err := readContainerStore(s, func() ([]string, bool, error) {
+		if c, err := s.containerStore.Get(id); c != nil && err == nil {
+			return c.Names, true, nil
+		}
+		return nil, false, nil
+	}); done {
+		return res, err
 	}
-	defer s.containerStore.stopReading()
-	if c, err := s.containerStore.Get(id); c != nil && err == nil {
-		return c.Names, nil
-	}
+
 	return nil, ErrLayerUnknown
+
 }
 
 func (s *store) Lookup(name string) (string, error) {
@@ -2386,12 +2390,13 @@ func (s *store) Lookup(name string) (string, error) {
 		return res, err
 	}
 
-	if err := s.containerStore.startReading(); err != nil {
-		return "", err
-	}
-	defer s.containerStore.stopReading()
-	if c, err := s.containerStore.Get(name); c != nil && err == nil {
-		return c.ID, nil
+	if res, done, err := readContainerStore(s, func() (string, bool, error) {
+		if c, err := s.containerStore.Get(name); c != nil && err == nil {
+			return c.ID, true, nil
+		}
+		return "", false, nil
+	}); done {
+		return res, err
 	}
 
 	return "", ErrLayerUnknown
@@ -2998,12 +3003,11 @@ func (s *store) Images() ([]Image, error) {
 }
 
 func (s *store) Containers() ([]Container, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return nil, err
-	}
-	defer s.containerStore.stopReading()
-
-	return s.containerStore.Containers()
+	res, _, err := readContainerStore(s, func() ([]Container, bool, error) {
+		res, err := s.containerStore.Containers()
+		return res, true, err
+	})
+	return res, err
 }
 
 func (s *store) Layer(id string) (*Layer, error) {
@@ -3169,20 +3173,18 @@ func (s *store) ImagesByDigest(d digest.Digest) ([]*Image, error) {
 }
 
 func (s *store) Container(id string) (*Container, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return nil, err
-	}
-	defer s.containerStore.stopReading()
-
-	return s.containerStore.Get(id)
+	res, _, err := readContainerStore(s, func() (*Container, bool, error) {
+		res, err := s.containerStore.Get(id)
+		return res, true, err
+	})
+	return res, err
 }
 
 func (s *store) ContainerLayerID(id string) (string, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return "", err
-	}
-	defer s.containerStore.stopReading()
-	container, err := s.containerStore.Get(id)
+	container, _, err := readContainerStore(s, func() (*Container, bool, error) {
+		res, err := s.containerStore.Get(id)
+		return res, true, err
+	})
 	if err != nil {
 		return "", err
 	}
@@ -3194,11 +3196,10 @@ func (s *store) ContainerByLayer(id string) (*Container, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.containerStore.startReading(); err != nil {
-		return nil, err
-	}
-	defer s.containerStore.stopReading()
-	containerList, err := s.containerStore.Containers()
+	containerList, _, err := readContainerStore(s, func() ([]Container, bool, error) {
+		res, err := s.containerStore.Containers()
+		return res, true, err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -3212,41 +3213,37 @@ func (s *store) ContainerByLayer(id string) (*Container, error) {
 }
 
 func (s *store) ContainerDirectory(id string) (string, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return "", err
-	}
-	defer s.containerStore.stopReading()
+	res, _, err := readContainerStore(s, func() (string, bool, error) {
+		id, err := s.containerStore.Lookup(id)
+		if err != nil {
+			return "", true, err
+		}
 
-	id, err := s.containerStore.Lookup(id)
-	if err != nil {
-		return "", err
-	}
-
-	middleDir := s.graphDriverName + "-containers"
-	gcpath := filepath.Join(s.GraphRoot(), middleDir, id, "userdata")
-	if err := os.MkdirAll(gcpath, 0700); err != nil {
-		return "", err
-	}
-	return gcpath, nil
+		middleDir := s.graphDriverName + "-containers"
+		gcpath := filepath.Join(s.GraphRoot(), middleDir, id, "userdata")
+		if err := os.MkdirAll(gcpath, 0700); err != nil {
+			return "", true, err
+		}
+		return gcpath, true, nil
+	})
+	return res, err
 }
 
 func (s *store) ContainerRunDirectory(id string) (string, error) {
-	if err := s.containerStore.startReading(); err != nil {
-		return "", err
-	}
-	defer s.containerStore.stopReading()
+	res, _, err := readContainerStore(s, func() (string, bool, error) {
+		id, err := s.containerStore.Lookup(id)
+		if err != nil {
+			return "", true, err
+		}
 
-	id, err := s.containerStore.Lookup(id)
-	if err != nil {
-		return "", err
-	}
-
-	middleDir := s.graphDriverName + "-containers"
-	rcpath := filepath.Join(s.RunRoot(), middleDir, id, "userdata")
-	if err := os.MkdirAll(rcpath, 0700); err != nil {
-		return "", err
-	}
-	return rcpath, nil
+		middleDir := s.graphDriverName + "-containers"
+		rcpath := filepath.Join(s.RunRoot(), middleDir, id, "userdata")
+		if err := os.MkdirAll(rcpath, 0700); err != nil {
+			return "", true, err
+		}
+		return rcpath, true, nil
+	})
+	return res, err
 }
 
 func (s *store) SetContainerDirectoryFile(id, file string, data []byte) error {

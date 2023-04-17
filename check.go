@@ -570,10 +570,10 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 	}
 
 	// Iterate over each container in turn.
-	if done, err := s.readContainerStore(func() (bool, error) {
+	if _, _, err := readContainerStore(s, func() (struct{}, bool, error) {
 		containers, err := s.containerStore.Containers()
 		if err != nil {
-			return true, err
+			return struct{}{}, true, err
 		}
 		for i := range containers {
 			container := containers[i]
@@ -622,8 +622,8 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 				referencedLayers[container.LayerID] = true
 			}
 		}
-		return false, nil
-	}); done {
+		return struct{}{}, false, nil
+	}); err != nil {
 		return CheckReport{}, err
 	}
 
