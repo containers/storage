@@ -43,6 +43,7 @@ func main() {
 		flags := mflag.NewFlagSet(command, eh)
 		flags.StringVar(&options.RunRoot, []string{"-run", "R"}, options.RunRoot, "Root of the runtime state tree")
 		flags.StringVar(&options.GraphRoot, []string{"-graph", "g"}, options.GraphRoot, "Root of the storage tree")
+		flags.StringVar(&options.ImageStore, []string{"-image-store"}, options.ImageStore, "Root of the separate image store")
 		flags.BoolVar(&options.TransientStore, []string{"-transient-store"}, options.TransientStore, "Transient store")
 		flags.StringVar(&options.GraphDriverName, []string{"-storage-driver", "s"}, options.GraphDriverName, "Storage driver to use ($STORAGE_DRIVER)")
 		flags.Var(opts.NewListOptsRef(&options.GraphDriverOptions, nil), []string{"-storage-opt"}, "Set storage driver options ($STORAGE_OPTS)")

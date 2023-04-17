@@ -326,6 +326,7 @@ func getBuiltinDriver(name, home string, options Options) (Driver, error) {
 type Options struct {
 	Root                string
 	RunRoot             string
+	ImageStore          string
 	DriverPriority      []string
 	DriverOptions       []string
 	UIDMaps             []idtools.IDMap
