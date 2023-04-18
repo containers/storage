@@ -168,7 +168,7 @@ vendor_task:
 
 cross_task:
     container:
-        image: golang:1.17
+        image: golang:1.18
     build_script: make cross
 
 
@@ -182,6 +182,6 @@ success_task:
         - vendor
         - cross
     container:
-        image: golang:1.17
+        image: golang:1.18
     clone_script: 'mkdir -p "$CIRRUS_WORKING_DIR"'  # Source code not needed
     script: /bin/true
