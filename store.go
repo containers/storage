@@ -676,6 +676,7 @@ type store struct {
 	autoNsMinSize   uint32
 	autoNsMaxSize   uint32
 	imageStore      rwImageStore
+	rwImageStores   []rwImageStore
 	roImageStores   []roImageStore
 	containerStore  rwContainerStore
 	digestLockRoot  string
@@ -940,9 +941,22 @@ func (s *store) load() error {
 
 	for _, store := range driver.AdditionalImageStores() {
 		gipath := filepath.Join(store, driverPrefix+"images")
-		ris, err := newROImageStore(gipath)
-		if err != nil {
-			return err
+		var ris roImageStore
+		if s.imageStoreDir != "" && store == s.graphRoot {
+			// If --imagestore was set and current store
+			// is `graphRoot` then mount it as a `rw` additional
+			// store instead of `readonly` additional store.
+			imageStore, err := newImageStore(gipath)
+			if err != nil {
+				return err
+			}
+			s.rwImageStores = append(s.rwImageStores, imageStore)
+			ris = imageStore
+		} else {
+			ris, err = newROImageStore(gipath)
+			if err != nil {
+				return err
+			}
 		}
 		s.roImageStores = append(s.roImageStores, ris)
 	}
@@ -2479,8 +2493,28 @@ func (s *store) DeleteLayer(id string) error {
 func (s *store) DeleteImage(id string, commit bool) (layers []string, err error) {
 	layersToRemove := []string{}
 	if err := s.writeToAllStores(func(rlstore rwLayerStore) error {
-		if s.imageStore.Exists(id) {
-			image, err := s.imageStore.Get(id)
+		// Perform delete image on primary imageStore but if image
+		// is not found on primary store then try delete on any additional
+		// write-able image store.
+		imageStores := []rwImageStore{s.imageStore}
+		imageStores = append(imageStores, s.rwImageStores...)
+		imageFound := false
+		primaryImageStore := true
+		for _, imageStore := range imageStores {
+			if !imageStore.Exists(id) {
+				primaryImageStore = false
+				continue
+			}
+			imageFound = true
+			if !primaryImageStore {
+				// This is an additional writeable image store
+				// so we must perform lock
+				if err := imageStore.startWriting(); err != nil {
+					return err
+				}
+				defer imageStore.stopWriting()
+			}
+			image, err := imageStore.Get(id)
 			if err != nil {
 				return err
 			}
@@ -2496,7 +2530,7 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 			if container, ok := aContainerByImage[id]; ok {
 				return fmt.Errorf("image used by %v: %w", container, ErrImageUsedByContainer)
 			}
-			images, err := s.imageStore.Images()
+			images, err := imageStore.Images()
 			if err != nil {
 				return err
 			}
@@ -2518,7 +2552,7 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 				}
 			}
 			if commit {
-				if err = s.imageStore.Delete(id); err != nil {
+				if err = imageStore.Delete(id); err != nil {
 					return err
 				}
 			}
@@ -2563,7 +2597,8 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 				layersToRemoveMap[layer] = struct{}{}
 				layer = parent
 			}
-		} else {
+		}
+		if !imageFound {
 			return ErrNotAnImage
 		}
 		if commit {

@@ -89,10 +89,21 @@ load helpers
 	[[ "$output" =~ "Name: $name" ]]
 	[[ "$output" =~ "Data: random1" ]]
 	[[ "$output" =~ "Data: random2" ]]
-	# Since this image is being read from the readonly graph root
-	# so it must show that
-	[[ "$output" =~ "Read Only: true" ]]
 
 	# shutdown store
 	run storage --graph ${TESTDIR}/graph --image-store ${TESTDIR}/imagestore/ --run ${TESTDIR}/runroot/ shutdown
+
+	# Even though image only exists on graphRoot, user must
+	# be able able to delete the image on graphRoot while `--image-store`
+	# is still set.
+	run storage --graph ${TESTDIR}/graph --image-store ${TESTDIR}/imagestore/ --run ${TESTDIR}/runroot/ delete-image $image
+	# shutdown store
+	run storage --graph ${TESTDIR}/graph --image-store ${TESTDIR}/imagestore/ --run ${TESTDIR}/runroot/ shutdown
+
+	# Now since image was deleted from graphRoot, we should
+	# get false output while checking if image still exists
+	run storage --graph ${TESTDIR}/graph exists -i $image
+	[ "$status" -ne 0 ]
+	# shutdown store
+	run storage --graph ${TESTDIR}/graph shutdown
 }
