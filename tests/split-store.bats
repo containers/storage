@@ -47,7 +47,7 @@ load helpers
 
 @test "split-store - use graphRoot as an additional store by default" {
 	case "$STORAGE_DRIVER" in
-	overlay*)
+	overlay*|vfs)
 		;;
 	*)
 		skip "additional store not supported by driver $STORAGE_DRIVER"

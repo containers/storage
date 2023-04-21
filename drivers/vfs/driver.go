@@ -62,6 +62,12 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 			return nil, fmt.Errorf("vfs driver does not support %s options", key)
 		}
 	}
+	// If --imagestore is provided, lets add writable graphRoot
+	// to vfs's additional image store, as it is done for
+	// `overlay` driver.
+	if options.ImageStore != "" {
+		d.homes = append(d.homes, options.ImageStore)
+	}
 	d.updater = graphdriver.NewNaiveLayerIDMapUpdater(d)
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d.updater)
 
