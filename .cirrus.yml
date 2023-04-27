@@ -127,7 +127,6 @@ lint_task:
         fingerprint_script: cat go.sum
         folder: $GOPATH/pkg/mod
     build_script: |
-      echo "deb http://deb.debian.org/debian stretch-backports main" > /etc/apt/sources.list.d/backports.list
       apt-get update
       apt-get install -y libbtrfs-dev libdevmapper-dev
     test_script: make TAGS=regex_precompile local-validate && make lint && make clean
