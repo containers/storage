@@ -17,7 +17,7 @@ env:
     ####
     #### Cache-image names to test with (double-quotes around names are critical)
     ###
-    FEDORA_NAME: "fedora-37"
+    FEDORA_NAME: "fedora-38"
     DEBIAN_NAME: "debian-12"
 
     # GCE project where images live
