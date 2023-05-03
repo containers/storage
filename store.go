@@ -2470,28 +2470,22 @@ func (s *store) DeleteLayer(id string) error {
 func (s *store) DeleteImage(id string, commit bool) (layers []string, err error) {
 	layersToRemove := []string{}
 	if err := s.writeToAllStores(func(rlstore rwLayerStore) error {
-		// Perform delete image on primary imageStore but if image
-		// is not found on primary store then try delete on any additional
-		// write-able image store.
-		imageStores := []rwImageStore{s.imageStore}
-		imageStores = append(imageStores, s.rwImageStores...)
+		// Delete image from all available imagestores configured to be used.
 		imageFound := false
-		primaryImageStore := true
-		for _, imageStore := range imageStores {
-			if !imageStore.Exists(id) {
-				primaryImageStore = false
+		for _, is := range append([]rwImageStore{s.imageStore}, s.rwImageStores...) {
+			if is != s.imageStore {
+				// This is an additional writeable image store
+				// so we must perform lock
+				if err := is.startWriting(); err != nil {
+					return err
+				}
+				defer is.stopWriting()
+			}
+			if !is.Exists(id) {
 				continue
 			}
 			imageFound = true
-			if !primaryImageStore {
-				// This is an additional writeable image store
-				// so we must perform lock
-				if err := imageStore.startWriting(); err != nil {
-					return err
-				}
-				defer imageStore.stopWriting()
-			}
-			image, err := imageStore.Get(id)
+			image, err := is.Get(id)
 			if err != nil {
 				return err
 			}
@@ -2507,7 +2501,7 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 			if container, ok := aContainerByImage[id]; ok {
 				return fmt.Errorf("image used by %v: %w", container, ErrImageUsedByContainer)
 			}
-			images, err := imageStore.Images()
+			images, err := is.Images()
 			if err != nil {
 				return err
 			}
@@ -2529,7 +2523,7 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 				}
 			}
 			if commit {
-				if err = imageStore.Delete(id); err != nil {
+				if err = is.Delete(id); err != nil {
 					return err
 				}
 			}
