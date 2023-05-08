@@ -399,9 +399,9 @@ func openDir(path string) (*C.DIR, error) {
 	Cpath := C.CString(path)
 	defer free(Cpath)
 
-	dir := C.opendir(Cpath)
+	dir, errno := C.opendir(Cpath)
 	if dir == nil {
-		return nil, fmt.Errorf("can't open dir %v", Cpath)
+		return nil, fmt.Errorf("can't open dir %v: %w", Cpath, errno)
 	}
 	return dir, nil
 }
