@@ -15,6 +15,7 @@ import (
 
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/types"
 	"github.com/sirupsen/logrus"
@@ -177,7 +178,7 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 
 	// Walk the list of layer stores, looking at each layer that we didn't see in a
 	// previously-visited store.
-	if _, _, err := readAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
+	if _, _, err := readOrWriteAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
 		layers, err := store.Layers()
 		if err != nil {
 			return struct{}{}, true, err
@@ -415,6 +416,11 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 						expectedCheckDirectory.headers(diffHeaders)
 					}
 					// Scan the directory tree under the mount point.
+					var idmap *idtools.IDMappings
+					if !s.canUseShifting(layer.UIDMap, layer.GIDMap) {
+						// we would have had to chown() layer contents to match ID maps
+						idmap = idtools.NewIDMappingsFromMaps(layer.UIDMap, layer.GIDMap)
+					}
 					actualCheckDirectory, err := newCheckDirectoryFromDirectory(mountPoint)
 					if err != nil {
 						err := fmt.Errorf("scanning contents of %slayer %s: %w", readWriteDesc, id, err)
@@ -426,7 +432,7 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 						return
 					}
 					// Every departure from our expectations is an error.
-					diffs := compareCheckDirectory(expectedCheckDirectory, actualCheckDirectory, ignore)
+					diffs := compareCheckDirectory(expectedCheckDirectory, actualCheckDirectory, idmap, ignore)
 					for _, diff := range diffs {
 						err := fmt.Errorf("%slayer %s: %s, %w", readWriteDesc, id, diff, ErrLayerContentModified)
 						if isReadWrite {
@@ -822,10 +828,17 @@ func (s *store) Repair(report CheckReport, options *RepairOptions) []error {
 }
 
 // compareFileInfo returns a string summarizing what's different between the two checkFileInfos
-func compareFileInfo(a, b checkFileInfo, ignore checkIgnore) string {
+func compareFileInfo(a, b checkFileInfo, idmap *idtools.IDMappings, ignore checkIgnore) string {
 	var comparison []string
 	if a.typeflag != b.typeflag {
 		comparison = append(comparison, fmt.Sprintf("filetype:%v￫%v", a.typeflag, b.typeflag))
+	}
+	if idmap != nil && !idmap.Empty() {
+		mappedUID, mappedGID, err := idmap.ToContainer(idtools.IDPair{UID: b.uid, GID: b.gid})
+		if err != nil {
+			return err.Error()
+		}
+		b.uid, b.gid = mappedUID, mappedGID
 	}
 	if a.uid != b.uid && !ignore.ownership {
 		comparison = append(comparison, fmt.Sprintf("uid:%d￫%d", a.uid, b.uid))
@@ -1072,7 +1085,7 @@ func (c *checkDirectory) names() []string {
 }
 
 // compareCheckSubdirectory walks two subdirectory trees and returns a list of differences
-func compareCheckSubdirectory(path string, a, b *checkDirectory, ignore checkIgnore) []string {
+func compareCheckSubdirectory(path string, a, b *checkDirectory, idmap *idtools.IDMappings, ignore checkIgnore) []string {
 	var diff []string
 	if a == nil {
 		a = newCheckDirectoryDefaults()
@@ -1084,20 +1097,20 @@ func compareCheckSubdirectory(path string, a, b *checkDirectory, ignore checkIgn
 		if bdir, present := b.directory[aname]; !present {
 			// directory was removed
 			diff = append(diff, "-"+path+"/"+aname+"/")
-			diff = append(diff, compareCheckSubdirectory(path+"/"+aname, adir, nil, ignore)...)
+			diff = append(diff, compareCheckSubdirectory(path+"/"+aname, adir, nil, idmap, ignore)...)
 		} else {
 			// directory is in both trees; descend
-			if attributes := compareFileInfo(adir.checkFileInfo, bdir.checkFileInfo, ignore); attributes != "" {
+			if attributes := compareFileInfo(adir.checkFileInfo, bdir.checkFileInfo, idmap, ignore); attributes != "" {
 				diff = append(diff, path+"/"+aname+"("+attributes+")")
 			}
-			diff = append(diff, compareCheckSubdirectory(path+"/"+aname, adir, bdir, ignore)...)
+			diff = append(diff, compareCheckSubdirectory(path+"/"+aname, adir, bdir, idmap, ignore)...)
 		}
 	}
 	for bname, bdir := range b.directory {
 		if _, present := a.directory[bname]; !present {
 			// directory added
 			diff = append(diff, "+"+path+"/"+bname+"/")
-			diff = append(diff, compareCheckSubdirectory(path+"/"+bname, nil, bdir, ignore)...)
+			diff = append(diff, compareCheckSubdirectory(path+"/"+bname, nil, bdir, idmap, ignore)...)
 		}
 	}
 	for aname, afile := range a.file {
@@ -1106,7 +1119,7 @@ func compareCheckSubdirectory(path string, a, b *checkDirectory, ignore checkIgn
 			diff = append(diff, "-"+path+"/"+aname)
 		} else {
 			// item is in both trees; compare
-			if attributes := compareFileInfo(afile, bfile, ignore); attributes != "" {
+			if attributes := compareFileInfo(afile, bfile, idmap, ignore); attributes != "" {
 				diff = append(diff, path+"/"+aname+"("+attributes+")")
 			}
 		}
@@ -1118,7 +1131,7 @@ func compareCheckSubdirectory(path string, a, b *checkDirectory, ignore checkIgn
 			diff = append(diff, "+"+path+"/"+bname)
 			continue
 		}
-		if attributes := compareFileInfo(filetype, b.file[bname], ignore); attributes != "" {
+		if attributes := compareFileInfo(filetype, b.file[bname], idmap, ignore); attributes != "" {
 			// non-directory replaced with non-directory
 			diff = append(diff, "+"+path+"/"+bname+"("+attributes+")")
 		}
@@ -1127,8 +1140,8 @@ func compareCheckSubdirectory(path string, a, b *checkDirectory, ignore checkIgn
 }
 
 // compareCheckDirectory walks two directory trees and returns a sorted list of differences
-func compareCheckDirectory(a, b *checkDirectory, ignore checkIgnore) []string {
-	diff := compareCheckSubdirectory("", a, b, ignore)
+func compareCheckDirectory(a, b *checkDirectory, idmap *idtools.IDMappings, ignore checkIgnore) []string {
+	diff := compareCheckSubdirectory("", a, b, idmap, ignore)
 	sort.Slice(diff, func(i, j int) bool {
 		if strings.Compare(diff[i][1:], diff[j][1:]) < 0 {
 			return true
