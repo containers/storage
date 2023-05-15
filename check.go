@@ -922,6 +922,10 @@ func (c *checkDirectory) add(path string, typeflag byte, uid, gid int, size int6
 	}
 	switch len(components) {
 	case 0:
+		c.uid = uid
+		c.gid = gid
+		c.mode = mode
+		c.mtime = mtime
 		return
 	case 1:
 		switch typeflag {
