@@ -995,6 +995,31 @@ func (c *checkDirectory) header(hdr *tar.Header) {
 			c.remove(path.Join(dir, base[len(archive.WhiteoutPrefix):]))
 		}
 	} else {
+		if hdr.Typeflag == tar.TypeLink {
+			// look up the attributes of the target of the hard link
+			// n.b. by convention, Linkname is always relative to the
+			// root directory of the archive, which is not always the
+			// same as being relative to hdr.Name
+			directory := c
+			for _, component := range strings.Split(path.Clean(hdr.Linkname), "/") {
+				if component == "." || component == ".." {
+					continue
+				}
+				if subdir, ok := directory.directory[component]; ok {
+					directory = subdir
+					continue
+				}
+				if file, ok := directory.file[component]; ok {
+					hdr.Typeflag = file.typeflag
+					hdr.Uid = file.uid
+					hdr.Gid = file.gid
+					hdr.Size = file.size
+					hdr.Mode = int64(file.mode)
+					hdr.ModTime = time.Unix(file.mtime, 0)
+				}
+				break
+			}
+		}
 		c.add(name, hdr.Typeflag, hdr.Uid, hdr.Gid, hdr.Size, os.FileMode(hdr.Mode), hdr.ModTime.Unix())
 	}
 }
@@ -1005,7 +1030,14 @@ func (c *checkDirectory) headers(hdrs []*tar.Header) {
 	// sort the headers from the diff to ensure that whiteouts appear
 	// before content when they both appear in the same directory, per
 	// https://github.com/opencontainers/image-spec/blob/main/layer.md#whiteouts
-	sort.Slice(hdrs, func(i, j int) bool {
+	// and that hard links appear after other types of entries
+	sort.SliceStable(hdrs, func(i, j int) bool {
+		if hdrs[i].Typeflag != tar.TypeLink && hdrs[j].Typeflag == tar.TypeLink {
+			return true
+		}
+		if hdrs[i].Typeflag == tar.TypeLink && hdrs[j].Typeflag != tar.TypeLink {
+			return false
+		}
 		idir, ifile := path.Split(hdrs[i].Name)
 		jdir, jfile := path.Split(hdrs[j].Name)
 		if idir != jdir {
