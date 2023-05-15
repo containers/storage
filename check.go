@@ -898,9 +898,6 @@ func newCheckDirectoryFromDirectory(dir string) (*checkDirectory, error) {
 		if err != nil {
 			return err
 		}
-		if hdr.Typeflag == tar.TypeLink {
-			hdr.Typeflag = tar.TypeReg
-		}
 		hdr.Name = filepath.ToSlash(rel)
 		cd.header(hdr)
 		return nil
@@ -917,8 +914,11 @@ func (c *checkDirectory) add(path string, typeflag byte, uid, gid int, size int6
 	if components[len(components)-1] == "" {
 		components = components[:len(components)-1]
 	}
-	if typeflag == tar.TypeLink || typeflag == tar.TypeRegA {
-		typeflag = tar.TypeReg
+	if components[0] == "." {
+		components = components[1:]
+	}
+	if typeflag != tar.TypeReg {
+		size = 0
 	}
 	switch len(components) {
 	case 0:
