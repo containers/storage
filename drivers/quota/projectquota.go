@@ -57,6 +57,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -80,6 +81,7 @@ type Quota struct {
 // Control - Context to be used by storage driver (e.g. overlay)
 // who wants to apply project quotas to container dirs
 type Control struct {
+	sync.Mutex        // Lock()ed during every call to an exported method
 	backingFsBlockDev string
 	nextProjectID     uint32
 	quotas            map[string]uint32
@@ -191,7 +193,8 @@ func NewControl(basePath string) (*Control, error) {
 // SetQuota - assign a unique project id to directory and set the quota limits
 // for that project id
 func (q *Control) SetQuota(targetPath string, quota Quota) error {
-
+	q.Lock()
+	defer q.Unlock()
 	projectID, ok := q.quotas[targetPath]
 	if !ok {
 		projectID = q.nextProjectID
@@ -218,6 +221,8 @@ func (q *Control) SetQuota(targetPath string, quota Quota) error {
 // ClearQuota removes the map entry in the quotas map for targetPath.
 // It does so to prevent the map leaking entries as directories are deleted.
 func (q *Control) ClearQuota(targetPath string) {
+	q.Lock()
+	defer q.Unlock()
 	delete(q.quotas, targetPath)
 }
 
@@ -275,6 +280,8 @@ func (q *Control) setProjectQuota(projectID uint32, quota Quota) error {
 
 // GetQuota - get the quota limits of a directory that was configured with SetQuota
 func (q *Control) GetQuota(targetPath string, quota *Quota) error {
+	q.Lock()
+	defer q.Unlock()
 	d, err := q.fsDiskQuotaFromPath(targetPath)
 	if err != nil {
 		return err
@@ -286,6 +293,8 @@ func (q *Control) GetQuota(targetPath string, quota *Quota) error {
 
 // GetDiskUsage - get the current disk usage of a directory that was configured with SetQuota
 func (q *Control) GetDiskUsage(targetPath string, usage *directory.DiskUsage) error {
+	q.Lock()
+	defer q.Unlock()
 	d, err := q.fsDiskQuotaFromPath(targetPath)
 	if err != nil {
 		return err
