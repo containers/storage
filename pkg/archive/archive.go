@@ -80,6 +80,7 @@ const (
 
 var xattrsToIgnore = map[string]interface{}{
 	"security.selinux": true,
+	"security.ima":     true,
 }
 
 // Archiver allows the reuse of most utility functions of this package with a
