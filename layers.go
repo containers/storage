@@ -864,33 +864,35 @@ func (r *layerStore) loadMounts() error {
 		return err
 	}
 	layerMounts := []layerMountPoint{}
-	if err = json.Unmarshal(data, &layerMounts); len(data) == 0 || err == nil {
-		// Clear all of our mount information.  If another process
-		// unmounted something, it (along with its zero count) won't
-		// have been encoded into the version of mountpoints.json that
-		// we're loading, so our count could fall out of sync with it
-		// if we don't, and if we subsequently change something else,
-		// we'd pass that error along to other process that reloaded
-		// the data after we saved it.
-		for _, layer := range r.layers {
-			layer.MountPoint = ""
-			layer.MountCount = 0
+	if len(data) != 0 {
+		if err := json.Unmarshal(data, &layerMounts); err != nil {
+			return err
 		}
-		// All of the non-zero count values will have been encoded, so
-		// we reset the still-mounted ones based on the contents.
-		for _, mount := range layerMounts {
-			if mount.MountPoint != "" {
-				if layer, ok := r.lookup(mount.ID); ok {
-					mounts[mount.MountPoint] = layer
-					layer.MountPoint = mount.MountPoint
-					layer.MountCount = mount.MountCount
-				}
+	}
+	// Clear all of our mount information.  If another process
+	// unmounted something, it (along with its zero count) won't
+	// have been encoded into the version of mountpoints.json that
+	// we're loading, so our count could fall out of sync with it
+	// if we don't, and if we subsequently change something else,
+	// we'd pass that error along to other process that reloaded
+	// the data after we saved it.
+	for _, layer := range r.layers {
+		layer.MountPoint = ""
+		layer.MountCount = 0
+	}
+	// All of the non-zero count values will have been encoded, so
+	// we reset the still-mounted ones based on the contents.
+	for _, mount := range layerMounts {
+		if mount.MountPoint != "" {
+			if layer, ok := r.lookup(mount.ID); ok {
+				mounts[mount.MountPoint] = layer
+				layer.MountPoint = mount.MountPoint
+				layer.MountCount = mount.MountCount
 			}
 		}
-		err = nil
 	}
 	r.bymount = mounts
-	return err
+	return nil
 }
 
 // save saves the contents of the store to disk.
