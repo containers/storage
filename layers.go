@@ -920,6 +920,14 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 	}
 	r.lockfile.AssertLockedForWriting()
 
+	// This must be done before we write the file, because the process could be terminated
+	// after the file is written but before the lock file is updated.
+	lw, err := r.lockfile.RecordWrite()
+	if err != nil {
+		return err
+	}
+	r.lastWrite = lw
+
 	for locationIndex := 0; locationIndex < numLayerLocationIndex; locationIndex++ {
 		location := layerLocationFromIndex(locationIndex)
 		if location&saveLocations == 0 {
@@ -949,11 +957,6 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 		}
 		r.layerspathsModified[locationIndex] = opts.ModTime
 	}
-	lw, err := r.lockfile.RecordWrite()
-	if err != nil {
-		return err
-	}
-	r.lastWrite = lw
 	return nil
 }
 
@@ -982,14 +985,18 @@ func (r *layerStore) saveMounts() error {
 	if err != nil {
 		return err
 	}
-	if err = ioutils.AtomicWriteFile(mpath, jmdata, 0600); err != nil {
-		return err
-	}
+
+	// This must be done before we write the file, because the process could be terminated
+	// after the file is written but before the lock file is updated.
 	lw, err := r.mountsLockfile.RecordWrite()
 	if err != nil {
 		return err
 	}
 	r.mountsLastWrite = lw
+
+	if err = ioutils.AtomicWriteFile(mpath, jmdata, 0600); err != nil {
+		return err
+	}
 	return r.loadMounts()
 }
 
