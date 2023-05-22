@@ -1056,6 +1056,11 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, disable
 		if err := d.quotaCtl.SetQuota(dir, quota); err != nil {
 			return err
 		}
+		if imageStore != "" {
+			if err := d.quotaCtl.SetQuota(imageStore, quota); err != nil {
+				return err
+			}
+		}
 	}
 
 	perms := defaultPerms
@@ -1287,6 +1292,9 @@ func (d *Driver) Remove(id string) error {
 	}
 	if d.quotaCtl != nil {
 		d.quotaCtl.ClearQuota(dir)
+		if d.imageStore != "" {
+			d.quotaCtl.ClearQuota(d.imageStore)
+		}
 	}
 	return nil
 }
