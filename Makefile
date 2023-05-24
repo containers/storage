@@ -78,9 +78,6 @@ local-validate validate: install.tools ## validate DCO and gofmt on the host
 install.tools:
 	$(MAKE) -C tests/tools
 
-$(FFJSON):
-	$(MAKE) -C tests/tools
-
 install.docs: docs
 	$(MAKE) -C docs install
 
