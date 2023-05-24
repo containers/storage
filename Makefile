@@ -3,11 +3,19 @@ export GOPROXY=https://proxy.golang.org
 
 .PHONY: \
 	all \
+	binary \
 	clean \
+	codespell \
+	containers-storage \
+	cross \
 	default \
 	docs \
+	gccgo \
 	help \
+	install \
+	install.docs \
 	install.tools \
+	lint \
 	local-binary \
 	local-cross \
 	local-gccgo \
@@ -15,8 +23,11 @@ export GOPROXY=https://proxy.golang.org
 	local-test-integration \
 	local-test-unit \
 	local-validate \
-	lint \
-	vendor
+	test-integration \
+	test-unit \
+	validate \
+	vendor \
+	vendor-in-container
 
 PACKAGE := github.com/containers/storage
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
