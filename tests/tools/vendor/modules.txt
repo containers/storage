@@ -1,15 +1,21 @@
 # github.com/cpuguy83/go-md2man v1.0.10
+## explicit; go 1.12
 github.com/cpuguy83/go-md2man
 github.com/cpuguy83/go-md2man/md2man
 # github.com/hashicorp/go-version v1.2.0
+## explicit
 github.com/hashicorp/go-version
 # github.com/konsorten/go-windows-terminal-sequences v1.0.1
+## explicit
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/russross/blackfriday v1.5.2
+## explicit
 github.com/russross/blackfriday
 # github.com/sirupsen/logrus v1.4.1
+## explicit
 github.com/sirupsen/logrus
 # github.com/vbatts/git-validation v1.0.0
+## explicit; go 1.12
 github.com/vbatts/git-validation
 github.com/vbatts/git-validation/git
 github.com/vbatts/git-validation/rules/danglingwhitespace
@@ -18,4 +24,5 @@ github.com/vbatts/git-validation/rules/messageregexp
 github.com/vbatts/git-validation/rules/shortsubject
 github.com/vbatts/git-validation/validate
 # golang.org/x/sys v0.5.0
+## explicit; go 1.17
 golang.org/x/sys/unix
