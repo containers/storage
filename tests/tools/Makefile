@@ -1,20 +1,16 @@
-export GO111MODULE=off
-
 GO := go
-
 BUILDDIR := build
 
 all: $(BUILDDIR)
 
 .PHONY: vendor
 vendor:
-	export GO111MODULE=on \
-		$(GO) mod tidy && \
-		$(GO) mod vendor && \
-		$(GO) mod verify
+	$(GO) mod tidy
+	$(GO) mod vendor
+	$(GO) mod verify
 
 define go-build
-	$(shell cd `pwd` && $(GO) build -o $(BUILDDIR)/$(shell basename $(1)) $(1))
+	$(shell cd `pwd` && $(GO) build -mod=vendor -o $(BUILDDIR)/$(shell basename $(1)) $(1))
 	@echo > /dev/null
 endef
 
