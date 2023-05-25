@@ -56,7 +56,6 @@ gce_instance:
 linux_testing: &linux_testing
     depends_on:
         - lint
-    only_if: $CIRRUS_CHANGE_TITLE !=~ '.*CI:DOCS.*'
     gce_instance:  # Only need to specify differences from defaults (above)
         image_name: "${VM_IMAGE}"
 
