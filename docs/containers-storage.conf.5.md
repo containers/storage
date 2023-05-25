@@ -93,7 +93,7 @@ container registry. These options can deduplicate pulling of content, disk
 storage of content and can allow the kernel to use less memory when running
 containers.
 
-containers/storage supports four keys
+containers/storage supports three keys
   * enable_partial_images="true" | "false"
     Tells containers/storage to look for files previously pulled in storage
     rather then always pulling them from the container registry.
@@ -110,8 +110,8 @@ containers/storage supports four keys
   Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of a container, to the UIDs/GIDs outside of the container, and the length of the range of UIDs/GIDs.  Additional mapped sets can be listed and will be heeded by libraries, but there are limits to the number of mappings which the kernel will allow when you later attempt to run a container.
 
   Example
-     remap-uids = 0:1668442479:65536
-     remap-gids = 0:1668442479:65536
+     remap-uids = "0:1668442479:65536"
+     remap-gids = "0:1668442479:65536"
 
   These mappings tell the container engines to map UID 0 inside of the container to UID 1668442479 outside.  UID 1 will be mapped to 1668442480. UID 2 will be mapped to 1668442481, etc, for the next 65533 UIDs in succession.
 
