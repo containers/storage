@@ -181,7 +181,7 @@ func getMountProgramFlagFile(path string) string {
 }
 
 func checkSupportVolatile(home, runhome string) (bool, error) {
-	feature := fmt.Sprintf("volatile")
+	const feature = "volatile"
 	volatileCacheResult, _, err := cachedFeatureCheck(runhome, feature)
 	var usingVolatile bool
 	if err == nil {
