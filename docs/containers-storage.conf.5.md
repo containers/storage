@@ -117,7 +117,7 @@ containers/storage supports three keys
 
 **remap-user**=""
 **remap-group**=""
-  Remap-User/Group is a user name which can be used to look up one or more UID/GID ranges in the /etc/subuid or /etc/subgid file.  Mappings are set up starting with an in-container ID of 0 and then a host-level ID taken from the lowest range that matches the specified name, and using the length of that range. Additional ranges are then assigned, using the ranges which specify the lowest host-level IDs first, to the lowest not-yet-mapped in-container ID, until all of the entries have been used for maps.
+  Remap-User/Group is a user name which can be used to look up one or more UID/GID ranges in the /etc/subuid or /etc/subgid file.  Mappings are set up starting with an in-container ID of 0 and then a host-level ID taken from the lowest range that matches the specified name, and using the length of that range. Additional ranges are then assigned, using the ranges which specify the lowest host-level IDs first, to the lowest not-yet-mapped in-container ID, until all of the entries have been used for maps.  This setting overrides the Remap-UIDs/GIDs setting.
 
   Example
      remap-user = "containers"
