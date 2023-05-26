@@ -1934,7 +1934,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		IgnoreChownErrors: d.options.ignoreChownErrors,
 		WhiteoutFormat:    d.getWhiteoutFormat(),
 		InUserNS:          unshare.IsRootless(),
-	})
+	}, nil)
 	out.Target = applyDir
 	return out, err
 }

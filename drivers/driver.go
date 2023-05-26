@@ -191,10 +191,14 @@ type DriverWithDifferOutput struct {
 	TOCDigest          digest.Digest
 }
 
+// DifferOptions overrides how the differ work
+type DifferOptions struct {
+}
+
 // Differ defines the interface for using a custom differ.
 // This API is experimental and can be changed without bumping the major version number.
 type Differ interface {
-	ApplyDiff(dest string, options *archive.TarOptions) (DriverWithDifferOutput, error)
+	ApplyDiff(dest string, options *archive.TarOptions, differOpts *DifferOptions) (DriverWithDifferOutput, error)
 }
 
 // DriverWithDiffer is the interface for direct diff access.

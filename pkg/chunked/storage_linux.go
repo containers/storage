@@ -1324,7 +1324,7 @@ func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *internal.FileMetadata, cop
 	return false, nil
 }
 
-func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (graphdriver.DriverWithDifferOutput, error) {
+func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, differOpts *graphdriver.DifferOptions) (graphdriver.DriverWithDifferOutput, error) {
 	defer c.layersCache.release()
 	defer func() {
 		if c.zstdReader != nil {
