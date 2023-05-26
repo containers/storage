@@ -1271,12 +1271,11 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		}
 	}()
 
-	bigData := map[string][]byte{
-		bigDataKey: c.manifest,
-	}
 	output := graphdriver.DriverWithDifferOutput{
-		Differ:  c,
-		BigData: bigData,
+		Differ: c,
+		BigData: map[string][]byte{
+			bigDataKey: c.manifest,
+		},
 	}
 
 	storeOpts, err := types.DefaultStoreOptionsAutoDetectUID()
