@@ -11,15 +11,6 @@ btrfs() {
 	[ $(stat -f -c %T ${TMPDIR}) = btrfs ] 
 }
 
-devicemapper() {
-	for binary in pvcreate vgcreate lvcreate lvconvert lvchange thin_check ; do
-		if ! which $binary > /dev/null 2> /dev/null ; then
-			return 1
-		fi
-	done
-	pkg-config devmapper 2> /dev/null
-}
-
 overlay() {
 	modprobe overlay 2> /dev/null
 	grep -E -q '	overlay$' /proc/filesystems
@@ -36,9 +27,6 @@ if [ "$STORAGE_DRIVER" = "" ] ; then
 	fi
 	if btrfs; then
 		drivers="$drivers btrfs"
-	fi
-	if devicemapper; then
-		drivers="$drivers devicemapper"
 	fi
 	if overlay; then
 		drivers="$drivers overlay"
