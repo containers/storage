@@ -29,7 +29,6 @@ func TestNopWriteCloser(t *testing.T) {
 	if err := wrapper.Close(); err != nil {
 		t.Fatal("NopWriteCloser always return nil on Close.")
 	}
-
 }
 
 func TestNopWriter(t *testing.T) {

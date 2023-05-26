@@ -10,9 +10,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 )
 
-var (
-	paramImageDataFile = ""
-)
+var paramImageDataFile = ""
 
 func image(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	matched := []*storage.Image{}

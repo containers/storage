@@ -9,9 +9,7 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-var (
-	paramLayerDataFile = ""
-)
+var paramLayerDataFile = ""
 
 func listLayerBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	layer, err := m.Layer(args[0])

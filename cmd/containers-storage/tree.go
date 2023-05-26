@@ -5,12 +5,14 @@ import (
 	"strings"
 )
 
-const treeIndentStep = 2
-const treeStemWidth = treeIndentStep - 1
-const treeVertical = '\u2502'
-const treeThisAndMore = "\u251c"
-const treeJustThis = "\u2514"
-const treeStem = "\u2500"
+const (
+	treeIndentStep  = 2
+	treeStemWidth   = treeIndentStep - 1
+	treeVertical    = '\u2502'
+	treeThisAndMore = "\u251c"
+	treeJustThis    = "\u2514"
+	treeStem        = "\u2500"
+)
 
 type treeNode struct {
 	left, right string

@@ -8,9 +8,7 @@ import (
 	digest "github.com/opencontainers/go-digest"
 )
 
-var (
-	imagesQuiet = false
-)
+var imagesQuiet = false
 
 func images(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images, err := m.Images()

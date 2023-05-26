@@ -13,9 +13,7 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-var (
-	chownOptions = ""
-)
+var chownOptions = ""
 
 func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	var untarIDMappings *idtools.IDMappings

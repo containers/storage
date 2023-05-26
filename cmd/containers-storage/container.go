@@ -9,9 +9,7 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-var (
-	paramContainerDataFile = ""
-)
+var paramContainerDataFile = ""
 
 func container(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	images, err := m.Images()

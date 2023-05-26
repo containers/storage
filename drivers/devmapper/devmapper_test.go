@@ -61,7 +61,7 @@ func getBaseLoopStats() (*syscall.Stat_t, error) {
 			return &syscall.Stat_t{
 				Uid:  0,
 				Gid:  0,
-				Mode: 0660,
+				Mode: 0o660,
 			}, nil
 		}
 		return nil, err
@@ -123,7 +123,7 @@ func testChangeLoopBackSize(t *testing.T, delta, expectDataSize, expectMetaDataS
 	if err := driver.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
-	//Reload
+	// Reload
 	d, err := Init(driver.home, graphdriver.Options{DriverOptions: []string{
 		fmt.Sprintf("dm.loopdatasize=%d", defaultDataLoopbackSize+delta),
 		fmt.Sprintf("dm.loopmetadatasize=%d", defaultMetaDataLoopbackSize+delta),

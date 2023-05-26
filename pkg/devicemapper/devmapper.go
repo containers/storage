@@ -239,8 +239,8 @@ func (t *Task) getDriverVersion() (string, error) {
 }
 
 func (t *Task) getNextTarget(next unsafe.Pointer) (nextPtr unsafe.Pointer, start uint64,
-	length uint64, targetType string, params string) {
-
+	length uint64, targetType string, params string,
+) {
 	return DmGetNextTarget(t.unmanaged, next, &start, &length,
 			&targetType, &params),
 		start, length, targetType, params

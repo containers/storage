@@ -11,7 +11,6 @@ import (
 
 // GetOperatingSystem gets the name of the current operating system.
 func GetOperatingSystem() (string, error) {
-
 	var h windows.Handle
 
 	// Default return value

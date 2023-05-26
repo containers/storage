@@ -25,27 +25,27 @@ import (
 //	└── f1 # whiteout, 0000
 func setupOverlayTestDir(t *testing.T, src string) {
 	// Create opaque directory containing single file and permission 0700
-	err := os.Mkdir(filepath.Join(src, "d1"), 0700)
+	err := os.Mkdir(filepath.Join(src, "d1"), 0o700)
 	require.NoError(t, err)
 
 	err = system.Lsetxattr(filepath.Join(src, "d1"), getOverlayOpaqueXattrName(), []byte("y"), 0)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(src, "d1", "f1"), []byte{}, 0600)
+	err = os.WriteFile(filepath.Join(src, "d1", "f1"), []byte{}, 0o600)
 	require.NoError(t, err)
 
 	// Create another opaque directory containing single file but with permission 0750
-	err = os.Mkdir(filepath.Join(src, "d2"), 0750)
+	err = os.Mkdir(filepath.Join(src, "d2"), 0o750)
 	require.NoError(t, err)
 
 	err = system.Lsetxattr(filepath.Join(src, "d2"), getOverlayOpaqueXattrName(), []byte("y"), 0)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(src, "d2", "f1"), []byte{}, 0660)
+	err = os.WriteFile(filepath.Join(src, "d2", "f1"), []byte{}, 0o660)
 	require.NoError(t, err)
 
 	// Create regular directory with deleted file
-	err = os.Mkdir(filepath.Join(src, "d3"), 0700)
+	err = os.Mkdir(filepath.Join(src, "d3"), 0o700)
 	require.NoError(t, err)
 
 	err = system.Mknod(filepath.Join(src, "d3", "f1"), unix.S_IFCHR, 0)
@@ -54,10 +54,10 @@ func setupOverlayTestDir(t *testing.T, src string) {
 
 func setupOverlayLowerDir(t *testing.T, lower string) {
 	// Create a subdirectory to use as the "lower layer"'s copy of a deleted directory
-	err := os.Mkdir(filepath.Join(lower, "d1"), 0700)
+	err := os.Mkdir(filepath.Join(lower, "d1"), 0o700)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(lower, "d1", "f1"), []byte{}, 0600)
+	err = os.WriteFile(filepath.Join(lower, "d1", "f1"), []byte{}, 0o600)
 	require.NoError(t, err)
 }
 
@@ -68,7 +68,6 @@ func checkOpaqueness(t *testing.T, path string, opaque string) {
 	if string(xattrOpaque) != opaque {
 		t.Fatalf("Unexpected opaque value: %q, expected %q", string(xattrOpaque), opaque)
 	}
-
 }
 
 func checkOverlayWhiteout(t *testing.T, path string) {
@@ -118,11 +117,11 @@ func TestOverlayTarUntar(t *testing.T) {
 	err = Untar(archive, dst, options)
 	require.NoError(t, err)
 
-	checkFileMode(t, filepath.Join(dst, "d1"), 0700|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d2"), 0750|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d3"), 0700|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d1", "f1"), 0600)
-	checkFileMode(t, filepath.Join(dst, "d2", "f1"), 0660)
+	checkFileMode(t, filepath.Join(dst, "d1"), 0o700|os.ModeDir)
+	checkFileMode(t, filepath.Join(dst, "d2"), 0o750|os.ModeDir)
+	checkFileMode(t, filepath.Join(dst, "d3"), 0o700|os.ModeDir)
+	checkFileMode(t, filepath.Join(dst, "d1", "f1"), 0o600)
+	checkFileMode(t, filepath.Join(dst, "d2", "f1"), 0o660)
 	checkFileMode(t, filepath.Join(dst, "d3", "f1"), os.ModeCharDevice|os.ModeDevice)
 
 	checkOpaqueness(t, filepath.Join(dst, "d1"), "y")
@@ -158,12 +157,12 @@ func TestOverlayTarAUFSUntar(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	checkFileMode(t, filepath.Join(dst, "d1"), 0700|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d1", WhiteoutOpaqueDir), 0700)
-	checkFileMode(t, filepath.Join(dst, "d2"), 0750|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d3"), 0700|os.ModeDir)
-	checkFileMode(t, filepath.Join(dst, "d1", "f1"), 0600)
-	checkFileMode(t, filepath.Join(dst, "d2", "f1"), 0660)
+	checkFileMode(t, filepath.Join(dst, "d1"), 0o700|os.ModeDir)
+	checkFileMode(t, filepath.Join(dst, "d1", WhiteoutOpaqueDir), 0o700)
+	checkFileMode(t, filepath.Join(dst, "d2"), 0o750|os.ModeDir)
+	checkFileMode(t, filepath.Join(dst, "d3"), 0o700|os.ModeDir)
+	checkFileMode(t, filepath.Join(dst, "d1", "f1"), 0o600)
+	checkFileMode(t, filepath.Join(dst, "d2", "f1"), 0o660)
 	checkFileMode(t, filepath.Join(dst, "d3", WhiteoutPrefix+"f1"), 0)
 }
 

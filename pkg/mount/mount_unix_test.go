@@ -31,7 +31,7 @@ func TestMounted(t *testing.T) {
 	}
 
 	tmp := path.Join(os.TempDir(), "mount-tests")
-	if err := os.MkdirAll(tmp, 0777); err != nil {
+	if err := os.MkdirAll(tmp, 0o777); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
@@ -43,11 +43,11 @@ func TestMounted(t *testing.T) {
 		targetPath = path.Join(targetDir, "file.txt")
 	)
 
-	if err := os.Mkdir(sourceDir, 0777); err != nil {
+	if err := os.Mkdir(sourceDir, 0o777); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.Mkdir(targetDir, 0777); err != nil {
+	if err := os.Mkdir(targetDir, 0o777); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,7 +94,7 @@ func TestMountReadonly(t *testing.T) {
 	}
 
 	tmp := path.Join(os.TempDir(), "mount-tests")
-	if err := os.MkdirAll(tmp, 0777); err != nil {
+	if err := os.MkdirAll(tmp, 0o777); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
@@ -106,10 +106,10 @@ func TestMountReadonly(t *testing.T) {
 		targetPath = path.Join(targetDir, "file.txt")
 	)
 
-	if err := os.Mkdir(sourceDir, 0777); err != nil {
+	if err := os.Mkdir(sourceDir, 0o777); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(targetDir, 0777); err != nil {
+	if err := os.Mkdir(targetDir, 0o777); err != nil {
 		t.Fatal(err)
 	}
 
@@ -138,7 +138,7 @@ func TestMountReadonly(t *testing.T) {
 		}
 	}()
 
-	f, err = os.OpenFile(targetPath, os.O_RDWR, 0777)
+	f, err = os.OpenFile(targetPath, os.O_RDWR, 0o777)
 	if err == nil {
 		f.Close()
 		t.Fatal("Should not be able to open a ro file as rw")

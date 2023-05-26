@@ -186,6 +186,7 @@ func TestExtensionUncompressed(t *testing.T) {
 		t.Fatalf("The extension of an uncompressed archive should be 'tar'.")
 	}
 }
+
 func TestExtensionBzip2(t *testing.T) {
 	compression := Bzip2
 	output := compression.Extension()
@@ -193,6 +194,7 @@ func TestExtensionBzip2(t *testing.T) {
 		t.Fatalf("The extension of a bzip2 archive should be 'tar.bz2'")
 	}
 }
+
 func TestExtensionGzip(t *testing.T) {
 	compression := Gzip
 	output := compression.Extension()
@@ -200,6 +202,7 @@ func TestExtensionGzip(t *testing.T) {
 		t.Fatalf("The extension of a bzip2 archive should be 'tar.gz'")
 	}
 }
+
 func TestExtensionXz(t *testing.T) {
 	compression := Xz
 	output := compression.Extension()
@@ -258,7 +261,7 @@ func TestUntarPath(t *testing.T) {
 	createEmptyFile(t, filepath.Join(tmpFolder, "src"))
 
 	destFolder := filepath.Join(tmpFolder, "dest")
-	err := os.MkdirAll(destFolder, 0740)
+	err := os.MkdirAll(destFolder, 0o740)
 	if err != nil {
 		t.Fatalf("Fail to create the destination file")
 	}
@@ -335,13 +338,13 @@ func TestUntarPathWithDestinationSrcFileAsFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	destFolder := filepath.Join(tmpFolder, "dest")
-	err = os.MkdirAll(destFolder, 0740)
+	err = os.MkdirAll(destFolder, 0o740)
 	if err != nil {
 		t.Fatalf("Fail to create the destination folder")
 	}
 	// Let's create a folder that will has the same path as the extracted file (from tar)
 	destSrcFileAsFolder := filepath.Join(destFolder, srcFileU)
-	err = os.MkdirAll(destSrcFileAsFolder, 0740)
+	err = os.MkdirAll(destSrcFileAsFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +358,7 @@ func TestCopyWithTarInvalidSrc(t *testing.T) {
 	tempFolder := t.TempDir()
 	destFolder := filepath.Join(tempFolder, "dest")
 	invalidSrc := filepath.Join(tempFolder, "doesnotexists")
-	err := os.MkdirAll(destFolder, 0740)
+	err := os.MkdirAll(destFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +372,7 @@ func TestCopyWithTarInexistentDestWillCreateIt(t *testing.T) {
 	tempFolder := t.TempDir()
 	srcFolder := filepath.Join(tempFolder, "src")
 	inexistentDestFolder := filepath.Join(tempFolder, "doesnotexists")
-	err := os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,15 +392,15 @@ func TestCopyWithTarSrcFile(t *testing.T) {
 	dest := filepath.Join(folder, "dest")
 	srcFolder := filepath.Join(folder, "src")
 	src := filepath.Join(folder, filepath.Join("src", "src"))
-	err := os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.MkdirAll(dest, 0740)
+	err = os.MkdirAll(dest, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile(src, []byte("content"), 0777)
+	err = os.WriteFile(src, []byte("content"), 0o777)
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar couldn't write content, %s.", err)
 	}
@@ -415,7 +418,7 @@ func TestCopyWithTarSrcFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar shouldn't have thrown an error, %s.", err)
 	}
-	err = os.WriteFile(dest, []byte("modified content"), 0751)
+	err = os.WriteFile(dest, []byte("modified content"), 0o751)
 	if err != nil {
 		t.Fatalf("archiver.CopyWithTar couldn't write modified content, %s.", err)
 	}
@@ -450,15 +453,15 @@ func TestCopyWithTarSrcFolder(t *testing.T) {
 	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	src := filepath.Join(folder, filepath.Join("src", "folder"))
-	err := os.MkdirAll(src, 0740)
+	err := os.MkdirAll(src, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.MkdirAll(dest, 0740)
+	err = os.MkdirAll(dest, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile(filepath.Join(src, "file"), []byte("content"), 0777)
+	err = os.WriteFile(filepath.Join(src, "file"), []byte("content"), 0o777)
 	require.NoError(t, err)
 	err = defaultCopyWithTar(src, dest)
 	if err != nil {
@@ -474,7 +477,7 @@ func TestCopyWithTarSrcFolder(t *testing.T) {
 func TestCopyFileWithTarInvalidSrc(t *testing.T) {
 	tempFolder := t.TempDir()
 	destFolder := filepath.Join(tempFolder, "dest")
-	err := os.MkdirAll(destFolder, 0740)
+	err := os.MkdirAll(destFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -505,11 +508,11 @@ func TestCopyFileWithTarSrcFolder(t *testing.T) {
 	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	src := filepath.Join(folder, "srcfolder")
-	err := os.MkdirAll(src, 0740)
+	err := os.MkdirAll(src, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.MkdirAll(dest, 0740)
+	err = os.MkdirAll(dest, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -524,15 +527,15 @@ func TestCopyFileWithTarSrcFile(t *testing.T) {
 	dest := filepath.Join(folder, "dest")
 	srcFolder := filepath.Join(folder, "src")
 	src := filepath.Join(folder, filepath.Join("src", "src"))
-	err := os.MkdirAll(srcFolder, 0740)
+	err := os.MkdirAll(srcFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.MkdirAll(dest, 0740)
+	err = os.MkdirAll(dest, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.WriteFile(src, []byte("content"), 0777)
+	err = os.WriteFile(src, []byte("content"), 0o777)
 	require.NoError(t, err)
 	err = defaultCopyWithTar(src, dest+"/")
 	if err != nil {
@@ -548,7 +551,7 @@ func TestCopySocket(t *testing.T) {
 	folder := t.TempDir()
 	dest := filepath.Join(folder, "dest")
 	src := filepath.Join(folder, "src")
-	err := os.MkdirAll(src, 0740)
+	err := os.MkdirAll(src, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,7 +561,7 @@ func TestCopySocket(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.MkdirAll(dest, 0740)
+	err = os.MkdirAll(dest, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -647,13 +650,13 @@ func TestTarUntar(t *testing.T) {
 		t.Skip("Failing on Windows")
 	}
 	origin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -665,7 +668,6 @@ func TestTarUntar(t *testing.T) {
 			Compression:     c,
 			ExcludePatterns: []string{"3"},
 		})
-
 		if err != nil {
 			t.Fatalf("Error tar/untar for compression %s: %s", c.Extension(), err)
 		}
@@ -679,7 +681,7 @@ func TestTarUntar(t *testing.T) {
 func TestTarWithOptionsChownOptsAlwaysOverridesIdPair(t *testing.T) {
 	origin := t.TempDir()
 	filePath := filepath.Join(origin, "1")
-	err := os.WriteFile(filePath, []byte("hello world"), 0700)
+	err := os.WriteFile(filePath, []byte("hello world"), 0o700)
 	require.NoError(t, err)
 
 	idMaps := []idtools.IDMap{
@@ -733,10 +735,10 @@ func TestTarWithOptions(t *testing.T) {
 	if _, err := os.MkdirTemp(origin, "folder"); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
@@ -810,7 +812,7 @@ func prepareUntarSourceDirectory(numberOfFiles int, targetPath string, makeLinks
 	fileData := []byte("fooo")
 	for n := 0; n < numberOfFiles; n++ {
 		fileName := fmt.Sprintf("file-%d", n)
-		if err := os.WriteFile(filepath.Join(targetPath, fileName), fileData, 0700); err != nil {
+		if err := os.WriteFile(filepath.Join(targetPath, fileName), fileData, 0o700); err != nil {
 			return 0, err
 		}
 		if makeLinks {
@@ -872,7 +874,7 @@ func TestUntarSelinuxLabel(t *testing.T) {
 			{
 				Name:       "foo",
 				Typeflag:   tar.TypeReg,
-				Mode:       0644,
+				Mode:       0o644,
 				PAXRecords: xattrs,
 			},
 		},
@@ -893,7 +895,7 @@ func TestUntarInvalidFilenames(t *testing.T) {
 			{
 				Name:     "../victim/dotdot",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{
@@ -901,7 +903,7 @@ func TestUntarInvalidFilenames(t *testing.T) {
 				// Note the leading slash
 				Name:     "/../victim/slash-dotdot",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 	} {
@@ -922,18 +924,18 @@ func TestUntarHardlinkToSymlink(t *testing.T) {
 				Name:     "symlink1",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "regfile",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 			{
 				Name:     "symlink2",
 				Typeflag: tar.TypeLink,
 				Linkname: "symlink1",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 			{
 				Name:     "regfile",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 	} {
@@ -954,7 +956,7 @@ func TestUntarInvalidHardlink(t *testing.T) {
 				Name:     "dotdot",
 				Typeflag: tar.TypeLink,
 				Linkname: "../victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try reading victim/hello (/../)
@@ -963,7 +965,7 @@ func TestUntarInvalidHardlink(t *testing.T) {
 				Typeflag: tar.TypeLink,
 				// Note the leading slash
 				Linkname: "/../victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try writing victim/file
@@ -971,12 +973,12 @@ func TestUntarInvalidHardlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeLink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "loophole-victim/file",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try reading victim/hello (hardlink, symlink)
@@ -984,13 +986,13 @@ func TestUntarInvalidHardlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeLink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "symlink",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "loophole-victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // Try reading victim/hello (hardlink, hardlink)
@@ -998,13 +1000,13 @@ func TestUntarInvalidHardlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeLink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "hardlink",
 				Typeflag: tar.TypeLink,
 				Linkname: "loophole-victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // Try removing victim directory (hardlink)
@@ -1012,12 +1014,12 @@ func TestUntarInvalidHardlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeLink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 	} {
@@ -1038,7 +1040,7 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Name:     "dotdot",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "../victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try reading victim/hello (/../)
@@ -1047,7 +1049,7 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Typeflag: tar.TypeSymlink,
 				// Note the leading slash
 				Linkname: "/../victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try writing victim/file
@@ -1055,12 +1057,12 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "loophole-victim/file",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try reading victim/hello (symlink, symlink)
@@ -1068,13 +1070,13 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "symlink",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "loophole-victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try reading victim/hello (symlink, hardlink)
@@ -1082,13 +1084,13 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "hardlink",
 				Typeflag: tar.TypeLink,
 				Linkname: "loophole-victim/hello",
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try removing victim directory (symlink)
@@ -1096,12 +1098,12 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "loophole-victim",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 		{ // try writing to victim/newdir/newfile with a symlink in the path
@@ -1110,12 +1112,12 @@ func TestUntarInvalidSymlink(t *testing.T) {
 				Name:     "dir/loophole",
 				Typeflag: tar.TypeSymlink,
 				Linkname: "../../victim",
-				Mode:     0755,
+				Mode:     0o755,
 			},
 			{
 				Name:     "dir/loophole/newdir/newfile",
 				Typeflag: tar.TypeReg,
-				Mode:     0644,
+				Mode:     0o644,
 			},
 		},
 	} {
@@ -1209,7 +1211,7 @@ func buildSourceArchive(t *testing.T, numberOfFiles int) (io.ReadCloser, func())
 
 func createOrReplaceModifier(path string, header *tar.Header, content io.Reader) (*tar.Header, []byte, error) {
 	return &tar.Header{
-		Mode:     0600,
+		Mode:     0o600,
 		Typeflag: tar.TypeReg,
 	}, []byte("the new content"), nil
 }
@@ -1229,7 +1231,7 @@ func appendModifier(path string, header *tar.Header, content io.Reader) (*tar.He
 		}
 	}
 	buffer.WriteString("\nnext line")
-	return &tar.Header{Mode: 0600, Typeflag: tar.TypeReg}, buffer.Bytes(), nil
+	return &tar.Header{Mode: 0o600, Typeflag: tar.TypeReg}, buffer.Bytes(), nil
 }
 
 func readFileFromArchive(t *testing.T, archive io.ReadCloser, name string, expectedCount int, doc string) string {

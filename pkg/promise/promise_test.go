@@ -20,6 +20,7 @@ func TestGo(t *testing.T) {
 func functionWithError() (err error) {
 	return errors.New("Error Occurred")
 }
+
 func functionWithNoError() (err error) {
 	return nil
 }

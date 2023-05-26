@@ -8,14 +8,12 @@ import (
 	"testing"
 )
 
-var (
-	testMode os.FileMode = 0640
-)
+var testMode os.FileMode = 0o640
 
 func init() {
 	// Windows does not support full Linux file mode
 	if runtime.GOOS == "windows" {
-		testMode = 0666
+		testMode = 0o666
 	}
 }
 
@@ -53,13 +51,12 @@ func TestAtomicCommitAndRollbackFile(t *testing.T) {
 	newData := "newdata"
 
 	check := func(n int, initData string, writeData string, expected string, explicit bool, commit bool) {
-		if err := os.WriteFile(path, []byte(initData), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(initData), 0o644); err != nil {
 			t.Fatalf("Failed creating initial file: %v", err)
 		}
 
 		opts := &AtomicFileWriterOptions{ExplicitCommit: explicit}
-		w, err := NewAtomicFileWriterWithOpts(filepath.Join(tmpDir, "foo"), 0644, opts)
-
+		w, err := NewAtomicFileWriterWithOpts(filepath.Join(tmpDir, "foo"), 0o644, opts)
 		if err != nil {
 			t.Fatalf("(%d) Failed creating writer: %v", n, err)
 		}
@@ -98,7 +95,7 @@ func TestAtomicCommitAndRollbackFile(t *testing.T) {
 func TestAtomicWriteSetCommit(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	if err := os.Mkdir(filepath.Join(tmpDir, "tmp"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(tmpDir, "tmp"), 0o700); err != nil {
 		t.Fatalf("Error creating tmp directory: %s", err)
 	}
 
@@ -137,13 +134,12 @@ func TestAtomicWriteSetCommit(t *testing.T) {
 	if expected := os.FileMode(testMode); st.Mode() != expected {
 		t.Fatalf("Mode mismatched, expected %o, got %o", expected, st.Mode())
 	}
-
 }
 
 func TestAtomicWriteSetCancel(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	if err := os.Mkdir(filepath.Join(tmpDir, "tmp"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(tmpDir, "tmp"), 0o700); err != nil {
 		t.Fatalf("Error creating tmp directory: %s", err)
 	}
 

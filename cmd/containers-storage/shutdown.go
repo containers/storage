@@ -7,9 +7,7 @@ import (
 	"github.com/containers/storage/pkg/mflag"
 )
 
-var (
-	forceShutdown = false
-)
+var forceShutdown = false
 
 func shutdown(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	_, err := m.Shutdown(forceShutdown)

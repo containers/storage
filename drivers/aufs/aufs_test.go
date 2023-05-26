@@ -52,7 +52,7 @@ func driverGet(d *Driver, id string, mntLabel string) (string, error) {
 }
 
 func newDriver(t testing.TB) *Driver {
-	if err := os.MkdirAll(tmp, 0755); err != nil {
+	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -61,7 +61,7 @@ func newDriver(t testing.TB) *Driver {
 }
 
 func TestNewDriver(t *testing.T) {
-	if err := os.MkdirAll(tmp, 0755); err != nil {
+	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func TestCreateDirStructure(t *testing.T) {
 
 // We should be able to create two drivers with the same dir structure
 func TestNewDriverFromExistingDir(t *testing.T) {
-	if err := os.MkdirAll(tmp, 0755); err != nil {
+	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -646,7 +646,7 @@ func hash(c string) string {
 }
 
 func testMountMoreThan42Layers(t *testing.T, mountPath string) {
-	if err := os.MkdirAll(mountPath, 0755); err != nil {
+	if err := os.MkdirAll(mountPath, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -786,13 +786,13 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 }
 
 func TestInitStaleCleanup(t *testing.T) {
-	if err := os.MkdirAll(tmp, 0755); err != nil {
+	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
 
 	for _, d := range []string{"diff", "mnt"} {
-		if err := os.MkdirAll(filepath.Join(tmp, d, "123-removing"), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(tmp, d, "123-removing"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}

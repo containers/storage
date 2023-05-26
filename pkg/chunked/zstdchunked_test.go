@@ -61,13 +61,13 @@ var someFiles = []internal.FileMetadata{
 	{
 		Type: "dir",
 		Name: "/foo",
-		Mode: 0755,
+		Mode: 0o755,
 		Size: 0,
 	},
 	{
 		Type:        "reg",
 		Name:        "/foo/bar",
-		Mode:        0755,
+		Mode:        0o755,
 		Size:        10,
 		Digest:      "sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
 		Offset:      100,
@@ -79,7 +79,7 @@ var someFiles = []internal.FileMetadata{
 	{
 		Type:        "reg",
 		Name:        "/foo/baz",
-		Mode:        0755,
+		Mode:        0o755,
 		Size:        12,
 		Digest:      "sha256:6f0378f21a495f5c13247317d158e9d51da45a5bf68fc2f366e450deafdc8302",
 		Offset:      200,

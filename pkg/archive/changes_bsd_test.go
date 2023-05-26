@@ -62,7 +62,7 @@ func TestApplyToImmutable(t *testing.T) {
 	createSampleDir(t, src)
 	file1 := path.Join(src, "dir1/file1-1")
 	file2 := path.Join(src, "dir1/file1-2")
-	require.NoError(t, os.Chmod(file1, 0777))
+	require.NoError(t, os.Chmod(file1, 0o777))
 	require.NoError(t, system.Lchflags(file1, system.SF_IMMUTABLE))
 	require.NoError(t, system.Lchflags(file2, system.SF_IMMUTABLE))
 
@@ -73,7 +73,7 @@ func TestApplyToImmutable(t *testing.T) {
 	file1 = path.Join(dst, "dir1/file1-1")
 	file2 = path.Join(dst, "dir1/file1-2")
 	require.NoError(t, system.Lchflags(file1, 0))
-	require.NoError(t, os.Chmod(file1, 0666))
+	require.NoError(t, os.Chmod(file1, 0o666))
 	require.NoError(t, system.Lchflags(file2, 0))
 	require.NoError(t, os.RemoveAll(file2))
 
