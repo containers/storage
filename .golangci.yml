@@ -6,6 +6,4 @@ run:
 linters:
   disable:
     - errcheck
-    - gosimple
-    - govet
     - staticcheck
