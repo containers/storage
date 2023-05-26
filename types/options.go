@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	drivers "github.com/containers/storage/drivers"
+	_ "github.com/containers/storage/drivers/register"
 	cfg "github.com/containers/storage/pkg/config"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/sirupsen/logrus"
@@ -310,10 +312,21 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 	}
 	if opts.GraphDriverName == "" {
 		if len(systemOpts.GraphDriverPriority) == 0 {
-			if canUseRootlessOverlay(opts.GraphRoot, opts.RunRoot) {
-				opts.GraphDriverName = overlayDriver
-			} else {
-				opts.GraphDriverName = "vfs"
+			driversMap := drivers.ScanPriorDrivers(opts.GraphRoot)
+
+			for _, name := range drivers.Priority {
+				if _, prior := driversMap[name]; prior {
+					opts.GraphDriverName = name
+					break
+				}
+			}
+
+			if opts.GraphDriverName == "" {
+				if canUseRootlessOverlay(opts.GraphRoot, opts.RunRoot) {
+					opts.GraphDriverName = overlayDriver
+				} else {
+					opts.GraphDriverName = "vfs"
+				}
 			}
 		} else {
 			opts.GraphDriverPriority = systemOpts.GraphDriverPriority
