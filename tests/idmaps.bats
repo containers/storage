@@ -12,7 +12,7 @@ load helpers
 		skip "not supported on $OS"
 	fi
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -126,7 +126,7 @@ load helpers
 		skip "not supported on $OS"
 	fi
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -220,7 +220,7 @@ load helpers
 		skip "not supported on $OS"
 	fi
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -354,7 +354,7 @@ load helpers
 		skip "not supported on $OS"
 	fi
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -419,7 +419,7 @@ load helpers
 		skip "not supported on $OS"
 	fi
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
@@ -593,7 +593,7 @@ load helpers
 		skip "not supported on $OS"
 	fi
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"

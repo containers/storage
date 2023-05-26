@@ -70,7 +70,7 @@ load helpers
 
 @test "delete-layer-with-mappings" {
 	case "$STORAGE_DRIVER" in
-	btrfs|devicemapper|overlay*|vfs|zfs)
+	btrfs|overlay*|vfs|zfs)
 		;;
 	*)
 		skip "not supported by driver $STORAGE_DRIVER"
