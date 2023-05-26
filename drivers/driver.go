@@ -191,8 +191,21 @@ type DriverWithDifferOutput struct {
 	TOCDigest          digest.Digest
 }
 
+type DifferOutputFormat int
+
+const (
+	// DifferOutputFormatDir means the output is a directory and it will
+	// keep the original layout.
+	DifferOutputFormatDir = iota
+	// DifferOutputFormatFlat will store the files by their checksum, in the form
+	// checksum[0:2]/checksum[2:]
+	DifferOutputFormatFlat
+)
+
 // DifferOptions overrides how the differ work
 type DifferOptions struct {
+	// Format defines the destination directory layout format
+	Format DifferOutputFormat
 }
 
 // Differ defines the interface for using a custom differ.

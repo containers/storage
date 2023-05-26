@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+
+	graphdriver "github.com/containers/storage/drivers"
 )
 
 const jsonTOC = `
@@ -55,12 +59,27 @@ const jsonTOC = `
 `
 
 func TestPrepareMetadata(t *testing.T) {
-	toc, err := prepareMetadata([]byte(jsonTOC))
+	toc, err := prepareMetadata([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
 	if err != nil {
 		t.Errorf("got error from prepareMetadata: %v", err)
 	}
 	if len(toc) != 2 {
 		t.Error("prepareMetadata returns the wrong length")
+	}
+}
+
+func TestPrepareMetadataFlat(t *testing.T) {
+	toc, err := prepareMetadata([]byte(jsonTOC), graphdriver.DifferOutputFormatFlat)
+	if err != nil {
+		t.Errorf("got error from prepareMetadata: %v", err)
+	}
+	for _, e := range toc {
+		if len(strings.Split(e.Name, "/")) != 2 {
+			t.Error("prepareMetadata returns the wrong number of path elements for flat directories")
+		}
+		if len(filepath.Dir(e.Name)) != 2 {
+			t.Error("prepareMetadata returns the wrong path for flat directories")
+		}
 	}
 }
 
@@ -83,7 +102,7 @@ func (b *bigDataToBuffer) SetLayerBigData(id, key string, data io.Reader) error 
 }
 
 func TestWriteCache(t *testing.T) {
-	toc, err := prepareMetadata([]byte(jsonTOC))
+	toc, err := prepareMetadata([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
 	if err != nil {
 		t.Errorf("got error from prepareMetadata: %v", err)
 	}
@@ -91,7 +110,7 @@ func TestWriteCache(t *testing.T) {
 	dest := bigDataToBuffer{
 		buf: bytes.NewBuffer(nil),
 	}
-	cache, err := writeCache([]byte(jsonTOC), "foobar", &dest)
+	cache, err := writeCache([]byte(jsonTOC), graphdriver.DifferOutputFormatDir, "foobar", &dest)
 	if err != nil {
 		t.Errorf("got error from writeCache: %v", err)
 	}
@@ -156,7 +175,7 @@ func TestReadCache(t *testing.T) {
 	dest := bigDataToBuffer{
 		buf: bytes.NewBuffer(nil),
 	}
-	cache, err := writeCache([]byte(jsonTOC), "foobar", &dest)
+	cache, err := writeCache([]byte(jsonTOC), graphdriver.DifferOutputFormatDir, "foobar", &dest)
 	if err != nil {
 		t.Errorf("got error from writeCache: %v", err)
 	}
