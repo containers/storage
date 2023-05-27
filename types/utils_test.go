@@ -29,18 +29,23 @@ type rootlessRuntimeDirEnvironmentTest struct {
 func (env rootlessRuntimeDirEnvironmentTest) getProcCommandFile() string {
 	return env.procCommandFile
 }
+
 func (env rootlessRuntimeDirEnvironmentTest) getRunUserDir() string {
 	return env.runUserDir
 }
+
 func (env rootlessRuntimeDirEnvironmentTest) getTmpPerUserDir() string {
 	return env.tmpPerUserDir
 }
+
 func (env rootlessRuntimeDirEnvironmentTest) homeDirGetRuntimeDir() (string, error) {
 	return env.homeRuntime.dir, env.homeRuntime.err
 }
+
 func (env rootlessRuntimeDirEnvironmentTest) systemLstat(path string) (*system.StatT, error) {
 	return system.Lstat(path)
 }
+
 func (env rootlessRuntimeDirEnvironmentTest) homedirGet() string {
 	return env.homeDir
 }
@@ -49,25 +54,25 @@ func TestRootlessRuntimeDir(t *testing.T) {
 	testDir := t.TempDir()
 
 	homeRuntimeDir := filepath.Join(testDir, "home-rundir")
-	err := os.Mkdir(homeRuntimeDir, 0700)
+	err := os.Mkdir(homeRuntimeDir, 0o700)
 	assert.NilError(t, err)
 
 	homeRuntimeDisabled := homeRuntimeData{err: errors.New("homedirGetRuntimeDir is disabled")}
 
 	systemdCommandFile := filepath.Join(testDir, "systemd-command")
-	err = os.WriteFile(systemdCommandFile, []byte("systemd"), 0644)
+	err = os.WriteFile(systemdCommandFile, []byte("systemd"), 0o644)
 	assert.NilError(t, err)
 
 	initCommandFile := filepath.Join(testDir, "init-command")
-	err = os.WriteFile(initCommandFile, []byte("init"), 0644)
+	err = os.WriteFile(initCommandFile, []byte("init"), 0o644)
 	assert.NilError(t, err)
 
 	dirForOwner := filepath.Join(testDir, "dir-for-owner")
-	err = os.Mkdir(dirForOwner, 0700)
+	err = os.Mkdir(dirForOwner, 0o700)
 	assert.NilError(t, err)
 
 	dirForAll := filepath.Join(testDir, "dir-for-all")
-	err = os.Mkdir(dirForAll, 0777)
+	err = os.Mkdir(dirForAll, 0o777)
 	assert.NilError(t, err)
 
 	dirToBeCreated := filepath.Join(testDir, "dir-to-be-created")
@@ -216,26 +221,31 @@ type rootlessRuntimeDirEnvironmentRace struct {
 func (env rootlessRuntimeDirEnvironmentRace) getProcCommandFile() string {
 	return env.procCommandFile
 }
+
 func (rootlessRuntimeDirEnvironmentRace) getRunUserDir() string {
 	return ""
 }
+
 func (env rootlessRuntimeDirEnvironmentRace) getTmpPerUserDir() string {
 	return env.tmpPerUserDir
 }
+
 func (rootlessRuntimeDirEnvironmentRace) homeDirGetRuntimeDir() (string, error) {
 	return "", errors.New("homedirGetRuntimeDir is disabled")
 }
+
 func (env rootlessRuntimeDirEnvironmentRace) systemLstat(path string) (*system.StatT, error) {
 	if path == env.tmpPerUserDir {
 		st, err := system.Lstat(path)
 		// We can simulate that race directory was created immediately after system.Lstat call.
-		if err := os.Mkdir(path, 0700); err != nil {
+		if err := os.Mkdir(path, 0o700); err != nil {
 			return nil, err
 		}
 		return st, err
 	}
 	return system.Lstat(path)
 }
+
 func (rootlessRuntimeDirEnvironmentRace) homedirGet() string {
 	return homedir.Get()
 }
@@ -244,7 +254,7 @@ func TestRootlessRuntimeDirRace(t *testing.T) {
 	raceDir := t.TempDir()
 
 	procCommandFile := filepath.Join(raceDir, "command")
-	err := os.WriteFile(procCommandFile, []byte("init"), 0644)
+	err := os.WriteFile(procCommandFile, []byte("init"), 0o644)
 	assert.NilError(t, err)
 
 	tmpPerUserDir := filepath.Join(raceDir, "tmp")

@@ -15,7 +15,7 @@ func prepareFiles(t *testing.T) (string, string, string) {
 	dir := t.TempDir()
 
 	file := filepath.Join(dir, "exist")
-	if err := os.WriteFile(file, []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -14,7 +14,7 @@ import (
 )
 
 func TestHardLinkOrder(t *testing.T) {
-	//TODO Should run for Solaris
+	// TODO Should run for Solaris
 	if runtime.GOOS == "solaris" {
 		t.Skip("gcp failures on Solaris")
 	}
@@ -99,7 +99,6 @@ func TestHardLinkOrder(t *testing.T) {
 			t.Errorf("headers - %q expected linkname %q; but got %q", hdrs[i].Name, hdrs[i].Linkname, hdrsRev[i].Linkname)
 		}
 	}
-
 }
 
 type tarHeaders []tar.Header

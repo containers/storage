@@ -23,7 +23,7 @@ func platformTestFromStatT(t *testing.T, stat *syscall.Stat_t, s *StatT) {
 func TestFileFlags(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "append")
-	if err := os.WriteFile(file, []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

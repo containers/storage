@@ -23,6 +23,7 @@ func init() {
 	flag.StringVar(&str, []string{"mode"}, "mode1", "set the mode\nmode1: use the mode1\nmode2: use the mode2\nmode3: use the mode3")
 	flag.Parse()
 }
+
 func main() {
 	if h {
 		flag.PrintDefaults()

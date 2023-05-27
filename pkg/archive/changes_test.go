@@ -50,30 +50,30 @@ type FileData struct {
 
 func createSampleDir(t *testing.T, root string) {
 	files := []FileData{
-		{Regular, "file1", "file1\n", 0600},
-		{Regular, "file2", "file2\n", 0666},
-		{Regular, "file3", "file3\n", 0404},
-		{Regular, "file4", "file4\n", 0600},
-		{Regular, "file5", "file5\n", 0600},
-		{Regular, "file6", "file6\n", 0600},
-		{Regular, "file7", "file7\n", 0600},
-		{Dir, "dir1", "", 0740},
-		{Regular, "dir1/file1-1", "file1-1\n", 01444},
-		{Regular, "dir1/file1-2", "file1-2\n", 0666},
-		{Dir, "dir2", "", 0700},
-		{Regular, "dir2/file2-1", "file2-1\n", 0666},
-		{Regular, "dir2/file2-2", "file2-2\n", 0666},
-		{Dir, "dir3", "", 0700},
-		{Regular, "dir3/file3-1", "file3-1\n", 0666},
-		{Regular, "dir3/file3-2", "file3-2\n", 0666},
-		{Dir, "dir4", "", 0700},
-		{Regular, "dir4/file3-1", "file4-1\n", 0666},
-		{Regular, "dir4/file3-2", "file4-2\n", 0666},
-		{Symlink, "symlink1", "target1", 0666},
-		{Symlink, "symlink2", "target2", 0666},
-		{Symlink, "symlink3", root + "/file1", 0666},
-		{Symlink, "symlink4", root + "/symlink3", 0666},
-		{Symlink, "dirSymlink", root + "/dir1", 0740},
+		{Regular, "file1", "file1\n", 0o600},
+		{Regular, "file2", "file2\n", 0o666},
+		{Regular, "file3", "file3\n", 0o404},
+		{Regular, "file4", "file4\n", 0o600},
+		{Regular, "file5", "file5\n", 0o600},
+		{Regular, "file6", "file6\n", 0o600},
+		{Regular, "file7", "file7\n", 0o600},
+		{Dir, "dir1", "", 0o740},
+		{Regular, "dir1/file1-1", "file1-1\n", 0o1444},
+		{Regular, "dir1/file1-2", "file1-2\n", 0o666},
+		{Dir, "dir2", "", 0o700},
+		{Regular, "dir2/file2-1", "file2-1\n", 0o666},
+		{Regular, "dir2/file2-2", "file2-2\n", 0o666},
+		{Dir, "dir3", "", 0o700},
+		{Regular, "dir3/file3-1", "file3-1\n", 0o666},
+		{Regular, "dir3/file3-2", "file3-2\n", 0o666},
+		{Dir, "dir4", "", 0o700},
+		{Regular, "dir4/file3-1", "file4-1\n", 0o666},
+		{Regular, "dir4/file3-2", "file4-2\n", 0o666},
+		{Symlink, "symlink1", "target1", 0o666},
+		{Symlink, "symlink2", "target2", 0o666},
+		{Symlink, "symlink3", root + "/file1", 0o666},
+		{Symlink, "symlink4", root + "/symlink3", 0o666},
+		{Symlink, "dirSymlink", root + "/dir1", 0o740},
 	}
 
 	now := time.Now()
@@ -141,7 +141,7 @@ func TestChangesWithChanges(t *testing.T) {
 	// Mock the readonly layer
 	layer := t.TempDir()
 	createSampleDir(t, layer)
-	err := os.MkdirAll(path.Join(layer, "dir1/subfolder"), 0740)
+	err := os.MkdirAll(path.Join(layer, "dir1/subfolder"), 0o740)
 	require.NoError(t, err)
 
 	// Mock the RW layer
@@ -149,20 +149,20 @@ func TestChangesWithChanges(t *testing.T) {
 
 	// Create a folder in RW layer
 	dir1 := path.Join(rwLayer, "dir1")
-	err = os.MkdirAll(dir1, 0740)
+	err = os.MkdirAll(dir1, 0o740)
 	require.NoError(t, err)
 	deletedFile := path.Join(dir1, ".wh.file1-2")
-	err = os.WriteFile(deletedFile, []byte{}, 0600)
+	err = os.WriteFile(deletedFile, []byte{}, 0o600)
 	require.NoError(t, err)
 	modifiedFile := path.Join(dir1, "file1-1")
-	err = os.WriteFile(modifiedFile, []byte{0x00}, 01444)
+	err = os.WriteFile(modifiedFile, []byte{0x00}, 0o1444)
 	require.NoError(t, err)
 	// Let's add a subfolder for a newFile
 	subfolder := path.Join(dir1, "subfolder")
-	err = os.MkdirAll(subfolder, 0740)
+	err = os.MkdirAll(subfolder, 0o740)
 	require.NoError(t, err)
 	newFile := path.Join(subfolder, "newFile")
-	err = os.WriteFile(newFile, []byte{}, 0740)
+	err = os.WriteFile(newFile, []byte{}, 0o740)
 	require.NoError(t, err)
 
 	changes, err := Changes([]string{layer}, rwLayer)
@@ -188,11 +188,11 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	baseLayer := t.TempDir()
 
 	dir3 := path.Join(baseLayer, "dir1/dir2/dir3")
-	err := os.MkdirAll(dir3, 07400)
+	err := os.MkdirAll(dir3, 0o7400)
 	require.NoError(t, err)
 
 	file := path.Join(dir3, "file.txt")
-	err = os.WriteFile(file, []byte("hello"), 0666)
+	err = os.WriteFile(file, []byte("hello"), 0o666)
 	require.NoError(t, err)
 
 	layer := t.TempDir()
@@ -204,7 +204,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 
 	os.Remove(path.Join(layer, "dir1/dir2/dir3/file.txt"))
 	file = path.Join(layer, "dir1/dir2/dir3/file1.txt")
-	err = os.WriteFile(file, []byte("bye"), 0666)
+	err = os.WriteFile(file, []byte("bye"), 0o666)
 	require.NoError(t, err)
 
 	changes, err := Changes([]string{baseLayer}, layer)
@@ -226,7 +226,7 @@ func TestChangesWithChangesGH13590(t *testing.T) {
 	}
 
 	file = path.Join(layer, "dir1/dir2/dir3/file.txt")
-	err = os.WriteFile(file, []byte("bye"), 0666)
+	err = os.WriteFile(file, []byte("bye"), 0o666)
 	require.NoError(t, err)
 
 	changes, err = Changes([]string{baseLayer}, layer)
@@ -273,13 +273,13 @@ func mutateSampleDir(t *testing.T, root string) {
 	require.NoError(t, err)
 
 	// Rewrite a file
-	err = os.WriteFile(path.Join(root, "file2"), []byte("fileNN\n"), 0777)
+	err = os.WriteFile(path.Join(root, "file2"), []byte("fileNN\n"), 0o777)
 	require.NoError(t, err)
 
 	// Replace a file
 	err = os.RemoveAll(path.Join(root, "file3"))
 	require.NoError(t, err)
-	err = os.WriteFile(path.Join(root, "file3"), []byte("fileMM\n"), 0404)
+	err = os.WriteFile(path.Join(root, "file3"), []byte("fileMM\n"), 0o404)
 	require.NoError(t, err)
 
 	// Touch file
@@ -289,15 +289,15 @@ func mutateSampleDir(t *testing.T, root string) {
 	// Replace file with dir
 	err = os.RemoveAll(path.Join(root, "file5"))
 	require.NoError(t, err)
-	err = os.MkdirAll(path.Join(root, "file5"), 0666)
+	err = os.MkdirAll(path.Join(root, "file5"), 0o666)
 	require.NoError(t, err)
 
 	// Create new file
-	err = os.WriteFile(path.Join(root, "filenew"), []byte("filenew\n"), 0777)
+	err = os.WriteFile(path.Join(root, "filenew"), []byte("filenew\n"), 0o777)
 	require.NoError(t, err)
 
 	// Create new dir
-	err = os.MkdirAll(path.Join(root, "dirnew"), 0766)
+	err = os.MkdirAll(path.Join(root, "dirnew"), 0o766)
 	require.NoError(t, err)
 
 	// Create a new symlink
@@ -314,7 +314,7 @@ func mutateSampleDir(t *testing.T, root string) {
 	// Replace dir with file
 	err = os.RemoveAll(path.Join(root, "dir2"))
 	require.NoError(t, err)
-	err = os.WriteFile(path.Join(root, "dir2"), []byte("dir2\n"), 0777)
+	err = os.WriteFile(path.Join(root, "dir2"), []byte("dir2\n"), 0o777)
 	require.NoError(t, err)
 
 	// Touch dir
@@ -451,10 +451,10 @@ func TestChangesSizeWithOnlyDeleteChanges(t *testing.T) {
 func TestChangesSize(t *testing.T) {
 	parentPath := t.TempDir()
 	addition := path.Join(parentPath, "addition")
-	err := os.WriteFile(addition, []byte{0x01, 0x01, 0x01}, 0744)
+	err := os.WriteFile(addition, []byte{0x01, 0x01, 0x01}, 0o744)
 	require.NoError(t, err)
 	modification := path.Join(parentPath, "modification")
-	err = os.WriteFile(modification, []byte{0x01, 0x01, 0x01}, 0744)
+	err = os.WriteFile(modification, []byte{0x01, 0x01, 0x01}, 0o744)
 	require.NoError(t, err)
 
 	changes := []Change{

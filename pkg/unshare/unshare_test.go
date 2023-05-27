@@ -29,15 +29,13 @@ func init() {
 	reexec.Register("report", report)
 }
 
-var (
-	CloneFlags = map[string]int{
-		"ipc":  syscall.CLONE_NEWIPC,
-		"net":  syscall.CLONE_NEWNET,
-		"mnt":  syscall.CLONE_NEWNS,
-		"user": syscall.CLONE_NEWUSER,
-		"uts":  syscall.CLONE_NEWUTS,
-	}
-)
+var CloneFlags = map[string]int{
+	"ipc":  syscall.CLONE_NEWIPC,
+	"net":  syscall.CLONE_NEWNET,
+	"mnt":  syscall.CLONE_NEWNS,
+	"user": syscall.CLONE_NEWUSER,
+	"uts":  syscall.CLONE_NEWUTS,
+}
 
 type Report struct {
 	Namespaces  map[string]string

@@ -138,8 +138,8 @@ func dmTaskSetRoFct(task *cdmTask) int {
 }
 
 func dmTaskAddTargetFct(task *cdmTask,
-	start, size uint64, ttype, params string) int {
-
+	start, size uint64, ttype, params string,
+) int {
 	Cttype := C.CString(ttype)
 	defer free(Cttype)
 

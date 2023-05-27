@@ -26,12 +26,12 @@ func TestUntarWithMaliciousSymlinks(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "root")
 
-	err := os.MkdirAll(root, 0755)
+	err := os.MkdirAll(root, 0o755)
 	assert.NilError(t, err)
 
 	// Add a file into a directory above root
 	// Ensure that we can't access this file while tarring.
-	err = os.WriteFile(filepath.Join(dir, "host-file"), []byte("I am a host file"), 0644)
+	err = os.WriteFile(filepath.Join(dir, "host-file"), []byte("I am a host file"), 0o644)
 	assert.NilError(t, err)
 
 	// Create some data which will be copied into the "container" root into
@@ -39,9 +39,9 @@ func TestUntarWithMaliciousSymlinks(t *testing.T) {
 	// Before this change, the copy would overwrite the "host" content.
 	// With this change it should not.
 	data := filepath.Join(dir, "data")
-	err = os.MkdirAll(data, 0755)
+	err = os.MkdirAll(data, 0o755)
 	assert.NilError(t, err)
-	err = os.WriteFile(filepath.Join(data, "local-file"), []byte("pwn3d"), 0644)
+	err = os.WriteFile(filepath.Join(data, "local-file"), []byte("pwn3d"), 0o644)
 	assert.NilError(t, err)
 
 	safe := filepath.Join(root, "safe")
@@ -86,14 +86,14 @@ func TestTarWithMaliciousSymlinks(t *testing.T) {
 
 	root := filepath.Join(dir, "root")
 
-	err := os.MkdirAll(root, 0755)
+	err := os.MkdirAll(root, 0o755)
 	assert.NilError(t, err)
 
 	hostFileData := []byte("I am a host file")
 
 	// Add a file into a directory above root
 	// Ensure that we can't access this file while tarring.
-	err = os.WriteFile(filepath.Join(dir, "host-file"), hostFileData, 0644)
+	err = os.WriteFile(filepath.Join(dir, "host-file"), hostFileData, 0o644)
 	assert.NilError(t, err)
 
 	safe := filepath.Join(root, "safe")
@@ -101,7 +101,7 @@ func TestTarWithMaliciousSymlinks(t *testing.T) {
 	assert.NilError(t, err)
 
 	data := filepath.Join(dir, "data")
-	err = os.MkdirAll(data, 0755)
+	err = os.MkdirAll(data, 0o755)
 	assert.NilError(t, err)
 
 	type testCase struct {

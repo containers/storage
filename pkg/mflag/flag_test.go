@@ -24,6 +24,7 @@ func ResetForTesting(usage func()) {
 	CommandLine = NewFlagSet(os.Args[0], ContinueOnError)
 	Usage = usage
 }
+
 func boolString(s string) string {
 	if s == "0" {
 		return "false"
@@ -405,7 +406,7 @@ func TestChangingArgs(t *testing.T) {
 
 // Test that -help invokes the usage message and returns ErrHelp.
 func TestHelp(t *testing.T) {
-	var helpCalled = false
+	helpCalled := false
 	fs := NewFlagSet("help test", ContinueOnError)
 	fs.Usage = func() { helpCalled = true }
 	var flag bool

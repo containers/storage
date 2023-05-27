@@ -59,11 +59,11 @@ func TestChmodTarEntry(t *testing.T) {
 	cases := []struct {
 		in, expected os.FileMode
 	}{
-		{0000, 0000},
-		{0777, 0777},
-		{0644, 0644},
-		{0755, 0755},
-		{0444, 0444},
+		{0o000, 0o000},
+		{0o777, 0o777},
+		{0o644, 0o644},
+		{0o755, 0o755},
+		{0o444, 0o444},
 	}
 	for _, v := range cases {
 		if out := chmodTarEntry(v.in); out != v.expected {
@@ -75,7 +75,7 @@ func TestChmodTarEntry(t *testing.T) {
 func TestTarWithHardLink(t *testing.T) {
 	origin := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0o700)
 	require.NoError(t, err)
 
 	err = os.Link(filepath.Join(origin, "1"), filepath.Join(origin, "2"))
@@ -117,10 +117,10 @@ func TestTarWithHardLinkAndRebase(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	origin := filepath.Join(tmpDir, "origin")
-	err := os.Mkdir(origin, 0700)
+	err := os.Mkdir(origin, 0o700)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	err = os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0o700)
 	require.NoError(t, err)
 
 	err = os.Link(filepath.Join(origin, "1"), filepath.Join(origin, "2"))
@@ -181,7 +181,7 @@ func getInode(path string) (uint64, error) {
 func TestTarWithBlockCharFifo(t *testing.T) {
 	origin := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0o700)
 	require.NoError(t, err)
 
 	err = system.Mknod(filepath.Join(origin, "2"), unix.S_IFBLK, system.Mkdev(int64(12), int64(5)))
@@ -222,12 +222,12 @@ func TestTarUntarWithXattr(t *testing.T) {
 		t.Skip()
 	}
 	origin := t.TempDir()
-	err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0700)
+	err := os.WriteFile(filepath.Join(origin, "1"), []byte("hello world"), 0o700)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0700)
+	err = os.WriteFile(filepath.Join(origin, "2"), []byte("welcome!"), 0o700)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0700)
+	err = os.WriteFile(filepath.Join(origin, "3"), []byte("will be ignored"), 0o700)
 	require.NoError(t, err)
 	encoded := [20]byte{0, 0, 0, 2}
 	err = system.Lsetxattr(filepath.Join(origin, "2"), "security.capability", encoded[:], 0)
@@ -241,7 +241,6 @@ func TestTarUntarWithXattr(t *testing.T) {
 			Compression:     c,
 			ExcludePatterns: []string{"3"},
 		})
-
 		if err != nil {
 			t.Fatalf("Error tar/untar for compression %s: %s", c.Extension(), err)
 		}

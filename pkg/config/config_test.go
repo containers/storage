@@ -123,7 +123,6 @@ func TestDeviceMapperOptions(t *testing.T) {
 	if !searchOptions(doptions, s100) {
 		t.Fatalf("Expected to find size %q, got %v", s100, doptions)
 	}
-
 }
 
 func TestBtrfsOptions(t *testing.T) {
@@ -164,7 +163,6 @@ func TestBtrfsOptions(t *testing.T) {
 	if !searchOptions(doptions, s100) {
 		t.Fatalf("Expected to find size %q, got %v", s100, doptions)
 	}
-
 }
 
 func TestOverlayOptions(t *testing.T) {
@@ -281,7 +279,6 @@ func TestOverlayOptions(t *testing.T) {
 	if !searchOptions(doptions, s100) {
 		t.Fatalf("Expected to find size %q, got %v", s100, doptions)
 	}
-
 }
 
 func TestVfsOptions(t *testing.T) {

@@ -23,9 +23,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var (
-	drv *Driver
-)
+var drv *Driver
 
 const (
 	defaultPerms       = os.FileMode(0o555)
@@ -52,7 +50,7 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 	runroot, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
 
-	require.NoError(t, os.MkdirAll(root, 0755))
+	require.NoError(t, os.MkdirAll(root, 0o755))
 	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root, RunRoot: runroot})
 	if err != nil {
 		t.Logf("graphdriver: %v\n", err)
@@ -416,7 +414,7 @@ func writeRandomFile(path string, size uint64) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0700)
+	return os.WriteFile(path, data, 0o700)
 }
 
 // DriverTestSetQuota Create a driver and test setting quota.
@@ -482,14 +480,14 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		for i := 0; i < components-1; i++ {
 			path = filepath.Join(path, fmt.Sprintf("subdir%d", i+1))
 			paths = append(paths, path)
-			if err = os.Mkdir(filepath.Join(root, path), 0700); err != nil {
+			if err = os.Mkdir(filepath.Join(root, path), 0o700); err != nil {
 				t.Fatal(err)
 			}
 			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: path})
 		}
 		path = filepath.Join(path, "file")
 		paths = append(paths, path)
-		if err = os.WriteFile(filepath.Join(root, path), randomContent(128, int64(depth)), 0600); err != nil {
+		if err = os.WriteFile(filepath.Join(root, path), randomContent(128, int64(depth)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: path})
@@ -544,12 +542,12 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeModify, Path: paths[i]})
 		}
 		for i := depth; i < components-1; i++ {
-			if err = os.Mkdir(filepath.Join(root, paths[i]), 0700); err != nil {
+			if err = os.Mkdir(filepath.Join(root, paths[i]), 0o700); err != nil {
 				t.Fatal(err)
 			}
 			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[i]})
 		}
-		if err = os.WriteFile(filepath.Join(root, paths[len(paths)-1]), randomContent(128, int64(depth)), 0600); err != nil {
+		if err = os.WriteFile(filepath.Join(root, paths[len(paths)-1]), randomContent(128, int64(depth)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeAdd, Path: paths[len(paths)-1]})

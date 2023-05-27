@@ -566,7 +566,8 @@ func TestIDSetFindAvailable(t *testing.T) {
 			nil,
 			true,
 		},
-		{"OneIntervalFindZero",
+		{
+			"OneIntervalFindZero",
 			newIDSet([]interval{{1, 5}}),
 			0,
 			&idSet{set: intervalset.NewImmutableSet(nil)},

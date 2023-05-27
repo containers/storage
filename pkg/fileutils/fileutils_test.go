@@ -25,14 +25,13 @@ func TestCopyFileWithInvalidSrc(t *testing.T) {
 	if bytes != 0 {
 		t.Fatal("Should have written 0 bytes")
 	}
-
 }
 
 // CopyFile with invalid dest
 func TestCopyFileWithInvalidDest(t *testing.T) {
 	tempFolder := t.TempDir()
 	src := path.Join(tempFolder, "file")
-	err := os.WriteFile(src, []byte("content"), 0740)
+	err := os.WriteFile(src, []byte("content"), 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,14 +42,13 @@ func TestCopyFileWithInvalidDest(t *testing.T) {
 	if bytes != 0 {
 		t.Fatal("Should have written 0 bytes")
 	}
-
 }
 
 // CopyFile with same src and dest
 func TestCopyFileWithSameSrcAndDest(t *testing.T) {
 	tempFolder := t.TempDir()
 	file := path.Join(tempFolder, "file")
-	err := os.WriteFile(file, []byte("content"), 0740)
+	err := os.WriteFile(file, []byte("content"), 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,13 +65,13 @@ func TestCopyFileWithSameSrcAndDest(t *testing.T) {
 func TestCopyFileWithSameSrcAndDestWithPathNameDifferent(t *testing.T) {
 	tempFolder := t.TempDir()
 	testFolder := path.Join(tempFolder, "test")
-	err := os.MkdirAll(testFolder, 0740)
+	err := os.MkdirAll(testFolder, 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
 	file := path.Join(testFolder, "file")
 	sameFile := testFolder + "/../test/file"
-	err = os.WriteFile(file, []byte("content"), 0740)
+	err = os.WriteFile(file, []byte("content"), 0o740)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,10 +88,10 @@ func TestCopyFile(t *testing.T) {
 	tempFolder := t.TempDir()
 	src := path.Join(tempFolder, "src")
 	dest := path.Join(tempFolder, "dest")
-	err := os.WriteFile(src, []byte("content"), 0777)
+	err := os.WriteFile(src, []byte("content"), 0o777)
 	require.NoError(t, err)
 
-	err = os.WriteFile(dest, []byte("destContent"), 0777)
+	err = os.WriteFile(dest, []byte("destContent"), 0o777)
 	require.NoError(t, err)
 	bytes, err := CopyFile(src, dest)
 	if err != nil {
@@ -118,7 +116,7 @@ func TestReadSymlinkedDirectoryExistingDirectory(t *testing.T) {
 		t.Skip("Needs porting to Windows")
 	}
 	var err error
-	if err = os.Mkdir("/tmp/testReadSymlinkToExistingDirectory", 0777); err != nil {
+	if err = os.Mkdir("/tmp/testReadSymlinkToExistingDirectory", 0o777); err != nil {
 		t.Errorf("failed to create directory: %s", err)
 	}
 

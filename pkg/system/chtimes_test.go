@@ -11,7 +11,7 @@ import (
 func prepareTempFile(t *testing.T) string {
 	t.Helper()
 	file := filepath.Join(t.TempDir(), "exist")
-	if err := os.WriteFile(file, []byte("hello"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("hello"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return file
