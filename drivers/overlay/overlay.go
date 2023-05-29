@@ -2064,6 +2064,11 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 	}
 
 	if d.useComposeFs() {
+		// FIXME: move this logic into the differ so we don't have to open
+		// the file twice.
+		if err := enableVerityRecursive(stagingDirectory); err != nil && !errors.Is(err, unix.ENOTSUP) && !errors.Is(err, unix.ENOTTY) {
+			logrus.Warningf("%s", err)
+		}
 		toc := diffOutput.BigData[zstdChunkedManifest]
 		if err := generateComposeFsBlob(toc, d.getErofsBlob(id)); err != nil {
 			return err
