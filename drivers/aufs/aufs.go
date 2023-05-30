@@ -38,6 +38,7 @@ import (
 	"time"
 
 	graphdriver "github.com/containers/storage/drivers"
+	"github.com/containers/storage/drivers/unionbackfill"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -46,6 +47,7 @@ import (
 	mountpk "github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tarbackfill"
 	"github.com/containers/storage/pkg/unshare"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
@@ -563,6 +565,16 @@ func (a *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 func (a *Driver) applyDiff(id string, idMappings *idtools.IDMappings, diff io.Reader) error {
 	if idMappings == nil {
 		idMappings = &idtools.IDMappings{}
+	}
+	parentDiffDirs, err := a.getParentLayerPaths(id)
+	if err != nil {
+		return err
+	}
+	if len(parentDiffDirs) > 0 {
+		backfiller := unionbackfill.NewBackfiller(idMappings, parentDiffDirs)
+		rc := tarbackfill.NewIOReaderWithBackfiller(diff, backfiller)
+		defer rc.Close()
+		diff = rc
 	}
 	return chrootarchive.UntarUncompressed(diff, path.Join(a.rootPath(), "diff", id), &archive.TarOptions{
 		UIDMaps: idMappings.UIDs(),

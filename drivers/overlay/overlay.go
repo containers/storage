@@ -21,6 +21,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
 	"github.com/containers/storage/drivers/quota"
+	"github.com/containers/storage/drivers/unionbackfill"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -30,6 +31,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tarbackfill"
 	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
 	"github.com/hashicorp/go-multierror"
@@ -2116,7 +2118,18 @@ func (d *Driver) ApplyDiff(id, parent string, options graphdriver.ApplyDiffOpts)
 
 	logrus.Debugf("Applying tar in %s", applyDir)
 	// Overlay doesn't need the parent id to apply the diff
-	if err := untar(options.Diff, applyDir, &archive.TarOptions{
+	diff := options.Diff
+	lowerDiffDirs, err := d.getLowerDiffPaths(id)
+	if err != nil {
+		return 0, err
+	}
+	if len(lowerDiffDirs) > 0 {
+		backfiller := unionbackfill.NewBackfiller(idMappings, lowerDiffDirs)
+		rc := tarbackfill.NewIOReaderWithBackfiller(diff, backfiller)
+		defer rc.Close()
+		diff = rc
+	}
+	if err := untar(diff, applyDir, &archive.TarOptions{
 		UIDMaps:           idMappings.UIDs(),
 		GIDMaps:           idMappings.GIDs(),
 		IgnoreChownErrors: d.options.ignoreChownErrors,
