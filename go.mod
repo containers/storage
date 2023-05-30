@@ -3,7 +3,7 @@ go 1.19
 module github.com/containers/storage
 
 require (
-	github.com/BurntSushi/toml v1.2.1
+	github.com/BurntSushi/toml v1.3.0
 	github.com/Microsoft/go-winio v0.6.1
 	github.com/Microsoft/hcsshim v0.9.9
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3
