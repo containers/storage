@@ -523,7 +523,7 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 		for iter.ReadArray() {
 			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
 				switch field {
-				case "type", "name", "linkName", "digest", "chunkDigest", "chunkType":
+				case "type", "name", "linkName", "digest", "chunkDigest", "chunkType", "modtime", "accesstime", "changetime":
 					count += len(iter.ReadStringAsSlice())
 				case "xattrs":
 					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
@@ -574,7 +574,7 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 					m.UID = iter.ReadInt()
 				case "GID":
 					m.GID = iter.ReadInt()
-				case "ModTime":
+				case "modtime":
 					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
 					if err != nil {
 						return nil, err
