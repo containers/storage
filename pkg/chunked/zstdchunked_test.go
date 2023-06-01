@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/klauspost/compress/zstd"
+	"github.com/opencontainers/go-digest"
 )
 
 func TestIsZstdChunkedFrameMagic(t *testing.T) {
@@ -28,15 +30,16 @@ func TestIsZstdChunkedFrameMagic(t *testing.T) {
 }
 
 type seekable struct {
-	data   []byte
-	offset uint64
-	length uint64
-	t      *testing.T
+	data         []byte
+	tarSplitData []byte
+	offset       uint64
+	length       uint64
+	t            *testing.T
 }
 
 func (s seekable) GetBlobAt(req []ImageSourceChunk) (chan io.ReadCloser, chan error, error) {
-	if len(req) != 1 {
-		s.t.Fatal("Requested more than one chunk")
+	if len(req) != 2 {
+		s.t.Fatal("Requested more than two chunks")
 	}
 	if req[0].Offset != s.offset {
 		s.t.Fatal("Invalid offset requested")
@@ -50,6 +53,7 @@ func (s seekable) GetBlobAt(req []ImageSourceChunk) (chan io.ReadCloser, chan er
 
 	go func() {
 		m <- io.NopCloser(bytes.NewReader(s.data))
+		m <- io.NopCloser(bytes.NewReader(s.tarSplitData))
 		close(m)
 		close(e)
 	}()
@@ -94,9 +98,23 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	annotations := make(map[string]string)
 	offsetManifest := uint64(100000)
 
+	encoder, err := zstd.NewWriter(nil)
+	if err != nil {
+		t.Error(err)
+	}
+	defer encoder.Close()
+
+	tarSplitCompressedData := encoder.EncodeAll([]byte("TAR-SPLIT"), nil)
+
+	ts := internal.TarSplitData{
+		Data:             tarSplitCompressedData,
+		Digest:           digest.Canonical.FromBytes(tarSplitCompressedData),
+		UncompressedSize: 9,
+	}
+
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	if err := internal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, someFiles[:], 9); err != nil {
+	if err := internal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], 9); err != nil {
 		t.Error(err)
 	}
 	if err := writer.Flush(); err != nil {
@@ -123,15 +141,27 @@ func TestGenerateAndParseManifest(t *testing.T) {
 		t.Fatal("no manifest written")
 	}
 
-	data := b.Bytes()[offset-offsetManifest:]
-	s := seekable{
-		data:   data,
-		offset: offset,
-		length: length,
-		t:      t,
+	var tarSplitOffset, tarSplitLength, tarSplitUncompressed uint64
+	tarSplitMetadata := annotations[internal.TarSplitInfoKey]
+	if _, err := fmt.Sscanf(tarSplitMetadata, "%d:%d:%d", &tarSplitOffset, &tarSplitLength, &tarSplitUncompressed); err != nil {
+		t.Error(err)
 	}
 
-	manifest, _, err := readZstdChunkedManifest(context.TODO(), s, 8192, annotations)
+	if tarSplitOffset != offsetManifest+length+16 {
+		t.Fatalf("Invalid tar split offset %d, expected %d", tarSplitOffset, offsetManifest+length+16)
+	}
+
+	data := b.Bytes()[offset-offsetManifest : offset-offsetManifest+length][:]
+	tarSplitData := b.Bytes()[tarSplitOffset-offsetManifest : tarSplitOffset-offsetManifest+tarSplitLength][:]
+	s := seekable{
+		data:         data,
+		tarSplitData: tarSplitData,
+		offset:       offset,
+		length:       length,
+		t:            t,
+	}
+
+	manifest, _, _, err := readZstdChunkedManifest(context.TODO(), s, 8192, annotations)
 	if err != nil {
 		t.Error(err)
 	}

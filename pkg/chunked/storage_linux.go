@@ -55,6 +55,7 @@ type compressedFileType int
 type chunkedDiffer struct {
 	stream      ImageSourceSeekable
 	manifest    []byte
+	tarSplit    []byte
 	layersCache *layersCache
 	tocOffset   int64
 	fileType    compressedFileType
@@ -147,7 +148,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobSize int64, annotat
 }
 
 func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (*chunkedDiffer, error) {
-	manifest, tocOffset, err := readZstdChunkedManifest(ctx, iss, blobSize, annotations)
+	manifest, tarSplit, tocOffset, err := readZstdChunkedManifest(ctx, iss, blobSize, annotations)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
@@ -158,11 +159,12 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 
 	return &chunkedDiffer{
 		copyBuffer:  makeCopyBuffer(),
-		stream:      iss,
-		manifest:    manifest,
-		layersCache: layersCache,
-		tocOffset:   tocOffset,
 		fileType:    fileTypeZstdChunked,
+		layersCache: layersCache,
+		manifest:    manifest,
+		stream:      iss,
+		tarSplit:    tarSplit,
+		tocOffset:   tocOffset,
 	}, nil
 }
 
@@ -1272,7 +1274,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	}()
 
 	output := graphdriver.DriverWithDifferOutput{
-		Differ: c,
+		Differ:   c,
+		TarSplit: c.tarSplit,
 		BigData: map[string][]byte{
 			bigDataKey: c.manifest,
 		},
@@ -1578,6 +1581,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	if totalChunksSize > 0 {
 		logrus.Debugf("Missing %d bytes out of %d (%.2f %%)", missingPartsSize, totalChunksSize, float32(missingPartsSize*100.0)/float32(totalChunksSize))
 	}
+
 	return output, nil
 }
 
