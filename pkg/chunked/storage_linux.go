@@ -138,6 +138,26 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 	return dstFile, st.Size(), nil
 }
 
+// GetTOCDigest returns the digest of the TOC as recorded in the annotations.
+// This is an experimental feature and may be changed/removed in the future.
+func GetTOCDigest(annotations map[string]string) (*digest.Digest, error) {
+	if tocDigest, ok := annotations[estargz.TOCJSONDigestAnnotation]; ok {
+		d, err := digest.Parse(tocDigest)
+		if err != nil {
+			return nil, err
+		}
+		return &d, nil
+	}
+	if tocDigest, ok := annotations[internal.ManifestChecksumKey]; ok {
+		d, err := digest.Parse(tocDigest)
+		if err != nil {
+			return nil, err
+		}
+		return &d, nil
+	}
+	return nil, nil
+}
+
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
 func GetDiffer(ctx context.Context, store storage.Store, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {
 	if _, ok := annotations[internal.ManifestChecksumKey]; ok {
