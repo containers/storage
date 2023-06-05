@@ -379,6 +379,24 @@ func maybeDoIDRemap(manifest []internal.FileMetadata, options *archive.TarOption
 	return nil
 }
 
+func mapToSlice(inputMap map[uint32]struct{}) []uint32 {
+	var out []uint32
+	for value := range inputMap {
+		out = append(out, value)
+	}
+	return out
+}
+
+func collectIDs(entries []internal.FileMetadata) ([]uint32, []uint32) {
+	uids := make(map[uint32]struct{})
+	gids := make(map[uint32]struct{})
+	for _, entry := range entries {
+		uids[uint32(entry.UID)] = struct{}{}
+		gids[uint32(entry.GID)] = struct{}{}
+	}
+	return mapToSlice(uids), mapToSlice(gids)
+}
+
 type originFile struct {
 	Root   string
 	Path   string
@@ -1321,6 +1339,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 	whiteoutConverter := archive.GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 
 	var missingParts []missingPart
+
+	output.UIDs, output.GIDs = collectIDs(toc.Entries)
 
 	mergedEntries, totalSize, err := c.mergeTocEntries(c.fileType, toc.Entries)
 	if err != nil {
