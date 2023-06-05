@@ -65,6 +65,8 @@ type chunkedDiffer struct {
 	gzipReader *pgzip.Reader
 	zstdReader *zstd.Decoder
 	rawReader  io.Reader
+
+	tocDigest digest.Digest
 }
 
 var xattrsToIgnore = map[string]interface{}{
@@ -157,6 +159,11 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 		return nil, err
 	}
 
+	tocDigest, err := digest.Parse(annotations[internal.ManifestChecksumKey])
+	if err != nil {
+		return nil, fmt.Errorf("parse TOC digest %q: %w", annotations[internal.ManifestChecksumKey], err)
+	}
+
 	return &chunkedDiffer{
 		copyBuffer:  makeCopyBuffer(),
 		fileType:    fileTypeZstdChunked,
@@ -165,6 +172,7 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 		stream:      iss,
 		tarSplit:    tarSplit,
 		tocOffset:   tocOffset,
+		tocDigest:   tocDigest,
 	}, nil
 }
 
@@ -178,6 +186,11 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 		return nil, err
 	}
 
+	tocDigest, err := digest.Parse(annotations[estargz.TOCJSONDigestAnnotation])
+	if err != nil {
+		return nil, fmt.Errorf("parse TOC digest %q: %w", annotations[estargz.TOCJSONDigestAnnotation], err)
+	}
+
 	return &chunkedDiffer{
 		copyBuffer:  makeCopyBuffer(),
 		stream:      iss,
@@ -185,6 +198,7 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 		layersCache: layersCache,
 		tocOffset:   tocOffset,
 		fileType:    fileTypeEstargz,
+		tocDigest:   tocDigest,
 	}, nil
 }
 
@@ -1279,6 +1293,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions) (gra
 		BigData: map[string][]byte{
 			bigDataKey: c.manifest,
 		},
+		TOCDigest: c.tocDigest,
 	}
 
 	storeOpts, err := types.DefaultStoreOptionsAutoDetectUID()
