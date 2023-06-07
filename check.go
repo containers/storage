@@ -333,7 +333,6 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 						} else {
 							report.ROLayers[id] = append(report.ROLayers[id], err)
 						}
-						return
 					}
 					if layer.UncompressedSize != -1 && counter.Count != layer.UncompressedSize {
 						// We expected the diff to have a specific size, and
@@ -347,7 +346,6 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 						} else {
 							report.ROLayers[id] = append(report.ROLayers[id], err)
 						}
-						return
 					}
 				}()
 			}
