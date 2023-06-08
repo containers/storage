@@ -14,7 +14,7 @@ type Regexp = *regexpStruct
 
 type regexpStruct struct {
 	_      noCopy
-	once   *sync.Once
+	once   sync.Once
 	regexp *regexp.Regexp
 	val    string
 }
@@ -25,10 +25,7 @@ func Delayed(val string) Regexp {
 	}
 	if precompile {
 		re.regexp = regexp.MustCompile(re.val)
-	} else {
-		re.once = &sync.Once{}
 	}
-
 	return re
 }
 
