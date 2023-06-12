@@ -2248,7 +2248,7 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 	tsdata := bytes.Buffer{}
 	compressor, err := pgzip.NewWriterLevel(&tsdata, pgzip.BestSpeed)
 	if err != nil {
-		compressor = pgzip.NewWriter(&tsdata)
+		return -1, err
 	}
 	if err := compressor.SetConcurrency(1024*1024, 1); err != nil { // 1024*1024 is the hard-coded default; we're not changing that
 		logrus.Infof("setting compression concurrency threads to 1: %v; ignoring", err)
