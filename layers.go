@@ -2246,6 +2246,10 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 	defragmented = io.TeeReader(defragmented, compressedCounter)
 
 	tsdata := bytes.Buffer{}
+	uidLog := make(map[uint32]struct{})
+	gidLog := make(map[uint32]struct{})
+	var uncompressedCounter *ioutils.WriteCounter
+
 	compressor, err := pgzip.NewWriterLevel(&tsdata, pgzip.BestSpeed)
 	if err != nil {
 		return -1, err
@@ -2259,8 +2263,6 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 		return -1, err
 	}
 	defer uncompressed.Close()
-	uidLog := make(map[uint32]struct{})
-	gidLog := make(map[uint32]struct{})
 	idLogger, err := tarlog.NewLogger(func(h *tar.Header) {
 		if !strings.HasPrefix(path.Base(h.Name), archive.WhiteoutPrefix) {
 			uidLog[uint32(h.Uid)] = struct{}{}
@@ -2271,7 +2273,7 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 		return -1, err
 	}
 	defer idLogger.Close()
-	uncompressedCounter := ioutils.NewWriteCounter(idLogger)
+	uncompressedCounter = ioutils.NewWriteCounter(idLogger)
 	uncompressedWriter := (io.Writer)(uncompressedCounter)
 	if uncompressedDigester != nil {
 		uncompressedWriter = io.MultiWriter(uncompressedWriter, uncompressedDigester.Hash())
