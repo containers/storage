@@ -305,8 +305,5 @@ func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedUncom
 	defer decoder.Close()
 
 	b := make([]byte, 0, lengthUncompressed)
-	if decoded, err := decoder.DecodeAll(blob, b); err == nil {
-		return decoded, nil
-	}
-	return blob, nil
+	return decoder.DecodeAll(blob, b)
 }
