@@ -9,6 +9,7 @@ import (
 
 	storage "github.com/containers/storage"
 	graphdriver "github.com/containers/storage/drivers"
+	digest "github.com/opencontainers/go-digest"
 )
 
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
