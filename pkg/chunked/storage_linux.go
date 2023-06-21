@@ -844,7 +844,14 @@ func openDestinationFile(dirfd int, metadata *internal.FileMetadata, options *ar
 	}, nil
 }
 
-func (d *destinationFile) Close() error {
+func (d *destinationFile) Close() (Err error) {
+	defer func() {
+		err := d.file.Close()
+		if Err == nil {
+			Err = err
+		}
+	}()
+
 	manifestChecksum, err := digest.Parse(d.metadata.Digest)
 	if err != nil {
 		return err
