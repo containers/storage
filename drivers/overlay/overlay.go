@@ -2084,6 +2084,49 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 		return err
 	}
 
+	lowerDiffDirs, err := d.getLowerDiffPaths(id)
+	if err != nil {
+		return err
+	}
+	if len(lowerDiffDirs) > 0 {
+		backfiller := unionbackfill.NewBackfiller(options.Mappings, lowerDiffDirs)
+		for _, implicitDir := range diffOutput.ImplicitDirs {
+			hdr, err := backfiller.Backfill(implicitDir)
+			if err != nil {
+				return err
+			}
+			if hdr == nil {
+				continue
+			}
+			path := filepath.Join(stagingDirectory, implicitDir)
+			idPair := idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid}
+			if options.Mappings != nil {
+				if mapped, err := options.Mappings.ToHost(idPair); err == nil {
+					idPair = mapped
+				}
+			}
+			if err := os.Chown(path, idPair.UID, idPair.GID); err != nil {
+				return err
+			}
+			for xattr, xval := range hdr.Xattrs {
+				if err := system.Lsetxattr(path, xattr, []byte(xval), 0); err != nil {
+					return err
+				}
+			}
+			if err := os.Chmod(path, os.FileMode(hdr.Mode)&os.ModePerm); err != nil {
+				return err
+			}
+			atime := hdr.AccessTime
+			mtime := hdr.ModTime
+			if atime.IsZero() {
+				atime = mtime
+			}
+			if err := os.Chtimes(path, atime, mtime); err != nil {
+				return err
+			}
+		}
+	}
+
 	diffOutput.UncompressedDigest = diffOutput.TOCDigest
 
 	return os.Rename(stagingDirectory, diffPath)
