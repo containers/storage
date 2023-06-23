@@ -1431,6 +1431,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		logLevel = logrus.DebugLevel
 	}
 	optsList := options.Options
+
+	needsIDMapping := !disableShifting && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 && d.options.mountProgram == ""
+
 	if len(optsList) == 0 {
 		optsList = strings.Split(d.options.mountOptions, ",")
 	} else {
@@ -1596,7 +1599,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}
 
-	if !disableShifting && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 && d.options.mountProgram == "" {
+	if needsIDMapping {
 		var newAbsDir []string
 		mappedRoot := filepath.Join(d.home, id, "mapped")
 		if err := os.MkdirAll(mappedRoot, 0o700); err != nil {
