@@ -1502,6 +1502,16 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}
 
+	idmappedMountProcessPid := -1
+	if needsIDMapping {
+		pid, cleanupFunc, err := idmap.CreateUsernsProcess(options.UidMaps, options.GidMaps)
+		if err != nil {
+			return "", err
+		}
+		idmappedMountProcessPid = int(pid)
+		defer cleanupFunc()
+	}
+
 	// For each lower, resolve its path, and append it and any additional diffN
 	// directories to the lowers list.
 	for _, l := range splitLowers {
@@ -1601,18 +1611,12 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	if needsIDMapping {
 		var newAbsDir []string
+		idMappedMounts := make(map[string]string)
+
 		mappedRoot := filepath.Join(d.home, id, "mapped")
 		if err := os.MkdirAll(mappedRoot, 0o700); err != nil {
 			return "", err
 		}
-
-		pid, cleanupFunc, err := idmap.CreateUsernsProcess(options.UidMaps, options.GidMaps)
-		if err != nil {
-			return "", err
-		}
-		defer cleanupFunc()
-
-		idMappedMounts := make(map[string]string)
 
 		// rewrite the lower dirs to their idmapped mount.
 		c := 0
@@ -1623,7 +1627,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			if !found {
 				root = filepath.Join(mappedRoot, fmt.Sprintf("%d", c))
 				c++
-				if err := idmap.CreateIDMappedMount(mappedMountSrc, root, int(pid)); err != nil {
+				if err := idmap.CreateIDMappedMount(mappedMountSrc, root, idmappedMountProcessPid); err != nil {
 					return "", fmt.Errorf("create mapped mount for %q on %q: %w", mappedMountSrc, root, err)
 				}
 				idMappedMounts[mappedMountSrc] = root
