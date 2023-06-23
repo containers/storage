@@ -82,6 +82,8 @@ const (
 	lowerFile  = "lower"
 	maxDepth   = 500
 
+	zstdChunkedManifest = "zstd-chunked-manifest"
+
 	// idLength represents the number of random characters
 	// which can be used to create the unique link identifier
 	// for every layer. If this value is too long then the
@@ -780,6 +782,10 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 }
 
 func (d *Driver) useNaiveDiff() bool {
+	if d.useComposeFs() {
+		return true
+	}
+
 	useNaiveDiffLock.Do(func() {
 		if d.options.mountProgram != "" {
 			useNaiveDiffOnly = true
@@ -1512,12 +1518,66 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		defer cleanupFunc()
 	}
 
+	erofsLayers := filepath.Join(workDirBase, "erofs-layers")
+	if err := os.MkdirAll(erofsLayers, 0o700); err != nil {
+		return "", err
+	}
+
+	skipIDMappingLayers := make(map[string]string)
+
+	composeFsLayers := []string{}
+
+	erofsMounts := []string{}
+	defer func() {
+		for _, m := range erofsMounts {
+			defer unix.Unmount(m, unix.MNT_DETACH)
+		}
+	}()
+
+	maybeAddErofsMount := func(lowerID string, i int) (string, error) {
+		erofsBlob := d.getErofsBlob(lowerID)
+		_, err = os.Stat(erofsBlob)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return "", nil
+			}
+			return "", err
+		}
+		logrus.Debugf("overlay: using erofs blob %s for lower %s", erofsBlob, lowerID)
+
+		dest := filepath.Join(erofsLayers, fmt.Sprintf("%d", i))
+		if err := os.MkdirAll(dest, 0o700); err != nil {
+			return "", err
+		}
+
+		if err := mountErofsBlob(erofsBlob, dest); err != nil {
+			return "", err
+		}
+		erofsMounts = append(erofsMounts, dest)
+		composeFsPath, err := d.getDiffPath(lowerID)
+		if err != nil {
+			return "", err
+		}
+		composeFsLayers = append(composeFsLayers, composeFsPath)
+		skipIDMappingLayers[composeFsPath] = composeFsPath
+		return dest, nil
+	}
+
+	diffDir := path.Join(workDirBase, "diff")
+
+	if dest, err := maybeAddErofsMount(id, 0); err != nil {
+		return "", err
+	} else if dest != "" {
+		diffDir = dest
+	}
+
 	// For each lower, resolve its path, and append it and any additional diffN
 	// directories to the lowers list.
-	for _, l := range splitLowers {
+	for i, l := range splitLowers {
 		if l == "" {
 			continue
 		}
+
 		lower := ""
 		newpath := path.Join(d.home, l)
 		if st, err := os.Stat(newpath); err != nil {
@@ -1551,6 +1611,30 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			}
 			lower = newpath
 		}
+
+		linkContent, err := os.Readlink(lower)
+		if err != nil {
+			return "", err
+		}
+		lowerID := filepath.Base(filepath.Dir(linkContent))
+		erofsMount, err := maybeAddErofsMount(lowerID, i+1)
+		if err != nil {
+			return "", err
+		}
+		if erofsMount != "" {
+			if needsIDMapping {
+				if err := idmap.CreateIDMappedMount(erofsMount, erofsMount, idmappedMountProcessPid); err != nil {
+					return "", fmt.Errorf("create mapped mount for %q: %w", erofsMount, err)
+				}
+				skipIDMappingLayers[erofsMount] = erofsMount
+				// overlay takes a reference on the mount, so it is safe to unmount
+				// the mapped idmounts as soon as the final overlay file system is mounted.
+				defer unix.Unmount(erofsMount, unix.MNT_DETACH)
+			}
+			absLowers = append(absLowers, erofsMount)
+			continue
+		}
+
 		absLowers = append(absLowers, lower)
 		diffN = 1
 		_, err = os.Stat(dumbJoin(lower, "..", nameWithSuffix("diff", diffN)))
@@ -1561,15 +1645,22 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}
 
+	if len(composeFsLayers) > 0 {
+		optsList = append(optsList, "metacopy=on", "redirect_dir=on")
+	}
+
+	absLowers = append(absLowers, composeFsLayers...)
+
 	if len(absLowers) == 0 {
 		absLowers = append(absLowers, path.Join(dir, "empty"))
 	}
+
 	// user namespace requires this to move a directory from lower to upper.
 	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UidMaps, options.GidMaps)
 	if err != nil {
 		return "", err
 	}
-	diffDir := path.Join(workDirBase, "diff")
+
 	if err := idtools.MkdirAllAs(diffDir, perms, rootUID, rootGID); err != nil {
 		return "", err
 	}
@@ -1622,6 +1713,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		c := 0
 		for _, absLower := range absLowers {
 			mappedMountSrc := getMappedMountRoot(absLower)
+
+			if _, ok := skipIDMappingLayers[absLower]; ok {
+				newAbsDir = append(newAbsDir, absLower)
+				continue
+			}
 
 			root, found := idMappedMounts[mappedMountSrc]
 			if !found {
@@ -1903,6 +1999,13 @@ func (d *Driver) CleanupStagingDirectory(stagingDirectory string) error {
 	return os.RemoveAll(stagingDirectory)
 }
 
+func (d *Driver) useComposeFs() bool {
+	if !composeFsSupported() || unshare.IsRootless() {
+		return false
+	}
+	return true
+}
+
 // ApplyDiff applies the changes in the new layer using the specified function
 func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, err error) {
 	var idMappings *idtools.IDMappings
@@ -1935,14 +2038,22 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 
 	logrus.Debugf("Applying differ in %s", applyDir)
 
+	differOptions := graphdriver.DifferOptions{
+		Format: graphdriver.DifferOutputFormatDir,
+	}
+	if d.useComposeFs() {
+		differOptions.Format = graphdriver.DifferOutputFormatFlat
+	}
 	out, err := differ.ApplyDiff(applyDir, &archive.TarOptions{
 		UIDMaps:           idMappings.UIDs(),
 		GIDMaps:           idMappings.GIDs(),
 		IgnoreChownErrors: d.options.ignoreChownErrors,
 		WhiteoutFormat:    d.getWhiteoutFormat(),
 		InUserNS:          unshare.IsRootless(),
-	}, nil)
+	}, &differOptions)
+
 	out.Target = applyDir
+
 	return out, err
 }
 
@@ -1952,17 +2063,23 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 		return fmt.Errorf("%q is not a staging directory", stagingDirectory)
 	}
 
-	diff, err := d.getDiffPath(id)
+	if d.useComposeFs() {
+		toc := diffOutput.BigData[zstdChunkedManifest]
+		if err := generateComposeFsBlob(toc, d.getErofsBlob(id)); err != nil {
+			return err
+		}
+	}
+	diffPath, err := d.getDiffPath(id)
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(diff); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(diffPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
 	diffOutput.UncompressedDigest = diffOutput.TOCDigest
 
-	return os.Rename(stagingDirectory, diff)
+	return os.Rename(stagingDirectory, diffPath)
 }
 
 // DifferTarget gets the location where files are stored for the layer.
@@ -2006,6 +2123,11 @@ func (d *Driver) ApplyDiff(id, parent string, options graphdriver.ApplyDiffOpts)
 	}
 
 	return directory.Size(applyDir)
+}
+
+func (d *Driver) getErofsBlob(id string) string {
+	dir := d.dir(id)
+	return path.Join(dir, "erofs-blob")
 }
 
 func (d *Driver) getDiffPath(id string) (string, error) {
