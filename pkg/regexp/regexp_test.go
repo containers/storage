@@ -4,6 +4,14 @@ import (
 	"testing"
 )
 
+type partOfRegexp interface {
+	FindStringSubmatch(s string) []string
+	MatchString(s string) bool
+	NumSubexp() int
+}
+
+var _ partOfRegexp = &Regexp{}
+
 func TestMatchString(t *testing.T) {
 	r := Delayed(`[0-9]+`)
 
