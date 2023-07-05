@@ -5,6 +5,7 @@ package overlay
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -128,6 +129,41 @@ func generateComposeFsBlob(toc []byte, composefsDir string) error {
 	return nil
 }
 
+/*
+typedef enum {
+	LCFS_EROFS_FLAGS_HAS_ACL = (1 << 0),
+} lcfs_erofs_flag_t;
+
+struct lcfs_erofs_header_s {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t flags;
+	uint32_t unused[5];
+} __attribute__((__packed__));
+*/
+
+// hasACL returns true if the erofs blob has ACLs enabled
+func hasACL(path string) (bool, error) {
+	const LCFS_EROFS_FLAGS_HAS_ACL = (1 << 0)
+
+	fd, err := unix.Openat(unix.AT_FDCWD, path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return false, err
+	}
+	defer unix.Close(fd)
+	// do not worry about checking the magic number, if the file is invalid
+	// we will fail to mount it anyway
+	flags := make([]byte, 4)
+	nread, err := unix.Pread(fd, flags, 8)
+	if err != nil {
+		return false, err
+	}
+	if nread != 4 {
+		return false, fmt.Errorf("failed to read flags from %q", path)
+	}
+	return binary.LittleEndian.Uint32(flags)&LCFS_EROFS_FLAGS_HAS_ACL != 0, nil
+}
+
 func mountComposefsBlob(dataDir, mountPoint string) error {
 	blobFile := getComposefsBlob(dataDir)
 	loop, err := loopback.AttachLoopDevice(blobFile)
@@ -136,5 +172,14 @@ func mountComposefsBlob(dataDir, mountPoint string) error {
 	}
 	defer loop.Close()
 
-	return unix.Mount(loop.Name(), mountPoint, "erofs", unix.MS_RDONLY, "ro")
+	hasACL, err := hasACL(blobFile)
+	if err != nil {
+		return err
+	}
+	mountOpts := "ro"
+	if !hasACL {
+		mountOpts += ",noacl"
+	}
+
+	return unix.Mount(loop.Name(), mountPoint, "erofs", unix.MS_RDONLY, mountOpts)
 }
