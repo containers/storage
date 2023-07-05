@@ -75,7 +75,16 @@ func enableVerityRecursive(path string) error {
 	return filepath.WalkDir(path, walkFn)
 }
 
-func generateComposeFsBlob(toc []byte, destFile string) error {
+func getComposefsBlob(dataDir string) string {
+	return filepath.Join(dataDir, "composefs.blob")
+}
+
+func generateComposeFsBlob(toc []byte, composefsDir string) error {
+	if err := os.MkdirAll(composefsDir, 0o700); err != nil {
+		return err
+	}
+
+	destFile := getComposefsBlob(composefsDir)
 	writerJson, err := getComposeFsHelper()
 	if err != nil {
 		return fmt.Errorf("failed to find composefs-from-json: %w", err)
@@ -119,7 +128,8 @@ func generateComposeFsBlob(toc []byte, destFile string) error {
 	return nil
 }
 
-func mountErofsBlob(blobFile, mountPoint string) error {
+func mountComposefsBlob(dataDir, mountPoint string) error {
+	blobFile := getComposefsBlob(dataDir)
 	loop, err := loopback.AttachLoopDevice(blobFile)
 	if err != nil {
 		return err
