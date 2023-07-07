@@ -1518,8 +1518,8 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		defer cleanupFunc()
 	}
 
-	erofsLayers := filepath.Join(workDirBase, "erofs-layers")
-	if err := os.MkdirAll(erofsLayers, 0o700); err != nil {
+	composefsLayers := filepath.Join(workDirBase, "composefs-layers")
+	if err := os.MkdirAll(composefsLayers, 0o700); err != nil {
 		return "", err
 	}
 
@@ -1527,33 +1527,33 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	composeFsLayers := []string{}
 
-	erofsMounts := []string{}
+	composefsMounts := []string{}
 	defer func() {
-		for _, m := range erofsMounts {
+		for _, m := range composefsMounts {
 			defer unix.Unmount(m, unix.MNT_DETACH)
 		}
 	}()
 
-	maybeAddErofsMount := func(lowerID string, i int) (string, error) {
-		erofsBlob := d.getErofsBlob(lowerID)
-		_, err = os.Stat(erofsBlob)
+	maybeAddComposefsMount := func(lowerID string, i int) (string, error) {
+		composefsBlob := d.getComposefsData(lowerID)
+		_, err = os.Stat(composefsBlob)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return "", nil
 			}
 			return "", err
 		}
-		logrus.Debugf("overlay: using erofs blob %s for lower %s", erofsBlob, lowerID)
+		logrus.Debugf("overlay: using composefs blob %s for lower %s", composefsBlob, lowerID)
 
-		dest := filepath.Join(erofsLayers, fmt.Sprintf("%d", i))
+		dest := filepath.Join(composefsLayers, fmt.Sprintf("%d", i))
 		if err := os.MkdirAll(dest, 0o700); err != nil {
 			return "", err
 		}
 
-		if err := mountErofsBlob(erofsBlob, dest); err != nil {
+		if err := mountComposefsBlob(composefsBlob, dest); err != nil {
 			return "", err
 		}
-		erofsMounts = append(erofsMounts, dest)
+		composefsMounts = append(composefsMounts, dest)
 		composeFsPath, err := d.getDiffPath(lowerID)
 		if err != nil {
 			return "", err
@@ -1565,7 +1565,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	diffDir := path.Join(workDirBase, "diff")
 
-	if dest, err := maybeAddErofsMount(id, 0); err != nil {
+	if dest, err := maybeAddComposefsMount(id, 0); err != nil {
 		return "", err
 	} else if dest != "" {
 		diffDir = dest
@@ -1617,21 +1617,21 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			return "", err
 		}
 		lowerID := filepath.Base(filepath.Dir(linkContent))
-		erofsMount, err := maybeAddErofsMount(lowerID, i+1)
+		composefsMount, err := maybeAddComposefsMount(lowerID, i+1)
 		if err != nil {
 			return "", err
 		}
-		if erofsMount != "" {
+		if composefsMount != "" {
 			if needsIDMapping {
-				if err := idmap.CreateIDMappedMount(erofsMount, erofsMount, idmappedMountProcessPid); err != nil {
-					return "", fmt.Errorf("create mapped mount for %q: %w", erofsMount, err)
+				if err := idmap.CreateIDMappedMount(composefsMount, composefsMount, idmappedMountProcessPid); err != nil {
+					return "", fmt.Errorf("create mapped mount for %q: %w", composefsMount, err)
 				}
-				skipIDMappingLayers[erofsMount] = erofsMount
+				skipIDMappingLayers[composefsMount] = composefsMount
 				// overlay takes a reference on the mount, so it is safe to unmount
 				// the mapped idmounts as soon as the final overlay file system is mounted.
-				defer unix.Unmount(erofsMount, unix.MNT_DETACH)
+				defer unix.Unmount(composefsMount, unix.MNT_DETACH)
 			}
-			absLowers = append(absLowers, erofsMount)
+			absLowers = append(absLowers, composefsMount)
 			continue
 		}
 
@@ -2070,7 +2070,7 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 			logrus.Warningf("%s", err)
 		}
 		toc := diffOutput.BigData[zstdChunkedManifest]
-		if err := generateComposeFsBlob(toc, d.getErofsBlob(id)); err != nil {
+		if err := generateComposeFsBlob(toc, d.getComposefsData(id)); err != nil {
 			return err
 		}
 	}
@@ -2130,9 +2130,9 @@ func (d *Driver) ApplyDiff(id, parent string, options graphdriver.ApplyDiffOpts)
 	return directory.Size(applyDir)
 }
 
-func (d *Driver) getErofsBlob(id string) string {
+func (d *Driver) getComposefsData(id string) string {
 	dir := d.dir(id)
-	return path.Join(dir, "erofs-blob")
+	return path.Join(dir, "composefs-data")
 }
 
 func (d *Driver) getDiffPath(id string) (string, error) {

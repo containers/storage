@@ -11,11 +11,11 @@ func composeFsSupported() bool {
 	return false
 }
 
-func generateComposeFsBlob(toc []byte, destFile string) error {
+func generateComposeFsBlob(toc []byte, composefsDir string) error {
 	return fmt.Errorf("composefs is not supported")
 }
 
-func mountErofsBlob(blobFile, mountPoint string) error {
+func mountComposefsBlob(dataDir, mountPoint string) error {
 	return fmt.Errorf("composefs is not supported")
 }
 
