@@ -6,7 +6,6 @@ package chunked
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -161,7 +160,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 		t:            t,
 	}
 
-	manifest, _, _, err := readZstdChunkedManifest(context.TODO(), s, 8192, annotations)
+	manifest, _, _, err := readZstdChunkedManifest(s, 8192, annotations)
 	if err != nil {
 		t.Error(err)
 	}
