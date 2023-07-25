@@ -109,11 +109,17 @@ func doHardLink(srcFd int, destDirFd int, destBase string) error {
 	return err
 }
 
-func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
+// copyFileContent copies the contents of the file with descriptor `srcFd` into
+// `destFile`, which is named relative to the directory opened as `dirfd`.  The
+// newly-created file will have its mode set to `mode`.
+// Returns an `*os.File` for the newly-created-or-just-overwritten file, its
+// size, and the names of any intermediate directories which needed to be
+// created before the file could be created.
+func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, useHardLinks bool) (*os.File, int64, []string, error) {
 	src := fmt.Sprintf("/proc/self/fd/%d", srcFd)
 	st, err := os.Stat(src)
 	if err != nil {
-		return nil, -1, fmt.Errorf("copy file content for %q: %w", destFile, err)
+		return nil, -1, nil, fmt.Errorf("copy file content for %q: %w", destFile, err)
 	}
 
 	copyWithFileRange, copyWithFileClone := true, true
@@ -121,29 +127,29 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 	if useHardLinks {
 		destDirPath := filepath.Dir(destFile)
 		destBase := filepath.Base(destFile)
-		destDir, err := openFileUnderRoot(destDirPath, dirfd, 0, mode)
+		destDir, implicitDirs, err := openFileUnderRoot(destDirPath, dirfd, 0, mode)
 		if err == nil {
 			defer destDir.Close()
 
 			err := doHardLink(srcFd, int(destDir.Fd()), destBase)
 			if err == nil {
-				return nil, st.Size(), nil
+				return nil, st.Size(), implicitDirs, nil
 			}
 		}
 	}
 
 	// If the destination file already exists, we shouldn't blow it away
-	dstFile, err := openFileUnderRoot(destFile, dirfd, newFileFlags, mode)
+	dstFile, implicitDirs, err := openFileUnderRoot(destFile, dirfd, newFileFlags, mode)
 	if err != nil {
-		return nil, -1, fmt.Errorf("open file %q under rootfs for copy: %w", destFile, err)
+		return nil, -1, nil, fmt.Errorf("open file %q under rootfs for copy: %w", destFile, err)
 	}
 
 	err = driversCopy.CopyRegularToFile(src, dstFile, st, &copyWithFileRange, &copyWithFileClone)
 	if err != nil {
 		dstFile.Close()
-		return nil, -1, fmt.Errorf("copy to file %q under rootfs: %w", destFile, err)
+		return nil, -1, nil, fmt.Errorf("copy to file %q under rootfs: %w", destFile, err)
 	}
-	return dstFile, st.Size(), nil
+	return dstFile, st.Size(), implicitDirs, nil
 }
 
 // GetTOCDigest returns the digest of the TOC as recorded in the annotations.
@@ -240,24 +246,28 @@ func makeCopyBuffer() []byte {
 // name is the path to the file to copy in source.
 // dirfd is an open file descriptor to the destination root directory.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func copyFileFromOtherLayer(file *internal.FileMetadata, source string, name string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+// Returns a boolean indicating whether it succeeded or not, and if it succeeded, a
+// handle for the new file, the size of the file, and the names of any
+// subdirectories which needed to be created before the new file could be
+// created.
+func copyFileFromOtherLayer(file *internal.FileMetadata, source string, name string, dirfd int, useHardLinks bool) (bool, *os.File, int64, []string, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file: %w", err)
+		return false, nil, 0, nil, fmt.Errorf("open source file: %w", err)
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY, 0)
+	srcFile, implicitDirs, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file under target rootfs (%s): %w", name, err)
+		return false, nil, 0, nil, fmt.Errorf("open source file under target rootfs: %w", err)
 	}
 	defer srcFile.Close()
 
-	dstFile, written, err := copyFileContent(int(srcFile.Fd()), file.Name, dirfd, 0, useHardLinks)
+	dstFile, written, alsoImplicitDirs, err := copyFileContent(int(srcFile.Fd()), file.Name, dirfd, 0, useHardLinks)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("copy content to %q: %w", file.Name, err)
+		return false, nil, 0, nil, fmt.Errorf("copy content to %q: %w", file.Name, err)
 	}
-	return true, dstFile, written, nil
+	return true, dstFile, written, append(implicitDirs, alsoImplicitDirs...), nil
 }
 
 // canDedupMetadataWithHardLink says whether it is possible to deduplicate file with otherFile.
@@ -320,15 +330,18 @@ func canDedupFileWithHardLink(file *internal.FileMetadata, fd int, s os.FileInfo
 // ostreeRepos is a list of OSTree repos.
 // dirfd is an open fd to the destination checkout.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func findFileInOSTreeRepos(file *internal.FileMetadata, ostreeRepos []string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+// Returns a boolean indicating success, and on success an `*os.File` for the
+// newly-created file, its size, and the names of any intermediate directories
+// which needed to be created before the file could be created.
+func findFileInOSTreeRepos(file *internal.FileMetadata, ostreeRepos []string, dirfd int, useHardLinks bool) (bool, *os.File, int64, []string, error) {
 	digest, err := digest.Parse(file.Digest)
 	if err != nil {
 		logrus.Debugf("could not parse digest: %v", err)
-		return false, nil, 0, nil
+		return false, nil, 0, nil, nil
 	}
 	payloadLink := digest.Encoded() + ".payload-link"
 	if len(payloadLink) < 2 {
-		return false, nil, 0, nil
+		return false, nil, 0, nil, nil
 	}
 
 	for _, repo := range ostreeRepos {
@@ -343,7 +356,7 @@ func findFileInOSTreeRepos(file *internal.FileMetadata, ostreeRepos []string, di
 		fd, err := unix.Open(sourceFile, unix.O_RDONLY|unix.O_NONBLOCK, 0)
 		if err != nil {
 			logrus.Debugf("could not open sourceFile %s: %v", sourceFile, err)
-			return false, nil, 0, nil
+			return false, nil, 0, nil, nil
 		}
 		f := os.NewFile(uintptr(fd), "fd")
 		defer f.Close()
@@ -353,19 +366,19 @@ func findFileInOSTreeRepos(file *internal.FileMetadata, ostreeRepos []string, di
 			continue
 		}
 
-		dstFile, written, err := copyFileContent(fd, file.Name, dirfd, 0, useHardLinks)
+		dstFile, written, implicitDirs, err := copyFileContent(fd, file.Name, dirfd, 0, useHardLinks)
 		if err != nil {
 			logrus.Debugf("could not copyFileContent: %v", err)
-			return false, nil, 0, nil
+			return false, nil, 0, nil, nil
 		}
-		return true, dstFile, written, nil
+		return true, dstFile, written, implicitDirs, nil
 	}
 	// If hard links deduplication was used and it has failed, try again without hard links.
 	if useHardLinks {
 		return findFileInOSTreeRepos(file, ostreeRepos, dirfd, false)
 	}
 
-	return false, nil, 0, nil
+	return false, nil, 0, nil, nil
 }
 
 // findFileInOtherLayers finds the specified file in other layers.
@@ -373,10 +386,14 @@ func findFileInOSTreeRepos(file *internal.FileMetadata, ostreeRepos []string, di
 // file is the file to look for.
 // dirfd is an open file descriptor to the checkout root directory.
 // useHardLinks defines whether the deduplication can be performed using hard links.
-func findFileInOtherLayers(cache *layersCache, file *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
+// Returns a boolean indicating whether it succeeded or not, and if it succeeded, a
+// handle for the new file, the size of the file, and the names of any
+// subdirectories which needed to be created before the new file could be
+// created.
+func findFileInOtherLayers(cache *layersCache, file *internal.FileMetadata, dirfd int, useHardLinks bool) (bool, *os.File, int64, []string, error) {
 	target, name, err := cache.findFileInOtherLayers(file, useHardLinks)
 	if err != nil || name == "" {
-		return false, nil, 0, err
+		return false, nil, 0, nil, err
 	}
 	return copyFileFromOtherLayer(file, target, name, dirfd, useHardLinks)
 }
@@ -455,9 +472,12 @@ func (o *originFile) OpenFile() (io.ReadCloser, error) {
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY, 0)
+	srcFile, implicitDirs, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open source file under target rootfs: %w", err)
+	}
+	if len(implicitDirs) != 0 {
+		return nil, fmt.Errorf("did not expect to have to create %q in source directory", implicitDirs)
 	}
 
 	if _, err := srcFile.Seek(o.Offset, 0); err != nil {
@@ -488,12 +508,14 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *internal
 	if usePath {
 		dirName := filepath.Dir(metadata.Name)
 		if dirName != "" {
-			parentFd, err := openFileUnderRoot(dirName, dirfd, unix.O_PATH|unix.O_DIRECTORY, 0)
+			parentFd, implicitDirs, err := openFileUnderRoot(dirName, dirfd, unix.O_PATH|unix.O_DIRECTORY, 0)
 			if err != nil {
 				return err
 			}
 			defer parentFd.Close()
-
+			if len(implicitDirs) != 0 {
+				return fmt.Errorf("did not expect to create any more directories while setting attributes on %q", metadata.Name)
+			}
 			dirfd = int(parentFd.Fd())
 		}
 		baseName = filepath.Base(metadata.Name)
@@ -654,61 +676,66 @@ func openFileUnderRootRaw(dirfd int, name string, flags uint64, mode os.FileMode
 // dirfd is an open file descriptor to the target checkout directory.
 // flags are the flags to pass to the open syscall.
 // mode specifies the mode to use for newly created files.
-func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (*os.File, error) {
+// Returns an `*os.File` for the possibly-newly-created file, and the names of
+// any intermediate directories which needed to be created before the file
+// could be created or opened.
+func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (*os.File, []string, error) {
 	fd, err := openFileUnderRootRaw(dirfd, name, flags, mode)
 	if err == nil {
-		return os.NewFile(uintptr(fd), name), nil
+		return os.NewFile(uintptr(fd), name), nil, nil
 	}
 
 	hasCreate := (flags & unix.O_CREAT) != 0
 	if errors.Is(err, unix.ENOENT) && hasCreate {
 		parent := filepath.Dir(name)
 		if parent != "" {
-			newDirfd, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
+			newDirfd, implicitDirs, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
 			if err2 == nil {
 				defer newDirfd.Close()
 				fd, err := openFileUnderRootRaw(int(newDirfd.Fd()), filepath.Base(name), flags, mode)
 				if err == nil {
-					return os.NewFile(uintptr(fd), name), nil
+					return os.NewFile(uintptr(fd), name), implicitDirs, nil
 				}
 			}
 		}
 	}
-	return nil, fmt.Errorf("open %q under the rootfs: %w", name, err)
+	return nil, nil, fmt.Errorf("open %q under the rootfs: %w", name, err)
 }
 
 // openOrCreateDirUnderRoot safely opens a directory or create it if it is missing.
 // name is the path to open relative to dirfd.
 // dirfd is an open file descriptor to the target checkout directory.
 // mode specifies the mode to use for newly created files.
-func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.File, error) {
+// Returns an `*os.File` for the directory, and the names of any directories
+// which needed to be created, including possibly the specified directory itself.
+func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.File, []string, error) {
 	fd, err := openFileUnderRootRaw(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 	if err == nil {
-		return os.NewFile(uintptr(fd), name), nil
+		return os.NewFile(uintptr(fd), name), nil, nil
 	}
 
 	if errors.Is(err, unix.ENOENT) {
 		parent := filepath.Dir(name)
 		if parent != "" {
-			pDir, err2 := openOrCreateDirUnderRoot(parent, dirfd, mode)
+			pDir, implicitDirs, err2 := openOrCreateDirUnderRoot(parent, dirfd, mode)
 			if err2 != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			defer pDir.Close()
 
 			baseName := filepath.Base(name)
 
 			if err2 := unix.Mkdirat(int(pDir.Fd()), baseName, 0o755); err2 != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			fd, err = openFileUnderRootRaw(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 			if err == nil {
-				return os.NewFile(uintptr(fd), name), nil
+				return os.NewFile(uintptr(fd), name), append(implicitDirs, name), nil
 			}
 		}
 	}
-	return nil, err
+	return nil, nil, err
 }
 
 func (c *chunkedDiffer) prepareCompressedStreamToFile(partCompression compressedFileType, from io.Reader, mf *missingFileChunk) (compressedFileType, error) {
@@ -831,10 +858,14 @@ type destinationFile struct {
 	options  *archive.TarOptions
 }
 
-func openDestinationFile(dirfd int, metadata *internal.FileMetadata, options *archive.TarOptions) (*destinationFile, error) {
-	file, err := openFileUnderRoot(metadata.Name, dirfd, newFileFlags, 0)
+// openDestinationFile opens the item, relative to `dirfd`, with the name
+// specified in `metadata`.
+// Returns a file handle and the names of any intermediate directories which
+// needed to be created in order to create or open the destination.
+func openDestinationFile(dirfd int, metadata *internal.FileMetadata, options *archive.TarOptions) (*destinationFile, []string, error) {
+	file, implicitDirs, err := openFileUnderRoot(metadata.Name, dirfd, newFileFlags, 0)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	digester := digest.Canonical.Digester()
@@ -849,7 +880,7 @@ func openDestinationFile(dirfd int, metadata *internal.FileMetadata, options *ar
 		metadata: metadata,
 		options:  options,
 		dirfd:    dirfd,
-	}, nil
+	}, implicitDirs, nil
 }
 
 func (d *destinationFile) Close() (Err error) {
@@ -878,7 +909,7 @@ func closeDestinationFiles(files chan *destinationFile, errors chan error) {
 	close(errors)
 }
 
-func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) (Err error) {
+func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) (implicitDirs []string, Err error) {
 	var destFile *destinationFile
 
 	filesToClose := make(chan *destinationFile, 3)
@@ -904,7 +935,7 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 			var err error
 			part, err = missingPart.OriginFile.OpenFile()
 			if err != nil {
-				return err
+				return nil, err
 			}
 			partCompression = fileTypeNoCompression
 		case missingPart.SourceChunk != nil:
@@ -913,15 +944,15 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 				part = p
 			case err := <-errs:
 				if err == nil {
-					return errors.New("not enough data returned from the server")
+					return nil, errors.New("not enough data returned from the server")
 				}
-				return err
+				return nil, err
 			}
 			if part == nil {
-				return errors.New("invalid stream returned")
+				return nil, errors.New("invalid stream returned")
 			}
 		default:
-			return errors.New("internal error: missing part misses both local and remote data stream")
+			return nil, errors.New("internal error: missing part misses both local and remote data stream")
 		}
 
 		for _, mf := range missingPart.Chunks {
@@ -965,7 +996,7 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 					}
 					filesToClose <- destFile
 				}
-				destFile, err = openDestinationFile(dirfd, mf.File, options)
+				destFile, implicitDirs, err = openDestinationFile(dirfd, mf.File, options)
 				if err != nil {
 					Err = err
 					goto exit
@@ -993,10 +1024,10 @@ func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan 
 	}
 
 	if destFile != nil {
-		return destFile.Close()
+		return implicitDirs, destFile.Close()
 	}
 
-	return nil
+	return implicitDirs, nil
 }
 
 func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
@@ -1076,7 +1107,7 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 	return newMissingParts
 }
 
-func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
+func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) ([]string, error) {
 	var chunksToRequest []ImageSourceChunk
 
 	calculateChunksToRequest := func() {
@@ -1104,7 +1135,7 @@ func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingPart
 			requested := len(missingParts)
 			// If the server cannot handle at least 64 chunks in a single request, just give up.
 			if requested < 64 {
-				return err
+				return nil, err
 			}
 
 			// Merge more chunks to request
@@ -1112,111 +1143,119 @@ func (c *chunkedDiffer) retrieveMissingFiles(dest string, dirfd int, missingPart
 			calculateChunksToRequest()
 			continue
 		}
-		return err
+		return nil, err
 	}
 
-	if err := c.storeMissingFiles(streams, errs, dest, dirfd, missingParts, options); err != nil {
-		return err
+	implicitDirs, err := c.storeMissingFiles(streams, errs, dest, dirfd, missingParts, options)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return implicitDirs, nil
 }
 
-func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *internal.FileMetadata, options *archive.TarOptions) error {
+func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *internal.FileMetadata, options *archive.TarOptions) ([]string, []string, error) {
 	parent := filepath.Dir(name)
 	base := filepath.Base(name)
+	var implicitDirs, explicitDirs []string
 
 	parentFd := dirfd
 	if parent != "." {
-		parentFile, err := openOrCreateDirUnderRoot(parent, dirfd, 0)
+		parentFile, theseImplicitDirs, err := openOrCreateDirUnderRoot(parent, dirfd, 0)
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
+		implicitDirs = theseImplicitDirs
 		defer parentFile.Close()
 		parentFd = int(parentFile.Fd())
 	}
 
 	if err := unix.Mkdirat(parentFd, base, uint32(mode)); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir %q: %w", name, err)
+			return nil, nil, fmt.Errorf("mkdir %q: %w", name, err)
 		}
 	}
+	explicitDirs = append(explicitDirs, name)
 
-	file, err := openFileUnderRoot(base, parentFd, unix.O_DIRECTORY|unix.O_RDONLY, 0)
+	file, alsoImplicitDirs, err := openFileUnderRoot(base, parentFd, unix.O_DIRECTORY|unix.O_RDONLY, 0)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer file.Close()
 
-	return setFileAttrs(dirfd, file, mode, metadata, options, false)
+	return append(implicitDirs, alsoImplicitDirs...), explicitDirs, setFileAttrs(dirfd, file, mode, metadata, options, false)
 }
 
-func safeLink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) error {
-	sourceFile, err := openFileUnderRoot(metadata.Linkname, dirfd, unix.O_PATH|unix.O_RDONLY|unix.O_NOFOLLOW, 0)
+func safeLink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) ([]string, error) {
+	sourceFile, implicitDirs, err := openFileUnderRoot(metadata.Linkname, dirfd, unix.O_PATH|unix.O_RDONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer sourceFile.Close()
 
 	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "." {
-		f, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
+		f, theseImplicitDirs, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer f.Close()
+		implicitDirs = append(implicitDirs, theseImplicitDirs...)
 		destDirFd = int(f.Fd())
 	}
 
 	err = doHardLink(int(sourceFile.Fd()), destDirFd, destBase)
 	if err != nil {
-		return fmt.Errorf("create hardlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
+		return nil, fmt.Errorf("create hardlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
 	}
 
-	newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
+	newFile, theseImplicitDirs, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		// If the target is a symlink, open the file with O_PATH.
 		if errors.Is(err, unix.ELOOP) {
-			newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_PATH|unix.O_NOFOLLOW, 0)
+			newFile, thoseImplicitDirs, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_PATH|unix.O_NOFOLLOW, 0)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer newFile.Close()
 
-			return setFileAttrs(dirfd, newFile, mode, metadata, options, true)
+			return append(implicitDirs, thoseImplicitDirs...), setFileAttrs(dirfd, newFile, mode, metadata, options, true)
 		}
-		return err
+		return nil, err
 	}
 	defer newFile.Close()
 
-	return setFileAttrs(dirfd, newFile, mode, metadata, options, false)
+	return append(implicitDirs, theseImplicitDirs...), setFileAttrs(dirfd, newFile, mode, metadata, options, false)
 }
 
-func safeSymlink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) error {
+func safeSymlink(dirfd int, mode os.FileMode, metadata *internal.FileMetadata, options *archive.TarOptions) ([]string, error) {
+	var implicitDirs []string
 	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "." {
-		f, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
+		f, theseImplicitDirs, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer f.Close()
+		implicitDirs = theseImplicitDirs
 		destDirFd = int(f.Fd())
 	}
 
 	if err := unix.Symlinkat(metadata.Linkname, destDirFd, destBase); err != nil {
-		return fmt.Errorf("create symlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
+		return nil, fmt.Errorf("create symlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
 	}
-	return nil
+	return implicitDirs, nil
 }
 
 type whiteoutHandler struct {
-	Dirfd int
-	Root  string
+	Dirfd        int
+	Root         string
+	implicitDirs []string
 }
 
 func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
-	file, err := openOrCreateDirUnderRoot(path, d.Dirfd, 0)
+	file, implicitDirs, err := openOrCreateDirUnderRoot(path, d.Dirfd, 0)
 	if err != nil {
 		return err
 	}
@@ -1225,23 +1264,28 @@ func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
 	if err := unix.Fsetxattr(int(file.Fd()), name, value, 0); err != nil {
 		return fmt.Errorf("set xattr %s=%q for %q: %w", name, value, path, err)
 	}
+	d.implicitDirs = append(d.implicitDirs, implicitDirs...)
 	return nil
 }
 
 func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
+	var implicitDirs []string
 	dir := filepath.Dir(path)
 	base := filepath.Base(path)
 
 	dirfd := d.Dirfd
 	if dir != "" {
-		dir, err := openOrCreateDirUnderRoot(dir, d.Dirfd, 0)
+		dir, theseImplicitDirs, err := openOrCreateDirUnderRoot(dir, d.Dirfd, 0)
 		if err != nil {
 			return err
 		}
 		defer dir.Close()
+		implicitDirs = theseImplicitDirs
 
 		dirfd = int(dir.Fd())
 	}
+
+	d.implicitDirs = append(d.implicitDirs, implicitDirs...)
 
 	if err := unix.Mknodat(dirfd, base, mode, dev); err != nil {
 		return fmt.Errorf("mknod %q: %w", path, err)
@@ -1258,11 +1302,13 @@ func checkChownErr(err error, name string, uid, gid int) error {
 }
 
 func (d whiteoutHandler) Chown(path string, uid, gid int) error {
-	file, err := openFileUnderRoot(path, d.Dirfd, unix.O_PATH, 0)
+	file, implicitDirs, err := openFileUnderRoot(path, d.Dirfd, unix.O_PATH, 0)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
+
+	d.implicitDirs = append(d.implicitDirs, implicitDirs...)
 
 	if err := unix.Fchownat(int(file.Fd()), "", uid, gid, unix.AT_EMPTY_PATH); err != nil {
 		var stat unix.Stat_t
@@ -1296,7 +1342,7 @@ type findAndCopyFileOptions struct {
 	options      *archive.TarOptions
 }
 
-func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *internal.FileMetadata, copyOptions *findAndCopyFileOptions, mode os.FileMode) (bool, error) {
+func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *internal.FileMetadata, copyOptions *findAndCopyFileOptions, mode os.FileMode) (bool, []string, error) {
 	finalizeFile := func(dstFile *os.File) error {
 		if dstFile != nil {
 			defer dstFile.Close()
@@ -1307,29 +1353,30 @@ func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *internal.FileMetadata, cop
 		return nil
 	}
 
-	found, dstFile, _, err := findFileInOtherLayers(c.layersCache, r, dirfd, copyOptions.useHardLinks)
+	found, dstFile, _, implicitDirs, err := findFileInOtherLayers(c.layersCache, r, dirfd, copyOptions.useHardLinks)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if found {
 		if err := finalizeFile(dstFile); err != nil {
-			return false, err
+			return false, nil, err
 		}
-		return true, nil
+		return true, implicitDirs, nil
 	}
 
-	found, dstFile, _, err = findFileInOSTreeRepos(r, copyOptions.ostreeRepos, dirfd, copyOptions.useHardLinks)
+	found, dstFile, _, moreImplicitDirs, err := findFileInOSTreeRepos(r, copyOptions.ostreeRepos, dirfd, copyOptions.useHardLinks)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
+	implicitDirs = append(implicitDirs, moreImplicitDirs...)
 	if found {
 		if err := finalizeFile(dstFile); err != nil {
-			return false, err
+			return false, nil, err
 		}
-		return true, nil
+		return true, implicitDirs, nil
 	}
 
-	return false, nil
+	return false, implicitDirs, nil
 }
 
 func makeEntriesFlat(mergedEntries []internal.FileMetadata) ([]internal.FileMetadata, error) {
@@ -1479,8 +1526,9 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		mode     os.FileMode
 		metadata *internal.FileMetadata
 
-		found bool
-		err   error
+		found        bool
+		implicitDirs []string
+		err          error
 	}
 
 	var wg sync.WaitGroup
@@ -1502,13 +1550,16 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
-				found, err := c.findAndCopyFile(dirfd, job.metadata, &copyOptions, job.mode)
+				found, implicitDirs, err := c.findAndCopyFile(dirfd, job.metadata, &copyOptions, job.mode)
 				job.err = err
+				job.implicitDirs = implicitDirs
 				job.found = found
 				copyResults[job.njob] = job
 			}
 		}()
 	}
+
+	var implicitDirs, explicitDirs []string
 
 	filesToWaitFor := 0
 	for i, r := range mergedEntries {
@@ -1545,6 +1596,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			if err != nil {
 				return output, err
 			}
+			implicitDirs = append(implicitDirs, handler.implicitDirs...)
 			if !writeFile {
 				continue
 			}
@@ -1554,27 +1606,32 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			// Create directly empty files.
 			if r.Size == 0 {
 				// Used to have a scope for cleanup.
-				createEmptyFile := func() error {
-					file, err := openFileUnderRoot(r.Name, dirfd, newFileFlags, 0)
+				createEmptyFile := func() ([]string, error) {
+					file, implicitDirs, err := openFileUnderRoot(r.Name, dirfd, newFileFlags, 0)
 					if err != nil {
-						return err
+						return nil, err
 					}
 					defer file.Close()
 					if err := setFileAttrs(dirfd, file, mode, &r, options, false); err != nil {
-						return err
+						return nil, err
 					}
-					return nil
+					return implicitDirs, nil
 				}
-				if err := createEmptyFile(); err != nil {
+				theseImplicitDirs, err := createEmptyFile()
+				if err != nil {
 					return output, err
 				}
+				implicitDirs = append(implicitDirs, theseImplicitDirs...)
 				continue
 			}
 
 		case tar.TypeDir:
-			if err := safeMkdir(dirfd, mode, r.Name, &r, options); err != nil {
+			theseImplicitDirs, theseExplicitDirs, err := safeMkdir(dirfd, mode, r.Name, &r, options)
+			if err != nil {
 				return output, err
 			}
+			implicitDirs = append(implicitDirs, theseImplicitDirs...)
+			explicitDirs = append(explicitDirs, theseExplicitDirs...)
 			continue
 
 		case tar.TypeLink:
@@ -1591,9 +1648,11 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			continue
 
 		case tar.TypeSymlink:
-			if err := safeSymlink(dirfd, mode, &r, options); err != nil {
+			theseImplicitDirs, err := safeSymlink(dirfd, mode, &r, options)
+			if err != nil {
 				return output, err
 			}
+			implicitDirs = append(implicitDirs, theseImplicitDirs...)
 			continue
 
 		case tar.TypeChar:
@@ -1641,6 +1700,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 		remainingSize := r.Size
 
+		implicitDirs = append(implicitDirs, res.implicitDirs...)
+
 		// the file is missing, attempt to find individual chunks.
 		for _, chunk := range r.Chunks {
 			compressedSize := int64(chunk.EndOffset - chunk.Offset)
@@ -1672,13 +1733,17 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 				if err != nil {
 					return output, err
 				}
-				if offset >= 0 && validateChunkChecksum(chunk, root, path, offset, c.copyBuffer) {
-					missingPartsSize -= size
-					mp.OriginFile = &originFile{
-						Root:   root,
-						Path:   path,
-						Offset: offset,
+				if offset >= 0 {
+					theseImplicitDirs, digestsMatch := validateChunkChecksum(chunk, root, path, offset, c.copyBuffer)
+					if digestsMatch {
+						missingPartsSize -= size
+						mp.OriginFile = &originFile{
+							Root:   root,
+							Path:   path,
+							Offset: offset,
+						}
 					}
+					implicitDirs = append(implicitDirs, theseImplicitDirs...)
 				}
 			case internal.ChunkTypeZeros:
 				missingPartsSize -= size
@@ -1694,16 +1759,36 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
 	if len(missingParts) > 0 {
 		missingParts = mergeMissingChunks(missingParts, maxNumberMissingChunks)
-		if err := c.retrieveMissingFiles(dest, dirfd, missingParts, options); err != nil {
+		theseImplicitDirs, err := c.retrieveMissingFiles(dest, dirfd, missingParts, options)
+		if err != nil {
 			return output, err
 		}
+		implicitDirs = append(implicitDirs, theseImplicitDirs...)
 	}
 
 	for _, m := range hardLinks {
-		if err := safeLink(m.dirfd, m.mode, m.metadata, options); err != nil {
+		theseImplicitDirs, err := safeLink(m.dirfd, m.mode, m.metadata, options)
+		if err != nil {
 			return output, err
 		}
+		implicitDirs = append(implicitDirs, theseImplicitDirs...)
 	}
+
+	output.ImplicitDirs = func() []string {
+		dirs := make(map[string]struct{})
+		for _, dir := range implicitDirs {
+			dirs[strings.Trim(dir, "/")] = struct{}{}
+		}
+		for _, dir := range explicitDirs {
+			delete(dirs, strings.Trim(dir, "/"))
+		}
+		wereNeverExplicit := make([]string, 0, len(dirs))
+		for dir := range dirs {
+			wereNeverExplicit = append(wereNeverExplicit, dir)
+		}
+		sort.Strings(wereNeverExplicit)
+		return wereNeverExplicit
+	}()
 
 	if totalChunksSize > 0 {
 		logrus.Debugf("Missing %d bytes out of %d (%.2f %%)", missingPartsSize, totalChunksSize, float32(missingPartsSize*100.0)/float32(totalChunksSize))
@@ -1798,34 +1883,34 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 
 // validateChunkChecksum checks if the file at $root/$path[offset:chunk.ChunkSize] has the
 // same digest as chunk.ChunkDigest
-func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offset int64, copyBuffer []byte) bool {
+func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offset int64, copyBuffer []byte) ([]string, bool) {
 	parentDirfd, err := unix.Open(root, unix.O_PATH, 0)
 	if err != nil {
-		return false
+		return nil, false
 	}
 	defer unix.Close(parentDirfd)
 
-	fd, err := openFileUnderRoot(path, parentDirfd, unix.O_RDONLY, 0)
+	fd, implicitDirs, err := openFileUnderRoot(path, parentDirfd, unix.O_RDONLY, 0)
 	if err != nil {
-		return false
+		return nil, false
 	}
 	defer fd.Close()
 
 	if _, err := unix.Seek(int(fd.Fd()), offset, 0); err != nil {
-		return false
+		return nil, false
 	}
 
 	r := io.LimitReader(fd, chunk.ChunkSize)
 	digester := digest.Canonical.Digester()
 
 	if _, err := io.CopyBuffer(digester.Hash(), r, copyBuffer); err != nil {
-		return false
+		return nil, false
 	}
 
 	digest, err := digest.Parse(chunk.ChunkDigest)
 	if err != nil {
-		return false
+		return nil, false
 	}
 
-	return digester.Digest() == digest
+	return implicitDirs, digester.Digest() == digest
 }

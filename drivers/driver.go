@@ -188,6 +188,7 @@ type DriverWithDifferOutput struct {
 	Metadata           string
 	BigData            map[string][]byte
 	TarSplit           []byte
+	ImplicitDirs       []string
 	TOCDigest          digest.Digest
 }
 
