@@ -820,11 +820,17 @@ func (d *Driver) String() string {
 // Status returns current driver information in a two dimensional string array.
 // Output contains "Backing Filesystem" used in this implementation.
 func (d *Driver) Status() [][2]string {
+	supportsVolatile, err := d.getSupportsVolatile()
+	if err != nil {
+		supportsVolatile = false
+	}
 	return [][2]string{
 		{"Backing Filesystem", backingFs},
 		{"Supports d_type", strconv.FormatBool(d.supportsDType)},
 		{"Native Overlay Diff", strconv.FormatBool(!d.useNaiveDiff())},
 		{"Using metacopy", strconv.FormatBool(d.usingMetacopy)},
+		{"Supports shifting", strconv.FormatBool(d.SupportsShifting())},
+		{"Supports volatile", strconv.FormatBool(supportsVolatile)},
 	}
 }
 
