@@ -2164,10 +2164,6 @@ func (d *Driver) getLowerDiffPaths(id string) ([]string, error) {
 // and its parent and returns the size in bytes of the changes
 // relative to its base filesystem directory.
 func (d *Driver) DiffSize(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (size int64, err error) {
-	if d.options.mountProgram == "" && (d.useNaiveDiff() || !d.isParent(id, parent)) {
-		return d.naiveDiff.DiffSize(id, idMappings, parent, parentMappings, mountLabel)
-	}
-
 	p, err := d.getDiffPath(id)
 	if err != nil {
 		return 0, err
