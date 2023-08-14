@@ -1879,7 +1879,9 @@ func (d *Driver) Put(id string) error {
 	if !unmounted {
 		if err := unix.Unmount(mountpoint, unix.MNT_DETACH); err != nil && !os.IsNotExist(err) {
 			logrus.Debugf("Failed to unmount %s overlay: %s - %v", id, mountpoint, err)
-			return fmt.Errorf("unmounting %q: %w", mountpoint, err)
+			if !errors.Is(err, unix.EINVAL) {
+				return fmt.Errorf("unmounting %q: %w", mountpoint, err)
+			}
 		}
 	}
 
