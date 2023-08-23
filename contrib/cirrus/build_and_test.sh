@@ -71,7 +71,10 @@ case $TEST_DRIVER in
         zfs create $zpool/tmp
         TMPDIR="/$zpool/tmp" showrun make STORAGE_DRIVER=$TEST_DRIVER local-test-integration local-test-unit
         # Ensure no datasets are held open prior to `zfs destroy` trap.
-        kill $(lsns -J -t mnt --output-all | jq '.namespaces[]|select(.command=="sleep 1000s").pid')
+        datasets=$(lsns -J -t mnt --output-all | jq '.namespaces[]|select(.command=="sleep 1000s").pid')
+        if [[ -n "$datasets" ]]; then
+            kill $datasets
+        fi
         ;;
     *)
         die "Unknown/Unsupported \$TEST_DRIVER=$TEST_DRIVER (see .cirrus.yml and $(basename $0))"
