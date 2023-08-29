@@ -56,9 +56,12 @@ $ restorecon -R -v /NEWSTORAGEPATH
 A common use case for this field is to provide a local storage directory when user home directories are NFS-mounted (podman does not support container storage over NFS).
 
 **imagestore**=""
+  image storage path (the default is assumed to be the same as `graphroot`).
   Path of imagestore different from `graphroot`, by default storage library stores all images in `graphroot` but if `imagestore` is provided it will store newly pulled images in provided `imagestore` but will keep using `graphroot` for everything else. If user is using `overlay` driver then images which were already part of `graphroot` will still be accessible ( Internally storage library will mount `graphroot` as an `additionalImageStore` to allow this behaviour ).
 
 A common use case for this field is for the users who want to split the file-system in different parts i.e disk which stores images vs disk used by the container created by the image.
+
+Imagestore, if set, must be different from `graphroot`.
 
 **runroot**=""
   container storage run dir (default: "/run/containers/storage")
