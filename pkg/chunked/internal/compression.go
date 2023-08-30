@@ -8,6 +8,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -197,4 +198,68 @@ func WriteZstdChunkedManifest(dest io.Writer, outMetadata map[string]string, off
 func ZstdWriterWithLevel(dest io.Writer, level int) (*zstd.Encoder, error) {
 	el := zstd.EncoderLevelFromZstd(level)
 	return zstd.NewWriter(dest, zstd.WithEncoderLevel(el))
+}
+
+// ZstdChunkedFooterData contains all the data stored in the zstd:chunked footer.
+type ZstdChunkedFooterData struct {
+	ManifestType uint64
+
+	Offset             uint64
+	LengthCompressed   uint64
+	LengthUncompressed uint64
+	ChecksumAnnotation string // Only used when reading a layer, not when creating it
+
+	OffsetTarSplit             uint64
+	LengthCompressedTarSplit   uint64
+	LengthUncompressedTarSplit uint64
+	ChecksumAnnotationTarSplit string // Only used when reading a layer, not when creating it
+}
+
+// ReadFooterDataFromAnnotations reads the zstd:chunked footer data from the given annotations.
+func ReadFooterDataFromAnnotations(annotations map[string]string) (ZstdChunkedFooterData, error) {
+	var footerData ZstdChunkedFooterData
+
+	footerData.ChecksumAnnotation = annotations[ManifestChecksumKey]
+	if footerData.ChecksumAnnotation == "" {
+		return footerData, fmt.Errorf("manifest checksum annotation %q not found", ManifestChecksumKey)
+	}
+
+	offsetMetadata := annotations[ManifestInfoKey]
+
+	if _, err := fmt.Sscanf(offsetMetadata, "%d:%d:%d:%d", &footerData.Offset, &footerData.LengthCompressed, &footerData.LengthUncompressed, &footerData.ManifestType); err != nil {
+		return footerData, err
+	}
+
+	if tarSplitInfoKeyAnnotation, found := annotations[TarSplitInfoKey]; found {
+		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &footerData.OffsetTarSplit, &footerData.LengthCompressedTarSplit, &footerData.LengthUncompressedTarSplit); err != nil {
+			return footerData, err
+		}
+		footerData.ChecksumAnnotationTarSplit = annotations[TarSplitChecksumKey]
+	}
+	return footerData, nil
+}
+
+// IsZstdChunkedFrameMagic returns true if the given data starts with the zstd:chunked magic.
+func IsZstdChunkedFrameMagic(data []byte) bool {
+	if len(data) < 8 {
+		return false
+	}
+	return bytes.Equal(ZstdChunkedFrameMagic, data[:8])
+}
+
+// ReadFooterDataFromBlob reads the zstd:chunked footer from the binary buffer.
+func ReadFooterDataFromBlob(footer []byte) (ZstdChunkedFooterData, error) {
+	var footerData ZstdChunkedFooterData
+
+	if len(footer) < FooterSizeSupported {
+		return footerData, errors.New("blob too small")
+	}
+	footerData.Offset = binary.LittleEndian.Uint64(footer[0:8])
+	footerData.LengthCompressed = binary.LittleEndian.Uint64(footer[8:16])
+	footerData.LengthUncompressed = binary.LittleEndian.Uint64(footer[16:24])
+	footerData.ManifestType = binary.LittleEndian.Uint64(footer[24:32])
+	if !IsZstdChunkedFrameMagic(footer[48:56]) {
+		return footerData, errors.New("invalid magic number")
+	}
+	return footerData, nil
 }
