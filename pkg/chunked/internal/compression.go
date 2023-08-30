@@ -100,7 +100,7 @@ const (
 	// FooterSizeSupported is the footer size supported by this implementation.
 	// Newer versions of the image format might increase this value, so reject
 	// any version that is not supported.
-	FooterSizeSupported = 56
+	FooterSizeSupported = 64
 )
 
 var (
@@ -109,7 +109,7 @@ var (
 	// https://tools.ietf.org/html/rfc8478#section-3.1.2
 	skippableFrameMagic = []byte{0x50, 0x2a, 0x4d, 0x18}
 
-	ZstdChunkedFrameMagic = []byte{0x47, 0x6e, 0x55, 0x6c, 0x49, 0x6e, 0x55, 0x78}
+	ZstdChunkedFrameMagic = []byte{0x47, 0x4e, 0x55, 0x6c, 0x49, 0x6e, 0x55, 0x78}
 )
 
 func appendZstdSkippableFrame(dest io.Writer, data []byte) error {
@@ -184,13 +184,19 @@ func WriteZstdChunkedManifest(dest io.Writer, outMetadata map[string]string, off
 		return err
 	}
 
-	// Store the offset to the manifest and its size in LE order
-	manifestDataLE := make([]byte, FooterSizeSupported)
-	binary.LittleEndian.PutUint64(manifestDataLE, manifestOffset)
-	binary.LittleEndian.PutUint64(manifestDataLE[8*1:], uint64(len(compressedManifest)))
-	binary.LittleEndian.PutUint64(manifestDataLE[8*2:], uint64(len(manifest)))
-	binary.LittleEndian.PutUint64(manifestDataLE[8*3:], uint64(ManifestTypeCRFS))
-	copy(manifestDataLE[8*4:], ZstdChunkedFrameMagic)
+	footer := ZstdChunkedFooterData{
+		ManifestType:               uint64(ManifestTypeCRFS),
+		Offset:                     manifestOffset,
+		LengthCompressed:           uint64(len(compressedManifest)),
+		LengthUncompressed:         uint64(len(manifest)),
+		ChecksumAnnotation:         "", // unused
+		OffsetTarSplit:             uint64(tarSplitOffset),
+		LengthCompressedTarSplit:   uint64(len(tarSplitData.Data)),
+		LengthUncompressedTarSplit: uint64(tarSplitData.UncompressedSize),
+		ChecksumAnnotationTarSplit: "", // unused
+	}
+
+	manifestDataLE := footerDataToBlob(footer)
 
 	return appendZstdSkippableFrame(dest, manifestDataLE)
 }
@@ -213,6 +219,21 @@ type ZstdChunkedFooterData struct {
 	LengthCompressedTarSplit   uint64
 	LengthUncompressedTarSplit uint64
 	ChecksumAnnotationTarSplit string // Only used when reading a layer, not when creating it
+}
+
+func footerDataToBlob(footer ZstdChunkedFooterData) []byte {
+	// Store the offset to the manifest and its size in LE order
+	manifestDataLE := make([]byte, FooterSizeSupported)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*0:], footer.Offset)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*1:], footer.LengthCompressed)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*2:], footer.LengthUncompressed)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*3:], footer.ManifestType)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*4:], footer.OffsetTarSplit)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*5:], footer.LengthCompressedTarSplit)
+	binary.LittleEndian.PutUint64(manifestDataLE[8*6:], footer.LengthUncompressedTarSplit)
+	copy(manifestDataLE[8*7:], ZstdChunkedFrameMagic)
+
+	return manifestDataLE
 }
 
 // ReadFooterDataFromAnnotations reads the zstd:chunked footer data from the given annotations.
@@ -239,14 +260,6 @@ func ReadFooterDataFromAnnotations(annotations map[string]string) (ZstdChunkedFo
 	return footerData, nil
 }
 
-// IsZstdChunkedFrameMagic returns true if the given data starts with the zstd:chunked magic.
-func IsZstdChunkedFrameMagic(data []byte) bool {
-	if len(data) < 8 {
-		return false
-	}
-	return bytes.Equal(ZstdChunkedFrameMagic, data[:8])
-}
-
 // ReadFooterDataFromBlob reads the zstd:chunked footer from the binary buffer.
 func ReadFooterDataFromBlob(footer []byte) (ZstdChunkedFooterData, error) {
 	var footerData ZstdChunkedFooterData
@@ -258,7 +271,12 @@ func ReadFooterDataFromBlob(footer []byte) (ZstdChunkedFooterData, error) {
 	footerData.LengthCompressed = binary.LittleEndian.Uint64(footer[8:16])
 	footerData.LengthUncompressed = binary.LittleEndian.Uint64(footer[16:24])
 	footerData.ManifestType = binary.LittleEndian.Uint64(footer[24:32])
-	if !IsZstdChunkedFrameMagic(footer[48:56]) {
+	footerData.OffsetTarSplit = binary.LittleEndian.Uint64(footer[32:40])
+	footerData.LengthCompressedTarSplit = binary.LittleEndian.Uint64(footer[40:48])
+	footerData.LengthUncompressedTarSplit = binary.LittleEndian.Uint64(footer[48:56])
+
+	// the magic number is stored in the last 8 bytes
+	if !bytes.Equal(ZstdChunkedFrameMagic, footer[len(footer)-len(ZstdChunkedFrameMagic):]) {
 		return footerData, errors.New("invalid magic number")
 	}
 	return footerData, nil

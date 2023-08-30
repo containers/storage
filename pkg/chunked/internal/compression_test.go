@@ -5,16 +5,29 @@ package internal
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestIsZstdChunkedFrameMagic(t *testing.T) {
-	b := append(ZstdChunkedFrameMagic[:], make([]byte, 200)...)
-	if !IsZstdChunkedFrameMagic(b) {
-		t.Fatal("Chunked frame magic not found")
+func TestGenerateAndReadFooter(t *testing.T) {
+	footer := ZstdChunkedFooterData{
+		ManifestType:               1,
+		Offset:                     2,
+		LengthCompressed:           3,
+		LengthUncompressed:         4,
+		ChecksumAnnotation:         "", // unused
+		OffsetTarSplit:             5,
+		LengthCompressedTarSplit:   6,
+		LengthUncompressedTarSplit: 7,
+		ChecksumAnnotationTarSplit: "", // unused
 	}
-	// change a byte
-	b[0] = -b[0]
-	if IsZstdChunkedFrameMagic(b) {
-		t.Fatal("Invalid chunked frame magic found")
+	b := footerDataToBlob(footer)
+	assert.Len(t, b, FooterSizeSupported)
+
+	footer2, err := ReadFooterDataFromBlob(b)
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	assert.Equal(t, footer, footer2)
 }
