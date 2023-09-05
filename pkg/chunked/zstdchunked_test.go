@@ -16,18 +16,6 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-func TestIsZstdChunkedFrameMagic(t *testing.T) {
-	b := append(internal.ZstdChunkedFrameMagic[:], make([]byte, 200)...)
-	if !isZstdChunkedFrameMagic(b) {
-		t.Fatal("Chunked frame magic not found")
-	}
-	// change a byte
-	b[0] = -b[0]
-	if isZstdChunkedFrameMagic(b) {
-		t.Fatal("Invalid chunked frame magic found")
-	}
-}
-
 type seekable struct {
 	data         []byte
 	tarSplitData []byte
