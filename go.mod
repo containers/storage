@@ -5,7 +5,7 @@ module github.com/containers/storage
 require (
 	github.com/BurntSushi/toml v1.3.2
 	github.com/Microsoft/go-winio v0.6.1
-	github.com/Microsoft/hcsshim v0.10.0
+	github.com/Microsoft/hcsshim v0.11.0
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3
 	github.com/cyphar/filepath-securejoin v0.2.4
 	github.com/docker/go-units v0.5.0
@@ -32,9 +32,10 @@ require (
 )
 
 require (
-	github.com/containerd/cgroups/v3 v3.0.2 // indirect
+	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/containerd v1.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
