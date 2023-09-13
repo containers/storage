@@ -1447,7 +1447,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	needsIDMapping := !disableShifting && len(options.UidMaps) > 0 && len(options.GidMaps) > 0 && d.options.mountProgram == ""
 
 	if len(optsList) == 0 {
-		optsList = strings.Split(d.options.mountOptions, ",")
+		if d.options.mountOptions != "" {
+			optsList = strings.Split(d.options.mountOptions, ",")
+		}
 	} else {
 		// If metacopy=on is present in d.options.mountOptions it must be present in the mount
 		// options otherwise the kernel refuses to follow the metacopy xattr.
