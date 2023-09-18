@@ -76,6 +76,8 @@ type ApplyDiffOpts struct {
 // ApplyDiffWithDifferOpts contains optional arguments for ApplyDiffWithDiffer methods.
 type ApplyDiffWithDifferOpts struct {
 	ApplyDiffOpts
+
+	Flags map[string]interface{}
 }
 
 // InitFunc initializes the storage driver.

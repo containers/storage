@@ -2411,10 +2411,11 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 	}
 	if options == nil {
 		options = &drivers.ApplyDiffWithDifferOpts{
-			drivers.ApplyDiffOpts{
+			ApplyDiffOpts: drivers.ApplyDiffOpts{
 				Mappings:   r.layerMappings(layer),
 				MountLabel: layer.MountLabel,
 			},
+			Flags: nil,
 		}
 	}
 
@@ -2430,6 +2431,14 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 	layer.TOCDigest = diffOutput.TOCDigest
 	layer.UncompressedSize = diffOutput.Size
 	layer.Metadata = diffOutput.Metadata
+	if options != nil && options.Flags != nil {
+		if layer.Flags == nil {
+			layer.Flags = make(map[string]interface{})
+		}
+		for k, v := range options.Flags {
+			layer.Flags[k] = v
+		}
+	}
 	if len(diffOutput.TarSplit) != 0 {
 		tsdata := bytes.Buffer{}
 		compressor, err := pgzip.NewWriterLevel(&tsdata, pgzip.BestSpeed)
