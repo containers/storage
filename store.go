@@ -2666,7 +2666,6 @@ func (s *store) DeleteContainer(id string) error {
 		}
 
 		var wg multierror.Group
-		wg.Go(func() error { return s.containerStore.Delete(id) })
 
 		middleDir := s.graphDriverName + "-containers"
 
@@ -2683,7 +2682,7 @@ func (s *store) DeleteContainer(id string) error {
 		if multierr := wg.Wait(); multierr != nil {
 			return multierr.ErrorOrNil()
 		}
-		return nil
+		return s.containerStore.Delete(id)
 	})
 }
 
