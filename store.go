@@ -2672,21 +2672,11 @@ func (s *store) DeleteContainer(id string) error {
 
 		wg.Go(func() error {
 			gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
-			// attempt a simple rm -rf first
-			if err := os.RemoveAll(gcpath); err == nil {
-				return nil
-			}
-			// and if it fails get to the more complicated cleanup
 			return system.EnsureRemoveAll(gcpath)
 		})
 
 		wg.Go(func() error {
 			rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
-			// attempt a simple rm -rf first
-			if err := os.RemoveAll(rcpath); err == nil {
-				return nil
-			}
-			// and if it fails get to the more complicated cleanup
 			return system.EnsureRemoveAll(rcpath)
 		})
 
