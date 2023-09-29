@@ -38,7 +38,7 @@ func EnsureRemoveAll(dir string) error {
 
 	// Attempt to unmount anything beneath this dir first
 	if err := mount.RecursiveUnmount(dir); err != nil {
-		logrus.Debugf("RecusiveUnmount on %s failed: %v", dir, err)
+		logrus.Debugf("RecursiveUnmount on %s failed: %v", dir, err)
 	}
 
 	for {
