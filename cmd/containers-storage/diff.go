@@ -1,12 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/containers/storage"
+	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/chunked"
+	"github.com/containers/storage/pkg/chunked/compressor"
+	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/mflag"
 )
 
@@ -96,6 +101,93 @@ func diff(flags *mflag.FlagSet, action string, m storage.Store, args []string) (
 	return 0, nil
 }
 
+type fileFetcher struct {
+	file *os.File
+}
+
+func sendFileParts(f *fileFetcher, chunks []chunked.ImageSourceChunk, streams chan io.ReadCloser, errors chan error) {
+	defer close(streams)
+	defer close(errors)
+
+	for _, chunk := range chunks {
+		l := io.NewSectionReader(f.file, int64(chunk.Offset), int64(chunk.Length))
+		streams <- ioutils.NewReadCloserWrapper(l, func() error {
+			return nil
+		})
+	}
+}
+
+func (f fileFetcher) GetBlobAt(chunks []chunked.ImageSourceChunk) (chan io.ReadCloser, chan error, error) {
+	streams := make(chan io.ReadCloser)
+	errs := make(chan error)
+	go sendFileParts(&f, chunks, streams, errs)
+	return streams, errs, nil
+}
+
+func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
+	if len(args) < 2 {
+		return 2, nil
+	}
+
+	layer := args[0]
+	sourceDirectory := args[1]
+
+	tOptions := archive.TarOptions{}
+	tr, err := archive.TarWithOptions(sourceDirectory, &tOptions)
+	if err != nil {
+		return 1, err
+	}
+	defer tr.Close()
+
+	tar, err := os.CreateTemp("", "layer-diff-tar-")
+	if err != nil {
+		return 1, err
+	}
+	defer os.Remove(tar.Name())
+	defer tar.Close()
+
+	// we go through the zstd:chunked compressor first so that it generates the metadata required to mount
+	// a composefs image.
+
+	metadata := make(map[string]string)
+	compressor, err := compressor.ZstdCompressor(tar, metadata, nil)
+	if err != nil {
+		return 1, err
+	}
+
+	if _, err := io.Copy(compressor, tr); err != nil {
+		return 1, err
+	}
+	if err := compressor.Close(); err != nil {
+		return 1, err
+	}
+
+	size, err := tar.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return 1, err
+	}
+
+	fetcher := fileFetcher{
+		file: tar,
+	}
+
+	differ, err := chunked.GetDiffer(context.Background(), m, size, metadata, &fetcher)
+	if err != nil {
+		return 1, err
+	}
+
+	var options graphdriver.ApplyDiffOpts
+	out, err := m.ApplyDiffWithDiffer("", &options, differ)
+	if err != nil {
+		return 1, err
+	}
+	if err := m.ApplyDiffFromStagingDirectory(layer, out.Target, out, &options); err != nil {
+		m.CleanupStagingDirectory(out.Target)
+		return 1, err
+	}
+	return 0, nil
+}
+
 func applyDiff(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	if len(args) < 1 {
 		return 1, nil
@@ -178,5 +270,13 @@ func init() {
 		addFlags: func(flags *mflag.FlagSet, cmd *command) {
 			flags.StringVar(&applyDiffFile, []string{"-file", "f"}, "", "Read from file instead of stdin")
 		},
+	})
+	commands = append(commands, command{
+		names:       []string{"applydiff-using-staging-dir"},
+		optionsHelp: "layerNameOrID directory",
+		usage:       "Apply a diff to a layer using a staging directory",
+		minArgs:     2,
+		maxArgs:     2,
+		action:      applyDiffUsingStagingDirectory,
 	})
 }

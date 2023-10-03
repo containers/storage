@@ -52,79 +52,81 @@ configuration will be stored as data items.
 
 ## SUB-COMMANDS
 The *containers-storage* command's features are broken down into several subcommands:
- **containers-storage add-names(1)**           Add layer, image, or container name or names
+ **containers-storage add-names(1)**                   Add layer, image, or container name or names
 
- **containers-storage applydiff(1)**           Apply a diff to a layer
+ **containers-storage applydiff(1)**                   Apply a diff to a layer
 
- **containers-storage changes(1)**             Compare two layers
+ **containers-storage applydiff-using-staging-dir(1)** Apply a diff to a layer staging the new content first.
 
- **containers-storage check(1)**               Check for and possibly remove damaged layers/images/containers
+ **containers-storage changes(1)**                     Compare two layers
 
- **containers-storage container(1)**           Examine a container
+ **containers-storage check(1)**                       Check for and possibly remove damaged layers/images/containers
 
- **containers-storage containers(1)**          List containers
+ **containers-storage container(1)**                   Examine a container
 
- **containers-storage create-container(1)**    Create a new container from an image
+ **containers-storage containers(1)**                  List containers
 
- **containers-storage create-image(1)**        Create a new image using layers
+ **containers-storage create-container(1)**            Create a new container from an image
 
- **containers-storage create-layer(1)**        Create a new layer
+ **containers-storage create-image(1)**                Create a new image using layers
 
- **containers-storage create-storage-layer(1)** Create a new layer in the lower-level storage driver
+ **containers-storage create-layer(1)**                Create a new layer
 
- **containers-storage delete(1)**              Delete a layer or image or container, with no safety checks
+ **containers-storage create-storage-layer(1)**        Create a new layer in the lower-level storage driver
 
- **containers-storage delete-container(1)**    Delete a container, with safety checks
+ **containers-storage delete(1)**                      Delete a layer or image or container, with no safety checks
 
- **containers-storage delete-image(1)**        Delete an image, with safety checks
+ **containers-storage delete-container(1)**            Delete a container, with safety checks
 
- **containers-storage delete-layer(1)**        Delete a layer, with safety checks
+ **containers-storage delete-image(1)**                Delete an image, with safety checks
 
- **containers-storage diff(1)**                Compare two layers
+ **containers-storage delete-layer(1)**                Delete a layer, with safety checks
 
- **containers-storage diffsize(1)**            Compare two layers
+ **containers-storage diff(1)**                        Compare two layers
 
- **containers-storage exists(1)**              Check if a layer or image or container exists
+ **containers-storage diffsize(1)**                    Compare two layers
 
- **containers-storage get-container-data(1)**  Get data that is attached to a container
+ **containers-storage exists(1)**                      Check if a layer or image or container exists
 
- **containers-storage get-image-data(1)**      Get data that is attached to an image
+ **containers-storage get-container-data(1)**          Get data that is attached to a container
 
- **containers-storage image(1)**               Examine an image
+ **containers-storage get-image-data(1)**              Get data that is attached to an image
 
- **containers-storage images(1)**              List images
+ **containers-storage image(1)**                       Examine an image
 
- **containers-storage layers(1)**              List layers
+ **containers-storage images(1)**                      List images
 
- **containers-storage list-container-data(1)** List data items that are attached to a container
+ **containers-storage layers(1)**                      List layers
 
- **containers-storage list-image-data(1)**     List data items that are attached to an image
+ **containers-storage list-container-data(1)**         List data items that are attached to a container
 
- **containers-storage metadata(1)**            Retrieve layer, image, or container metadata
+ **containers-storage list-image-data(1)**             List data items that are attached to an image
 
- **containers-storage mount(1)**               Mount a layer or container
+ **containers-storage metadata(1)**                    Retrieve layer, image, or container metadata
 
- **containers-storage mounted(1)**             Check if a file system is mounted
+ **containers-storage mount(1)**                       Mount a layer or container
 
- **containers-storage set-container-data(1)**  Set data that is attached to a container
+ **containers-storage mounted(1)**                     Check if a file system is mounted
 
- **containers-storage set-image-data(1)**      Set data that is attached to an image
+ **containers-storage set-container-data(1)**          Set data that is attached to a container
 
- **containers-storage set-metadata(1)**        Set layer, image, or container metadata
+ **containers-storage set-image-data(1)**              Set data that is attached to an image
 
- **containers-storage set-names(1)**           Set layer, image, or container name or names
+ **containers-storage set-metadata(1)**                Set layer, image, or container metadata
 
- **containers-storage shutdown(1)**            Shut down graph driver
+ **containers-storage set-names(1)**                   Set layer, image, or container name or names
 
- **containers-storage status(1)**              Check on graph driver status
+ **containers-storage shutdown(1)**                    Shut down graph driver
 
- **containers-storage unmount(1)**             Unmount a layer or container
+ **containers-storage status(1)**                      Check on graph driver status
 
- **containers-storage unshare(1)**             Run a command in a user namespace
+ **containers-storage unmount(1)**                     Unmount a layer or container
 
- **containers-storage version(1)**             Return containers-storage version information
+ **containers-storage unshare(1)**                     Run a command in a user namespace
 
- **containers-storage wipe(1)**                Wipe all layers, images, and containers
+ **containers-storage version(1)**                     Return containers-storage version information
+
+ **containers-storage wipe(1)**                        Wipe all layers, images, and containers
 
 ## OPTIONS
 **--help**
