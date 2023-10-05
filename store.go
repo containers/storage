@@ -3407,16 +3407,16 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		err = fmt.Errorf("a layer is mounted: %w", ErrLayerUsedByContainer)
 	}
 	if err == nil {
-		err = s.graphDriver.Cleanup()
 		// We don’t retain the lastWrite value, and treat this update as if someone else did the .Cleanup(),
 		// so that we reload after a .Shutdown() the same way other processes would.
 		// Shutdown() is basically an error path, so reliability is more important than performance.
 		if _, err2 := s.graphLock.RecordWrite(); err2 != nil {
-			if err == nil {
-				err = err2
-			} else {
-				err = fmt.Errorf("(graphLock.RecordWrite failed: %v) %w", err2, err)
-			}
+			err = fmt.Errorf("(graphLock.RecordWrite failed: %w", err2)
+		}
+		// Do the Cleanup() only after we are sure that the change was recorded with RecordWrite(), so that
+		// the next user picks it.
+		if err == nil {
+			err = s.graphDriver.Cleanup()
 		}
 	}
 	return mounted, err
