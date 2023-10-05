@@ -27,7 +27,7 @@ require (
 	github.com/tchap/go-patricia/v2 v2.3.1
 	github.com/ulikunitz/xz v0.5.11
 	github.com/vbatts/tar-split v0.11.5
-	golang.org/x/sys v0.12.0
+	golang.org/x/sys v0.13.0
 	gotest.tools v2.2.0+incompatible
 )
 
