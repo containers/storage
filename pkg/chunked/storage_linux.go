@@ -1470,10 +1470,7 @@ func makeEntriesFlat(mergedEntries []internal.FileMetadata) ([]internal.FileMeta
 			continue
 		}
 		if mergedEntries[i].Digest == "" {
-			if mergedEntries[i].Size != 0 {
-				return nil, fmt.Errorf("missing digest for %q", mergedEntries[i].Name)
-			}
-			continue
+			return nil, fmt.Errorf("missing digest for %q", mergedEntries[i].Name)
 		}
 		digest, err := digest.Parse(mergedEntries[i].Digest)
 		if err != nil {
