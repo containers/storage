@@ -45,6 +45,7 @@ const (
 	bigDataKey              = "zstd-chunked-manifest"
 	chunkedData             = "zstd-chunked-data"
 	chunkedLayerDataKey     = "zstd-chunked-layer-data"
+	tocKey                  = "toc"
 
 	fileTypeZstdChunked = iota
 	fileTypeEstargz
@@ -1539,12 +1540,22 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	if err != nil {
 		return graphdriver.DriverWithDifferOutput{}, err
 	}
+
+	// Generate the manifest
+	toc, err := unmarshalToc(c.manifest)
+	if err != nil {
+		return graphdriver.DriverWithDifferOutput{}, err
+	}
+
 	output := graphdriver.DriverWithDifferOutput{
 		Differ:   c,
 		TarSplit: c.tarSplit,
 		BigData: map[string][]byte{
 			bigDataKey:          c.manifest,
 			chunkedLayerDataKey: lcdBigData,
+		},
+		Artifacts: map[string]interface{}{
+			tocKey: toc,
 		},
 		TOCDigest: c.contentDigest,
 	}
@@ -1559,12 +1570,6 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 	// List of OSTree repositories to use for deduplication
 	ostreeRepos := strings.Split(c.storeOpts.PullOptions["ostree_repos"], ":")
-
-	// Generate the manifest
-	toc, err := unmarshalToc(c.manifest)
-	if err != nil {
-		return output, err
-	}
 
 	whiteoutConverter := archive.GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 
