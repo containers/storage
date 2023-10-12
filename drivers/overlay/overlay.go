@@ -82,7 +82,7 @@ const (
 	lowerFile  = "lower"
 	maxDepth   = 500
 
-	zstdChunkedManifest = "zstd-chunked-manifest"
+	tocArtifact = "toc"
 
 	// idLength represents the number of random characters
 	// which can be used to create the unique link identifier
@@ -2110,11 +2110,12 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 	if d.useComposeFs() {
 		// FIXME: move this logic into the differ so we don't have to open
 		// the file twice.
-		if err := enableVerityRecursive(stagingDirectory); err != nil && !errors.Is(err, unix.ENOTSUP) && !errors.Is(err, unix.ENOTTY) {
+		verityDigests, err := enableVerityRecursive(stagingDirectory)
+		if err != nil && !errors.Is(err, unix.ENOTSUP) && !errors.Is(err, unix.ENOTTY) {
 			logrus.Warningf("%s", err)
 		}
-		toc := diffOutput.BigData[zstdChunkedManifest]
-		if err := generateComposeFsBlob(toc, d.getComposefsData(id)); err != nil {
+		toc := diffOutput.Artifacts[tocArtifact]
+		if err := generateComposeFsBlob(verityDigests, toc, d.getComposefsData(id)); err != nil {
 			return err
 		}
 	}
