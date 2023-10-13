@@ -671,7 +671,7 @@ func (r *containerStore) create(id string, names []string, image, layer string, 
 	names = dedupeStrings(names)
 	for _, name := range names {
 		if _, nameInUse := r.byname[name]; nameInUse {
-			return nil, fmt.Errorf("the container name %q is already in use by %s. You have to remove that container to be able to reuse that name: %w", name, r.byname[name].ID, ErrDuplicateName)
+			return nil, fmt.Errorf("the container name %q is already in use by %s. You have to remove that container to be able to reuse that name: %w, or use --replace to instruct Podman to do so.", name, r.byname[name].ID, ErrDuplicateName)
 		}
 	}
 	if err := hasOverlappingRanges(options.UIDMap); err != nil {
