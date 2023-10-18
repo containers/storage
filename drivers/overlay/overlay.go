@@ -1529,14 +1529,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		defer cleanupFunc()
 	}
 
-	composefsLayers := filepath.Join(workDirBase, "composefs-layers")
-	if err := os.MkdirAll(composefsLayers, 0o700); err != nil {
-		return "", err
-	}
-
 	skipIDMappingLayers := make(map[string]string)
-
-	composeFsLayers := []string{}
 
 	composefsMounts := []string{}
 	defer func() {
@@ -1545,6 +1538,8 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		}
 	}()
 
+	composeFsLayers := []string{}
+	composeFsLayersDir := filepath.Join(workDirBase, "composefs-layers")
 	maybeAddComposefsMount := func(lowerID string, i int, readWrite bool) (string, error) {
 		composefsBlob := d.getComposefsData(lowerID)
 		_, err = os.Stat(composefsBlob)
@@ -1560,7 +1555,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			return "", fmt.Errorf("cannot mount a composefs layer as writeable")
 		}
 
-		dest := filepath.Join(composefsLayers, fmt.Sprintf("%d", i))
+		dest := filepath.Join(composeFsLayersDir, fmt.Sprintf("%d", i))
 		if err := os.MkdirAll(dest, 0o700); err != nil {
 			return "", err
 		}
