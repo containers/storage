@@ -1245,8 +1245,8 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 	if parentLayer != nil {
 		parent = parentLayer.ID
 	}
-	var parentMappings, templateIDMappings, oldMappings *idtools.IDMappings
 	var (
+		templateIDMappings         *idtools.IDMappings
 		templateMetadata           string
 		templateCompressedDigest   digest.Digest
 		templateCompressedSize     int64
@@ -1273,11 +1273,6 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 		}
 	} else {
 		templateIDMappings = &idtools.IDMappings{}
-	}
-	if parentLayer != nil {
-		parentMappings = idtools.NewIDMappingsFromMaps(parentLayer.UIDMap, parentLayer.GIDMap)
-	} else {
-		parentMappings = &idtools.IDMappings{}
 	}
 	if mountLabel != "" {
 		selinux.ReserveLabel(mountLabel)
@@ -1353,6 +1348,12 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 		IDMappings: idMappings,
 	}
 
+	var parentMappings, oldMappings *idtools.IDMappings
+	if parentLayer != nil {
+		parentMappings = idtools.NewIDMappingsFromMaps(parentLayer.UIDMap, parentLayer.GIDMap)
+	} else {
+		parentMappings = &idtools.IDMappings{}
+	}
 	if moreOptions.TemplateLayer != "" {
 		if err = r.driver.CreateFromTemplate(id, moreOptions.TemplateLayer, templateIDMappings, parent, parentMappings, &opts, writeable); err != nil {
 			cleanupFailureContext = fmt.Sprintf("creating a layer from template layer %q", moreOptions.TemplateLayer)
