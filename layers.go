@@ -1372,10 +1372,13 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 				return nil, -1, fmt.Errorf("creating read-only layer with ID %q: %w", id, err)
 			}
 		}
-		oldMappings = parentMappings
+		if parentLayer != nil {
+			oldMappings = parentMappings
+		}
 	}
 
-	if !reflect.DeepEqual(oldMappings.UIDs(), idMappings.UIDs()) || !reflect.DeepEqual(oldMappings.GIDs(), idMappings.GIDs()) {
+	if oldMappings != nil &&
+		(!reflect.DeepEqual(oldMappings.UIDs(), idMappings.UIDs()) || !reflect.DeepEqual(oldMappings.GIDs(), idMappings.GIDs())) {
 		if err = r.driver.UpdateLayerIDMap(id, oldMappings, idMappings, mountLabel); err != nil {
 			cleanupFailureContext = "in UpdateLayerIDMap"
 			return nil, -1, err
