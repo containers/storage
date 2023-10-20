@@ -113,8 +113,6 @@ debian_testing_task: &debian_testing
             TEST_DRIVER: "fuse-overlay-whiteout"
         - env:
             TEST_DRIVER: "btrfs"
-        - env:
-            TEST_DRIVER: "zfs"
 
 
 lint_task:
