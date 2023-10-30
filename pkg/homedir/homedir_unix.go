@@ -8,9 +8,12 @@ package homedir
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/containers/storage/pkg/unshare"
 )
@@ -93,4 +96,46 @@ func stick(f string) error {
 	m := st.Mode()
 	m |= os.ModeSticky
 	return os.Chmod(f, m)
+}
+
+var (
+	rootlessConfigHomeDirError error
+	rootlessConfigHomeDirOnce  sync.Once
+	rootlessConfigHomeDir      string
+)
+
+// isWriteableOnlyByOwner checks that the specified permission mask allows write
+// access only to the owner.
+func isWriteableOnlyByOwner(perm os.FileMode) bool {
+	return (perm & 0o722) == 0o700
+}
+
+// GetConfigHome returns XDG_CONFIG_HOME.
+// GetConfigHome returns $HOME/.config and nil error if XDG_CONFIG_HOME is not set.
+//
+// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
+func GetConfigHome() (string, error) {
+	rootlessConfigHomeDirOnce.Do(func() {
+		cfgHomeDir := os.Getenv("XDG_CONFIG_HOME")
+		if cfgHomeDir == "" {
+			home := Get()
+			resolvedHome, err := filepath.EvalSymlinks(home)
+			if err != nil {
+				rootlessConfigHomeDirError = fmt.Errorf("cannot resolve %s: %w", home, err)
+				return
+			}
+			tmpDir := filepath.Join(resolvedHome, ".config")
+			_ = os.MkdirAll(tmpDir, 0o700)
+			st, err := os.Stat(tmpDir)
+			if err == nil && int(st.Sys().(*syscall.Stat_t).Uid) == os.Geteuid() && isWriteableOnlyByOwner(st.Mode().Perm()) {
+				cfgHomeDir = tmpDir
+			} else {
+				rootlessConfigHomeDirError = fmt.Errorf("path %q exists and it is not writeable only by the current user", tmpDir)
+				return
+			}
+		}
+		rootlessConfigHomeDir = cfgHomeDir
+	})
+
+	return rootlessConfigHomeDir, rootlessConfigHomeDirError
 }
