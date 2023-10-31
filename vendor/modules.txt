@@ -45,7 +45,7 @@ github.com/containerd/cgroups/v3/cgroup1/stats
 ## explicit; go 1.19
 github.com/containerd/containerd/errdefs
 github.com/containerd/containerd/log
-# github.com/containerd/stargz-snapshotter/estargz v0.15.0
+# github.com/containerd/stargz-snapshotter/estargz v0.15.1
 ## explicit; go 1.19
 github.com/containerd/stargz-snapshotter/estargz
 github.com/containerd/stargz-snapshotter/estargz/errorutil
