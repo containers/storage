@@ -16,7 +16,7 @@ require (
 	github.com/klauspost/pgzip v1.2.6
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/mistifyio/go-zfs/v3 v3.0.1
-	github.com/moby/sys/mountinfo v0.6.2
+	github.com/moby/sys/mountinfo v0.7.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/runc v1.1.10
 	github.com/opencontainers/runtime-spec v1.1.0
