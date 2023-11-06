@@ -945,6 +945,7 @@ func (s *store) load() error {
 	s.containerStore = rcs
 
 	for _, store := range driver.AdditionalImageStores() {
+		store = strings.Split(store, "|")[0]
 		gipath := filepath.Join(store, driverPrefix+"images")
 		var ris roImageStore
 		if s.imageStoreDir != "" && store == s.graphRoot {
@@ -1109,6 +1110,14 @@ func (s *store) getROLayerStoresLocked() ([]roLayerStore, error) {
 		return nil, err
 	}
 	for _, store := range s.graphDriver.AdditionalImageStores() {
+		if strings.Contains(store, "|") {
+			parts := strings.Split(store, "|")
+			if len(parts) > 1 && parts[1] == "NO_REUSE" {
+				continue
+			} else {
+				store = strings.Split(store, "|")[0]
+			}
+		}
 		glpath := filepath.Join(store, driverPrefix+"layers")
 		rls, err := newROLayerStore(rlpath, glpath, s.graphDriver)
 		if err != nil {
