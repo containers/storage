@@ -156,6 +156,14 @@ func parseMountTable(filter FilterFunc) (_ []*Info, err error) {
 		// /proc/thread-self/ so we need to manually construct
 		// /proc/self/task/<tid>/ as a fallback.
 		f, err = os.Open("/proc/self/task/" + strconv.Itoa(unix.Gettid()) + "/mountinfo")
+		if os.IsNotExist(err) {
+			// If /proc/self/task/... failed, it means that our active pid
+			// namespace doesn't match the pid namespace of the /proc mount. In
+			// this case we just have to make do with /proc/self, since there
+			// is no other way of figuring out our tid in a parent pid
+			// namespace on pre-3.17 kernels.
+			f, err = os.Open("/proc/self/mountinfo")
+		}
 	}
 	if err != nil {
 		return nil, err
