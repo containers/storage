@@ -11,11 +11,6 @@ func ParseIDMapping(UIDMapSlice, GIDMapSlice []string, subUIDMap, subGIDMap stri
 	return types.ParseIDMapping(UIDMapSlice, GIDMapSlice, subUIDMap, subGIDMap)
 }
 
-// GetRootlessRuntimeDir returns the runtime directory when running as non root
-func GetRootlessRuntimeDir(rootlessUID int) (string, error) {
-	return types.GetRootlessRuntimeDir(rootlessUID)
-}
-
 // DefaultStoreOptionsAutoDetectUID returns the default storage options for containers
 func DefaultStoreOptionsAutoDetectUID() (types.StoreOptions, error) {
 	return types.DefaultStoreOptionsAutoDetectUID()

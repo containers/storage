@@ -11,7 +11,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 	cfg "github.com/containers/storage/pkg/config"
+	"github.com/containers/storage/pkg/homedir"
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/unshare"
 	"github.com/sirupsen/logrus"
 )
 
@@ -273,11 +275,21 @@ func isRootlessDriver(driver string) bool {
 func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOptions, error) {
 	var opts StoreOptions
 
-	dataDir, rootlessRuntime, err := getRootlessDirInfo(rootlessUID)
+	dataDir, err := homedir.GetDataHome()
 	if err != nil {
 		return opts, err
 	}
-	opts.RunRoot = rootlessRuntime
+
+	rootlessRuntime, err := homedir.GetRuntimeDir()
+	if err != nil {
+		return opts, err
+	}
+
+	opts.RunRoot = filepath.Join(rootlessRuntime, "containers")
+	if err := os.MkdirAll(opts.RunRoot, 0o700); err != nil {
+		return opts, fmt.Errorf("unable to make rootless runtime: %w", err)
+	}
+
 	opts.PullOptions = systemOpts.PullOptions
 	if systemOpts.RootlessStoragePath != "" {
 		opts.GraphRoot, err = expandEnvPath(systemOpts.RootlessStoragePath, rootlessUID)
@@ -345,7 +357,7 @@ func getRootlessStorageOpts(rootlessUID int, systemOpts StoreOptions) (StoreOpti
 
 // DefaultStoreOptionsAutoDetectUID returns the default storage ops for containers
 func DefaultStoreOptionsAutoDetectUID() (StoreOptions, error) {
-	uid := getRootlessUID()
+	uid := unshare.GetRootlessUID()
 	return DefaultStoreOptions(uid != 0, uid)
 }
 
