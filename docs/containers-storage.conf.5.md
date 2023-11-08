@@ -106,6 +106,10 @@ containers/storage supports three keys
     Tells containers/storage where an ostree repository exists that might have
     previously pulled content which can be used when attempting to avoid
     pulling content from the container registry
+  * convert_images = "false" | "true"
+    If set to true, containers/storage will convert images to the a format compatible with
+    partial pulls in order to take advantage of local deduplication and hardlinking.  It is an
+    expensive operation so it is not enabled by default.
 
 **remap-uids=**""
 **remap-gids=**""
