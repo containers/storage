@@ -22,7 +22,7 @@ func expandEnvPath(path string, rootlessUID int) (string, error) {
 	return newpath, nil
 }
 
-func DefaultConfigFile(rootless bool) (string, error) {
+func DefaultConfigFile() (string, error) {
 	if defaultConfigFileSet {
 		return defaultConfigFile, nil
 	}
@@ -30,7 +30,7 @@ func DefaultConfigFile(rootless bool) (string, error) {
 	if path, ok := os.LookupEnv(storageConfEnv); ok {
 		return path, nil
 	}
-	if !rootless {
+	if !usePerUserStorage() {
 		if _, err := os.Stat(defaultOverrideConfigFile); err == nil {
 			return defaultOverrideConfigFile, nil
 		}

@@ -1,17 +1,21 @@
 package types
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/containers/storage/pkg/unshare"
 	"gotest.tools/assert"
 )
 
 func TestDefaultStoreOpts(t *testing.T) {
-	storageOpts, err := defaultStoreOptionsIsolated(true, 1000, "./storage_test.conf")
-
-	expectedPath := filepath.Join(os.Getenv("HOME"), "1000", "containers/storage")
+	if !usePerUserStorage() {
+		t.Skip()
+	}
+	storageOpts, err := loadStoreOptionsFromConfFile("./storage_test.conf")
+	expectedPath := filepath.Join(os.Getenv("HOME"), fmt.Sprintf("%d", unshare.GetRootlessUID()), "containers/storage")
 
 	assert.NilError(t, err)
 	assert.Equal(t, storageOpts.RunRoot, expectedPath)
@@ -21,7 +25,7 @@ func TestDefaultStoreOpts(t *testing.T) {
 
 func TestStorageConfOverrideEnvironmentDefaultConfigFileRootless(t *testing.T) {
 	t.Setenv("CONTAINERS_STORAGE_CONF", "default_override_test.conf")
-	defaultFile, err := DefaultConfigFile(true)
+	defaultFile, err := DefaultConfigFile()
 
 	expectedPath := "default_override_test.conf"
 
@@ -31,7 +35,7 @@ func TestStorageConfOverrideEnvironmentDefaultConfigFileRootless(t *testing.T) {
 
 func TestStorageConfOverrideEnvironmentDefaultConfigFileRoot(t *testing.T) {
 	t.Setenv("CONTAINERS_STORAGE_CONF", "default_override_test.conf")
-	defaultFile, err := DefaultConfigFile(false)
+	defaultFile, err := DefaultConfigFile()
 
 	expectedPath := "default_override_test.conf"
 
