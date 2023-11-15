@@ -1,6 +1,7 @@
 package storage
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -2741,7 +2742,13 @@ func (s *store) Status() ([][2]string, error) {
 	return rlstore.Status()
 }
 
+//go:embed VERSION
+var storageVersion string
+
 func (s *store) Version() ([][2]string, error) {
+	if trimmedVersion := strings.TrimSpace(storageVersion); trimmedVersion != "" {
+		return [][2]string{{"Version", trimmedVersion}}, nil
+	}
 	return [][2]string{}, nil
 }
 
