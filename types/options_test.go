@@ -82,14 +82,6 @@ func TestGetRootlessStorageOpts(t *testing.T) {
 		assert.Assert(t, storageOpts.GraphDriverName == overlayDriver || storageOpts.GraphDriverName == vfsDriver, fmt.Sprintf("The rootless driver should be set to 'overlay' or 'vfs' not '%v'", storageOpts.GraphDriverName))
 	})
 
-	t.Run("systemDriver=devmapper", func(t *testing.T) {
-		systemOpts := StoreOptions{}
-		systemOpts.GraphDriverName = "devmapper"
-		storageOpts, err := getRootlessStorageOpts(1000, systemOpts)
-		assert.NilError(t, err)
-		assert.Assert(t, storageOpts.GraphDriverName == overlayDriver || storageOpts.GraphDriverName == vfsDriver, fmt.Sprintf("The rootless driver should be set to 'overlay' or 'vfs' not '%v'", storageOpts.GraphDriverName))
-	})
-
 	t.Run("systemDriver=zfs", func(t *testing.T) {
 		systemOpts := StoreOptions{}
 		systemOpts.GraphDriverName = "zfs"
