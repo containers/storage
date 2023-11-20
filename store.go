@@ -3552,8 +3552,8 @@ func SetDefaultConfigFilePath(path string) {
 }
 
 // DefaultConfigFile returns the path to the storage config file used
-func DefaultConfigFile(rootless bool) (string, error) {
-	return types.DefaultConfigFile(rootless)
+func DefaultConfigFile() (string, error) {
+	return types.DefaultConfigFile()
 }
 
 // ReloadConfigurationFile parses the specified configuration file and overrides
