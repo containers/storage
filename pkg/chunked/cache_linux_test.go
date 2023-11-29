@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
+	"github.com/stretchr/testify/assert"
 )
 
 const jsonTOC = `
@@ -55,6 +56,7 @@ const jsonTOC = `
       "chunkOffset": 17615,
       "chunkDigest": "sha256:2a9d3f1b6b37abc8bb35eb8fa98b893a2a2447bcb01184c3bafc8c6b40da099d"
     }
+  ]
 }
 `
 
@@ -187,4 +189,25 @@ func TestReadCache(t *testing.T) {
 	if !reflect.DeepEqual(cache, cacheRead) {
 		t.Errorf("read a different struct than what was written")
 	}
+}
+
+func TestUnmarshalToc(t *testing.T) {
+	toc, err := unmarshalToc([]byte(jsonTOC))
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(toc.Entries))
+
+	_, err = unmarshalToc([]byte(jsonTOC + "        \n\n\n\n    "))
+	assert.NoError(t, err)
+	_, err = unmarshalToc([]byte(jsonTOC + "aaaa"))
+	assert.Error(t, err)
+	_, err = unmarshalToc([]byte(jsonTOC + ","))
+	assert.Error(t, err)
+	_, err = unmarshalToc([]byte(jsonTOC + "{}"))
+	assert.Error(t, err)
+	_, err = unmarshalToc([]byte(jsonTOC + "[]"))
+	assert.Error(t, err)
+	_, err = unmarshalToc([]byte(jsonTOC + "\"aaaa\""))
+	assert.Error(t, err)
+	_, err = unmarshalToc([]byte(jsonTOC + "123"))
+	assert.Error(t, err)
 }
