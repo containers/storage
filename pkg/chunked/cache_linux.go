@@ -578,7 +578,10 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 		return byteSliceAsString(buf.Bytes()[from:to])
 	}
 
-	iter = jsoniter.ParseBytes(jsoniter.ConfigFastest, manifest)
+	pool := iter.Pool()
+	pool.ReturnIterator(iter)
+	iter = pool.BorrowIterator(manifest)
+
 	for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
 		if strings.ToLower(field) == "version" {
 			toc.Version = iter.ReadInt()
