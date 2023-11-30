@@ -334,6 +334,10 @@ type Store interface {
 	// specified uncompressed digest value recorded for them.
 	LayersByUncompressedDigest(d digest.Digest) ([]Layer, error)
 
+	// LayersByTOCDigest returns a slice of the layers with the
+	// specified TOC digest value recorded for them.
+	LayersByTOCDigest(d digest.Digest) ([]Layer, error)
+
 	// LayerSize returns a cached approximation of the layer's size, or -1
 	// if we don't have a value on hand.
 	LayerSize(id string) (int64, error)
@@ -3004,6 +3008,13 @@ func (s *store) LayersByUncompressedDigest(d digest.Digest) ([]Layer, error) {
 		return nil, fmt.Errorf("looking for layers matching digest %q: %w", d, err)
 	}
 	return s.layersByMappedDigest(func(r roLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByUncompressedDigest(d) }, d)
+}
+
+func (s *store) LayersByTOCDigest(d digest.Digest) ([]Layer, error) {
+	if err := d.Validate(); err != nil {
+		return nil, fmt.Errorf("looking for TOC matching digest %q: %w", d, err)
+	}
+	return s.layersByMappedDigest(func(r roLayerStore, d digest.Digest) ([]Layer, error) { return r.LayersByTOCDigest(d) }, d)
 }
 
 func (s *store) LayerSize(id string) (int64, error) {
