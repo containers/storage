@@ -2125,8 +2125,6 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 		return err
 	}
 
-	diffOutput.UncompressedDigest = diffOutput.TOCDigest
-
 	return os.Rename(stagingDirectory, diffPath)
 }
 
