@@ -307,13 +307,13 @@ type rwLayerStore interface {
 
 	// ApplyDiffWithDiffer applies the changes through the differ callback function.
 	// If to is the empty string, then a staging directory is created by the driver.
-	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
+	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
 	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
 	CleanupStagingDirectory(stagingDirectory string) error
 
 	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
-	ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error
+	ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
 
 	// DifferTarget gets the location where files are stored for the layer.
 	DifferTarget(id string) (string, error)
@@ -2400,7 +2400,7 @@ func (r *layerStore) DifferTarget(id string) (string, error) {
 }
 
 // Requires startWriting.
-func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffOpts) error {
+func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
 		return ErrNotSupported
@@ -2410,11 +2410,14 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 		return ErrLayerUnknown
 	}
 	if options == nil {
-		options = &drivers.ApplyDiffOpts{
-			Mappings:   r.layerMappings(layer),
-			MountLabel: layer.MountLabel,
+		options = &drivers.ApplyDiffWithDifferOpts{
+			drivers.ApplyDiffOpts{
+				Mappings:   r.layerMappings(layer),
+				MountLabel: layer.MountLabel,
+			},
 		}
 	}
+
 	err := ddriver.ApplyDiffFromStagingDirectory(layer.ID, layer.Parent, stagingDirectory, diffOutput, options)
 	if err != nil {
 		return err
@@ -2463,7 +2466,7 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 }
 
 // Requires startWriting.
-func (r *layerStore) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
+func (r *layerStore) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
 		return nil, ErrNotSupported
@@ -2479,9 +2482,11 @@ func (r *layerStore) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffOp
 		return nil, ErrLayerUnknown
 	}
 	if options == nil {
-		options = &drivers.ApplyDiffOpts{
-			Mappings:   r.layerMappings(layer),
-			MountLabel: layer.MountLabel,
+		options = &drivers.ApplyDiffWithDifferOpts{
+			ApplyDiffOpts: drivers.ApplyDiffOpts{
+				Mappings:   r.layerMappings(layer),
+				MountLabel: layer.MountLabel,
+			},
 		}
 	}
 	output, err := ddriver.ApplyDiffWithDiffer(layer.ID, layer.Parent, options, differ)

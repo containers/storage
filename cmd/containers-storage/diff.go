@@ -176,7 +176,7 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 		return 1, err
 	}
 
-	var options graphdriver.ApplyDiffOpts
+	var options graphdriver.ApplyDiffWithDifferOpts
 	out, err := m.ApplyDiffWithDiffer("", &options, differ)
 	if err != nil {
 		return 1, err
