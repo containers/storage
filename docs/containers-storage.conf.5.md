@@ -278,6 +278,9 @@ based file systems.
 **size**=""
   Maximum size of a read/write layer.   This flag can be used to set quota on the size of a read/write layer of a container. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
+**use_composefs** = "false"
+    Use ComposeFS to mount the data layers image.  ComposeFS support is experimental and not recommended for production use.  (default: false)
+
 ### STORAGE OPTIONS FOR VFS TABLE
 
 The `storage.options.vfs` table supports the following options:
