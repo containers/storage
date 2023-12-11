@@ -2027,6 +2027,9 @@ func (d *Driver) getStagingDir() string {
 // contains files for the layer differences, either for this layer, or one of our
 // lowers if we're just a template directory. Used for direct access for tar-split.
 func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
+	if d.usingComposefs {
+		return nil, nil
+	}
 	p, err := d.getDiffPath(id)
 	if err != nil {
 		return nil, err
