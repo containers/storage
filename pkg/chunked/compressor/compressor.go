@@ -452,12 +452,12 @@ type zstdChunkedWriter struct {
 }
 
 func (w zstdChunkedWriter) Close() error {
-	err := <-w.tarSplitErr
-	if err != nil {
-		w.tarSplitOut.Close()
+	errClose := w.tarSplitOut.Close()
+
+	if err := <-w.tarSplitErr; err != nil && err != io.EOF {
 		return err
 	}
-	return w.tarSplitOut.Close()
+	return errClose
 }
 
 func (w zstdChunkedWriter) Write(p []byte) (int, error) {
