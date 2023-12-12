@@ -420,6 +420,14 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 		zstdWriter.Close()
 		return err
 	}
+
+	// make sure the entire tarball is flushed to the output as it might contain
+	// some trailing zeros that affect the checksum.
+	if _, err := io.Copy(zstdWriter, its); err != nil {
+		zstdWriter.Close()
+		return err
+	}
+
 	if err := zstdWriter.Flush(); err != nil {
 		zstdWriter.Close()
 		return err
