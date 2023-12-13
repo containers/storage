@@ -251,6 +251,15 @@ func TestOverlayOptions(t *testing.T) {
 		t.Fatalf("Expected to find 'skip_mount_home' options, got %v", doptions)
 	}
 
+	options.Overlay.UseComposefs = "true"
+	doptions = GetGraphDriverOptions("overlay", options)
+	if len(doptions) == 0 {
+		t.Fatalf("Expected > 0 options, got %v", doptions)
+	}
+	if !searchOptions(doptions, "use_composefs") {
+		t.Fatalf("Expected to find 'use_composefs' options, got %v", doptions)
+	}
+
 	// Make sure legacy mountopt still works
 	options = OptionsConfig{}
 	options.SkipMountHome = "true"
