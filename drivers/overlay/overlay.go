@@ -1599,6 +1599,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 
 	diffDir := path.Join(dir, "diff")
+	if _, err := os.Stat(diffDir); os.IsNotExist(err) {
+		diffDir = path.Join(workDirBase, "diff")
+	}
 
 	if dest, err := maybeAddComposefsMount(id, 0, readWrite); err != nil {
 		return "", err
@@ -1698,9 +1701,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		return "", err
 	}
 
-	mergedDir := path.Join(dir, "merged")
+	mergedDir := path.Join(workDirBase, "merged")
 	// Create the driver merged dir
-	if err := idtools.MkdirAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+	if err := idtools.MkdirAllAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
 		return "", err
 	}
 	if count := d.ctr.Increment(mergedDir); count > 1 {
