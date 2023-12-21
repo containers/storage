@@ -879,7 +879,7 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 // is being shutdown. For now, we just have to unmount the bind mounted
 // we had created.
 func (d *Driver) Cleanup() error {
-	_ = os.RemoveAll(d.getStagingDir())
+	_ = os.RemoveAll(filepath.Join(d.home, stagingDir))
 	return mount.Unmount(d.home)
 }
 
@@ -2002,8 +2002,9 @@ func (g *overlayFileGetter) Close() error {
 	return nil
 }
 
-func (d *Driver) getStagingDir() string {
-	return filepath.Join(d.home, stagingDir)
+func (d *Driver) getStagingDir(id string) string {
+	_, homedir, _ := d.dir2(id, d.imageStore != "")
+	return filepath.Join(homedir, stagingDir)
 }
 
 // DiffGetter returns a FileGetCloser that can read files from the directory that
@@ -2060,11 +2061,12 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 	var applyDir string
 
 	if id == "" {
-		err := os.MkdirAll(d.getStagingDir(), 0o700)
+		stagingDir := d.getStagingDir(id)
+		err := os.MkdirAll(stagingDir, 0o700)
 		if err != nil && !os.IsExist(err) {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
-		applyDir, err = os.MkdirTemp(d.getStagingDir(), "")
+		applyDir, err = os.MkdirTemp(stagingDir, "")
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
@@ -2108,7 +2110,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 // ApplyDiffFromStagingDirectory applies the changes using the specified staging directory.
 func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *graphdriver.DriverWithDifferOutput, options *graphdriver.ApplyDiffWithDifferOpts) error {
 	stagingDirectory := diffOutput.Target
-	if filepath.Dir(stagingDirectory) != d.getStagingDir() {
+	if filepath.Dir(stagingDirectory) != d.getStagingDir(id) {
 		return fmt.Errorf("%q is not a staging directory", stagingDirectory)
 	}
 	diffPath, err := d.getDiffPath(id)
