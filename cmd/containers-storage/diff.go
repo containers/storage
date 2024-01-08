@@ -13,6 +13,7 @@ import (
 	"github.com/containers/storage/pkg/chunked/compressor"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/mflag"
+	digest "github.com/opencontainers/go-digest"
 )
 
 var (
@@ -155,7 +156,10 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 		return 1, err
 	}
 
-	if _, err := io.Copy(compressor, tr); err != nil {
+	digesterCompressed := digest.Canonical.Digester()
+	r := io.TeeReader(tr, digesterCompressed.Hash())
+
+	if _, err := io.Copy(compressor, r); err != nil {
 		return 1, err
 	}
 	if err := compressor.Close(); err != nil {
@@ -171,7 +175,7 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 		file: tar,
 	}
 
-	differ, err := chunked.GetDiffer(context.Background(), m, size, metadata, &fetcher)
+	differ, err := chunked.GetDiffer(context.Background(), m, digesterCompressed.Digest(), size, metadata, &fetcher)
 	if err != nil {
 		return 1, err
 	}
