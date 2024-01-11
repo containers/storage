@@ -2085,7 +2085,13 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
-
+		perms := defaultPerms
+		if d.options.forceMask != nil {
+			perms = *d.options.forceMask
+		}
+		if err := os.Chmod(applyDir, perms); err != nil {
+			return graphdriver.DriverWithDifferOutput{}, err
+		}
 	} else {
 		var err error
 		applyDir, err = d.getDiffPath(id)
