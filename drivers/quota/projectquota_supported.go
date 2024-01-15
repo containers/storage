@@ -69,10 +69,6 @@ import (
 
 const projectIDsAllocatedPerQuotaHome = 10000
 
-// BackingFsBlockDeviceLink is the name of a file that we place in
-// the home directory of a driver that uses this package.
-const BackingFsBlockDeviceLink = "backingFsBlockDev"
-
 // Quota limit params - currently we only control blocks hard limit and inodes
 type Quota struct {
 	Size   uint64
