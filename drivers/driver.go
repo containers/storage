@@ -214,10 +214,26 @@ const (
 	DifferOutputFormatFlat
 )
 
+type DifferFsVerity int
+
+const (
+	// DifferFsVerityDisabled means no fs-verity is used
+	DifferFsVerityDisabled = iota
+
+	// DifferFsVerityEnabled means fs-verity is used when supported
+	DifferFsVerityEnabled
+
+	// DifferFsVerityRequired means fs-verity is required
+	DifferFsVerityRequired
+)
+
 // DifferOptions overrides how the differ work
 type DifferOptions struct {
 	// Format defines the destination directory layout format
 	Format DifferOutputFormat
+
+	// UseFsVerity defines whether fs-verity is used
+	UseFsVerity DifferFsVerity
 }
 
 // Differ defines the interface for using a custom differ.
