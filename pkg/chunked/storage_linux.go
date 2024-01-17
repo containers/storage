@@ -1783,6 +1783,9 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			}
 
 		case tar.TypeDir:
+			if r.Name == "" || r.Name == "." {
+				output.RootDirMode = &mode
+			}
 			if err := safeMkdir(dirfd, mode, r.Name, &r, options); err != nil {
 				return output, err
 			}
