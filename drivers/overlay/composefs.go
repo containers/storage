@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,43 +30,6 @@ func getComposeFsHelper() (string, error) {
 		composeFsHelperPath, composeFsHelperErr = exec.LookPath("mkcomposefs")
 	})
 	return composeFsHelperPath, composeFsHelperErr
-}
-
-func enableVerityRecursive(root string) (map[string]string, error) {
-	digests := make(map[string]string)
-	walkFn := func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !d.Type().IsRegular() {
-			return nil
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		if err := fsverity.EnableVerity(path, int(f.Fd())); err != nil {
-			return err
-		}
-
-		verity, err := fsverity.MeasureVerity(path, int(f.Fd()))
-		if err != nil {
-			return err
-		}
-
-		relPath, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-
-		digests[relPath] = verity
-		return nil
-	}
-	err := filepath.WalkDir(root, walkFn)
-	return digests, err
 }
 
 func getComposefsBlob(dataDir string) string {

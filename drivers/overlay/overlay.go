@@ -82,7 +82,8 @@ const (
 	lowerFile  = "lower"
 	maxDepth   = 500
 
-	tocArtifact = "toc"
+	tocArtifact             = "toc"
+	fsVerityDigestsArtifact = "fs-verity-digests"
 
 	// idLength represents the number of random characters
 	// which can be used to create the unique link identifier
@@ -2107,6 +2108,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 	}
 	if d.usingComposefs {
 		differOptions.Format = graphdriver.DifferOutputFormatFlat
+		differOptions.UseFsVerity = graphdriver.DifferFsVerityEnabled
 	}
 	out, err := differ.ApplyDiff(applyDir, &archive.TarOptions{
 		UIDMaps:           idMappings.UIDs(),
@@ -2147,13 +2149,8 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent, stagingDirectory stri
 	}
 
 	if d.usingComposefs {
-		// FIXME: move this logic into the differ so we don't have to open
-		// the file twice.
-		verityDigests, err := enableVerityRecursive(stagingDirectory)
-		if err != nil && !errors.Is(err, unix.ENOTSUP) && !errors.Is(err, unix.ENOTTY) {
-			logrus.Warningf("%s", err)
-		}
 		toc := diffOutput.Artifacts[tocArtifact]
+		verityDigests := diffOutput.Artifacts[fsVerityDigestsArtifact].(map[string]string)
 		if err := generateComposeFsBlob(verityDigests, toc, d.getComposefsData(id)); err != nil {
 			return err
 		}
