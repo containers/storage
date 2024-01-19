@@ -205,6 +205,9 @@ func GenerateDump(tocI interface{}, verityDigests map[string]string) (io.Reader,
 			if e.Linkname == "" {
 				continue
 			}
+			if e.Type == internal.TypeSymlink {
+				continue
+			}
 			links[e.Linkname] = links[e.Linkname] + 1
 		}
 
