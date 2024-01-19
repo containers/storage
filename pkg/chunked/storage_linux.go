@@ -1982,7 +1982,10 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 
 			e.Chunks = make([]*internal.FileMetadata, nChunks+1)
 			for j := 0; j <= nChunks; j++ {
-				e.Chunks[j] = &entries[i+j]
+				// we need a copy here, otherwise we override the
+				// .Size later
+				copy := entries[i+j]
+				e.Chunks[j] = &copy
 				e.EndOffset = entries[i+j].EndOffset
 			}
 			i += nChunks
