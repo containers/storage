@@ -1122,15 +1122,15 @@ func (s *store) getLayerStoreLocked() (rwLayerStore, error) {
 	if err := os.MkdirAll(rlpath, 0o700); err != nil {
 		return nil, err
 	}
-	imgStoreRoot := s.imageStoreDir
-	if imgStoreRoot == "" {
-		imgStoreRoot = s.graphRoot
-	}
-	glpath := filepath.Join(imgStoreRoot, driverPrefix+"layers")
+	glpath := filepath.Join(s.graphRoot, driverPrefix+"layers")
 	if err := os.MkdirAll(glpath, 0o700); err != nil {
 		return nil, err
 	}
-	rls, err := s.newLayerStore(rlpath, glpath, s.graphDriver, s.transientStore)
+	ilpath := ""
+	if s.imageStoreDir != "" {
+		ilpath = filepath.Join(s.imageStoreDir, driverPrefix+"layers")
+	}
+	rls, err := s.newLayerStore(rlpath, glpath, ilpath, s.graphDriver, s.transientStore)
 	if err != nil {
 		return nil, err
 	}

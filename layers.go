@@ -1084,22 +1084,37 @@ func (r *layerStore) saveMounts() error {
 	return r.loadMounts()
 }
 
-func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Driver, transient bool) (rwLayerStore, error) {
+func (s *store) newLayerStore(rundir, layerdir, imagedir string, driver drivers.Driver, transient bool) (rwLayerStore, error) {
 	if err := os.MkdirAll(rundir, 0o700); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(layerdir, 0o700); err != nil {
 		return nil, err
 	}
+	if imagedir != "" {
+		if err := os.MkdirAll(imagedir, 0o700); err != nil {
+			return nil, err
+		}
+	}
 	// Note: While the containers.lock file is in rundir for transient stores
 	// we don't want to do this here, because the non-transient layers in
 	// layers.json might be used externally as a read-only layer (using e.g.
 	// additionalimagestores), and that would look for the lockfile in the
 	// same directory
+	var lockFiles []*lockfile.LockFile
 	lockFile, err := lockfile.GetLockFile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}
+	lockFiles = append(lockFiles, lockFile)
+	if imagedir != "" {
+		lockFile, err := lockfile.GetLockFile(filepath.Join(imagedir, "layers.lock"))
+		if err != nil {
+			return nil, err
+		}
+		lockFiles = append(lockFiles, lockFile)
+	}
+
 	mountsLockfile, err := lockfile.GetLockFile(filepath.Join(rundir, "mountpoints.lock"))
 	if err != nil {
 		return nil, err
@@ -1109,7 +1124,7 @@ func (s *store) newLayerStore(rundir string, layerdir string, driver drivers.Dri
 		volatileDir = rundir
 	}
 	rlstore := layerStore{
-		lockfile:       newMultipleLockFile(lockFile),
+		lockfile:       newMultipleLockFile(lockFiles...),
 		mountsLockfile: mountsLockfile,
 		rundir:         rundir,
 		jsonPath: [numLayerLocationIndex]string{
