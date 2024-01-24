@@ -131,6 +131,24 @@ func getImageBigDataDigest(flags *mflag.FlagSet, action string, m storage.Store,
 	return 0, nil
 }
 
+func getImageDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
+	path, err := m.ImageDirectory(args[0])
+	if err != nil {
+		return 1, err
+	}
+	fmt.Printf("%s\n", path)
+	return 0, nil
+}
+
+func getImageRunDir(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
+	path, err := m.ImageRunDirectory(args[0])
+	if err != nil {
+		return 1, err
+	}
+	fmt.Printf("%s\n", path)
+	return 0, nil
+}
+
 func setImageBigData(flags *mflag.FlagSet, action string, m storage.Store, args []string) (int, error) {
 	image, err := m.Image(args[0])
 	if err != nil {
@@ -216,5 +234,21 @@ func init() {
 			addFlags: func(flags *mflag.FlagSet, cmd *command) {
 				flags.StringVar(&paramImageDataFile, []string{"-file", "f"}, paramImageDataFile, "Read data from file")
 			},
+		},
+		command{
+			names:       []string{"get-image-dir", "getimagedir"},
+			optionsHelp: "[options [...]] imageNameOrID",
+			usage:       "Find the image's associated data directory",
+			action:      getImageDir,
+			minArgs:     1,
+			maxArgs:     1,
+		},
+		command{
+			names:       []string{"get-image-run-dir", "getimagerundir"},
+			optionsHelp: "[options [...]] imageNameOrID",
+			usage:       "Find the image's associated runtime directory",
+			action:      getImageRunDir,
+			minArgs:     1,
+			maxArgs:     1,
 		})
 }
