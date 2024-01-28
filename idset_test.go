@@ -685,7 +685,7 @@ func TestIntervalIsZero(t *testing.T) {
 	}
 }
 
-// assertIntervalSame aserts `got` equals to `want` considering zero check. If the wanted interval
+// assertIntervalSame asserts `got` equals to `want` considering zero check. If the wanted interval
 // is empty, we only want to assert IsZero() == true, instead of the exact number.
 func assertIntervalSame(t *testing.T, got intervalset.Interval, want *interval, name string) {
 	t.Helper()
