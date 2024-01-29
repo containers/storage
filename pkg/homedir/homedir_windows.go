@@ -56,6 +56,6 @@ func GetRuntimeDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	runtimeDir := filepath.Join(data, "containers", "podman")
+	runtimeDir := filepath.Join(data, "containers", "storage")
 	return runtimeDir, nil
 }
