@@ -318,6 +318,7 @@ type Store interface {
 	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
 	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
+	// Deprecated: it will be removed soon.
 	ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
 
 	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
@@ -2959,11 +2960,14 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 }
 
 func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error {
+	if stagingDirectory != diffOutput.Target {
+		return fmt.Errorf("invalid value for staging directory, it must be the same as the differ target directory")
+	}
 	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
 		if !rlstore.Exists(to) {
 			return struct{}{}, ErrLayerUnknown
 		}
-		return struct{}{}, rlstore.ApplyDiffFromStagingDirectory(to, stagingDirectory, diffOutput, options)
+		return struct{}{}, rlstore.applyDiffFromStagingDirectory(to, diffOutput, options)
 	})
 	return err
 }

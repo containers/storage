@@ -312,8 +312,8 @@ type rwLayerStore interface {
 	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
 	CleanupStagingDirectory(stagingDirectory string) error
 
-	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
-	ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
+	// applyDiffFromStagingDirectory uses diffOutput.Target to create the diff.
+	applyDiffFromStagingDirectory(id string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
 
 	// DifferTarget gets the location where files are stored for the layer.
 	DifferTarget(id string) (string, error)
@@ -2414,7 +2414,7 @@ func (r *layerStore) DifferTarget(id string) (string, error) {
 }
 
 // Requires startWriting.
-func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error {
+func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
 		return ErrNotSupported
@@ -2433,7 +2433,7 @@ func (r *layerStore) ApplyDiffFromStagingDirectory(id, stagingDirectory string, 
 		}
 	}
 
-	err := ddriver.ApplyDiffFromStagingDirectory(layer.ID, layer.Parent, stagingDirectory, diffOutput, options)
+	err := ddriver.ApplyDiffFromStagingDirectory(layer.ID, layer.Parent, diffOutput, options)
 	if err != nil {
 		return err
 	}
