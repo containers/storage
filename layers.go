@@ -181,6 +181,13 @@ type DiffOptions struct {
 	Compression *archive.Compression
 }
 
+// stagedLayerOptions are the options passed to .create to populate a staged
+// layer
+type stagedLayerOptions struct {
+	DiffOutput  *drivers.DriverWithDifferOutput
+	DiffOptions *drivers.ApplyDiffWithDifferOpts
+}
+
 // roLayerStore wraps a graph driver, adding the ability to refer to layers by
 // name, and keeping track of parent-child relationships, along with a list of
 // all known layers.
@@ -267,7 +274,7 @@ type rwLayerStore interface {
 	// underlying drivers do not themselves distinguish between writeable
 	// and read-only layers.  Returns the new layer structure and the size of the
 	// diff which was applied to its parent to initialize its contents.
-	create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, diff io.Reader) (*Layer, int64, error)
+	create(id string, parent *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error)
 
 	// updateNames modifies names associated with a layer based on (op, names).
 	updateNames(id string, names []string, op updateNameOperation) error
@@ -1232,7 +1239,7 @@ func (r *layerStore) PutAdditionalLayer(id string, parentLayer *Layer, names []s
 }
 
 // Requires startWriting.
-func (r *layerStore) create(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, diff io.Reader) (layer *Layer, size int64, err error) {
+func (r *layerStore) create(id string, parentLayer *Layer, names []string, mountLabel string, options map[string]string, moreOptions *LayerOptions, writeable bool, diff io.Reader, slo *stagedLayerOptions) (layer *Layer, size int64, err error) {
 	if moreOptions == nil {
 		moreOptions = &LayerOptions{}
 	}
@@ -1424,6 +1431,11 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 	if diff != nil {
 		if size, err = r.applyDiffWithOptions(layer.ID, moreOptions, diff); err != nil {
 			cleanupFailureContext = "applying layer diff"
+			return nil, -1, err
+		}
+	} else if slo != nil {
+		if err := r.applyDiffFromStagingDirectory(layer.ID, slo.DiffOutput, slo.DiffOptions); err != nil {
+			cleanupFailureContext = "applying staged directory diff"
 			return nil, -1, err
 		}
 	} else {

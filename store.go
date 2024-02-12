@@ -71,6 +71,19 @@ type metadataStore interface {
 	rwMetadataStore
 }
 
+// ApplyStagedLayerOptions contains options to pass to ApplyStagedLayer
+type ApplyStagedLayerOptions struct {
+	ID           string        // Mandatory
+	ParentLayer  string        // Optional
+	Names        []string      // Optional
+	MountLabel   string        // Optional
+	Writeable    bool          // Optional
+	LayerOptions *LayerOptions // Optional
+
+	DiffOutput  *drivers.DriverWithDifferOutput  // Mandatory
+	DiffOptions *drivers.ApplyDiffWithDifferOpts // Mandatory
+}
+
 // An roBigDataStore wraps up the read-only big-data related methods of the
 // various types of file-based lookaside stores that we implement.
 type roBigDataStore interface {
@@ -318,11 +331,16 @@ type Store interface {
 	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
 	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
-	// Deprecated: it will be removed soon.
+	// Deprecated: it will be removed soon.  Use ApplyStagedLayer instead.
 	ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
 
 	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
 	CleanupStagingDirectory(stagingDirectory string) error
+
+	// ApplyStagedLayer combines the functions of CreateLayer and ApplyDiffFromStagingDirectory,
+	// marking the layer for automatic removal if applying the diff fails
+	// for any reason.
+	ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error)
 
 	// DifferTarget gets the path to the differ target.
 	DifferTarget(id string) (string, error)
@@ -1510,7 +1528,7 @@ func (s *store) putLayer(id, parent string, names []string, mountLabel string, w
 			GIDMap:         copyIDMap(gidMap),
 		}
 	}
-	return rlstore.create(id, parentLayer, names, mountLabel, nil, &layerOptions, writeable, diff)
+	return rlstore.create(id, parentLayer, names, mountLabel, nil, &layerOptions, writeable, diff, slo)
 }
 
 func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader) (*Layer, int64, error) {
@@ -1724,7 +1742,7 @@ func (s *store) imageTopLayerForMapping(image *Image, ristore roImageStore, rlst
 		}
 	}
 	layerOptions.TemplateLayer = layer.ID
-	mappedLayer, _, err := rlstore.create("", parentLayer, nil, layer.MountLabel, nil, &layerOptions, false, nil)
+	mappedLayer, _, err := rlstore.create("", parentLayer, nil, layer.MountLabel, nil, &layerOptions, false, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating an ID-mapped copy of layer %q: %w", layer.ID, err)
 	}
@@ -1895,7 +1913,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		options.Flags[mountLabelFlag] = mountLabel
 	}
 
-	clayer, _, err := rlstore.create(layer, imageTopLayer, nil, mlabel, options.StorageOpt, layerOptions, true, nil)
+	clayer, _, err := rlstore.create(layer, imageTopLayer, nil, mlabel, options.StorageOpt, layerOptions, true, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2970,6 +2988,16 @@ func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffO
 		return struct{}{}, rlstore.applyDiffFromStagingDirectory(to, diffOutput, options)
 	})
 	return err
+}
+
+func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
+	slo := stagedLayerOptions{
+		DiffOutput:  args.DiffOutput,
+		DiffOptions: args.DiffOptions,
+	}
+
+	layer, _, err := s.putLayer(args.ID, args.ParentLayer, args.Names, args.MountLabel, args.Writeable, args.LayerOptions, nil, &slo)
+	return layer, err
 }
 
 func (s *store) CleanupStagingDirectory(stagingDirectory string) error {
