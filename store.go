@@ -1421,8 +1421,7 @@ func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 	return true
 }
 
-func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader) (*Layer, int64, error) {
-	var parentLayer *Layer
+func (s *store) putLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
 	rlstore, rlstores, err := s.bothLayerStoreKinds()
 	if err != nil {
 		return nil, -1, err
@@ -1435,6 +1434,8 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 		return nil, -1, err
 	}
 	defer s.containerStore.stopWriting()
+
+	var parentLayer *Layer
 	var options LayerOptions
 	if lOptions != nil {
 		options = *lOptions
@@ -1509,6 +1510,10 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 		}
 	}
 	return rlstore.create(id, parentLayer, names, mountLabel, nil, &layerOptions, writeable, diff)
+}
+
+func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader) (*Layer, int64, error) {
+	return s.putLayer(id, parent, names, mountLabel, writeable, lOptions, diff, nil)
 }
 
 func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool, options *LayerOptions) (*Layer, error) {
