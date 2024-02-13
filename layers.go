@@ -2371,7 +2371,11 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 
 	updateDigestMap(&r.bycompressedsum, layer.CompressedDigest, compressedDigest, layer.ID)
 	layer.CompressedDigest = compressedDigest
-	layer.CompressedSize = compressedCounter.Count
+	if layerOptions != nil && layerOptions.OriginalDigest != "" && layerOptions.OriginalSize != nil {
+		layer.CompressedSize = *layerOptions.OriginalSize
+	} else {
+		layer.CompressedSize = compressedCounter.Count
+	}
 	updateDigestMap(&r.byuncompressedsum, layer.UncompressedDigest, uncompressedDigest, layer.ID)
 	layer.UncompressedDigest = uncompressedDigest
 	layer.UncompressedSize = uncompressedCounter.Count
