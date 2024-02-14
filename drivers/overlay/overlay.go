@@ -1700,10 +1700,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 
 	mergedDir := path.Join(workDirBase, "merged")
-	// Create the driver merged dir
-	if err := idtools.MkdirAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
-		return "", err
-	}
 	if count := d.ctr.Increment(mergedDir); count > 1 {
 		return mergedDir, nil
 	}
