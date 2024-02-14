@@ -335,12 +335,16 @@ type Store interface {
 	ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
 
 	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
+	// Deprecated: it will be removed soon.  Use CleanupStagedLayer instead.
 	CleanupStagingDirectory(stagingDirectory string) error
 
 	// ApplyStagedLayer combines the functions of CreateLayer and ApplyDiffFromStagingDirectory,
 	// marking the layer for automatic removal if applying the diff fails
 	// for any reason.
 	ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error)
+
+	// CleanupStagedLayer cleanups the staging directory.  It can be used to cleanup the staging directory on errors
+	CleanupStagedLayer(diffOutput *drivers.DriverWithDifferOutput) error
 
 	// DifferTarget gets the path to the differ target.
 	DifferTarget(id string) (string, error)
@@ -3003,6 +3007,13 @@ func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
 func (s *store) CleanupStagingDirectory(stagingDirectory string) error {
 	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
 		return struct{}{}, rlstore.CleanupStagingDirectory(stagingDirectory)
+	})
+	return err
+}
+
+func (s *store) CleanupStagedLayer(diffOutput *drivers.DriverWithDifferOutput) error {
+	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
+		return struct{}{}, rlstore.CleanupStagingDirectory(diffOutput.Target)
 	})
 	return err
 }
