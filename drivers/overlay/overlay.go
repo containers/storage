@@ -1469,7 +1469,13 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 	diffDir := path.Join(dir, "diff")
 	if err := idtools.MkdirAllAs(diffDir, perms, rootUID, rootGID); err != nil {
-		return "", err
+		if !inAdditionalStore {
+			return "", err
+		}
+		// if it is in an additional store, do not fail if the directory already exists
+		if _, err2 := os.Stat(diffDir); err2 != nil {
+			return "", err
+		}
 	}
 
 	mergedDir := path.Join(dir, "merged")
