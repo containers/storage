@@ -258,6 +258,10 @@ func GetDiffer(ctx context.Context, store storage.Store, blobSize int64, annotat
 		return nil, err
 	}
 
+	if !parseBooleanPullOption(&storeOpts, "enable_partial_images", true) {
+		return nil, errors.New("enable_partial_images not configured")
+	}
+
 	if _, ok := annotations[internal.ManifestChecksumKey]; ok {
 		return makeZstdChunkedDiffer(ctx, store, blobSize, annotations, iss, &storeOpts)
 	}
@@ -1550,10 +1554,6 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			chunkedLayerDataKey: lcdBigData,
 		},
 		TOCDigest: c.contentDigest,
-	}
-
-	if !parseBooleanPullOption(c.storeOpts, "enable_partial_images", true) {
-		return output, errors.New("enable_partial_images not configured")
 	}
 
 	// When the hard links deduplication is used, file attributes are ignored because setting them
