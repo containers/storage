@@ -230,7 +230,7 @@ func createContainer(flags *mflag.FlagSet, action string, m storage.Store, args 
 	}
 	fmt.Printf("%s\n", container.ID)
 	for _, name := range container.Names {
-		fmt.Printf("\t%s", name)
+		fmt.Printf("\t%s\n", name)
 	}
 	return 0, nil
 }
