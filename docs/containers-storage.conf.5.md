@@ -84,7 +84,7 @@ The `storage.options` table supports the following options:
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
 
-**pull_options** = {enable_partial_images = "false", use_hard_links = "false", ostree_repos=""}
+**pull_options** = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
 
 Allows specification of how storage is populated when pulling images. This
 option can speed the pulling process of images compressed with format zstd:chunked. Containers/storage looks
