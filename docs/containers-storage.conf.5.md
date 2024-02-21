@@ -95,7 +95,7 @@ container registry. These options can deduplicate pulling of content, disk
 storage of content and can allow the kernel to use less memory when running
 containers.
 
-containers/storage supports three keys
+containers/storage supports four keys
   * enable_partial_images="true" | "false"
     Tells containers/storage to look for files previously pulled in storage
     rather then always pulling them from the container registry.
@@ -107,7 +107,7 @@ containers/storage supports three keys
     previously pulled content which can be used when attempting to avoid
     pulling content from the container registry
   * convert_images = "false" | "true"
-    If set to true, containers/storage will convert images to the a format compatible with
+    If set to true, containers/storage will convert images to a format compatible with
     partial pulls in order to take advantage of local deduplication and hardlinking.  It is an
     expensive operation so it is not enabled by default.
 
