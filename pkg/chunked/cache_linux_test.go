@@ -130,7 +130,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.Digest {
 				t.Error("wrong file found")
 			}
-			expectedLocation := generateFileLocation(r.Name, 0)
+			expectedLocation := generateFileLocation(r.Name, 0, uint64(r.Size))
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -149,7 +149,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != fingerprint {
 				t.Error("wrong file found")
 			}
-			expectedLocation = generateFileLocation(r.Name, 0)
+			expectedLocation = generateFileLocation(r.Name, 0, uint64(r.Size))
 			location = cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -164,7 +164,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.ChunkDigest {
 				t.Error("wrong digest found")
 			}
-			expectedLocation := generateFileLocation(r.Name, uint64(r.ChunkOffset))
+			expectedLocation := generateFileLocation(r.Name, uint64(r.ChunkOffset), uint64(r.ChunkSize))
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
