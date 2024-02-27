@@ -2465,6 +2465,10 @@ func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *driver
 			layer.Flags[k] = v
 		}
 	}
+	if err = r.saveFor(layer); err != nil {
+		return err
+	}
+
 	if len(diffOutput.TarSplit) != 0 {
 		tsdata := bytes.Buffer{}
 		compressor, err := pgzip.NewWriterLevel(&tsdata, pgzip.BestSpeed)
@@ -2493,9 +2497,6 @@ func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *driver
 			}
 			return err
 		}
-	}
-	if err = r.saveFor(layer); err != nil {
-		return err
 	}
 	return err
 }
