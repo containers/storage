@@ -42,7 +42,7 @@ func NewPatternMatcher(patterns []string) (*PatternMatcher, error) {
 			pm.exclusions = true
 		}
 		// Do some syntax checking on the pattern.
-		// filepath's Match() has some really weird rules that are inconsistent
+		// filepath.Match() has some really weird rules that are inconsistent
 		// so instead of trying to dup their logic, just call Match() for its
 		// error state and if there is an error in the pattern return it.
 		// If this becomes an issue we can remove this since its really only
@@ -89,11 +89,11 @@ func (pm *PatternMatcher) Matches(file string) (bool, error) {
 }
 
 type MatchResult struct {
-	isMatched         bool
-	matches, excludes uint
+	isMatched, canSkipDir bool
+	matches, excludes     uint
 }
 
-// Excludes returns true if the overall result is matched
+// IsMatched returns true if the overall result is matched
 func (m *MatchResult) IsMatched() bool {
 	return m.isMatched
 }
@@ -108,12 +108,20 @@ func (m *MatchResult) Excludes() uint {
 	return m.excludes
 }
 
+// CanSkipDir returns true if it is possible to use filepath.SkipDir
+// Only when the pattern is very simple (does not start with ! and does not contain ? and *)
+// and is not influenced by other patterns, will it return true.
+func (m *MatchResult) CanSkipDir() bool {
+	return m.canSkipDir
+}
+
 // MatchesResult verifies the provided filepath against all patterns.
 // It returns the `*MatchResult` result for the patterns on success, otherwise
 // an error. This method is not safe to be called concurrently.
 func (pm *PatternMatcher) MatchesResult(file string) (res *MatchResult, err error) {
 	file = filepath.FromSlash(file)
-	res = &MatchResult{false, 0, 0}
+	res = &MatchResult{false, false, 0, 0}
+	matchPatterns := make([]*Pattern, 0, len(pm.patterns))
 
 	for _, pattern := range pm.patterns {
 		negative := false
@@ -129,16 +137,34 @@ func (pm *PatternMatcher) MatchesResult(file string) (res *MatchResult, err erro
 
 		if match {
 			res.isMatched = !negative
-			if negative {
-				res.excludes++
-			} else {
+			if res.isMatched {
 				res.matches++
+				matchPatterns = append(matchPatterns, pattern)
+			} else {
+				res.excludes++
 			}
 		}
 	}
 
-	if res.matches > 0 {
+	if res.isMatched {
 		logrus.Debugf("Skipping excluded path: %s", file)
+
+		isPatternsEqual := true
+		first := matchPatterns[0].String()
+		if len(matchPatterns) != 1 {
+			for _, pattern := range matchPatterns[1:] {
+				if first != pattern.String() {
+					isPatternsEqual = false
+					break
+				}
+			}
+		}
+
+		if isPatternsEqual {
+			if !strings.Contains(first, "*") && !strings.Contains(first, "?") {
+				res.canSkipDir = true
+			}
+		}
 	}
 
 	return res, nil
