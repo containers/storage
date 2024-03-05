@@ -61,26 +61,26 @@ const jsonTOC = `
 `
 
 func TestPrepareMetadata(t *testing.T) {
-	toc, err := prepareMetadata([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
+	toc, err := prepareCacheFile([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
 	if err != nil {
-		t.Errorf("got error from prepareMetadata: %v", err)
+		t.Errorf("got error from prepareCacheFile: %v", err)
 	}
 	if len(toc) != 2 {
-		t.Error("prepareMetadata returns the wrong length")
+		t.Error("prepareCacheFile returns the wrong length")
 	}
 }
 
 func TestPrepareMetadataFlat(t *testing.T) {
-	toc, err := prepareMetadata([]byte(jsonTOC), graphdriver.DifferOutputFormatFlat)
+	toc, err := prepareCacheFile([]byte(jsonTOC), graphdriver.DifferOutputFormatFlat)
 	if err != nil {
-		t.Errorf("got error from prepareMetadata: %v", err)
+		t.Errorf("got error from prepareCacheFile: %v", err)
 	}
 	for _, e := range toc {
 		if len(strings.Split(e.Name, "/")) != 2 {
-			t.Error("prepareMetadata returns the wrong number of path elements for flat directories")
+			t.Error("prepareCacheFile returns the wrong number of path elements for flat directories")
 		}
 		if len(filepath.Dir(e.Name)) != 2 {
-			t.Error("prepareMetadata returns the wrong path for flat directories")
+			t.Error("prepareCacheFile returns the wrong path for flat directories")
 		}
 	}
 }
@@ -104,9 +104,9 @@ func (b *bigDataToBuffer) SetLayerBigData(id, key string, data io.Reader) error 
 }
 
 func TestWriteCache(t *testing.T) {
-	toc, err := prepareMetadata([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
+	toc, err := prepareCacheFile([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
 	if err != nil {
-		t.Errorf("got error from prepareMetadata: %v", err)
+		t.Errorf("got error from prepareCacheFile: %v", err)
 	}
 
 	dest := bigDataToBuffer{
@@ -182,7 +182,7 @@ func TestReadCache(t *testing.T) {
 		t.Errorf("got error from writeCache: %v", err)
 	}
 
-	cacheRead, err := readCacheFileFromReader(dest.buf)
+	cacheRead, err := readCacheFileFromMemory(dest.buf.Bytes())
 	if err != nil {
 		t.Errorf("got error from readMetadataFromCache: %v", err)
 	}
