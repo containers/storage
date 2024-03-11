@@ -18,7 +18,8 @@ load helpers
 	storage unmount "$lowerlayer"
 	storage mount "$midlayer"
 	storage unmount "$midlayer"
-	storage mount "$upperlayer"
+	run storage --debug=false mount "$upperlayer"
+	merged_dir="$output"
 	storage unmount "$upperlayer"
 	# okay, but how about this?
 	rm -v ${TESTDIR}/root/overlay/*/link
@@ -27,6 +28,8 @@ load helpers
 	storage unmount "$lowerlayer"
 	storage mount "$midlayer"
 	storage unmount "$midlayer"
+	# check it works if we delete the merged directory.
+	rmdir "$merged_dir"
 	storage mount "$upperlayer"
 	storage unmount "$upperlayer"
 	# okay, not bad, kid.
