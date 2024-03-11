@@ -1479,9 +1479,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 
 	mergedDir := path.Join(dir, "merged")
-	// Create the driver merged dir
-	if err := idtools.MkdirAs(mergedDir, 0700, rootUID, rootGID); err != nil && !os.IsExist(err) {
-		return "", err
+	// Attempt to create the merged dir only if it doesn't exist.
+	if _, err := os.Stat(mergedDir); err != nil && os.IsNotExist(err) {
+		if err := idtools.MkdirAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+			return "", err
+		}
 	}
 	if count := d.ctr.Increment(mergedDir); count > 1 {
 		return mergedDir, nil
@@ -1639,7 +1641,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 // Put unmounts the mount path created for the give id.
 func (d *Driver) Put(id string) error {
-	dir, _, inAdditionalStore := d.dir2(id)
+	dir, inAdditionalStore := d.dir2(id)
 	if _, err := os.Stat(dir); err != nil {
 		return err
 	}
