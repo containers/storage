@@ -30,7 +30,7 @@ const (
 	digestSha256Empty = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 )
 
-type metadata struct {
+type cacheFile struct {
 	tagLen    int
 	digestLen int
 	tags      []byte
@@ -38,9 +38,9 @@ type metadata struct {
 }
 
 type layer struct {
-	id       string
-	metadata *metadata
-	target   string
+	id        string
+	cacheFile *cacheFile
+	target    string
 }
 
 type layersCache struct {
@@ -115,9 +115,9 @@ func (c *layersCache) load() error {
 		// if the cache already exists, read and use it
 		if err == nil {
 			defer bigData.Close()
-			metadata, err := readMetadataFromCache(bigData)
+			cacheFile, err := readCacheFileFromReader(bigData)
 			if err == nil {
-				c.addLayer(r.ID, metadata)
+				c.addLayer(r.ID, cacheFile)
 				continue
 			}
 			logrus.Warningf("Error reading cache file for layer %q: %v", r.ID, err)
@@ -154,9 +154,9 @@ func (c *layersCache) load() error {
 			return fmt.Errorf("open manifest file for layer %q: %w", r.ID, err)
 		}
 
-		metadata, err := writeCache(manifest, lcd.Format, r.ID, c.store)
+		cacheFile, err := writeCache(manifest, lcd.Format, r.ID, c.store)
 		if err == nil {
-			c.addLayer(r.ID, metadata)
+			c.addLayer(r.ID, cacheFile)
 		}
 	}
 
@@ -214,7 +214,7 @@ func generateFileLocation(path string, offset, len uint64) []byte {
 
 // generateTag generates a tag in the form $DIGEST$OFFSET@LEN.
 // the [OFFSET; LEN] points to the variable length data where the file locations
-// are stored.  $DIGEST has length digestLen stored in the metadata file header.
+// are stored.  $DIGEST has length digestLen stored in the cache file file header.
 func generateTag(digest string, offset, len uint64) string {
 	return fmt.Sprintf("%s%.20d@%.20d", digest, offset, len)
 }
@@ -231,7 +231,7 @@ type setBigData interface {
 // - digest(file.payload))
 // - digest(digest(file.payload) + file.UID + file.GID + file.mode + file.xattrs)
 // - digest(i) for each i in chunks(file payload)
-func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id string, dest setBigData) (*metadata, error) {
+func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id string, dest setBigData) (*cacheFile, error) {
 	var vdata bytes.Buffer
 	tagLen := 0
 	digestLen := 0
@@ -369,7 +369,7 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 
 	logrus.Debugf("Written lookaside cache for layer %q with length %v", id, counter.Count)
 
-	return &metadata{
+	return &cacheFile{
 		digestLen: digestLen,
 		tagLen:    tagLen,
 		tags:      tagsBuffer.Bytes(),
@@ -377,7 +377,7 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 	}, nil
 }
 
-func readMetadataFromCache(bigData io.Reader) (*metadata, error) {
+func readCacheFileFromReader(bigData io.Reader) (*cacheFile, error) {
 	var version, tagLen, digestLen, tagsLen, vdataLen uint64
 	if err := binary.Read(bigData, binary.LittleEndian, &version); err != nil {
 		return nil, err
@@ -408,7 +408,7 @@ func readMetadataFromCache(bigData io.Reader) (*metadata, error) {
 		return nil, err
 	}
 
-	return &metadata{
+	return &cacheFile{
 		tagLen:    int(tagLen),
 		digestLen: int(digestLen),
 		tags:      tags,
@@ -462,16 +462,16 @@ func prepareMetadata(manifest []byte, format graphdriver.DifferOutputFormat) ([]
 	return r, nil
 }
 
-func (c *layersCache) addLayer(id string, metadata *metadata) error {
+func (c *layersCache) addLayer(id string, cacheFile *cacheFile) error {
 	target, err := c.store.DifferTarget(id)
 	if err != nil {
 		return fmt.Errorf("get checkout directory layer %q: %w", id, err)
 	}
 
 	l := layer{
-		id:       id,
-		metadata: metadata,
-		target:   target,
+		id:        id,
+		cacheFile: cacheFile,
+		target:    target,
 	}
 	c.layers = append(c.layers, l)
 	return nil
@@ -481,22 +481,22 @@ func byteSliceAsString(b []byte) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func findTag(digest string, metadata *metadata) (string, uint64, uint64) {
-	if len(digest) != metadata.digestLen {
+func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
+	if len(digest) != cacheFile.digestLen {
 		return "", 0, 0
 	}
 
-	nElements := len(metadata.tags) / metadata.tagLen
+	nElements := len(cacheFile.tags) / cacheFile.tagLen
 
 	i := sort.Search(nElements, func(i int) bool {
-		d := byteSliceAsString(metadata.tags[i*metadata.tagLen : i*metadata.tagLen+metadata.digestLen])
+		d := byteSliceAsString(cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+cacheFile.digestLen])
 		return strings.Compare(d, digest) >= 0
 	})
 	if i < nElements {
-		d := string(metadata.tags[i*metadata.tagLen : i*metadata.tagLen+len(digest)])
+		d := string(cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+len(digest)])
 		if digest == d {
-			startOff := i*metadata.tagLen + metadata.digestLen
-			parts := strings.Split(string(metadata.tags[startOff:(i+1)*metadata.tagLen]), "@")
+			startOff := i*cacheFile.tagLen + cacheFile.digestLen
+			parts := strings.Split(string(cacheFile.tags[startOff:(i+1)*cacheFile.tagLen]), "@")
 
 			off, _ := strconv.ParseInt(parts[0], 10, 64)
 
@@ -516,9 +516,9 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 	defer c.mutex.RUnlock()
 
 	for _, layer := range c.layers {
-		digest, off, tagLen := findTag(digest, layer.metadata)
+		digest, off, tagLen := findTag(digest, layer.cacheFile)
 		if digest != "" {
-			position := string(layer.metadata.vdata[off : off+tagLen])
+			position := string(layer.cacheFile.vdata[off : off+tagLen])
 			parts := strings.SplitN(position, ":", 3)
 			if len(parts) != 3 {
 				continue

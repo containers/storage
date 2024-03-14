@@ -182,7 +182,7 @@ func TestReadCache(t *testing.T) {
 		t.Errorf("got error from writeCache: %v", err)
 	}
 
-	cacheRead, err := readMetadataFromCache(dest.buf)
+	cacheRead, err := readCacheFileFromReader(dest.buf)
 	if err != nil {
 		t.Errorf("got error from readMetadataFromCache: %v", err)
 	}
