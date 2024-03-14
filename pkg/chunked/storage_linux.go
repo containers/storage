@@ -1595,6 +1595,7 @@ func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
 		hashes[d] = d
 
 		mergedEntries[i].Name = fmt.Sprintf("%s/%s", d[0:2], d[2:])
+		mergedEntries[i].skipSetAttrs = true
 
 		new = append(new, mergedEntries[i])
 	}
