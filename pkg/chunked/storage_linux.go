@@ -153,7 +153,8 @@ func doHardLink(srcFd int, destDirFd int, destBase string) error {
 	return err
 }
 
-func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
+func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
+	destFile := fileMetadata.Name
 	src := fmt.Sprintf("/proc/self/fd/%d", srcFd)
 	st, err := os.Stat(src)
 	if err != nil {
@@ -171,6 +172,8 @@ func copyFileContent(srcFd int, destFile string, dirfd int, mode os.FileMode, us
 
 			err := doHardLink(srcFd, int(destDir.Fd()), destBase)
 			if err == nil {
+				// if the file was deduplicated with a hard link, skip overriding file metadata.
+				fileMetadata.skipSetAttrs = true
 				return nil, st.Size(), nil
 			}
 		}
@@ -382,7 +385,7 @@ func copyFileFromOtherLayer(file *fileMetadata, source string, name string, dirf
 	}
 	defer srcFile.Close()
 
-	dstFile, written, err := copyFileContent(int(srcFile.Fd()), file.Name, dirfd, 0, useHardLinks)
+	dstFile, written, err := copyFileContent(int(srcFile.Fd()), file, dirfd, 0, useHardLinks)
 	if err != nil {
 		return false, nil, 0, fmt.Errorf("copy content to %q: %w", file.Name, err)
 	}
@@ -484,7 +487,7 @@ func findFileInOSTreeRepos(file *fileMetadata, ostreeRepos []string, dirfd int, 
 			continue
 		}
 
-		dstFile, written, err := copyFileContent(fd, file.Name, dirfd, 0, useHardLinks)
+		dstFile, written, err := copyFileContent(fd, file, dirfd, 0, useHardLinks)
 		if err != nil {
 			logrus.Debugf("could not copyFileContent: %v", err)
 			return false, nil, 0, nil
