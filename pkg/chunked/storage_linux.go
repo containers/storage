@@ -66,6 +66,11 @@ type fileMetadata struct {
 
 	// chunks stores the TypeChunk entries relevant to this entry when FileMetadata.Type == TypeReg.
 	chunks []*internal.FileMetadata
+
+	// skipSetAttrs is set when the file attributes must not be
+	// modified, e.g. it is a hard link from a different source,
+	// or a composefs file.
+	skipSetAttrs bool
 }
 
 type compressedFileType int
@@ -595,6 +600,9 @@ func (o *originFile) OpenFile() (io.ReadCloser, error) {
 
 // setFileAttrs sets the file attributes for file given metadata
 func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMetadata, options *archive.TarOptions, usePath bool) error {
+	if metadata.skipSetAttrs {
+		return nil
+	}
 	if file == nil || file.Fd() < 0 {
 		return errors.New("invalid file")
 	}
