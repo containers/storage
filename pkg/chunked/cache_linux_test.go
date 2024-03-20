@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	digest "github.com/opencontainers/go-digest"
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/stretchr/testify/assert"
 )
@@ -210,4 +211,57 @@ func TestUnmarshalToc(t *testing.T) {
 	assert.Error(t, err)
 	_, err = unmarshalToc([]byte(jsonTOC + "123"))
 	assert.Error(t, err)
+}
+
+
+func benchmarkLookup(b *testing.B, sizeCache, n int) {
+	var tagsBuffer bytes.Buffer
+	var vdata bytes.Buffer
+	tags := []string{}
+	tagLen := 64
+	digestLen := 64
+
+	digester := digest.Canonical.Digester()
+	hash := digester.Hash()
+	for i := 0; i < sizeCache; i++ {
+		hash.Write([]byte("1"))
+		d := digester.Digest()
+		digestLen = len(d)
+		tag := generateTag(d.String(), 0, 0)
+		tags = append(tags, tag)
+	}
+	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, vdata, &tagsBuffer)
+
+	cache := &cacheFile{
+		digestLen: digestLen,
+		tagLen:    tagLen,
+		tags:      tagsBuffer.Bytes(),
+		vdata:     vdata.Bytes(),
+	}
+
+	for i := 0; i < n; i++ {
+		hash.Write([]byte("1"))
+		d := digester.Digest()
+		findTag(d.String(), cache)
+	}
+}
+
+func BenchmarkLookupSmall10000(b *testing.B) {
+	benchmarkLookup(b, 10, 10000)
+}
+
+func BenchmarkLookupSmall100000(b *testing.B) {
+	benchmarkLookup(b, 10, 100000)
+}
+
+func BenchmarkLookupMedium10000(b *testing.B) {
+	benchmarkLookup(b, 10000, 10000)
+}
+
+func BenchmarkLookupMedium100000(b *testing.B) {
+	benchmarkLookup(b, 10000, 100000)
+}
+
+func BenchmarkLookupLarge10000(b *testing.B) {
+	benchmarkLookup(b, 1000000, 10000)
 }
