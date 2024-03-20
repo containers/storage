@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	digest "github.com/opencontainers/go-digest"
 	graphdriver "github.com/containers/storage/drivers"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -212,7 +212,6 @@ func TestUnmarshalToc(t *testing.T) {
 	_, err = unmarshalToc([]byte(jsonTOC + "123"))
 	assert.Error(t, err)
 }
-
 
 func benchmarkLookup(b *testing.B, sizeCache, n int) {
 	var tagsBuffer bytes.Buffer
