@@ -174,7 +174,7 @@ func (c *layersCache) load() error {
 // calculateHardLinkFingerprint calculates a hash that can be used to verify if a file
 // is usable for deduplication with hardlinks.
 // To calculate the digest, it uses the file payload digest, UID, GID, mode and xattrs.
-func calculateHardLinkFingerprint(f *internal.FileMetadata) (string, error) {
+func calculateHardLinkFingerprint(f *fileMetadata) (string, error) {
 	digester := digest.Canonical.Digester()
 
 	modeString := fmt.Sprintf("%d:%d:%o", f.UID, f.GID, f.Mode)
@@ -416,7 +416,7 @@ func readMetadataFromCache(bigData io.Reader) (*metadata, error) {
 	}, nil
 }
 
-func prepareMetadata(manifest []byte, format graphdriver.DifferOutputFormat) ([]*internal.FileMetadata, error) {
+func prepareMetadata(manifest []byte, format graphdriver.DifferOutputFormat) ([]*fileMetadata, error) {
 	toc, err := unmarshalToc(manifest)
 	if err != nil {
 		// ignore errors here.  They might be caused by a different manifest format.
@@ -424,10 +424,17 @@ func prepareMetadata(manifest []byte, format graphdriver.DifferOutputFormat) ([]
 		return nil, nil //nolint: nilnil
 	}
 
+	var entries []fileMetadata
+	for i := range toc.Entries {
+		entries = append(entries, fileMetadata{
+			FileMetadata: toc.Entries[i],
+		})
+	}
+
 	switch format {
 	case graphdriver.DifferOutputFormatDir:
 	case graphdriver.DifferOutputFormatFlat:
-		toc.Entries, err = makeEntriesFlat(toc.Entries)
+		entries, err = makeEntriesFlat(entries)
 		if err != nil {
 			return nil, err
 		}
@@ -435,19 +442,19 @@ func prepareMetadata(manifest []byte, format graphdriver.DifferOutputFormat) ([]
 		return nil, fmt.Errorf("unknown format %q", format)
 	}
 
-	var r []*internal.FileMetadata
+	var r []*fileMetadata
 	chunkSeen := make(map[string]bool)
-	for i := range toc.Entries {
-		d := toc.Entries[i].Digest
+	for i := range entries {
+		d := entries[i].Digest
 		if d != "" {
-			r = append(r, &toc.Entries[i])
+			r = append(r, &entries[i])
 			continue
 		}
 
 		// chunks do not use hard link dedup so keeping just one candidate is enough
 		cd := toc.Entries[i].ChunkDigest
 		if cd != "" && !chunkSeen[cd] {
-			r = append(r, &toc.Entries[i])
+			r = append(r, &entries[i])
 			chunkSeen[cd] = true
 		}
 	}
@@ -527,7 +534,7 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 
 // findFileInOtherLayers finds the specified file in other layers.
 // file is the file to look for.
-func (c *layersCache) findFileInOtherLayers(file *internal.FileMetadata, useHardLinks bool) (string, string, error) {
+func (c *layersCache) findFileInOtherLayers(file *fileMetadata, useHardLinks bool) (string, string, error) {
 	digest := file.Digest
 	if useHardLinks {
 		var err error
