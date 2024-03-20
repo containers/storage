@@ -320,6 +320,52 @@ type setBigData interface {
 	SetLayerBigData(id, key string, data io.Reader) error
 }
 
+func writeCacheFileToWriter(writer io.Writer, tags []string, tagLen, digestLen int, vdata bytes.Buffer, tagsBuffer *bytes.Buffer) error {
+	sort.Strings(tags)
+	for _, t := range tags {
+		if _, err := tagsBuffer.Write([]byte(t)); err != nil {
+			return err
+		}
+	}
+
+	// version
+	if err := binary.Write(writer, binary.LittleEndian, uint64(cacheVersion)); err != nil {
+		return err
+	}
+
+	// len of a tag
+	if err := binary.Write(writer, binary.LittleEndian, uint64(tagLen)); err != nil {
+		return err
+	}
+
+	// len of a digest
+	if err := binary.Write(writer, binary.LittleEndian, uint64(digestLen)); err != nil {
+		return err
+	}
+
+	// tags length
+	if err := binary.Write(writer, binary.LittleEndian, uint64(tagsBuffer.Len())); err != nil {
+		return err
+	}
+
+	// vdata length
+	if err := binary.Write(writer, binary.LittleEndian, uint64(vdata.Len())); err != nil {
+		return err
+	}
+
+	// tags
+	if _, err := writer.Write(tagsBuffer.Bytes()); err != nil {
+		return err
+	}
+
+	// variable length data
+	if _, err := writer.Write(vdata.Bytes()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // writeCache write a cache for the layer ID.
 // It generates a sorted list of digests with their offset to the path location and offset.
 // The same cache is used to lookup files, chunks and candidates for deduplication with hard links.
@@ -328,10 +374,9 @@ type setBigData interface {
 // - digest(digest(file.payload) + file.UID + file.GID + file.mode + file.xattrs)
 // - digest(i) for each i in chunks(file payload)
 func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id string, dest setBigData) (*cacheFile, error) {
-	var vdata bytes.Buffer
+	var vdata, tagsBuffer bytes.Buffer
 	tagLen := 0
 	digestLen := 0
-	var tagsBuffer bytes.Buffer
 
 	toc, err := prepareCacheFile(manifest, format)
 	if err != nil {
@@ -390,63 +435,13 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 		}
 	}
 
-	sort.Strings(tags)
-
-	for _, t := range tags {
-		if _, err := tagsBuffer.Write([]byte(t)); err != nil {
-			return nil, err
-		}
-	}
-
 	pipeReader, pipeWriter := io.Pipe()
 	errChan := make(chan error, 1)
 	go func() {
 		defer pipeWriter.Close()
 		defer close(errChan)
 
-		// version
-		if err := binary.Write(pipeWriter, binary.LittleEndian, uint64(cacheVersion)); err != nil {
-			errChan <- err
-			return
-		}
-
-		// len of a tag
-		if err := binary.Write(pipeWriter, binary.LittleEndian, uint64(tagLen)); err != nil {
-			errChan <- err
-			return
-		}
-
-		// len of a digest
-		if err := binary.Write(pipeWriter, binary.LittleEndian, uint64(digestLen)); err != nil {
-			errChan <- err
-			return
-		}
-
-		// tags length
-		if err := binary.Write(pipeWriter, binary.LittleEndian, uint64(tagsBuffer.Len())); err != nil {
-			errChan <- err
-			return
-		}
-
-		// vdata length
-		if err := binary.Write(pipeWriter, binary.LittleEndian, uint64(vdata.Len())); err != nil {
-			errChan <- err
-			return
-		}
-
-		// tags
-		if _, err := pipeWriter.Write(tagsBuffer.Bytes()); err != nil {
-			errChan <- err
-			return
-		}
-
-		// variable length data
-		if _, err := pipeWriter.Write(vdata.Bytes()); err != nil {
-			errChan <- err
-			return
-		}
-
-		errChan <- nil
+		errChan <- writeCacheFileToWriter(pipeWriter, tags, tagLen, digestLen, vdata, &tagsBuffer)
 	}()
 	defer pipeReader.Close()
 
