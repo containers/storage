@@ -120,6 +120,21 @@ func (b *bigDataToBuffer) SetLayerBigData(id, key string, data io.Reader) error 
 	return err
 }
 
+func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
+	binaryDigest, err := makeBinaryDigest(digest)
+	if err != nil {
+		return "", 0, 0
+	}
+	if len(binaryDigest) != cacheFile.digestLen {
+		return "", 0, 0
+	}
+	found, off, len := findBinaryTag(binaryDigest, cacheFile)
+	if found {
+		return digest, off, len
+	}
+	return "", 0, 0
+}
+
 func TestWriteCache(t *testing.T) {
 	toc, err := prepareCacheFile([]byte(jsonTOC), graphdriver.DifferOutputFormatDir)
 	if err != nil {

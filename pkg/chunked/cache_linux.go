@@ -30,13 +30,19 @@ const (
 	cacheVersion = 2
 
 	digestSha256Empty = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+	// Using 3 hashes functions and n/m = 10 gives a false positive rate of ~1.7%:
+	// https://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html
+	bloomFilterScale  = 10 // how much bigger is the bloom filter than the number of entries
+	bloomFilterHashes = 3  // number of hash functions for the bloom filter
 )
 
 type cacheFile struct {
-	tagLen    int
-	digestLen int
-	tags      []byte
-	vdata     []byte
+	tagLen      int
+	digestLen   int
+	tags        []byte
+	vdata       []byte
+	bloomFilter *bloomFilter
 }
 
 type layer struct {
@@ -339,10 +345,19 @@ type setBigData interface {
 	SetLayerBigData(id, key string, data io.Reader) error
 }
 
-func writeCacheFileToWriter(writer io.Writer, tags [][]byte, tagLen, digestLen int, vdata, tagsBuffer *bytes.Buffer) error {
+func bloomFilterFromTags(tags [][]byte, digestLen int) *bloomFilter {
+	bloomFilter := newBloomFilter(len(tags)*bloomFilterScale, bloomFilterHashes)
+	for _, t := range tags {
+		bloomFilter.add(t[:digestLen])
+	}
+	return bloomFilter
+}
+
+func writeCacheFileToWriter(writer io.Writer, bloomFilter *bloomFilter, tags [][]byte, tagLen, digestLen int, vdata bytes.Buffer, tagsBuffer *bytes.Buffer) error {
 	sort.Slice(tags, func(i, j int) bool {
 		return bytes.Compare(tags[i], tags[j]) == -1
 	})
+
 	for _, t := range tags {
 		if _, err := tagsBuffer.Write(t); err != nil {
 			return err
@@ -361,6 +376,11 @@ func writeCacheFileToWriter(writer io.Writer, tags [][]byte, tagLen, digestLen i
 
 	// len of a digest
 	if err := binary.Write(writer, binary.LittleEndian, uint64(digestLen)); err != nil {
+		return err
+	}
+
+	// bloom filter
+	if err := bloomFilter.writeTo(writer); err != nil {
 		return err
 	}
 
@@ -478,13 +498,15 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 		}
 	}
 
+	bloomFilter := bloomFilterFromTags(tags, digestLen)
+
 	pipeReader, pipeWriter := io.Pipe()
 	errChan := make(chan error, 1)
 	go func() {
 		defer pipeWriter.Close()
 		defer close(errChan)
 
-		errChan <- writeCacheFileToWriter(pipeWriter, tags, tagLen, digestLen, &vdata, &tagsBuffer)
+		errChan <- writeCacheFileToWriter(pipeWriter, bloomFilter, tags, tagLen, digestLen, vdata, &tagsBuffer)
 	}()
 	defer pipeReader.Close()
 
@@ -503,10 +525,11 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 	logrus.Debugf("Written lookaside cache for layer %q with length %v", id, counter.Count)
 
 	return &cacheFile{
-		digestLen: digestLen,
-		tagLen:    tagLen,
-		tags:      tagsBuffer.Bytes(),
-		vdata:     vdata.Bytes(),
+		digestLen:   digestLen,
+		tagLen:      tagLen,
+		tags:        tagsBuffer.Bytes(),
+		vdata:       vdata.Bytes(),
+		bloomFilter: bloomFilter,
 	}, nil
 }
 
@@ -526,13 +549,18 @@ func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	if err := binary.Read(bigData, binary.LittleEndian, &digestLen); err != nil {
 		return nil, err
 	}
+
+	bloomFilter, err := readBloomFilter(bigData)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := binary.Read(bigData, binary.LittleEndian, &tagsLen); err != nil {
 		return nil, err
 	}
 	if err := binary.Read(bigData, binary.LittleEndian, &vdataLen); err != nil {
 		return nil, err
 	}
-
 	tags := make([]byte, tagsLen)
 	if _, err := bigData.Read(tags); err != nil {
 		return nil, err
@@ -542,10 +570,11 @@ func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	vdata := bigDataBuffer[len(bigDataBuffer)-bigData.Len():]
 
 	return &cacheFile{
-		tagLen:    int(tagLen),
-		digestLen: int(digestLen),
-		tags:      tags,
-		vdata:     vdata,
+		tagLen:      int(tagLen),
+		digestLen:   int(digestLen),
+		bloomFilter: bloomFilter,
+		tags:        tags,
+		vdata:       vdata,
 	}, nil
 }
 
@@ -612,15 +641,7 @@ func (c *layersCache) createLayer(id string, cacheFile *cacheFile, mmapBuffer []
 	return l, nil
 }
 
-func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
-	binaryDigest, err := makeBinaryDigest(digest)
-	if err != nil {
-		return "", 0, 0
-	}
-	if len(binaryDigest) != cacheFile.digestLen {
-		return "", 0, 0
-	}
-
+func findBinaryTag(binaryDigest []byte, cacheFile *cacheFile) (bool, uint64, uint64) {
 	nElements := len(cacheFile.tags) / cacheFile.tagLen
 
 	i := sort.Search(nElements, func(i int) bool {
@@ -634,7 +655,7 @@ func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
 
 			// check for corrupted data, there must be 2 u64 (off and len) after the digest.
 			if cacheFile.tagLen < cacheFile.digestLen+16 {
-				return "", 0, 0
+				return false, 0, 0
 			}
 
 			offsetAndLen := cacheFile.tags[startOff : (i+1)*cacheFile.tagLen]
@@ -642,10 +663,10 @@ func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
 			off := binary.LittleEndian.Uint64(offsetAndLen[:8])
 			len := binary.LittleEndian.Uint64(offsetAndLen[8:16])
 
-			return digest, off, len
+			return true, off, len
 		}
 	}
-	return "", 0, 0
+	return false, 0, 0
 }
 
 func (c *layersCache) findDigestInternal(digest string) (string, string, int64, error) {
@@ -653,12 +674,20 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 		return "", "", -1, nil
 	}
 
+	binaryDigest, err := makeBinaryDigest(digest)
+	if err != nil {
+		return "", "", 0, err
+	}
+
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	for _, layer := range c.layers {
-		digest, off, tagLen := findTag(digest, layer.cacheFile)
-		if digest != "" {
+		if !layer.cacheFile.bloomFilter.maybeContains(binaryDigest) {
+			continue
+		}
+		found, off, tagLen := findBinaryTag(binaryDigest, layer.cacheFile)
+		if found {
 			position := string(layer.cacheFile.vdata[off : off+tagLen])
 			parts := strings.SplitN(position, ":", 3)
 			if len(parts) != 3 {
