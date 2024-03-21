@@ -233,7 +233,7 @@ func benchmarkLookup(b *testing.B, sizeCache, n int) {
 		assert.Nil(b, err)
 		tags = append(tags, tag)
 	}
-	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, &vdata, &tagsBuffer)
+	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, vdata, &tagsBuffer)
 
 	cache := &cacheFile{
 		digestLen: digestLen,
