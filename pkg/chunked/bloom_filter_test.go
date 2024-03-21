@@ -59,7 +59,7 @@ func initCache(sizeCache int) (*cacheFile, string, string, *bloomFilter) {
 	hash.Write([]byte("1"))
 	notPresentDigest = digester.Digest().String()
 
-	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, &vdata, &tagsBuffer)
+	writeCacheFileToWriter(io.Discard, bloomFilter, tags, tagLen, digestLen, vdata, &tagsBuffer)
 
 	cache := &cacheFile{
 		digestLen: digestLen,
