@@ -40,8 +40,10 @@ const (
 type cacheFile struct {
 	tagLen      int
 	digestLen   int
+	fnamesLen   int
 	tags        []byte
 	vdata       []byte
+	fnames      []byte
 	bloomFilter *bloomFilter
 }
 
@@ -326,9 +328,9 @@ func calculateHardLinkFingerprint(f *fileMetadata) (string, error) {
 	return string(digester.Digest()), nil
 }
 
-// generateFileLocation generates a file location in the form $OFFSET:$LEN:$PATH
-func generateFileLocation(path string, offset, len uint64) []byte {
-	return []byte(fmt.Sprintf("%d:%d:%s", offset, len, path))
+// generateFileLocation generates a file location in the form $OFFSET:$LEN:$PATH_POS
+func generateFileLocation(pathPos int, offset, len uint64) []byte {
+	return []byte(fmt.Sprintf("%d:%d:%d", offset, len, pathPos))
 }
 
 // appendTag appends the $OFFSET$LEN information to the provided $DIGEST.
@@ -353,11 +355,10 @@ func bloomFilterFromTags(tags [][]byte, digestLen int) *bloomFilter {
 	return bloomFilter
 }
 
-func writeCacheFileToWriter(writer io.Writer, bloomFilter *bloomFilter, tags [][]byte, tagLen, digestLen int, vdata bytes.Buffer, tagsBuffer *bytes.Buffer) error {
+func writeCacheFileToWriter(writer io.Writer, bloomFilter *bloomFilter, tags [][]byte, tagLen, digestLen int, vdata, fnames bytes.Buffer, tagsBuffer *bytes.Buffer) error {
 	sort.Slice(tags, func(i, j int) bool {
 		return bytes.Compare(tags[i], tags[j]) == -1
 	})
-
 	for _, t := range tags {
 		if _, err := tagsBuffer.Write(t); err != nil {
 			return err
@@ -394,6 +395,11 @@ func writeCacheFileToWriter(writer io.Writer, bloomFilter *bloomFilter, tags [][
 		return err
 	}
 
+	// fnames length
+	if err := binary.Write(writer, binary.LittleEndian, uint64(fnames.Len())); err != nil {
+		return err
+	}
+
 	// tags
 	if _, err := writer.Write(tagsBuffer.Bytes()); err != nil {
 		return err
@@ -401,6 +407,11 @@ func writeCacheFileToWriter(writer io.Writer, bloomFilter *bloomFilter, tags [][
 
 	// variable length data
 	if _, err := writer.Write(vdata.Bytes()); err != nil {
+		return err
+	}
+
+	// file names
+	if _, err := writer.Write(fnames.Bytes()); err != nil {
 		return err
 	}
 
@@ -415,13 +426,30 @@ func writeCacheFileToWriter(writer io.Writer, bloomFilter *bloomFilter, tags [][
 // - digest(digest(file.payload) + file.UID + file.GID + file.mode + file.xattrs)
 // - digest(i) for each i in chunks(file payload)
 func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id string, dest setBigData) (*cacheFile, error) {
-	var vdata, tagsBuffer bytes.Buffer
+	var vdata, tagsBuffer, fnames bytes.Buffer
 	tagLen := 0
 	digestLen := 0
 
 	toc, err := prepareCacheFile(manifest, format)
 	if err != nil {
 		return nil, err
+	}
+
+	fnamesMap := make(map[string]int)
+	getFileNamePosition := func(name string) (int, error) {
+		if pos, found := fnamesMap[name]; found {
+			return pos, nil
+		}
+		pos := fnames.Len()
+		fnamesMap[name] = pos
+
+		if err := binary.Write(&fnames, binary.LittleEndian, uint32(len(name))); err != nil {
+			return 0, err
+		}
+		if _, err := fnames.WriteString(name); err != nil {
+			return 0, err
+		}
+		return pos, nil
 	}
 
 	var tags [][]byte
@@ -431,7 +459,11 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if err != nil {
 				return nil, err
 			}
-			location := generateFileLocation(k.Name, 0, uint64(k.Size))
+			fileNamePos, err := getFileNamePosition(k.Name)
+			if err != nil {
+				return nil, err
+			}
+			location := generateFileLocation(fileNamePos, 0, uint64(k.Size))
 
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
@@ -471,7 +503,11 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			digestLen = len(digestHardLink)
 		}
 		if k.ChunkDigest != "" {
-			location := generateFileLocation(k.Name, uint64(k.ChunkOffset), uint64(k.ChunkSize))
+			fileNamePos, err := getFileNamePosition(k.Name)
+			if err != nil {
+				return nil, err
+			}
+			location := generateFileLocation(fileNamePos, uint64(k.ChunkOffset), uint64(k.ChunkSize))
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
 
@@ -506,7 +542,7 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 		defer pipeWriter.Close()
 		defer close(errChan)
 
-		errChan <- writeCacheFileToWriter(pipeWriter, bloomFilter, tags, tagLen, digestLen, vdata, &tagsBuffer)
+		errChan <- writeCacheFileToWriter(pipeWriter, bloomFilter, tags, tagLen, digestLen, vdata, fnames, &tagsBuffer)
 	}()
 	defer pipeReader.Close()
 
@@ -529,6 +565,8 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 		tagLen:      tagLen,
 		tags:        tagsBuffer.Bytes(),
 		vdata:       vdata.Bytes(),
+		fnames:      fnames.Bytes(),
+		fnamesLen:   len(fnames.Bytes()),
 		bloomFilter: bloomFilter,
 	}, nil
 }
@@ -536,7 +574,7 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	bigData := bytes.NewReader(bigDataBuffer)
 
-	var version, tagLen, digestLen, tagsLen, vdataLen uint64
+	var version, tagLen, digestLen, tagsLen, fnamesLen, vdataLen uint64
 	if err := binary.Read(bigData, binary.LittleEndian, &version); err != nil {
 		return nil, err
 	}
@@ -561,18 +599,27 @@ func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	if err := binary.Read(bigData, binary.LittleEndian, &vdataLen); err != nil {
 		return nil, err
 	}
+
+	if err := binary.Read(bigData, binary.LittleEndian, &fnamesLen); err != nil {
+		return nil, err
+	}
 	tags := make([]byte, tagsLen)
 	if _, err := bigData.Read(tags); err != nil {
 		return nil, err
 	}
 
 	// retrieve the unread part of the buffer.
-	vdata := bigDataBuffer[len(bigDataBuffer)-bigData.Len():]
+	remaining := bigDataBuffer[len(bigDataBuffer)-bigData.Len():]
+
+	vdata := remaining[:vdataLen]
+	fnames := remaining[vdataLen:]
 
 	return &cacheFile{
-		tagLen:      int(tagLen),
-		digestLen:   int(digestLen),
 		bloomFilter: bloomFilter,
+		digestLen:   int(digestLen),
+		fnames:      fnames,
+		fnamesLen:   int(fnamesLen),
+		tagLen:      int(tagLen),
 		tags:        tags,
 		vdata:       vdata,
 	}, nil
@@ -693,9 +740,28 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 			if len(parts) != 3 {
 				continue
 			}
+
 			offFile, _ := strconv.ParseInt(parts[0], 10, 64)
+
+			tmp, err := strconv.ParseUint(parts[2], 10, 32)
+			if err != nil {
+				logrus.Warningf("Invalid file name offset in the cache for layer %q, skipping: %v", layer.id, err)
+				continue
+			}
+			fnamePosition := int(tmp)
+
+			if len(layer.cacheFile.fnames) <= fnamePosition+4 {
+				return "", "", 0, err
+			}
+			lenPath := int(binary.LittleEndian.Uint32(layer.cacheFile.fnames[fnamePosition : fnamePosition+4]))
+
+			if len(layer.cacheFile.fnames) <= fnamePosition+lenPath+4 {
+				return "", "", 0, err
+			}
+			path := string(layer.cacheFile.fnames[fnamePosition+4 : fnamePosition+lenPath+4])
+
 			// parts[1] is the chunk length, currently unused.
-			return layer.target, parts[2], offFile, nil
+			return layer.target, path, offFile, nil
 		}
 	}
 
