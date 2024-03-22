@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -155,18 +156,24 @@ func TestWriteCache(t *testing.T) {
 	for _, r := range toc {
 		if r.Digest != "" {
 			// find the element in the cache by the digest checksum
-			digest, off, len := findTag(r.Digest, cache)
+			digest, off, lenTag := findTag(r.Digest, cache)
 			if digest == "" {
 				t.Error("file tag not found")
 			}
 			if digest != r.Digest {
 				t.Error("wrong file found")
 			}
-			expectedLocation := generateFileLocation(r.Name, 0, uint64(r.Size))
-			location := cache.vdata[off : off+len]
-			if !bytes.Equal(location, expectedLocation) {
-				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
-			}
+			location := cache.vdata[off : off+lenTag]
+			parts := strings.SplitN(string(location), ":", 3)
+
+			assert.Equal(t, len(parts), 3)
+			offFile, err := strconv.ParseInt(parts[0], 10, 64)
+			assert.NoError(t, err)
+			fileSize, err := strconv.ParseInt(parts[1], 10, 64)
+			assert.NoError(t, err)
+
+			assert.Equal(t, fileSize, int64(r.Size))
+			assert.Equal(t, offFile, int64(0))
 
 			fingerprint, err := calculateHardLinkFingerprint(r)
 			if err != nil {
@@ -174,18 +181,24 @@ func TestWriteCache(t *testing.T) {
 			}
 
 			// find the element in the cache by the hardlink fingerprint
-			digest, off, len = findTag(fingerprint, cache)
+			digest, off, lenTag = findTag(fingerprint, cache)
 			if digest == "" {
 				t.Error("file tag not found")
 			}
 			if digest != fingerprint {
 				t.Error("wrong file found")
 			}
-			expectedLocation = generateFileLocation(r.Name, 0, uint64(r.Size))
-			location = cache.vdata[off : off+len]
-			if !bytes.Equal(location, expectedLocation) {
-				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
-			}
+			location = cache.vdata[off : off+lenTag]
+			parts = strings.SplitN(string(location), ":", 3)
+
+			assert.Equal(t, len(parts), 3)
+			offFile, err = strconv.ParseInt(parts[0], 10, 64)
+			assert.NoError(t, err)
+			fileSize, err = strconv.ParseInt(parts[1], 10, 64)
+			assert.NoError(t, err)
+
+			assert.Equal(t, fileSize, int64(r.Size))
+			assert.Equal(t, offFile, int64(0))
 		}
 		if r.ChunkDigest != "" {
 			// find the element in the cache by the chunk digest checksum
@@ -196,7 +209,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.ChunkDigest {
 				t.Error("wrong digest found")
 			}
-			expectedLocation := generateFileLocation(r.Name, uint64(r.ChunkOffset), uint64(r.ChunkSize))
+			expectedLocation := generateFileLocation(0, uint64(r.ChunkOffset), uint64(r.ChunkSize))
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
