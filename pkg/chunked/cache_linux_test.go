@@ -131,7 +131,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.Digest {
 				t.Error("wrong file found")
 			}
-			expectedLocation := generateFileLocation(r.Name, 0, uint64(r.Size))
+			expectedLocation := generateFileLocation(0, 0, uint64(r.Size))
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -150,7 +150,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != fingerprint {
 				t.Error("wrong file found")
 			}
-			expectedLocation = generateFileLocation(r.Name, 0, uint64(r.Size))
+			expectedLocation = generateFileLocation(0, 0, uint64(r.Size))
 			location = cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -165,7 +165,7 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.ChunkDigest {
 				t.Error("wrong digest found")
 			}
-			expectedLocation := generateFileLocation(r.Name, uint64(r.ChunkOffset), uint64(r.ChunkSize))
+			expectedLocation := generateFileLocation(0, uint64(r.ChunkOffset), uint64(r.ChunkSize))
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -216,6 +216,7 @@ func TestUnmarshalToc(t *testing.T) {
 func benchmarkLookup(b *testing.B, sizeCache, n int) {
 	var tagsBuffer bytes.Buffer
 	var vdata bytes.Buffer
+	var fnames bytes.Buffer
 	tags := [][]byte{}
 	tagLen := 64
 	digestLen := 64
@@ -233,7 +234,7 @@ func benchmarkLookup(b *testing.B, sizeCache, n int) {
 		assert.Nil(b, err)
 		tags = append(tags, tag)
 	}
-	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, vdata, &tagsBuffer)
+	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, vdata, fnames, &tagsBuffer)
 
 	cache := &cacheFile{
 		digestLen: digestLen,
