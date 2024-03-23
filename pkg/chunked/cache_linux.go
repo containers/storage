@@ -3,6 +3,7 @@ package chunked
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -152,6 +153,19 @@ func (c *layersCache) loadLayerBigData(layerID, bigDataKey string) ([]byte, []by
 fallback:
 	buf, err := io.ReadAll(inputFile)
 	return buf, nil, err
+}
+
+func getBinaryDigest(stringDigest string) ([]byte, error) {
+	d, err := digest.Parse(stringDigest)
+	if err != nil {
+		return nil, err
+	}
+	digestBytes, err := hex.DecodeString(d.Hex())
+	if err != nil {
+		return nil, err
+	}
+	digest := append([]byte(d.Algorithm()+":"), digestBytes...)
+	return digest, nil
 }
 
 func (c *layersCache) loadLayerCache(layerID string) (_ *layer, errRet error) {
@@ -311,8 +325,9 @@ func generateFileLocation(path string, offset, len uint64) []byte {
 // generateTag generates a tag in the form $DIGEST$OFFSET@LEN.
 // the [OFFSET; LEN] points to the variable length data where the file locations
 // are stored.  $DIGEST has length digestLen stored in the cache file file header.
-func generateTag(digest string, offset, len uint64) string {
-	return fmt.Sprintf("%s%.20d@%.20d", digest, offset, len)
+func generateTag(digest []byte, offset, len uint64) []byte {
+	tag := append(digest[:], []byte(fmt.Sprintf("%.20d@%.20d", offset, len))...)
+	return tag
 }
 
 type setBigData interface {
@@ -320,10 +335,12 @@ type setBigData interface {
 	SetLayerBigData(id, key string, data io.Reader) error
 }
 
-func writeCacheFileToWriter(writer io.Writer, tags []string, tagLen, digestLen int, vdata bytes.Buffer, tagsBuffer *bytes.Buffer) error {
-	sort.Strings(tags)
+func writeCacheFileToWriter(writer io.Writer, tags [][]byte, tagLen, digestLen int, vdata, tagsBuffer *bytes.Buffer) error {
+	sort.Slice(tags, func(i, j int) bool {
+		return bytes.Compare(tags[i], tags[j]) == -1
+	})
 	for _, t := range tags {
-		if _, err := tagsBuffer.Write([]byte(t)); err != nil {
+		if _, err := tagsBuffer.Write(t); err != nil {
 			return err
 		}
 	}
@@ -384,15 +401,20 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 		return nil, err
 	}
 
-	var tags []string
+
+	var tags [][]byte
 	for _, k := range toc {
 		if k.Digest != "" {
+			digest, err := getBinaryDigest(k.Digest)
+			if err != nil {
+				return nil, err
+			}
 			location := generateFileLocation(k.Name, 0, uint64(k.Size))
 
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
 
-			d := generateTag(k.Digest, off, l)
+			d := generateTag(digest, off, l)
 			if tagLen == 0 {
 				tagLen = len(d)
 			}
@@ -405,7 +427,11 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if err != nil {
 				return nil, err
 			}
-			d = generateTag(fp, off, l)
+			digestHardLink, err := getBinaryDigest(fp)
+			if err != nil {
+				return nil, err
+			}
+			d = generateTag(digestHardLink, off, l)
 			if tagLen != len(d) {
 				return nil, errors.New("digest with different length found")
 			}
@@ -414,13 +440,19 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if _, err := vdata.Write(location); err != nil {
 				return nil, err
 			}
-			digestLen = len(k.Digest)
+			digestLen = len(digestHardLink)
 		}
 		if k.ChunkDigest != "" {
 			location := generateFileLocation(k.Name, uint64(k.ChunkOffset), uint64(k.ChunkSize))
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
-			d := generateTag(k.ChunkDigest, off, l)
+
+			digest, err := getBinaryDigest(k.ChunkDigest)
+			if err != nil {
+				return nil, err
+			}
+
+			d := generateTag(digest, off, l)
 			if tagLen == 0 {
 				tagLen = len(d)
 			}
@@ -432,7 +464,7 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if _, err := vdata.Write(location); err != nil {
 				return nil, err
 			}
-			digestLen = len(k.ChunkDigest)
+			digestLen = len(digest)
 		}
 	}
 
@@ -442,7 +474,7 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 		defer pipeWriter.Close()
 		defer close(errChan)
 
-		errChan <- writeCacheFileToWriter(pipeWriter, tags, tagLen, digestLen, vdata, &tagsBuffer)
+		errChan <- writeCacheFileToWriter(pipeWriter, tags, tagLen, digestLen, &vdata, &tagsBuffer)
 	}()
 	defer pipeReader.Close()
 
@@ -575,19 +607,23 @@ func byteSliceAsString(b []byte) string {
 }
 
 func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
-	if len(digest) != cacheFile.digestLen {
+	binaryDigest, err := getBinaryDigest(digest)
+	if err != nil {
+		return "", 0, 0
+	}
+	if len(binaryDigest) != cacheFile.digestLen {
 		return "", 0, 0
 	}
 
 	nElements := len(cacheFile.tags) / cacheFile.tagLen
 
 	i := sort.Search(nElements, func(i int) bool {
-		d := byteSliceAsString(cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+cacheFile.digestLen])
-		return strings.Compare(d, digest) >= 0
+		d := cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+cacheFile.digestLen]
+		return bytes.Compare(d, binaryDigest) >= 0
 	})
 	if i < nElements {
-		d := string(cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+len(digest)])
-		if digest == d {
+		d := cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+len(binaryDigest)]
+		if bytes.Equal(binaryDigest, d) {
 			startOff := i*cacheFile.tagLen + cacheFile.digestLen
 			parts := strings.Split(string(cacheFile.tags[startOff:(i+1)*cacheFile.tagLen]), "@")
 

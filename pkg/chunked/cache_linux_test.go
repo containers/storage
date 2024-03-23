@@ -117,7 +117,7 @@ func TestWriteCache(t *testing.T) {
 	if err != nil {
 		t.Errorf("got error from writeCache: %v", err)
 	}
-	if digest, _, _ := findTag("foobar", cache); digest != "" {
+	if digest, _, _ := findTag("sha256:99fe908c699dc068438b23e28319cadff1f2153c3043bafb8e83a430bba0a2c2", cache); digest != "" {
 		t.Error("found invalid tag")
 	}
 
@@ -217,7 +217,7 @@ func TestUnmarshalToc(t *testing.T) {
 func benchmarkLookup(b *testing.B, sizeCache, n int) {
 	var tagsBuffer bytes.Buffer
 	var vdata bytes.Buffer
-	tags := []string{}
+	tags := [][]byte{}
 	tagLen := 64
 	digestLen := 64
 
@@ -226,11 +226,14 @@ func benchmarkLookup(b *testing.B, sizeCache, n int) {
 	for i := 0; i < sizeCache; i++ {
 		hash.Write([]byte("1"))
 		d := digester.Digest()
-		digestLen = len(d)
-		tag := generateTag(d.String(), 0, 0)
+		binaryDigest, err := getBinaryDigest(d.String())
+		assert.Nil(b, err)
+
+		digestLen = len(binaryDigest)
+		tag := generateTag(binaryDigest, 0, 0)
 		tags = append(tags, tag)
 	}
-	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, vdata, &tagsBuffer)
+	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, &vdata, &tagsBuffer)
 
 	cache := &cacheFile{
 		digestLen: digestLen,
