@@ -133,8 +133,8 @@ func TestWriteCache(t *testing.T) {
 	if err != nil {
 		t.Errorf("got error from writeCache: %v", err)
 	}
-	if digest, _, _ := findTag("foobar", cache); digest != "" {
-		t.Error("found invalid tag")
+	if digest, _, _ := findTag("sha256:99fe908c699dc068438b23e28319cadff1f2153c3043bafb8e83a430bba0a2c2", cache); digest != "" {
+		t.Error("a present tag was not found")
 	}
 
 	for _, r := range toc {
@@ -230,4 +230,17 @@ func TestUnmarshalToc(t *testing.T) {
 	assert.Equal(t, toc.Entries[4].Name, "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice", "invalid name escaped")
 	assert.Equal(t, toc.Entries[5].Name, "usr/lib/systemd/system/system-systemd\\x2dcryptsetup-hardlink.slice", "invalid name escaped")
 	assert.Equal(t, toc.Entries[5].Linkname, "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice", "invalid link name escaped")
+}
+
+func TestMakeBinaryDigest(t *testing.T) {
+	binDigest, err := makeBinaryDigest("sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03")
+	assert.NoError(t, err)
+	expected := []byte{0x73, 0x68, 0x61, 0x32, 0x35, 0x36, 0x3a, 0x58, 0x91, 0xb5, 0xb5, 0x22, 0xd5, 0xdf, 0x8, 0x6d, 0xf, 0xf0, 0xb1, 0x10, 0xfb, 0xd9, 0xd2, 0x1b, 0xb4, 0xfc, 0x71, 0x63, 0xaf, 0x34, 0xd0, 0x82, 0x86, 0xa2, 0xe8, 0x46, 0xf6, 0xbe, 0x3}
+	assert.Equal(t, expected, binDigest)
+
+	_, err = makeBinaryDigest("sha256:foo")
+	assert.Error(t, err)
+
+	_, err = makeBinaryDigest("noAlgorithm")
+	assert.Error(t, err)
 }
