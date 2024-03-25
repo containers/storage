@@ -322,12 +322,19 @@ func generateFileLocation(path string, offset, len uint64) []byte {
 	return []byte(fmt.Sprintf("%d:%d:%s", offset, len, path))
 }
 
-// generateTag generates a tag in the form $DIGEST$OFFSET@LEN.
+// generateTag generates a tag in the form $DIGEST$OFFSET$LEN.
 // the [OFFSET; LEN] points to the variable length data where the file locations
 // are stored.  $DIGEST has length digestLen stored in the cache file file header.
-func generateTag(digest []byte, offset, len uint64) []byte {
-	tag := append(digest[:], []byte(fmt.Sprintf("%.20d@%.20d", offset, len))...)
-	return tag
+func generateTag(digest []byte, offset, len uint64) ([]byte, error) {
+	var buf bytes.Buffer
+
+	if err := binary.Write(&buf, binary.LittleEndian, uint64(offset)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, uint64(len)); err != nil {
+		return nil, err
+	}
+	return append(digest, buf.Bytes()...), nil
 }
 
 type setBigData interface {
@@ -414,7 +421,10 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
 
-			d := generateTag(digest, off, l)
+			d, err := generateTag(digest, off, l)
+			if err != nil {
+				return nil, err
+			}
 			if tagLen == 0 {
 				tagLen = len(d)
 			}
@@ -431,7 +441,10 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if err != nil {
 				return nil, err
 			}
-			d = generateTag(digestHardLink, off, l)
+			d, err = generateTag(digestHardLink, off, l)
+			if err != nil {
+				return nil, err
+			}
 			if tagLen != len(d) {
 				return nil, errors.New("digest with different length found")
 			}
@@ -451,8 +464,10 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if err != nil {
 				return nil, err
 			}
-
-			d := generateTag(digest, off, l)
+			d, err := generateTag(digest, off, l)
+			if err != nil {
+				return nil, err
+			}
 			if tagLen == 0 {
 				tagLen = len(d)
 			}
@@ -625,11 +640,12 @@ func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
 		d := cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+len(binaryDigest)]
 		if bytes.Equal(binaryDigest, d) {
 			startOff := i*cacheFile.tagLen + cacheFile.digestLen
-			parts := strings.Split(string(cacheFile.tags[startOff:(i+1)*cacheFile.tagLen]), "@")
 
-			off, _ := strconv.ParseInt(parts[0], 10, 64)
+			offsetAndLen := cacheFile.tags[startOff : (i+1)*cacheFile.tagLen]
 
-			len, _ := strconv.ParseInt(parts[1], 10, 64)
+			off := binary.LittleEndian.Uint64(offsetAndLen[:8])
+			len := binary.LittleEndian.Uint64(offsetAndLen[8:16])
+
 			return digest, uint64(off), uint64(len)
 		}
 	}

@@ -230,7 +230,8 @@ func benchmarkLookup(b *testing.B, sizeCache, n int) {
 		assert.Nil(b, err)
 
 		digestLen = len(binaryDigest)
-		tag := generateTag(binaryDigest, 0, 0)
+		tag, err := generateTag(binaryDigest, 0, 0)
+		assert.Nil(b, err)
 		tags = append(tags, tag)
 	}
 	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, &vdata, &tagsBuffer)
