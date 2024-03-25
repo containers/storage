@@ -10,7 +10,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -328,9 +327,37 @@ func calculateHardLinkFingerprint(f *fileMetadata) (string, error) {
 	return string(digester.Digest()), nil
 }
 
-// generateFileLocation generates a file location in the form $OFFSET:$LEN:$PATH_POS
+// generateFileLocation generates a file location in the form $OFFSET$LEN$PATH_POS
 func generateFileLocation(pathPos int, offset, len uint64) []byte {
-	return []byte(fmt.Sprintf("%d:%d:%d", offset, len, pathPos))
+	var buf []byte
+
+	buf = binary.AppendUvarint(buf, uint64(pathPos))
+	buf = binary.AppendUvarint(buf, offset)
+	buf = binary.AppendUvarint(buf, len)
+
+	return buf
+}
+
+// parseFileLocation reads what was written by generateFileLocation.
+func parseFileLocation(locationData []byte) (int, uint64, uint64, error) {
+	reader := bytes.NewReader(locationData)
+
+	pathPos, err := binary.ReadUvarint(reader)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	offset, err := binary.ReadUvarint(reader)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	len, err := binary.ReadUvarint(reader)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	return int(pathPos), offset, len, nil
 }
 
 // appendTag appends the $OFFSET$LEN information to the provided $DIGEST.
@@ -464,7 +491,6 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 				return nil, err
 			}
 			location := generateFileLocation(fileNamePos, 0, uint64(k.Size))
-
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
 
@@ -735,33 +761,28 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 		}
 		found, off, tagLen := findBinaryTag(binaryDigest, layer.cacheFile)
 		if found {
-			position := string(layer.cacheFile.vdata[off : off+tagLen])
-			parts := strings.SplitN(position, ":", 3)
-			if len(parts) != 3 {
-				continue
+			if uint64(len(layer.cacheFile.vdata)) < off+tagLen {
+				return "", "", 0, fmt.Errorf("corrupted cache file for layer %q", layer.id)
 			}
+			fileLocationData := layer.cacheFile.vdata[off : off+tagLen]
 
-			offFile, _ := strconv.ParseInt(parts[0], 10, 64)
-
-			tmp, err := strconv.ParseUint(parts[2], 10, 32)
+			fnamePosition, offFile, _, err := parseFileLocation(fileLocationData)
 			if err != nil {
-				logrus.Warningf("Invalid file name offset in the cache for layer %q, skipping: %v", layer.id, err)
-				continue
+				return "", "", 0, fmt.Errorf("corrupted cache file for layer %q", layer.id)
 			}
-			fnamePosition := int(tmp)
 
-			if len(layer.cacheFile.fnames) <= fnamePosition+4 {
-				return "", "", 0, err
+			if len(layer.cacheFile.fnames) < fnamePosition+4 {
+				return "", "", 0, fmt.Errorf("corrupted cache file for layer %q", layer.id)
 			}
 			lenPath := int(binary.LittleEndian.Uint32(layer.cacheFile.fnames[fnamePosition : fnamePosition+4]))
 
-			if len(layer.cacheFile.fnames) <= fnamePosition+lenPath+4 {
-				return "", "", 0, err
+			if len(layer.cacheFile.fnames) < fnamePosition+lenPath+4 {
+				return "", "", 0, fmt.Errorf("corrupted cache file for layer %q", layer.id)
 			}
 			path := string(layer.cacheFile.fnames[fnamePosition+4 : fnamePosition+lenPath+4])
 
 			// parts[1] is the chunk length, currently unused.
-			return layer.target, path, offFile, nil
+			return layer.target, path, int64(offFile), nil
 		}
 	}
 

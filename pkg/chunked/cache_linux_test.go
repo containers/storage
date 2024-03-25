@@ -6,7 +6,6 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -164,16 +163,11 @@ func TestWriteCache(t *testing.T) {
 				t.Error("wrong file found")
 			}
 			location := cache.vdata[off : off+lenTag]
-			parts := strings.SplitN(string(location), ":", 3)
-
-			assert.Equal(t, len(parts), 3)
-			offFile, err := strconv.ParseInt(parts[0], 10, 64)
-			assert.NoError(t, err)
-			fileSize, err := strconv.ParseInt(parts[1], 10, 64)
+			_, offFile, fileSize, err := parseFileLocation(location)
 			assert.NoError(t, err)
 
-			assert.Equal(t, fileSize, int64(r.Size))
-			assert.Equal(t, offFile, int64(0))
+			assert.Equal(t, fileSize, uint64(r.Size))
+			assert.Equal(t, offFile, uint64(0))
 
 			fingerprint, err := calculateHardLinkFingerprint(r)
 			if err != nil {
@@ -189,16 +183,11 @@ func TestWriteCache(t *testing.T) {
 				t.Error("wrong file found")
 			}
 			location = cache.vdata[off : off+lenTag]
-			parts = strings.SplitN(string(location), ":", 3)
-
-			assert.Equal(t, len(parts), 3)
-			offFile, err = strconv.ParseInt(parts[0], 10, 64)
-			assert.NoError(t, err)
-			fileSize, err = strconv.ParseInt(parts[1], 10, 64)
+			_, offFile, fileSize, err = parseFileLocation(location)
 			assert.NoError(t, err)
 
-			assert.Equal(t, fileSize, int64(r.Size))
-			assert.Equal(t, offFile, int64(0))
+			assert.Equal(t, fileSize, uint64(r.Size))
+			assert.Equal(t, offFile, uint64(0))
 		}
 		if r.ChunkDigest != "" {
 			// find the element in the cache by the chunk digest checksum
