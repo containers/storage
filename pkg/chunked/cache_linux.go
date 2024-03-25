@@ -325,12 +325,13 @@ func generateFileLocation(path string, offset, len uint64) []byte {
 	return []byte(fmt.Sprintf("%d:%d:%s", offset, len, path))
 }
 
-// generateTag generates a tag in the form $DIGEST$OFFSET@LEN.
-// the [OFFSET; LEN] points to the variable length data where the file locations
+// appendTag appends the $OFFSET$LEN information to the provided $DIGEST.
+// The [OFFSET; LEN] points to the variable length data where the file locations
 // are stored.  $DIGEST has length digestLen stored in the cache file file header.
-func generateTag(digest []byte, offset, len uint64) []byte {
-	tag := append(digest[:], []byte(fmt.Sprintf("%.20d@%.20d", offset, len))...)
-	return tag
+func appendTag(digest []byte, offset, len uint64) ([]byte, error) {
+	digest = binary.LittleEndian.AppendUint64(digest, offset)
+	digest = binary.LittleEndian.AppendUint64(digest, len)
+	return digest, nil
 }
 
 type setBigData interface {
@@ -415,14 +416,17 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			off := uint64(vdata.Len())
 			l := uint64(len(location))
 
-			d := generateTag(digest, off, l)
-			if tagLen == 0 {
-				tagLen = len(d)
+			tag, err := appendTag(digest, off, l)
+			if err != nil {
+				return nil, err
 			}
-			if tagLen != len(d) {
+			if tagLen == 0 {
+				tagLen = len(tag)
+			}
+			if tagLen != len(tag) {
 				return nil, errors.New("digest with different length found")
 			}
-			tags = append(tags, d)
+			tags = append(tags, tag)
 
 			fp, err := calculateHardLinkFingerprint(k)
 			if err != nil {
@@ -432,11 +436,14 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if err != nil {
 				return nil, err
 			}
-			d = generateTag(digestHardLink, off, l)
-			if tagLen != len(d) {
+			tag, err = appendTag(digestHardLink, off, l)
+			if err != nil {
+				return nil, err
+			}
+			if tagLen != len(tag) {
 				return nil, errors.New("digest with different length found")
 			}
-			tags = append(tags, d)
+			tags = append(tags, tag)
 
 			if _, err := vdata.Write(location); err != nil {
 				return nil, err
@@ -452,8 +459,10 @@ func writeCache(manifest []byte, format graphdriver.DifferOutputFormat, id strin
 			if err != nil {
 				return nil, err
 			}
-
-			d := generateTag(digest, off, l)
+			d, err := appendTag(digest, off, l)
+			if err != nil {
+				return nil, err
+			}
 			if tagLen == 0 {
 				tagLen = len(d)
 			}
@@ -619,15 +628,21 @@ func findTag(digest string, cacheFile *cacheFile) (string, uint64, uint64) {
 		return bytes.Compare(d, binaryDigest) >= 0
 	})
 	if i < nElements {
-		d := cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+len(binaryDigest)]
+		d := cacheFile.tags[i*cacheFile.tagLen : i*cacheFile.tagLen+cacheFile.digestLen]
 		if bytes.Equal(binaryDigest, d) {
 			startOff := i*cacheFile.tagLen + cacheFile.digestLen
-			parts := strings.Split(string(cacheFile.tags[startOff:(i+1)*cacheFile.tagLen]), "@")
 
-			off, _ := strconv.ParseInt(parts[0], 10, 64)
+			// check for corrupted data, there must be 2 u64 (off and len) after the digest.
+			if cacheFile.tagLen < cacheFile.digestLen+16 {
+				return "", 0, 0
+			}
 
-			len, _ := strconv.ParseInt(parts[1], 10, 64)
-			return digest, uint64(off), uint64(len)
+			offsetAndLen := cacheFile.tags[startOff : (i+1)*cacheFile.tagLen]
+
+			off := binary.LittleEndian.Uint64(offsetAndLen[:8])
+			len := binary.LittleEndian.Uint64(offsetAndLen[8:16])
+
+			return digest, off, len
 		}
 	}
 	return "", 0, 0
