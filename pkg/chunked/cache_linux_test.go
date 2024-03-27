@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
+	digest "github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -116,7 +117,7 @@ func TestWriteCache(t *testing.T) {
 	if err != nil {
 		t.Errorf("got error from writeCache: %v", err)
 	}
-	if digest, _, _ := findTag("foobar", cache); digest != "" {
+	if digest, _, _ := findTag("sha256:99fe908c699dc068438b23e28319cadff1f2153c3043bafb8e83a430bba0a2c2", cache); digest != "" {
 		t.Error("found invalid tag")
 	}
 
@@ -130,7 +131,8 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.Digest {
 				t.Error("wrong file found")
 			}
-			expectedLocation := generateFileLocation(r.Name, 0, uint64(r.Size))
+			expectedLocation, err := generateFileLocation(0, 0, uint64(r.Size))
+			assert.Nil(t, err)
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -149,7 +151,8 @@ func TestWriteCache(t *testing.T) {
 			if digest != fingerprint {
 				t.Error("wrong file found")
 			}
-			expectedLocation = generateFileLocation(r.Name, 0, uint64(r.Size))
+			expectedLocation, err = generateFileLocation(0, 0, uint64(r.Size))
+			assert.Nil(t, err)
 			location = cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -164,7 +167,8 @@ func TestWriteCache(t *testing.T) {
 			if digest != r.ChunkDigest {
 				t.Error("wrong digest found")
 			}
-			expectedLocation := generateFileLocation(r.Name, uint64(r.ChunkOffset), uint64(r.ChunkSize))
+			expectedLocation, err := generateFileLocation(0, uint64(r.ChunkOffset), uint64(r.ChunkSize))
+			assert.Nil(t, err)
 			location := cache.vdata[off : off+len]
 			if !bytes.Equal(location, expectedLocation) {
 				t.Errorf("wrong file found %q instead of %q", location, expectedLocation)
@@ -210,4 +214,61 @@ func TestUnmarshalToc(t *testing.T) {
 	assert.Error(t, err)
 	_, err = unmarshalToc([]byte(jsonTOC + "123"))
 	assert.Error(t, err)
+}
+
+func benchmarkLookup(b *testing.B, sizeCache, n int) {
+	var tagsBuffer bytes.Buffer
+	var vdata bytes.Buffer
+	var fnames bytes.Buffer
+	tags := [][]byte{}
+	tagLen := 64
+	digestLen := 64
+
+	digester := digest.Canonical.Digester()
+	hash := digester.Hash()
+	for i := 0; i < sizeCache; i++ {
+		hash.Write([]byte("1"))
+		d := digester.Digest()
+		binaryDigest, err := getBinaryDigest(d.String())
+		assert.Nil(b, err)
+
+		digestLen = len(binaryDigest)
+		tag, err := generateTag(binaryDigest, 0, 0)
+		assert.Nil(b, err)
+		tags = append(tags, tag)
+	}
+	writeCacheFileToWriter(io.Discard, tags, tagLen, digestLen, vdata, fnames, &tagsBuffer)
+
+	cache := &cacheFile{
+		digestLen: digestLen,
+		tagLen:    tagLen,
+		tags:      tagsBuffer.Bytes(),
+		vdata:     vdata.Bytes(),
+	}
+
+	for i := 0; i < n; i++ {
+		hash.Write([]byte("1"))
+		d := digester.Digest()
+		findTag(d.String(), cache)
+	}
+}
+
+func BenchmarkLookupSmall10000(b *testing.B) {
+	benchmarkLookup(b, 10, 10000)
+}
+
+func BenchmarkLookupSmall100000(b *testing.B) {
+	benchmarkLookup(b, 10, 100000)
+}
+
+func BenchmarkLookupMedium10000(b *testing.B) {
+	benchmarkLookup(b, 10000, 10000)
+}
+
+func BenchmarkLookupMedium100000(b *testing.B) {
+	benchmarkLookup(b, 10000, 100000)
+}
+
+func BenchmarkLookupLarge10000(b *testing.B) {
+	benchmarkLookup(b, 1000000, 10000)
 }
