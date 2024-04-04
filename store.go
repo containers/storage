@@ -2820,7 +2820,7 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 	}
 	defer s.stopUsingGraphDriver()
 
-	rlstore, err := s.getLayerStoreLocked()
+	rlstore, lstores, err := s.bothLayerStoreKindsLocked()
 	if err != nil {
 		return "", err
 	}
@@ -2836,6 +2836,13 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 	if rlstore.Exists(id) {
 		return rlstore.Mount(id, options)
 	}
+	// check if the layer is in a read-only store, and return a better error message
+	for _, store := range lstores {
+		if store.Exists(id) {
+			return "", fmt.Errorf("mounting read/only store images is not allowed: %w", ErrLayerUnknown)
+		}
+	}
+
 	return "", ErrLayerUnknown
 }
 
