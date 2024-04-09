@@ -652,45 +652,9 @@ func (c *layersCache) findChunkInOtherLayers(chunk *internal.FileMetadata) (stri
 }
 
 func unmarshalToc(manifest []byte) (*internal.TOC, error) {
-	var buf bytes.Buffer
-	count := 0
 	var toc internal.TOC
 
 	iter := jsoniter.ParseBytes(jsoniter.ConfigFastest, manifest)
-	for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
-		if strings.ToLower(field) != "entries" {
-			iter.Skip()
-			continue
-		}
-		for iter.ReadArray() {
-			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
-				switch strings.ToLower(field) {
-				case "type", "name", "linkname", "digest", "chunkdigest", "chunktype", "modtime", "accesstime", "changetime":
-					count += len(iter.ReadStringAsSlice())
-				case "xattrs":
-					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
-						count += len(iter.ReadStringAsSlice())
-					}
-				default:
-					iter.Skip()
-				}
-			}
-		}
-		break
-	}
-
-	buf.Grow(count)
-
-	getString := func(b []byte) string {
-		from := buf.Len()
-		buf.Write(b)
-		to := buf.Len()
-		return byteSliceAsString(buf.Bytes()[from:to])
-	}
-
-	pool := iter.Pool()
-	pool.ReturnIterator(iter)
-	iter = pool.BorrowIterator(manifest)
 
 	for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
 		if strings.ToLower(field) == "version" {
@@ -706,11 +670,11 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 			for field := iter.ReadObject(); field != ""; field = iter.ReadObject() {
 				switch strings.ToLower(field) {
 				case "type":
-					m.Type = getString(iter.ReadStringAsSlice())
+					m.Type = iter.ReadString()
 				case "name":
-					m.Name = getString(iter.ReadStringAsSlice())
+					m.Name = iter.ReadString()
 				case "linkname":
-					m.Linkname = getString(iter.ReadStringAsSlice())
+					m.Linkname = iter.ReadString()
 				case "mode":
 					m.Mode = iter.ReadInt64()
 				case "size":
@@ -720,19 +684,19 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 				case "gid":
 					m.GID = iter.ReadInt()
 				case "modtime":
-					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
+					time, err := time.Parse(time.RFC3339, iter.ReadString())
 					if err != nil {
 						return nil, err
 					}
 					m.ModTime = &time
 				case "accesstime":
-					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
+					time, err := time.Parse(time.RFC3339, iter.ReadString())
 					if err != nil {
 						return nil, err
 					}
 					m.AccessTime = &time
 				case "changetime":
-					time, err := time.Parse(time.RFC3339, byteSliceAsString(iter.ReadStringAsSlice()))
+					time, err := time.Parse(time.RFC3339, iter.ReadString())
 					if err != nil {
 						return nil, err
 					}
@@ -742,7 +706,7 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 				case "devminor":
 					m.Devminor = iter.ReadInt64()
 				case "digest":
-					m.Digest = getString(iter.ReadStringAsSlice())
+					m.Digest = iter.ReadString()
 				case "offset":
 					m.Offset = iter.ReadInt64()
 				case "endoffset":
@@ -752,14 +716,13 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 				case "chunkoffset":
 					m.ChunkOffset = iter.ReadInt64()
 				case "chunkdigest":
-					m.ChunkDigest = getString(iter.ReadStringAsSlice())
+					m.ChunkDigest = iter.ReadString()
 				case "chunktype":
-					m.ChunkType = getString(iter.ReadStringAsSlice())
+					m.ChunkType = iter.ReadString()
 				case "xattrs":
 					m.Xattrs = make(map[string]string)
 					for key := iter.ReadObject(); key != ""; key = iter.ReadObject() {
-						value := iter.ReadStringAsSlice()
-						m.Xattrs[key] = getString(value)
+						m.Xattrs[key] = iter.ReadString()
 					}
 				default:
 					iter.Skip()
@@ -781,6 +744,5 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 		return nil, fmt.Errorf("unexpected data after manifest")
 	}
 
-	toc.StringsBuf = buf
 	return &toc, nil
 }
