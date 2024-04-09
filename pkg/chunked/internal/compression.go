@@ -21,9 +21,6 @@ import (
 type TOC struct {
 	Version int            `json:"version"`
 	Entries []FileMetadata `json:"entries"`
-
-	// internal: used by unmarshalToc
-	StringsBuf bytes.Buffer `json:"-"`
 }
 
 type FileMetadata struct {

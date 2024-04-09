@@ -55,6 +55,23 @@ const jsonTOC = `
       "chunkSize": 86252,
       "chunkOffset": 17615,
       "chunkDigest": "sha256:2a9d3f1b6b37abc8bb35eb8fa98b893a2a2447bcb01184c3bafc8c6b40da099d"
+    },
+    {
+      "type": "reg",
+      "name": "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice",
+      "mode": 420,
+      "size": 468,
+      "modtime": "2024-03-03T18:04:57+01:00",
+      "accesstime": "0001-01-01T00:00:00Z",
+      "changetime": "0001-01-01T00:00:00Z",
+      "digest": "sha256:68dc6e85631e077f2bc751352459823844911b93b7ba2afd95d96c893222bb50",
+      "offset": 148185424,
+      "endOffset": 148185753
+    },
+    {
+      "type": "reg",
+      "name": "usr/lib/systemd/system/system-systemd\\x2dcryptsetup-hardlink.slice",
+      "linkName": "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice"
     }
   ]
 }
@@ -65,7 +82,7 @@ func TestPrepareMetadata(t *testing.T) {
 	if err != nil {
 		t.Errorf("got error from prepareCacheFile: %v", err)
 	}
-	if len(toc) != 2 {
+	if len(toc) != 4 {
 		t.Error("prepareCacheFile returns the wrong length")
 	}
 }
@@ -194,7 +211,7 @@ func TestReadCache(t *testing.T) {
 func TestUnmarshalToc(t *testing.T) {
 	toc, err := unmarshalToc([]byte(jsonTOC))
 	assert.NoError(t, err)
-	assert.Equal(t, 4, len(toc.Entries))
+	assert.Equal(t, 6, len(toc.Entries))
 
 	_, err = unmarshalToc([]byte(jsonTOC + "        \n\n\n\n    "))
 	assert.NoError(t, err)
@@ -210,4 +227,7 @@ func TestUnmarshalToc(t *testing.T) {
 	assert.Error(t, err)
 	_, err = unmarshalToc([]byte(jsonTOC + "123"))
 	assert.Error(t, err)
+	assert.Equal(t, toc.Entries[4].Name, "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice", "invalid name escaped")
+	assert.Equal(t, toc.Entries[5].Name, "usr/lib/systemd/system/system-systemd\\x2dcryptsetup-hardlink.slice", "invalid name escaped")
+	assert.Equal(t, toc.Entries[5].Linkname, "usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice", "invalid link name escaped")
 }
