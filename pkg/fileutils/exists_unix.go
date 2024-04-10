@@ -4,6 +4,8 @@
 package fileutils
 
 import (
+	"os"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -12,7 +14,11 @@ import (
 func Exists(path string) error {
 	// It uses unix.Faccessat which is a faster operation compared to os.Stat for
 	// simply checking the existence of a file.
-	return unix.Faccessat(unix.AT_FDCWD, path, unix.F_OK, 0)
+	err := unix.Faccessat(unix.AT_FDCWD, path, unix.F_OK, 0)
+	if err != nil {
+		return &os.PathError{Op: "faccessat", Path: path, Err: err}
+	}
+	return nil
 }
 
 // Lexists checks whether a file or directory exists at the given path.
@@ -20,5 +26,9 @@ func Exists(path string) error {
 func Lexists(path string) error {
 	// It uses unix.Faccessat which is a faster operation compared to os.Stat for
 	// simply checking the existence of a file.
-	return unix.Faccessat(unix.AT_FDCWD, path, unix.F_OK, unix.AT_SYMLINK_NOFOLLOW)
+	err := unix.Faccessat(unix.AT_FDCWD, path, unix.F_OK, unix.AT_SYMLINK_NOFOLLOW)
+	if err != nil {
+		return &os.PathError{Op: "faccessat", Path: path, Err: err}
+	}
+	return nil
 }

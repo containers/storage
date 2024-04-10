@@ -28,6 +28,13 @@ func TestExist(t *testing.T) {
 		if err1 == nil {
 			return
 		}
+
+		var pathErr1 *os.PathError
+		var pathErr2 *os.PathError
+		assert.ErrorAs(t, err1, &pathErr1, "wrong error type")
+		assert.ErrorAs(t, err2, &pathErr2, "wrong error type")
+		assert.Equal(t, pathErr1.Path, pathErr1.Path, "different file path")
+
 		// on Linux validates that the syscall error is the same
 		if runtime.GOOS == "linux" {
 			var syscallErr1 syscall.Errno
