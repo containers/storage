@@ -708,37 +708,6 @@ func GetSubIDMappings(user, group string) ([]specs.LinuxIDMapping, []specs.Linux
 	return uidmap, gidmap, nil
 }
 
-// ReadMappingsProc parses and returns the ID mappings at the specified path.
-func ReadMappingsProc(path string) ([]idtools.IDMap, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	mappings := []idtools.IDMap{}
-
-	buf := bufio.NewReader(file)
-	for {
-		line, _, err := buf.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				return mappings, nil
-			}
-			return nil, fmt.Errorf("cannot read line from %s: %w", path, err)
-		}
-		if line == nil {
-			return mappings, nil
-		}
-
-		containerID, hostID, size := 0, 0, 0
-		if _, err := fmt.Sscanf(string(line), "%d %d %d", &containerID, &hostID, &size); err != nil {
-			return nil, fmt.Errorf("cannot parse %s: %w", string(line), err)
-		}
-		mappings = append(mappings, idtools.IDMap{ContainerID: containerID, HostID: hostID, Size: size})
-	}
-}
-
 // ParseIDMappings parses mapping triples.
 func ParseIDMappings(uidmap, gidmap []string) ([]idtools.IDMap, []idtools.IDMap, error) {
 	uid, err := idtools.ParseIDMap(uidmap, "userns-uid-map")
