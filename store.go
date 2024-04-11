@@ -3710,7 +3710,7 @@ func DefaultConfigFile() (string, error) {
 // the configuration in storeOptions.
 // Deprecated: Use types.ReloadConfigurationFile, which can return an error.
 func ReloadConfigurationFile(configFile string, storeOptions *types.StoreOptions) {
-	_ = types.ReloadConfigurationFile(configFile, storeOptions)
+	_ = types.ReloadConfigurationFile(configFile, storeOptions, true)
 }
 
 // GetDefaultMountOptions returns the default mountoptions defined in container/storage
