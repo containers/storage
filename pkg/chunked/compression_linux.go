@@ -145,7 +145,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, toc
 
 	if offsetMetadata := annotations[internal.ManifestInfoKey]; offsetMetadata != "" {
 		var err error
-		footerData, err = internal.ReadFooterDataFromAnnotations(tocDigest, annotations)
+		footerData, err = internal.ReadFooterDataFromAnnotations(annotations)
 		if err != nil {
 			return nil, nil, 0, err
 		}
@@ -233,7 +233,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, toc
 		return nil, nil, 0, err
 	}
 
-	decodedBlob, err := decodeAndValidateBlob(manifest, footerData.LengthUncompressed, footerData.ChecksumAnnotation)
+	decodedBlob, err := decodeAndValidateBlob(manifest, footerData.LengthUncompressed, tocDigest.String())
 	if err != nil {
 		return nil, nil, 0, err
 	}
