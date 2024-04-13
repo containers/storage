@@ -265,7 +265,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 	}
 
 	_, hasZstdChunkedTOC := annotations[internal.ManifestChecksumKey]
-	_, hasEstargzTOC := annotations[estargz.TOCJSONDigestAnnotation]
+	estargzTOCDigestString, hasEstargzTOC := annotations[estargz.TOCJSONDigestAnnotation]
 
 	if hasZstdChunkedTOC && hasEstargzTOC {
 		return nil, errors.New("both zstd:chunked and eStargz TOC found")
@@ -275,7 +275,11 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 		return makeZstdChunkedDiffer(ctx, store, blobSize, annotations, iss, &storeOpts)
 	}
 	if hasEstargzTOC {
-		return makeEstargzChunkedDiffer(ctx, store, blobSize, annotations, iss, &storeOpts)
+		estargzTOCDigest, err := digest.Parse(estargzTOCDigestString)
+		if err != nil {
+			return nil, fmt.Errorf("parsing estargz TOC digest %q: %w", estargzTOCDigestString, err)
+		}
+		return makeEstargzChunkedDiffer(ctx, store, blobSize, estargzTOCDigest, iss, &storeOpts)
 	}
 
 	return makeConvertFromRawDiffer(ctx, store, blobDigest, blobSize, annotations, iss, &storeOpts)
@@ -333,19 +337,14 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	}, nil
 }
 
-func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
-	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, annotations)
+func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
+	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	layersCache, err := getLayersCache(store)
 	if err != nil {
 		return nil, err
-	}
-
-	tocDigest, err := digest.Parse(annotations[estargz.TOCJSONDigestAnnotation])
-	if err != nil {
-		return nil, fmt.Errorf("parse TOC digest %q: %w", annotations[estargz.TOCJSONDigestAnnotation], err)
 	}
 
 	return &chunkedDiffer{
