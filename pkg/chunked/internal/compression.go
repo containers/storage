@@ -231,13 +231,10 @@ func footerDataToBlob(footer ZstdChunkedFooterData) []byte {
 }
 
 // ReadFooterDataFromAnnotations reads the zstd:chunked footer data from the given annotations.
-func ReadFooterDataFromAnnotations(annotations map[string]string) (ZstdChunkedFooterData, error) {
+func ReadFooterDataFromAnnotations(tocDigest digest.Digest, annotations map[string]string) (ZstdChunkedFooterData, error) {
 	var footerData ZstdChunkedFooterData
 
-	footerData.ChecksumAnnotation = annotations[ManifestChecksumKey]
-	if footerData.ChecksumAnnotation == "" {
-		return footerData, fmt.Errorf("manifest checksum annotation %q not found", ManifestChecksumKey)
-	}
+	footerData.ChecksumAnnotation = tocDigest.String()
 
 	offsetMetadata := annotations[ManifestInfoKey]
 
