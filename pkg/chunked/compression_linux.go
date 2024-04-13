@@ -7,7 +7,6 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/containerd/stargz-snapshotter/estargz"
 	"github.com/containers/storage/pkg/chunked/internal"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
@@ -33,7 +32,7 @@ func typeToTarType(t string) (byte, error) {
 	return r, nil
 }
 
-func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, annotations map[string]string) ([]byte, int64, error) {
+func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, tocDigest digest.Digest) ([]byte, int64, error) {
 	// information on the format here https://github.com/containerd/stargz-snapshotter/blob/main/docs/stargz-estargz.md
 	footerSize := int64(51)
 	if blobSize <= footerSize {
@@ -126,11 +125,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 		return nil, 0, err
 	}
 
-	d, err := digest.Parse(annotations[estargz.TOCJSONDigestAnnotation])
-	if err != nil {
-		return nil, 0, err
-	}
-	if manifestDigester.Digest() != d {
+	if manifestDigester.Digest() != tocDigest {
 		return nil, 0, errors.New("invalid manifest checksum")
 	}
 
