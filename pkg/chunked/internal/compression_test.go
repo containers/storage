@@ -15,7 +15,6 @@ func TestGenerateAndReadFooter(t *testing.T) {
 		Offset:                     2,
 		LengthCompressed:           3,
 		LengthUncompressed:         4,
-		ChecksumAnnotation:         "", // unused
 		OffsetTarSplit:             5,
 		LengthCompressedTarSplit:   6,
 		LengthUncompressedTarSplit: 7,
