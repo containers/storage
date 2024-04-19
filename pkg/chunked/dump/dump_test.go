@@ -14,7 +14,6 @@ func TestEscaped(t *testing.T) {
 		escape int
 		want   string
 	}{
-		{"Hello, World!", 0, "Hello, World!"},
 		{"12345", 0, "12345"},
 		{"", 0, ""},
 		{"\n", 0, "\\n"},
@@ -25,9 +24,12 @@ func TestEscaped(t *testing.T) {
 		{"foo=bar", ESCAPE_EQUAL, "foo\\x3dbar"},
 		{"-", ESCAPE_LONE_DASH, "\\x2d"},
 		{"\n", NOESCAPE_SPACE, "\\n"},
+		{" ", 0, "\\x20"},
 		{" ", NOESCAPE_SPACE, " "},
 		{"\t", NOESCAPE_SPACE, "\\t"},
 		{"\n\t", NOESCAPE_SPACE, "\\n\\t"},
+		{"Hello World!", 0, "Hello\\x20World!"},
+		{"Hello World!", NOESCAPE_SPACE, "Hello World!"},
 	}
 
 	for _, test := range tests {
