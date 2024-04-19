@@ -216,15 +216,15 @@ func (f *seekableFile) GetBlobAt(chunks []ImageSourceChunk) (chan io.ReadCloser,
 	return streams, errs, nil
 }
 
-func convertTarToZstdChunked(destDirectory string, payload *os.File) (*seekableFile, digest.Digest, map[string]string, error) {
+func convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *seekableFile, digest.Digest, map[string]string, error) {
 	diff, err := archive.DecompressStream(payload)
 	if err != nil {
-		return nil, "", nil, err
+		return 0, nil, "", nil, err
 	}
 
 	fd, err := unix.Open(destDirectory, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
 	if err != nil {
-		return nil, "", nil, err
+		return 0, nil, "", nil, err
 	}
 
 	f := os.NewFile(uintptr(fd), destDirectory)
@@ -234,23 +234,24 @@ func convertTarToZstdChunked(destDirectory string, payload *os.File) (*seekableF
 	chunked, err := compressor.ZstdCompressor(f, newAnnotations, &level)
 	if err != nil {
 		f.Close()
-		return nil, "", nil, err
+		return 0, nil, "", nil, err
 	}
 
 	convertedOutputDigester := digest.Canonical.Digester()
-	if _, err := io.Copy(io.MultiWriter(chunked, convertedOutputDigester.Hash()), diff); err != nil {
+	copied, err := io.Copy(io.MultiWriter(chunked, convertedOutputDigester.Hash()), diff)
+	if err != nil {
 		f.Close()
-		return nil, "", nil, err
+		return 0, nil, "", nil, err
 	}
 	if err := chunked.Close(); err != nil {
 		f.Close()
-		return nil, "", nil, err
+		return 0, nil, "", nil, err
 	}
 	is := seekableFile{
 		file: f,
 	}
 
-	return &is, convertedOutputDigester.Digest(), newAnnotations, nil
+	return copied, &is, convertedOutputDigester.Digest(), newAnnotations, nil
 }
 
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
@@ -1653,6 +1654,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	stream := c.stream
 
 	var uncompressedDigest digest.Digest
+	var convertedBlobSize int64
 
 	if c.convertToZstdChunked {
 		fd, err := unix.Open(dest, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
@@ -1680,10 +1682,11 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
 
-		fileSource, diffID, annotations, err := convertTarToZstdChunked(dest, blobFile)
+		tarSize, fileSource, diffID, annotations, err := convertTarToZstdChunked(dest, blobFile)
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
+		convertedBlobSize = tarSize
 		// fileSource is a O_TMPFILE file descriptor, so we
 		// need to keep it open until the entire file is processed.
 		defer fileSource.Close()
@@ -1753,13 +1756,19 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 	var missingParts []missingPart
 
-	mergedEntries, totalSize, err := c.mergeTocEntries(c.fileType, toc.Entries)
+	mergedEntries, totalSizeFromTOC, err := c.mergeTocEntries(c.fileType, toc.Entries)
 	if err != nil {
 		return output, err
 	}
 
 	output.UIDs, output.GIDs = collectIDs(mergedEntries)
-	output.Size = totalSize
+	if convertedBlobSize > 0 {
+		// if the image was converted, store the original tar size, so that
+		// it can be recreated correctly.
+		output.Size = convertedBlobSize
+	} else {
+		output.Size = totalSizeFromTOC
+	}
 
 	if err := maybeDoIDRemap(mergedEntries, options); err != nil {
 		return output, err
