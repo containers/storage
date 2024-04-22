@@ -185,7 +185,6 @@ func WriteZstdChunkedManifest(dest io.Writer, outMetadata map[string]string, off
 		OffsetTarSplit:             uint64(tarSplitOffset),
 		LengthCompressedTarSplit:   uint64(len(tarSplitData.Data)),
 		LengthUncompressedTarSplit: uint64(tarSplitData.UncompressedSize),
-		ChecksumAnnotationTarSplit: "", // unused
 	}
 
 	manifestDataLE := footerDataToBlob(footer)
@@ -214,7 +213,7 @@ type ZstdChunkedFooterData struct {
 	OffsetTarSplit             uint64
 	LengthCompressedTarSplit   uint64
 	LengthUncompressedTarSplit uint64
-	ChecksumAnnotationTarSplit string // Only used when reading a layer, not when creating it
+	ChecksumAnnotationTarSplit string // Deprecated: This field is not a part of the footer and not used for any purpose.
 }
 
 func footerDataToBlob(footer ZstdChunkedFooterData) []byte {

@@ -138,42 +138,43 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 	if offsetMetadata == "" {
 		return nil, nil, 0, fmt.Errorf("%q annotation missing", internal.ManifestInfoKey)
 	}
-
-	var footerData internal.ZstdChunkedFooterData
-
-	if _, err := fmt.Sscanf(offsetMetadata, "%d:%d:%d:%d", &footerData.Offset, &footerData.LengthCompressed, &footerData.LengthUncompressed, &footerData.ManifestType); err != nil {
+	var manifestOffset, manifestLengthCompressed, manifestLengthUncompressed, manifestType uint64
+	if _, err := fmt.Sscanf(offsetMetadata, "%d:%d:%d:%d", &manifestOffset, &manifestLengthCompressed, &manifestLengthUncompressed, &manifestType); err != nil {
 		return nil, nil, 0, err
 	}
+	// The tarSplit… values are valid if tarSplitOffset > 0
+	var tarSplitOffset, tarSplitLengthCompressed, tarSplitLengthUncompressed uint64
+	var tarSplitChecksum string
 	if tarSplitInfoKeyAnnotation, found := annotations[internal.TarSplitInfoKey]; found {
-		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &footerData.OffsetTarSplit, &footerData.LengthCompressedTarSplit, &footerData.LengthUncompressedTarSplit); err != nil {
+		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &tarSplitOffset, &tarSplitLengthCompressed, &tarSplitLengthUncompressed); err != nil {
 			return nil, nil, 0, err
 		}
-		footerData.ChecksumAnnotationTarSplit = annotations[internal.TarSplitChecksumKey]
+		tarSplitChecksum = annotations[internal.TarSplitChecksumKey]
 	}
 
-	if footerData.ManifestType != internal.ManifestTypeCRFS {
+	if manifestType != internal.ManifestTypeCRFS {
 		return nil, nil, 0, errors.New("invalid manifest type")
 	}
 
 	// set a reasonable limit
-	if footerData.LengthCompressed > (1<<20)*50 {
+	if manifestLengthCompressed > (1<<20)*50 {
 		return nil, nil, 0, errors.New("manifest too big")
 	}
-	if footerData.LengthUncompressed > (1<<20)*50 {
+	if manifestLengthUncompressed > (1<<20)*50 {
 		return nil, nil, 0, errors.New("manifest too big")
 	}
 
 	chunk := ImageSourceChunk{
-		Offset: footerData.Offset,
-		Length: footerData.LengthCompressed,
+		Offset: manifestOffset,
+		Length: manifestLengthCompressed,
 	}
 
 	chunks := []ImageSourceChunk{chunk}
 
-	if footerData.OffsetTarSplit > 0 {
+	if tarSplitOffset > 0 {
 		chunkTarSplit := ImageSourceChunk{
-			Offset: footerData.OffsetTarSplit,
-			Length: footerData.LengthCompressedTarSplit,
+			Offset: tarSplitOffset,
+			Length: tarSplitLengthCompressed,
 		}
 		chunks = append(chunks, chunkTarSplit)
 	}
@@ -203,28 +204,28 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 		return blob, nil
 	}
 
-	manifest, err := readBlob(footerData.LengthCompressed)
+	manifest, err := readBlob(manifestLengthCompressed)
 	if err != nil {
 		return nil, nil, 0, err
 	}
 
-	decodedBlob, err := decodeAndValidateBlob(manifest, footerData.LengthUncompressed, tocDigest.String())
+	decodedBlob, err := decodeAndValidateBlob(manifest, manifestLengthUncompressed, tocDigest.String())
 	if err != nil {
 		return nil, nil, 0, err
 	}
 	decodedTarSplit := []byte{}
-	if footerData.OffsetTarSplit > 0 {
-		tarSplit, err := readBlob(footerData.LengthCompressedTarSplit)
+	if tarSplitOffset > 0 {
+		tarSplit, err := readBlob(tarSplitLengthCompressed)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 
-		decodedTarSplit, err = decodeAndValidateBlob(tarSplit, footerData.LengthUncompressedTarSplit, footerData.ChecksumAnnotationTarSplit)
+		decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, tarSplitChecksum)
 		if err != nil {
 			return nil, nil, 0, err
 		}
 	}
-	return decodedBlob, decodedTarSplit, int64(footerData.Offset), err
+	return decodedBlob, decodedTarSplit, int64(manifestOffset), err
 }
 
 func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompressedChecksum string) ([]byte, error) {
