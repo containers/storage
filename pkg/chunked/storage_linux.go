@@ -314,7 +314,7 @@ func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDige
 }
 
 func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
-	manifest, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, blobSize, tocDigest, annotations)
+	manifest, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
@@ -1701,7 +1701,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		if tocDigest == nil {
 			return graphdriver.DriverWithDifferOutput{}, fmt.Errorf("internal error: just-created zstd:chunked missing TOC digest")
 		}
-		manifest, tarSplit, tocOffset, err := readZstdChunkedManifest(fileSource, c.blobSize, *tocDigest, annotations)
+		manifest, tarSplit, tocOffset, err := readZstdChunkedManifest(fileSource, *tocDigest, annotations)
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, fmt.Errorf("read zstd:chunked manifest: %w", err)
 		}

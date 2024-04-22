@@ -200,6 +200,11 @@ func ZstdWriterWithLevel(dest io.Writer, level int) (*zstd.Encoder, error) {
 }
 
 // ZstdChunkedFooterData contains all the data stored in the zstd:chunked footer.
+// This footer exists to make the blobs self-describing, our implementation
+// never reads it:
+// Partial pull security hinges on the TOC digest, and that exists as a layer annotation;
+// so we are relying on the layer annotations anyway, and doing so means we can avoid
+// a round-trip to fetch this binary footer.
 type ZstdChunkedFooterData struct {
 	ManifestType uint64
 

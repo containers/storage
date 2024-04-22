@@ -132,48 +132,16 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 	return manifestUncompressed, tocOffset, nil
 }
 
-// readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.  The blob total size must
-// be specified.
-// This function uses the io.github.containers.zstd-chunked. annotations when specified.
-func readZstdChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, tocDigest digest.Digest, annotations map[string]string) ([]byte, []byte, int64, error) {
-	footerSize := int64(internal.FooterSizeSupported)
-	if blobSize <= footerSize {
-		return nil, nil, 0, errors.New("blob too small")
+// readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.
+func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) ([]byte, []byte, int64, error) {
+	offsetMetadata := annotations[internal.ManifestInfoKey]
+	if offsetMetadata == "" {
+		return nil, nil, 0, fmt.Errorf("%q annotation missing", internal.ManifestInfoKey)
 	}
 
-	var footerData internal.ZstdChunkedFooterData
-
-	if offsetMetadata := annotations[internal.ManifestInfoKey]; offsetMetadata != "" {
-		var err error
-		footerData, err = internal.ReadFooterDataFromAnnotations(annotations)
-		if err != nil {
-			return nil, nil, 0, err
-		}
-	} else {
-		chunk := ImageSourceChunk{
-			Offset: uint64(blobSize - footerSize),
-			Length: uint64(footerSize),
-		}
-		parts, errs, err := blobStream.GetBlobAt([]ImageSourceChunk{chunk})
-		if err != nil {
-			return nil, nil, 0, err
-		}
-		var reader io.ReadCloser
-		select {
-		case r := <-parts:
-			reader = r
-		case err := <-errs:
-			return nil, nil, 0, err
-		}
-		footer := make([]byte, footerSize)
-		if _, err := io.ReadFull(reader, footer); err != nil {
-			return nil, nil, 0, err
-		}
-
-		footerData, err = internal.ReadFooterDataFromBlob(footer)
-		if err != nil {
-			return nil, nil, 0, err
-		}
+	footerData, err := internal.ReadFooterDataFromAnnotations(annotations)
+	if err != nil {
+		return nil, nil, 0, err
 	}
 
 	if footerData.ManifestType != internal.ManifestTypeCRFS {
