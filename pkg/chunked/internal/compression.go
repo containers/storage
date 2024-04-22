@@ -21,9 +21,6 @@ import (
 type TOC struct {
 	Version int            `json:"version"`
 	Entries []FileMetadata `json:"entries"`
-
-	// internal: used by unmarshalToc
-	StringsBuf bytes.Buffer `json:"-"`
 }
 
 type FileMetadata struct {
@@ -48,9 +45,6 @@ type FileMetadata struct {
 	ChunkOffset int64  `json:"chunkOffset,omitempty"`
 	ChunkDigest string `json:"chunkDigest,omitempty"`
 	ChunkType   string `json:"chunkType,omitempty"`
-
-	// internal: computed by mergeTOCEntries.
-	Chunks []*FileMetadata `json:"-"`
 }
 
 const (
@@ -189,7 +183,6 @@ func WriteZstdChunkedManifest(dest io.Writer, outMetadata map[string]string, off
 		Offset:                     manifestOffset,
 		LengthCompressed:           uint64(len(compressedManifest)),
 		LengthUncompressed:         uint64(len(manifest)),
-		ChecksumAnnotation:         "", // unused
 		OffsetTarSplit:             uint64(tarSplitOffset),
 		LengthCompressedTarSplit:   uint64(len(tarSplitData.Data)),
 		LengthUncompressedTarSplit: uint64(tarSplitData.UncompressedSize),
@@ -213,7 +206,6 @@ type ZstdChunkedFooterData struct {
 	Offset             uint64
 	LengthCompressed   uint64
 	LengthUncompressed uint64
-	ChecksumAnnotation string // Only used when reading a layer, not when creating it
 
 	OffsetTarSplit             uint64
 	LengthCompressedTarSplit   uint64
@@ -239,11 +231,6 @@ func footerDataToBlob(footer ZstdChunkedFooterData) []byte {
 // ReadFooterDataFromAnnotations reads the zstd:chunked footer data from the given annotations.
 func ReadFooterDataFromAnnotations(annotations map[string]string) (ZstdChunkedFooterData, error) {
 	var footerData ZstdChunkedFooterData
-
-	footerData.ChecksumAnnotation = annotations[ManifestChecksumKey]
-	if footerData.ChecksumAnnotation == "" {
-		return footerData, fmt.Errorf("manifest checksum annotation %q not found", ManifestChecksumKey)
-	}
 
 	offsetMetadata := annotations[ManifestInfoKey]
 
