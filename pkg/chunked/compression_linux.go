@@ -147,12 +147,10 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 	// The tarSplit… values are valid if tarSplitChunk.Offset > 0
 	var tarSplitChunk ImageSourceChunk
 	var tarSplitLengthUncompressed uint64
-	var tarSplitChecksum string
 	if tarSplitInfoKeyAnnotation, found := annotations[internal.TarSplitInfoKey]; found {
 		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &tarSplitChunk.Offset, &tarSplitChunk.Length, &tarSplitLengthUncompressed); err != nil {
 			return nil, nil, nil, 0, err
 		}
-		tarSplitChecksum = annotations[internal.TarSplitChecksumKey]
 	}
 
 	if manifestType != internal.ManifestTypeCRFS {
@@ -217,7 +215,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 			return nil, nil, nil, 0, err
 		}
 
-		decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, tarSplitChecksum)
+		decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, toc.TarSplitDigest.String())
 		if err != nil {
 			return nil, nil, nil, 0, err
 		}

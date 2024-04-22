@@ -18,8 +18,9 @@ import (
 )
 
 type TOC struct {
-	Version int            `json:"version"`
-	Entries []FileMetadata `json:"entries"`
+	Version        int            `json:"version"`
+	Entries        []FileMetadata `json:"entries"`
+	TarSplitDigest digest.Digest  `json:"tarSplitDigest,omitempty"`
 }
 
 type FileMetadata struct {
@@ -84,7 +85,7 @@ func GetType(t byte) (string, error) {
 const (
 	ManifestChecksumKey = "io.github.containers.zstd-chunked.manifest-checksum"
 	ManifestInfoKey     = "io.github.containers.zstd-chunked.manifest-position"
-	TarSplitChecksumKey = "io.github.containers.zstd-chunked.tarsplit-checksum"
+	TarSplitChecksumKey = "io.github.containers.zstd-chunked.tarsplit-checksum" // Deprecated: Use the TOC.TarSplitDigest field instead, this one is not authenticated by ManifestChecksumKey.
 	TarSplitInfoKey     = "io.github.containers.zstd-chunked.tarsplit-position"
 
 	// ManifestTypeCRFS is a manifest file compatible with the CRFS TOC file.
@@ -133,8 +134,9 @@ func WriteZstdChunkedManifest(dest io.Writer, outMetadata map[string]string, off
 	manifestOffset := offset + zstdSkippableFrameHeader
 
 	toc := TOC{
-		Version: 1,
-		Entries: metadata,
+		Version:        1,
+		Entries:        metadata,
+		TarSplitDigest: tarSplitData.Digest,
 	}
 
 	json := jsoniter.ConfigCompatibleWithStandardLibrary

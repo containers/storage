@@ -897,6 +897,14 @@ func unmarshalToc(manifest []byte) (*internal.TOC, error) {
 				toc.Entries = append(toc.Entries, m)
 			}
 
+		case "tarsplitdigest": // strings.ToLower("tarSplitDigest")
+			s := iter.ReadString()
+			d, err := digest.Parse(s)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid tarSplitDigest %q: %w", s, err)
+			}
+			toc.TarSplitDigest = d
+
 		default:
 			iter.Skip()
 		}
