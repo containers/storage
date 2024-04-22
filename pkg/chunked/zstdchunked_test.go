@@ -15,6 +15,7 @@ import (
 	"github.com/containers/storage/pkg/chunked/toc"
 	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -153,7 +154,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	tocDigest, err := toc.GetTOCDigest(annotations)
 	require.NoError(t, err)
 	require.NotNil(t, tocDigest)
-	manifest, _, _, err := readZstdChunkedManifest(s, *tocDigest, annotations)
+	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(s, *tocDigest, annotations)
 	if err != nil {
 		t.Error(err)
 	}
@@ -169,6 +170,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	if len(toc.Entries) != len(someFiles) {
 		t.Fatal("Manifest mismatch")
 	}
+	assert.Equal(t, toc, *decodedTOC)
 }
 
 func TestGetTarType(t *testing.T) {
