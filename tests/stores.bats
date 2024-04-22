@@ -2,14 +2,8 @@
 
 load helpers
 
-@test "additional-stores" {
-	case "$STORAGE_DRIVER" in
-	overlay*|vfs)
-		;;
-	*)
-		skip "not supported by driver $STORAGE_DRIVER"
-		;;
-	esac
+additional_store_test() {
+	export STORAGE_DRIVER=$1
 	# Initialize a store somewhere that we'll later use as a read-only store.
 	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot layers
 	# Fail this test if we can't initialize the driver with the option.
@@ -58,6 +52,8 @@ load helpers
 
 	# We no longer need to use the read-only root as a writeable location, so shut it down.
 	storage --graph ${TESTDIR}/ro-root --run ${TESTDIR}/ro-runroot shutdown
+
+	export STORAGE_DRIVER=$2
 
 	# Create a third layer based on the second one.
 	run storage --storage-opt ${STORAGE_DRIVER}.imagestore=${TESTDIR}/ro-root --debug=false create-layer "$midlayer"
@@ -150,4 +146,21 @@ load helpers
         [ "$status" -eq 0 ]
         [ "$output" != "" ]
         ! [[ "$output" =~ "Read Only: true" ]]
+}
+
+@test "additional-stores" {
+	case "$STORAGE_DRIVER" in
+	overlay*|vfs)
+		;;
+	*)
+		skip "not supported by driver $STORAGE_DRIVER"
+		;;
+	esac
+
+	additional_store_test $STORAGE_DRIVER $STORAGE_DRIVER
+
+	# if the graphdriver is overlay, also test overlay using an additional store on vfs
+	if test "$STORAGE_DRIVER" == "overlay" -a "$STORAGE_OPTION" == ""; then
+		additional_store_test vfs $STORAGE_DRIVER
+	fi
 }

@@ -21,6 +21,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
 	"github.com/containers/storage/drivers/quota"
+	"github.com/containers/storage/drivers/vfs"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -977,7 +978,7 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) (retErr
 }
 
 func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnly bool) (retErr error) {
-	dir, homedir, _ := d.dir2(id, readOnly)
+	dir, homedir, _, _ := d.dir2(id, false, false)
 
 	disableQuota := readOnly
 
@@ -1006,15 +1007,6 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 
 	if err := idtools.MkdirAllAndChownNew(path.Dir(dir), 0o755, idPair); err != nil {
 		return err
-	}
-	if parent != "" {
-		parentBase := d.dir(parent)
-		st, err := system.Stat(filepath.Join(parentBase, "diff"))
-		if err != nil {
-			return err
-		}
-		rootUID = int(st.UID())
-		rootGID = int(st.GID())
 	}
 
 	if err := fileutils.Lexists(dir); err == nil {
@@ -1066,11 +1058,19 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 	}
 
 	if parent != "" {
-		parentBase := d.dir(parent)
-		st, err := system.Stat(filepath.Join(parentBase, "diff"))
+		parentBase, _, singleLayer, _ := d.dir2(parent, false, true)
+		var d string
+		if singleLayer {
+			d = parentBase
+		} else {
+			d = filepath.Join(parentBase, "diff")
+		}
+		st, err := system.Stat(d)
 		if err != nil {
 			return err
 		}
+		rootUID = int(st.UID())
+		rootGID = int(st.GID())
 		perms = os.FileMode(st.Mode())
 	}
 
@@ -1142,11 +1142,15 @@ func (d *Driver) parseStorageOpt(storageOpt map[string]string, driver *Driver) e
 }
 
 func (d *Driver) getLower(parent string) (string, error) {
-	parentDir := d.dir(parent)
+	parentDir, _, singleLayer, _ := d.dir2(parent, false, true)
 
 	// Ensure parent exists
 	if err := fileutils.Lexists(parentDir); err != nil {
 		return "", err
+	}
+
+	if singleLayer {
+		return parent, nil
 	}
 
 	// Read Parent link fileA
@@ -1175,7 +1179,7 @@ func (d *Driver) getLower(parent string) (string, error) {
 }
 
 func (d *Driver) dir(id string) string {
-	p, _, _ := d.dir2(id, false)
+	p, _, _, _ := d.dir2(id, false, false)
 	return p
 }
 
@@ -1187,7 +1191,15 @@ func (d *Driver) getAllImageStores() []string {
 	return additionalImageStores
 }
 
-func (d *Driver) dir2(id string, useImageStore bool) (string, string, bool) {
+// dir2 returns the directory path and home directory path associated with the given layer ID.
+// It also returns two boolean values indicating if the store is using the VFS graph driver, and
+// whether the directory is found in an image store.
+//
+//   - string: The directory path for the layer.
+//   - string: The storage home directory path.
+//   - bool: A boolean indicating whether the store is using VFS, thus doesn't require stacking of layers.
+//   - bool: A boolean indicating whether the directory is found in an additional image store.
+func (d *Driver) dir2(id string, useImageStore, useVFS bool) (string, string, bool, bool) {
 	var homedir string
 
 	if useImageStore && d.imageStore != "" {
@@ -1196,18 +1208,27 @@ func (d *Driver) dir2(id string, useImageStore bool) (string, string, bool) {
 		homedir = d.home
 	}
 
-	newpath := path.Join(homedir, id)
+	primaryPath := path.Join(homedir, id)
+	if err := fileutils.Exists(primaryPath); err == nil {
+		return primaryPath, homedir, false, false
+	}
 
-	if err := fileutils.Exists(newpath); err != nil {
-		for _, p := range d.getAllImageStores() {
-			l := path.Join(p, d.name, id)
-			err = fileutils.Exists(l)
-			if err == nil {
-				return l, homedir, true
+	allImageStores := d.getAllImageStores()
+	for _, p := range allImageStores {
+		l := path.Join(p, d.name, id)
+		if err := fileutils.Exists(l); err == nil {
+			return l, homedir, false, true
+		}
+		if useVFS {
+			l = path.Join(p, vfs.Name, "dir", id)
+			if err := fileutils.Exists(l); err == nil {
+				return l, homedir, true, true
 			}
 		}
 	}
-	return newpath, homedir, false
+
+	// It does not exist, return where to create it.
+	return primaryPath, homedir, false, false
 }
 
 func (d *Driver) getLowerDirs(id string) ([]string, error) {
@@ -1417,7 +1438,7 @@ func (d *Driver) Get(id string, options graphdriver.MountOpts) (string, error) {
 }
 
 func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountOpts) (_ string, retErr error) {
-	dir, _, inAdditionalStore := d.dir2(id, false)
+	dir, _, _, inAdditionalStore := d.dir2(id, false, true)
 	if err := fileutils.Exists(dir); err != nil {
 		return "", err
 	}
@@ -1529,6 +1550,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	composeFsLayersDir := filepath.Join(dir, "composefs-layers")
 	maybeAddComposefsMount := func(lowerID string, i int, readWrite bool) (string, error) {
 		composefsBlob := d.getComposefsData(lowerID)
+		if composefsBlob == "" {
+			return "", nil
+		}
 		if err := fileutils.Exists(composefsBlob); err != nil {
 			if os.IsNotExist(err) {
 				return "", nil
@@ -1577,8 +1601,18 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		lower := ""
 		newpath := path.Join(d.home, l)
 		if st, err := os.Stat(newpath); err != nil {
-			for _, p := range d.getAllImageStores() {
+			allImageStores := d.getAllImageStores()
+			for _, p := range allImageStores {
 				lower = path.Join(p, d.name, l)
+				if st2, err2 := os.Stat(lower); err2 == nil {
+					if !permsKnown {
+						perms = os.FileMode(st2.Mode())
+						permsKnown = true
+					}
+					break
+				}
+				// now try in the vfs store
+				lower = path.Join(p, vfs.Name, "dir", l)
 				if st2, err2 := os.Stat(lower); err2 == nil {
 					if !permsKnown {
 						perms = os.FileMode(st2.Mode())
@@ -1610,7 +1644,10 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 		linkContent, err := os.Readlink(lower)
 		if err != nil {
-			return "", err
+			if !errors.Is(err, unix.EINVAL) { // Not a symlink, a raw path
+				return "", err
+			}
+			linkContent = lower
 		}
 		lowerID := filepath.Base(filepath.Dir(linkContent))
 		composefsMount, err := maybeAddComposefsMount(lowerID, i+1, readWrite)
@@ -1835,10 +1872,14 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 // Put unmounts the mount path created for the give id.
 func (d *Driver) Put(id string) error {
-	dir, _, inAdditionalStore := d.dir2(id, false)
+	dir, _, singleLayer, inAdditionalStore := d.dir2(id, false, true)
 	if err := fileutils.Exists(dir); err != nil {
 		return err
 	}
+	if singleLayer {
+		return nil
+	}
+
 	mountpoint := path.Join(dir, "merged")
 	if count := d.ctr.Decrement(mountpoint); count > 0 {
 		return nil
@@ -2005,7 +2046,7 @@ func (g *overlayFileGetter) Close() error {
 }
 
 func (d *Driver) getStagingDir(id string) string {
-	_, homedir, _ := d.dir2(id, d.imageStore != "")
+	_, homedir, _, _ := d.dir2(id, d.imageStore != "", false)
 	return filepath.Join(homedir, stagingDir)
 }
 
@@ -2283,7 +2324,7 @@ func (d *Driver) Changes(id string, idMappings *idtools.IDMappings, parent strin
 
 // AdditionalImageStores returns additional image stores supported by the driver
 func (d *Driver) AdditionalImageStores() ([]string, []string) {
-	return d.options.imageStores, []string{d.name}
+	return d.options.imageStores, []string{d.name, vfs.Name}
 }
 
 // UpdateLayerIDMap updates ID mappings in a from matching the ones specified
