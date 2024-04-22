@@ -231,22 +231,3 @@ func footerDataToBlob(footer ZstdChunkedFooterData) []byte {
 
 	return manifestDataLE
 }
-
-// ReadFooterDataFromAnnotations reads the zstd:chunked footer data from the given annotations.
-func ReadFooterDataFromAnnotations(annotations map[string]string) (ZstdChunkedFooterData, error) {
-	var footerData ZstdChunkedFooterData
-
-	offsetMetadata := annotations[ManifestInfoKey]
-
-	if _, err := fmt.Sscanf(offsetMetadata, "%d:%d:%d:%d", &footerData.Offset, &footerData.LengthCompressed, &footerData.LengthUncompressed, &footerData.ManifestType); err != nil {
-		return footerData, err
-	}
-
-	if tarSplitInfoKeyAnnotation, found := annotations[TarSplitInfoKey]; found {
-		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &footerData.OffsetTarSplit, &footerData.LengthCompressedTarSplit, &footerData.LengthUncompressedTarSplit); err != nil {
-			return footerData, err
-		}
-		footerData.ChecksumAnnotationTarSplit = annotations[TarSplitChecksumKey]
-	}
-	return footerData, nil
-}

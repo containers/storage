@@ -139,9 +139,16 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 		return nil, nil, 0, fmt.Errorf("%q annotation missing", internal.ManifestInfoKey)
 	}
 
-	footerData, err := internal.ReadFooterDataFromAnnotations(annotations)
-	if err != nil {
+	var footerData internal.ZstdChunkedFooterData
+
+	if _, err := fmt.Sscanf(offsetMetadata, "%d:%d:%d:%d", &footerData.Offset, &footerData.LengthCompressed, &footerData.LengthUncompressed, &footerData.ManifestType); err != nil {
 		return nil, nil, 0, err
+	}
+	if tarSplitInfoKeyAnnotation, found := annotations[internal.TarSplitInfoKey]; found {
+		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &footerData.OffsetTarSplit, &footerData.LengthCompressedTarSplit, &footerData.LengthUncompressedTarSplit); err != nil {
+			return nil, nil, 0, err
+		}
+		footerData.ChecksumAnnotationTarSplit = annotations[internal.TarSplitChecksumKey]
 	}
 
 	if footerData.ManifestType != internal.ManifestTypeCRFS {
