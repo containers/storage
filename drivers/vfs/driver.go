@@ -21,17 +21,20 @@ import (
 	"github.com/vbatts/tar-split/tar/storage"
 )
 
-const defaultPerms = os.FileMode(0o555)
+const (
+	defaultPerms = os.FileMode(0o555)
+	Name         = "vfs"
+)
 
 func init() {
-	graphdriver.MustRegister("vfs", Init)
+	graphdriver.MustRegister(Name, Init)
 }
 
 // Init returns a new VFS driver.
 // This sets the home directory for the driver and returns NaiveDiffDriver.
 func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) {
 	d := &Driver{
-		name:       "vfs",
+		name:       Name,
 		home:       home,
 		idMappings: idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps),
 		imageStore: options.ImageStore,
@@ -87,7 +90,7 @@ type Driver struct {
 }
 
 func (d *Driver) String() string {
-	return "vfs"
+	return Name
 }
 
 // Status is used for implementing the graphdriver.ProtoDriver interface. VFS does not currently have any status information.
