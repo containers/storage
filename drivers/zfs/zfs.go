@@ -513,6 +513,6 @@ func (d *Driver) ListLayers() ([]string, error) {
 }
 
 // AdditionalImageStores returns additional image stores supported by the driver
-func (d *Driver) AdditionalImageStores() []string {
-	return nil
+func (d *Driver) AdditionalImageStores() ([]string, []string) {
+	return nil, nil
 }

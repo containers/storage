@@ -268,8 +268,8 @@ func (a *Driver) ListLayers() ([]string, error) {
 }
 
 // AdditionalImageStores returns additional image stores supported by the driver
-func (a *Driver) AdditionalImageStores() []string {
-	return nil
+func (a *Driver) AdditionalImageStores() ([]string, []string) {
+	return nil, nil
 }
 
 // CreateFromTemplate creates a layer with the same contents and parent as another layer.

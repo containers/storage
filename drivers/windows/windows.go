@@ -971,8 +971,8 @@ func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 }
 
 // AdditionalImageStores returns additional image stores supported by the driver
-func (d *Driver) AdditionalImageStores() []string {
-	return nil
+func (d *Driver) AdditionalImageStores() ([]string, []string) {
+	return nil, nil
 }
 
 // UpdateLayerIDMap changes ownerships in the layer's filesystem tree from

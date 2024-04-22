@@ -138,7 +138,7 @@ type ProtoDriver interface {
 	Cleanup() error
 	// AdditionalImageStores returns additional image stores supported by the driver
 	// This API is experimental and can be changed without bumping the major version number.
-	AdditionalImageStores() []string
+	AdditionalImageStores() ([]string, []string)
 }
 
 // DiffDriver is the interface to use to implement graph diffs

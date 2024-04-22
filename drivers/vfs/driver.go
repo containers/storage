@@ -297,11 +297,11 @@ func (d *Driver) ListLayers() ([]string, error) {
 }
 
 // AdditionalImageStores returns additional image stores supported by the driver
-func (d *Driver) AdditionalImageStores() []string {
+func (d *Driver) AdditionalImageStores() ([]string, []string) {
 	if len(d.additionalHomes) > 0 {
-		return d.additionalHomes
+		return d.additionalHomes, []string{d.name}
 	}
-	return nil
+	return nil, []string{d.name}
 }
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS

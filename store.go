@@ -996,33 +996,35 @@ func (s *store) load() error {
 
 	s.containerStore = rcs
 
-	additionalImageStores := s.graphDriver.AdditionalImageStores()
+	additionalImageStores, additionalGraphDrivers := s.graphDriver.AdditionalImageStores()
 	if s.imageStoreDir != "" {
 		additionalImageStores = append([]string{s.graphRoot}, additionalImageStores...)
 	}
 
 	for _, store := range additionalImageStores {
-		gipath := filepath.Join(store, driverPrefix+"images")
-		var ris roImageStore
-		// both the graphdriver and the imagestore must be used read-write.
-		if store == s.imageStoreDir || store == s.graphRoot {
-			imageStore, err := newImageStore(gipath)
-			if err != nil {
-				return err
-			}
-			s.rwImageStores = append(s.rwImageStores, imageStore)
-			ris = imageStore
-		} else {
-			ris, err = newROImageStore(gipath)
-			if err != nil {
-				if errors.Is(err, syscall.EROFS) {
-					logrus.Debugf("Ignoring creation of lockfiles on read-only file systems %q, %v", gipath, err)
-					continue
+		for _, driver := range additionalGraphDrivers {
+			gipath := filepath.Join(store, driver+"-images")
+			var ris roImageStore
+			// both the graphdriver and the imagestore must be used read-write.
+			if store == s.imageStoreDir || store == s.graphRoot {
+				imageStore, err := newImageStore(gipath)
+				if err != nil {
+					return err
 				}
-				return err
+				s.rwImageStores = append(s.rwImageStores, imageStore)
+				ris = imageStore
+			} else {
+				ris, err = newROImageStore(gipath)
+				if err != nil {
+					if errors.Is(err, syscall.EROFS) {
+						logrus.Debugf("Ignoring creation of lockfiles on read-only file systems %q, %v", gipath, err)
+						continue
+					}
+					return err
+				}
 			}
+			s.roImageStores = append(s.roImageStores, ris)
 		}
-		s.roImageStores = append(s.roImageStores, ris)
 	}
 
 	s.digestLockRoot = filepath.Join(s.runRoot, driverPrefix+"locks")
@@ -1162,14 +1164,21 @@ func (s *store) getROLayerStoresLocked() ([]roLayerStore, error) {
 		return nil, err
 	}
 
-	for _, store := range s.graphDriver.AdditionalImageStores() {
-		glpath := filepath.Join(store, driverPrefix+"layers")
+	additionalImageStores, additionalGraphDrivers := s.graphDriver.AdditionalImageStores()
 
-		rls, err := newROLayerStore(rlpath, glpath, s.graphDriver)
-		if err != nil {
-			return nil, err
+	for _, store := range additionalImageStores {
+		for _, driver := range additionalGraphDrivers {
+			glpath := filepath.Join(store, driver+"-layers")
+
+			// it is fine to use s.graphDriver no matter the driver, since the only
+			// supported case right now is overlay on top of vfs, and the overlay driver
+			// handles correctly vfs layers.
+			rls, err := newROLayerStore(rlpath, glpath, s.graphDriver)
+			if err != nil {
+				return nil, err
+			}
+			s.roLayerStoresUseGetters = append(s.roLayerStoresUseGetters, rls)
 		}
-		s.roLayerStoresUseGetters = append(s.roLayerStoresUseGetters, rls)
 	}
 	return s.roLayerStoresUseGetters, nil
 }

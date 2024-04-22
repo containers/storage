@@ -1180,7 +1180,7 @@ func (d *Driver) dir(id string) string {
 }
 
 func (d *Driver) getAllImageStores() []string {
-	additionalImageStores := d.AdditionalImageStores()
+	additionalImageStores, _ := d.AdditionalImageStores()
 	if d.imageStore != "" {
 		additionalImageStores = append([]string{d.imageStore}, additionalImageStores...)
 	}
@@ -2282,8 +2282,8 @@ func (d *Driver) Changes(id string, idMappings *idtools.IDMappings, parent strin
 }
 
 // AdditionalImageStores returns additional image stores supported by the driver
-func (d *Driver) AdditionalImageStores() []string {
-	return d.options.imageStores
+func (d *Driver) AdditionalImageStores() ([]string, []string) {
+	return d.options.imageStores, []string{d.name}
 }
 
 // UpdateLayerIDMap updates ID mappings in a from matching the ones specified
