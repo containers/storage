@@ -3,6 +3,7 @@ package chunked
 import (
 	"bytes"
 	"io"
+	"math/bits"
 	"testing"
 
 	digest "github.com/opencontainers/go-digest"
@@ -123,5 +124,28 @@ func TestBloomFilter(t *testing.T) {
 
 		contains := bloomFilter.maybeContains(bd)
 		assert.True(t, contains)
+	}
+}
+
+func TestStressBloomHashFn(t *testing.T) {
+	data := []byte("sha256:2f259bab93aaaaa2542ba43ef33eb990d0999ee1b9924b557b7be53c0b7a1bb9")
+	for numberHashes := uint32(1); numberHashes <= 3; numberHashes++ {
+		for size := 0; size < (1 << 16); size = size<<1 + 1 {
+			bloomFilter := newBloomFilter(size, numberHashes)
+			for seed := uint32(0); seed < numberHashes; seed++ {
+				index, mask := bloomFilter.hashFn([]byte{}, seed)
+				assert.True(t, int(index) < len(bloomFilter.bitArray))
+				assert.Equal(t, bits.OnesCount64(mask), 1)
+
+				index, mask = bloomFilter.hashFn(data, seed)
+				assert.True(t, int(index) < len(bloomFilter.bitArray))
+				assert.Equal(t, bits.OnesCount64(mask), 1)
+
+				index, mask = bloomFilter.hashFn(data[:len(data)/2], seed)
+				assert.True(t, int(index) < len(bloomFilter.bitArray))
+				assert.Equal(t, bits.OnesCount64(mask), 1)
+
+			}
+		}
 	}
 }
