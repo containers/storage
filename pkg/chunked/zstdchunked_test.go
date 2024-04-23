@@ -153,7 +153,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	tocDigest, err := toc.GetTOCDigest(annotations)
 	require.NoError(t, err)
 	require.NotNil(t, tocDigest)
-	manifest, _, _, err := readZstdChunkedManifest(s, 8192, *tocDigest, annotations)
+	manifest, _, _, err := readZstdChunkedManifest(s, *tocDigest, annotations)
 	if err != nil {
 		t.Error(err)
 	}
