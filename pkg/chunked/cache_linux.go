@@ -268,7 +268,7 @@ func (c *layersCache) load() error {
 		// try to read the existing cache file.
 		l, err := c.loadLayerCache(r.ID)
 		if err != nil {
-			logrus.Warningf("Error loading cache file for layer %q: %v", r.ID, err)
+			logrus.Infof("Error loading cache file for layer %q: %v", r.ID, err)
 		}
 		if l != nil {
 			newLayers = append(newLayers, l)
