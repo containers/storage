@@ -155,9 +155,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, tocDigest)
 	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(s, *tocDigest, annotations)
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
 
 	var toc internal.TOC
 	if err := json.Unmarshal(manifest, &toc); err != nil {

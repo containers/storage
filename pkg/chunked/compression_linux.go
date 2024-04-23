@@ -201,7 +201,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 
 	decodedBlob, err := decodeAndValidateBlob(manifest, manifestLengthUncompressed, tocDigest.String())
 	if err != nil {
-		return nil, nil, nil, 0, err
+		return nil, nil, nil, 0, fmt.Errorf("validating and decompressing TOC: %w", err)
 	}
 	toc, err := unmarshalToc(decodedBlob)
 	if err != nil {
@@ -217,7 +217,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 
 		decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, toc.TarSplitDigest.String())
 		if err != nil {
-			return nil, nil, nil, 0, err
+			return nil, nil, nil, 0, fmt.Errorf("validating and decompressing tar-split: %w", err)
 		}
 	}
 	return decodedBlob, toc, decodedTarSplit, int64(manifestChunk.Offset), err
@@ -226,7 +226,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompressedChecksum string) ([]byte, error) {
 	d, err := digest.Parse(expectedCompressedChecksum)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid digest %q: %w", expectedCompressedChecksum, err)
 	}
 
 	blobDigester := d.Algorithm().Digester()
