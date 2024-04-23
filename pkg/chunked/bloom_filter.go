@@ -13,6 +13,9 @@ type bloomFilter struct {
 
 func newBloomFilter(size int, k uint32) *bloomFilter {
 	numElements := (size + 63) / 64
+	if numElements == 0 {
+		numElements = 1
+	}
 	return &bloomFilter{
 		bitArray: make([]uint64, numElements),
 		k:        k,
@@ -28,7 +31,7 @@ func newBloomFilterFromArray(bitArray []uint64, k uint32) *bloomFilter {
 
 func (bf *bloomFilter) hashFn(item []byte, seed uint32) (uint64, uint64) {
 	if len(item) == 0 {
-		return 0, 0
+		return 0, 1
 	}
 	mod := uint32(len(bf.bitArray) * 64)
 	seedSplit := seed % uint32(len(item))
