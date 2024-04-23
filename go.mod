@@ -1,4 +1,7 @@
-go 1.20
+go 1.21
+
+// Warning: Ensure the "go" and "toolchain" versions match exactly to prevent unwanted auto-updates
+toolchain go1.21.0
 
 module github.com/containers/storage
 
