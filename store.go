@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -20,6 +21,7 @@ import (
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/directory"
+	"github.com/containers/storage/pkg/fileutils"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/lockfile"
@@ -1005,6 +1007,10 @@ func (s *store) load() error {
 		for _, driver := range additionalGraphDrivers {
 			gipath := filepath.Join(store, driver+"-images")
 			var ris roImageStore
+			if err := fileutils.Exists(gipath); err != nil && errors.Is(err, fs.ErrNotExist) {
+				// if the store doesn't exist, ignore it
+				continue
+			}
 			// both the graphdriver and the imagestore must be used read-write.
 			if store == s.imageStoreDir || store == s.graphRoot {
 				imageStore, err := newImageStore(gipath)
