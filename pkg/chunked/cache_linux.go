@@ -199,6 +199,8 @@ func (c *layersCache) loadLayerCache(layerID string) (_ *layer, errRet error) {
 	return c.createLayer(layerID, cacheFile, mmapBuffer)
 }
 
+// createCacheFileFromTOC attempts to create a cache file for the specified layer.
+// If a TOC is not available, the cache won't be created and nil is returned.
 func (c *layersCache) createCacheFileFromTOC(layerID string) (*layer, error) {
 	clFile, err := c.store.LayerBigData(layerID, chunkedLayerDataKey)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -219,6 +221,10 @@ func (c *layersCache) createCacheFileFromTOC(layerID string) (*layer, error) {
 	}
 	manifestReader, err := c.store.LayerBigData(layerID, bigDataKey)
 	if err != nil {
+		// the cache file is not needed since there is no manifest file.
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	defer manifestReader.Close()
