@@ -14,13 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func max(x, y int) int {
-	if x >= y {
-		return x
-	}
-	return y
-}
-
 func copyDir(src, dst string) error {
 	cmd := exec.Command("cp", "-a", src, dst)
 	if runtime.GOOS == solaris {

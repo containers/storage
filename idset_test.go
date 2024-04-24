@@ -6,17 +6,7 @@ import (
 
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/google/go-intervals/intervalset"
-	"github.com/stretchr/testify/assert"
 )
-
-func TestMinMaxInt(t *testing.T) {
-	assert.Equal(t, 5, minInt(5, 8))
-	assert.Equal(t, 3, minInt(10, 3))
-	assert.Equal(t, 2, minInt(2, 2))
-	assert.Equal(t, 8, maxInt(5, 8))
-	assert.Equal(t, 10, maxInt(10, 3))
-	assert.Equal(t, 2, maxInt(2, 2))
-}
 
 func allIntervals(s *idSet) []interval {
 	iterator, cancel := s.iterator()
