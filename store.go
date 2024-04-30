@@ -1445,20 +1445,8 @@ func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 	return true
 }
 
-func (s *store) putLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
-	rlstore, rlstores, err := s.bothLayerStoreKinds()
-	if err != nil {
-		return nil, -1, err
-	}
-	if err := rlstore.startWriting(); err != nil {
-		return nil, -1, err
-	}
-	defer rlstore.stopWriting()
-	if err := s.containerStore.startWriting(); err != nil {
-		return nil, -1, err
-	}
-	defer s.containerStore.stopWriting()
-
+// putLayer requires the rlstore, rlstores, as well as s.containerStore (even if not an argument to this function) to be locked for write.
+func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
 	var parentLayer *Layer
 	var options LayerOptions
 	if lOptions != nil {
@@ -1537,7 +1525,19 @@ func (s *store) putLayer(id, parent string, names []string, mountLabel string, w
 }
 
 func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader) (*Layer, int64, error) {
-	return s.putLayer(id, parent, names, mountLabel, writeable, lOptions, diff, nil)
+	rlstore, rlstores, err := s.bothLayerStoreKinds()
+	if err != nil {
+		return nil, -1, err
+	}
+	if err := rlstore.startWriting(); err != nil {
+		return nil, -1, err
+	}
+	defer rlstore.stopWriting()
+	if err := s.containerStore.startWriting(); err != nil {
+		return nil, -1, err
+	}
+	defer s.containerStore.stopWriting()
+	return s.putLayer(rlstore, rlstores, id, parent, names, mountLabel, writeable, lOptions, diff, nil)
 }
 
 func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool, options *LayerOptions) (*Layer, error) {
@@ -3016,12 +3016,35 @@ func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffO
 }
 
 func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
+	rlstore, rlstores, err := s.bothLayerStoreKinds()
+	if err != nil {
+		return nil, err
+	}
+	if err := rlstore.startWriting(); err != nil {
+		return nil, err
+	}
+	defer rlstore.stopWriting()
+
+	layer, err := rlstore.Get(args.ID)
+	if err != nil && !errors.Is(err, ErrLayerUnknown) {
+		return layer, err
+	}
+	if err == nil {
+		return layer, rlstore.applyDiffFromStagingDirectory(args.ID, args.DiffOutput, args.DiffOptions)
+	}
+
+	// if the layer doesn't exist yet, try to create it.
+
+	if err := s.containerStore.startWriting(); err != nil {
+		return nil, err
+	}
+	defer s.containerStore.stopWriting()
+
 	slo := stagedLayerOptions{
 		DiffOutput:  args.DiffOutput,
 		DiffOptions: args.DiffOptions,
 	}
-
-	layer, _, err := s.putLayer(args.ID, args.ParentLayer, args.Names, args.MountLabel, args.Writeable, args.LayerOptions, nil, &slo)
+	layer, _, err = s.putLayer(rlstore, rlstores, args.ID, args.ParentLayer, args.Names, args.MountLabel, args.Writeable, args.LayerOptions, nil, &slo)
 	return layer, err
 }
 
