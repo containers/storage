@@ -2029,7 +2029,7 @@ func (d *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 
 // CleanupStagingDirectory cleanups the staging directory.
 func (d *Driver) CleanupStagingDirectory(stagingDirectory string) error {
-	return os.RemoveAll(stagingDirectory)
+	return os.RemoveAll(filepath.Dir(stagingDirectory))
 }
 
 func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
@@ -2068,7 +2068,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		if err != nil && !os.IsExist(err) {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
-		applyDir, err = os.MkdirTemp(stagingDir, "")
+		layerDir, err := os.MkdirTemp(stagingDir, "")
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
@@ -2076,7 +2076,8 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		if d.options.forceMask != nil {
 			perms = *d.options.forceMask
 		}
-		if err := os.Chmod(applyDir, perms); err != nil {
+		applyDir = filepath.Join(layerDir, "dir")
+		if err := os.Mkdir(applyDir, perms); err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
 	} else {
@@ -2112,7 +2113,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 // ApplyDiffFromStagingDirectory applies the changes using the specified staging directory.
 func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *graphdriver.DriverWithDifferOutput, options *graphdriver.ApplyDiffWithDifferOpts) error {
 	stagingDirectory := diffOutput.Target
-	if filepath.Dir(stagingDirectory) != d.getStagingDir(id) {
+	if filepath.Dir(filepath.Dir(stagingDirectory)) != d.getStagingDir(id) {
 		return fmt.Errorf("%q is not a staging directory", stagingDirectory)
 	}
 	diffPath, err := d.getDiffPath(id)
