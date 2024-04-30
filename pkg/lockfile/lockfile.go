@@ -133,7 +133,7 @@ func (l *LockFile) Lock() {
 	}
 }
 
-// LockRead locks the lockfile as a reader.
+// RLock locks the lockfile as a reader.
 func (l *LockFile) RLock() {
 	l.lock(readLock)
 }
