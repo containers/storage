@@ -876,9 +876,9 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 	return metadata, nil
 }
 
-// Cleanup any state created by overlay which should be cleaned when daemon
-// is being shutdown. For now, we just have to unmount the bind mounted
-// we had created.
+// Cleanup any state created by overlay which should be cleaned when
+// the storage is being shutdown.  The only state created by the driver
+// is the bind mount on the home directory.
 func (d *Driver) Cleanup() error {
 	_ = os.RemoveAll(filepath.Join(d.home, stagingDir))
 	return mount.Unmount(d.home)
@@ -2050,8 +2050,8 @@ func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
 	return supportsDataOnly, err
 }
 
-// ApplyDiff applies the changes in the new layer using the specified function
-func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, err error) {
+// ApplyDiffWithDiffer applies the changes in the new layer using the specified function
+func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, errRet error) {
 	var idMappings *idtools.IDMappings
 	if options != nil {
 		idMappings = options.Mappings
