@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -219,6 +220,62 @@ func TestLockfileName(t *testing.T) {
 	l.Unlock()
 
 	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
+}
+
+func TestTryWriteLockFile(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	l, err := getTempLockfile()
+	require.Nil(t, err, "error getting temporary lock file")
+	defer os.Remove(l.name)
+
+	err = l.TryLock()
+	assert.Nil(t, err)
+
+	l.AssertLocked()
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- l.TryRLock()
+		errChan <- l.TryLock()
+	}()
+	assert.NotNil(t, <-errChan)
+	assert.NotNil(t, <-errChan)
+
+	l.Unlock()
+}
+
+func TestTryReadLockFile(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	l, err := getTempLockfile()
+	require.Nil(t, err, "error getting temporary lock file")
+	defer os.Remove(l.name)
+
+	err = l.TryRLock()
+	assert.Nil(t, err)
+
+	l.AssertLocked()
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- l.TryRLock()
+		l.Unlock()
+
+		errChan <- l.TryLock()
+	}()
+	assert.Nil(t, <-errChan)
+	assert.NotNil(t, <-errChan)
+
+	l.Unlock()
+
+	go func() {
+		errChan <- l.TryLock()
+		l.Unlock()
+	}()
+	assert.Nil(t, <-errChan)
 }
 
 func TestLockfileRead(t *testing.T) {

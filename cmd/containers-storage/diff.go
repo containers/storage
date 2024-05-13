@@ -185,8 +185,14 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 	if err != nil {
 		return 1, err
 	}
-	if err := m.ApplyDiffFromStagingDirectory(layer, out.Target, out, &options); err != nil {
-		m.CleanupStagingDirectory(out.Target)
+
+	applyStagedLayerArgs := storage.ApplyStagedLayerOptions{
+		ID:          layer,
+		DiffOutput:  out,
+		DiffOptions: &options,
+	}
+	if _, err := m.ApplyStagedLayer(applyStagedLayerArgs); err != nil {
+		m.CleanupStagedLayer(out)
 		return 1, err
 	}
 	return 0, nil

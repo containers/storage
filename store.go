@@ -330,17 +330,9 @@ type Store interface {
 	// successfully applied with ApplyDiffFromStagingDirectory.
 	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
-	// ApplyDiffFromStagingDirectory uses stagingDirectory to create the diff.
-	// Deprecated: it will be removed soon.  Use ApplyStagedLayer instead.
-	ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error
-
-	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
-	// Deprecated: it will be removed soon.  Use CleanupStagedLayer instead.
-	CleanupStagingDirectory(stagingDirectory string) error
-
-	// ApplyStagedLayer combines the functions of CreateLayer and ApplyDiffFromStagingDirectory,
-	// marking the layer for automatic removal if applying the diff fails
-	// for any reason.
+	// ApplyStagedLayer combines the functions of creating a layer and using the staging
+	// directory to populate it.
+	// It marks the layer for automatic removal if applying the diff fails for any reason.
 	ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error)
 
 	// CleanupStagedLayer cleanups the staging directory.  It can be used to cleanup the staging directory on errors
@@ -1445,20 +1437,8 @@ func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 	return true
 }
 
-func (s *store) putLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
-	rlstore, rlstores, err := s.bothLayerStoreKinds()
-	if err != nil {
-		return nil, -1, err
-	}
-	if err := rlstore.startWriting(); err != nil {
-		return nil, -1, err
-	}
-	defer rlstore.stopWriting()
-	if err := s.containerStore.startWriting(); err != nil {
-		return nil, -1, err
-	}
-	defer s.containerStore.stopWriting()
-
+// putLayer requires the rlstore, rlstores, as well as s.containerStore (even if not an argument to this function) to be locked for write.
+func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
 	var parentLayer *Layer
 	var options LayerOptions
 	if lOptions != nil {
@@ -1537,7 +1517,19 @@ func (s *store) putLayer(id, parent string, names []string, mountLabel string, w
 }
 
 func (s *store) PutLayer(id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader) (*Layer, int64, error) {
-	return s.putLayer(id, parent, names, mountLabel, writeable, lOptions, diff, nil)
+	rlstore, rlstores, err := s.bothLayerStoreKinds()
+	if err != nil {
+		return nil, -1, err
+	}
+	if err := rlstore.startWriting(); err != nil {
+		return nil, -1, err
+	}
+	defer rlstore.stopWriting()
+	if err := s.containerStore.startWriting(); err != nil {
+		return nil, -1, err
+	}
+	defer s.containerStore.stopWriting()
+	return s.putLayer(rlstore, rlstores, id, parent, names, mountLabel, writeable, lOptions, diff, nil)
 }
 
 func (s *store) CreateLayer(id, parent string, names []string, mountLabel string, writeable bool, options *LayerOptions) (*Layer, error) {
@@ -3002,34 +2994,37 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 	return nil, ErrLayerUnknown
 }
 
-func (s *store) ApplyDiffFromStagingDirectory(to, stagingDirectory string, diffOutput *drivers.DriverWithDifferOutput, options *drivers.ApplyDiffWithDifferOpts) error {
-	if stagingDirectory != diffOutput.Target {
-		return fmt.Errorf("invalid value for staging directory, it must be the same as the differ target directory")
-	}
-	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
-		if !rlstore.Exists(to) {
-			return struct{}{}, ErrLayerUnknown
-		}
-		return struct{}{}, rlstore.applyDiffFromStagingDirectory(to, diffOutput, options)
-	})
-	return err
-}
-
 func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
+	rlstore, rlstores, err := s.bothLayerStoreKinds()
+	if err != nil {
+		return nil, err
+	}
+	if err := rlstore.startWriting(); err != nil {
+		return nil, err
+	}
+	defer rlstore.stopWriting()
+
+	layer, err := rlstore.Get(args.ID)
+	if err != nil && !errors.Is(err, ErrLayerUnknown) {
+		return layer, err
+	}
+	if err == nil {
+		return layer, rlstore.applyDiffFromStagingDirectory(args.ID, args.DiffOutput, args.DiffOptions)
+	}
+
+	// if the layer doesn't exist yet, try to create it.
+
+	if err := s.containerStore.startWriting(); err != nil {
+		return nil, err
+	}
+	defer s.containerStore.stopWriting()
+
 	slo := stagedLayerOptions{
 		DiffOutput:  args.DiffOutput,
 		DiffOptions: args.DiffOptions,
 	}
-
-	layer, _, err := s.putLayer(args.ID, args.ParentLayer, args.Names, args.MountLabel, args.Writeable, args.LayerOptions, nil, &slo)
+	layer, _, err = s.putLayer(rlstore, rlstores, args.ID, args.ParentLayer, args.Names, args.MountLabel, args.Writeable, args.LayerOptions, nil, &slo)
 	return layer, err
-}
-
-func (s *store) CleanupStagingDirectory(stagingDirectory string) error {
-	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
-		return struct{}{}, rlstore.CleanupStagingDirectory(stagingDirectory)
-	})
-	return err
 }
 
 func (s *store) CleanupStagedLayer(diffOutput *drivers.DriverWithDifferOutput) error {
