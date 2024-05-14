@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <libgen.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
