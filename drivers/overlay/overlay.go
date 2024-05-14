@@ -885,11 +885,11 @@ func (d *Driver) Cleanup() error {
 }
 
 // LookupAdditionalLayer looks up additional layer store by the specified
-// digest and ref and returns an object representing that layer.
+// TOC digest and ref and returns an object representing that layer.
 // This API is experimental and can be changed without bumping the major version number.
 // TODO: to remove the comment once it's no longer experimental.
-func (d *Driver) LookupAdditionalLayer(dgst digest.Digest, ref string) (graphdriver.AdditionalLayer, error) {
-	l, err := d.getAdditionalLayerPath(dgst, ref)
+func (d *Driver) LookupAdditionalLayer(tocDigest digest.Digest, ref string) (graphdriver.AdditionalLayer, error) {
+	l, err := d.getAdditionalLayerPath(tocDigest, ref)
 	if err != nil {
 		return nil, err
 	}
@@ -2405,14 +2405,14 @@ func nameWithSuffix(name string, number int) string {
 	return fmt.Sprintf("%s%d", name, number)
 }
 
-func (d *Driver) getAdditionalLayerPath(dgst digest.Digest, ref string) (string, error) {
+func (d *Driver) getAdditionalLayerPath(tocDigest digest.Digest, ref string) (string, error) {
 	refElem := base64.StdEncoding.EncodeToString([]byte(ref))
 	for _, ls := range d.options.layerStores {
 		ref := ""
 		if ls.withReference {
 			ref = refElem
 		}
-		target := path.Join(ls.path, ref, dgst.String())
+		target := path.Join(ls.path, ref, tocDigest.String())
 		// Check if all necessary files exist
 		for _, p := range []string{
 			filepath.Join(target, "diff"),
@@ -2427,7 +2427,7 @@ func (d *Driver) getAdditionalLayerPath(dgst digest.Digest, ref string) (string,
 		return target, nil
 	}
 
-	return "", fmt.Errorf("additional layer (%q, %q) not found: %w", dgst, ref, graphdriver.ErrLayerUnknown)
+	return "", fmt.Errorf("additional layer (%q, %q) not found: %w", tocDigest, ref, graphdriver.ErrLayerUnknown)
 }
 
 func (d *Driver) releaseAdditionalLayerByID(id string) {
