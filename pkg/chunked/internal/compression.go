@@ -85,8 +85,9 @@ func GetType(t byte) (string, error) {
 const (
 	ManifestChecksumKey = "io.github.containers.zstd-chunked.manifest-checksum"
 	ManifestInfoKey     = "io.github.containers.zstd-chunked.manifest-position"
-	TarSplitChecksumKey = "io.github.containers.zstd-chunked.tarsplit-checksum" // Deprecated: Use the TOC.TarSplitDigest field instead, this one is not authenticated by ManifestChecksumKey.
 	TarSplitInfoKey     = "io.github.containers.zstd-chunked.tarsplit-position"
+
+	TarSplitChecksumKey = "io.github.containers.zstd-chunked.tarsplit-checksum" // Deprecated: Use the TOC.TarSplitDigest field instead, this annotation is no longer read nor written.
 
 	// ManifestTypeCRFS is a manifest file compatible with the CRFS TOC file.
 	ManifestTypeCRFS = 1
@@ -172,7 +173,6 @@ func WriteZstdChunkedManifest(dest io.Writer, outMetadata map[string]string, off
 		return err
 	}
 
-	outMetadata[TarSplitChecksumKey] = tarSplitData.Digest.String()
 	tarSplitOffset := manifestOffset + uint64(len(compressedManifest)) + zstdSkippableFrameHeader
 	outMetadata[TarSplitInfoKey] = fmt.Sprintf("%d:%d:%d", tarSplitOffset, len(tarSplitData.Data), tarSplitData.UncompressedSize)
 	if err := appendZstdSkippableFrame(dest, tarSplitData.Data); err != nil {
