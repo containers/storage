@@ -541,14 +541,14 @@ type Store interface {
 	GetDigestLock(digest.Digest) (Locker, error)
 
 	// LayerFromAdditionalLayerStore searches the additional layer store and returns an object
-	// which can create a layer with the specified digest associated with the specified image
+	// which can create a layer with the specified TOC digest associated with the specified image
 	// reference. Note that this hasn't been stored to this store yet: the actual creation of
 	// a usable layer is done by calling the returned object's PutAs() method.  After creating
 	// a layer, the caller must then call the object's Release() method to free any temporary
 	// resources which were allocated for the object by this method or the object's PutAs()
 	// method.
 	// This API is experimental and can be changed without bumping the major version number.
-	LookupAdditionalLayer(d digest.Digest, imageref string) (AdditionalLayer, error)
+	LookupAdditionalLayer(tocDigest digest.Digest, imageref string) (AdditionalLayer, error)
 
 	// Tries to clean up remainders of previous containers or layers that are not
 	// references in the json files. These can happen in the case of unclean
@@ -570,8 +570,8 @@ type AdditionalLayer interface {
 	// layer store.
 	PutAs(id, parent string, names []string) (*Layer, error)
 
-	// UncompressedDigest returns the uncompressed digest of this layer
-	UncompressedDigest() digest.Digest
+	// TOCDigest returns the digest of TOC of this layer. Returns "" if unknown.
+	TOCDigest() digest.Digest
 
 	// CompressedSize returns the compressed size of this layer
 	CompressedSize() int64
@@ -3208,7 +3208,7 @@ func (s *store) Layer(id string) (*Layer, error) {
 	return nil, ErrLayerUnknown
 }
 
-func (s *store) LookupAdditionalLayer(d digest.Digest, imageref string) (AdditionalLayer, error) {
+func (s *store) LookupAdditionalLayer(tocDigest digest.Digest, imageref string) (AdditionalLayer, error) {
 	var adriver drivers.AdditionalLayerStoreDriver
 	if err := func() error { // A scope for defer
 		if err := s.startUsingGraphDriver(); err != nil {
@@ -3225,7 +3225,7 @@ func (s *store) LookupAdditionalLayer(d digest.Digest, imageref string) (Additio
 		return nil, err
 	}
 
-	al, err := adriver.LookupAdditionalLayer(d, imageref)
+	al, err := adriver.LookupAdditionalLayer(tocDigest, imageref)
 	if err != nil {
 		if errors.Is(err, drivers.ErrLayerUnknown) {
 			return nil, ErrLayerUnknown
@@ -3250,8 +3250,8 @@ type additionalLayer struct {
 	s       *store
 }
 
-func (al *additionalLayer) UncompressedDigest() digest.Digest {
-	return al.layer.UncompressedDigest
+func (al *additionalLayer) TOCDigest() digest.Digest {
+	return al.layer.TOCDigest
 }
 
 func (al *additionalLayer) CompressedSize() int64 {
