@@ -1437,7 +1437,7 @@ func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 	return true
 }
 
-// putLayer requires the rlstore, rlstores, as well as s.containerStore (even if not an argument to this function) to be locked for write.
+// putLayer requires the rlstore and s.containerStore (even if not an argument to this function) to be locked for write.
 func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
 	var parentLayer *Layer
 	var options LayerOptions
