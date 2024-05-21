@@ -440,7 +440,7 @@ func (l *LockFile) tryLock(lType lockType) error {
 		// If we're the first reference on the lock, we need to open the file again.
 		fd, err := openLock(l.file, l.ro)
 		if err != nil {
-			l.rwMutex.Unlock()
+			l.rwMutex.RUnlock()
 			return err
 		}
 		l.fd = fd
@@ -450,7 +450,7 @@ func (l *LockFile) tryLock(lType lockType) error {
 		// reader lock or a writer lock.
 		if err = lockHandle(l.fd, lType, true); err != nil {
 			closeHandle(fd)
-			l.rwMutex.Unlock()
+			l.rwMutex.RUnlock()
 			return err
 		}
 	}
