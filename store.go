@@ -1437,8 +1437,15 @@ func (s *store) canUseShifting(uidmap, gidmap []idtools.IDMap) bool {
 	return true
 }
 
-// putLayer requires the rlstore, rlstores, as well as s.containerStore (even if not an argument to this function) to be locked for write.
+// On entry:
+// - rlstore must be locked for writing
+// - rlstores MUST NOT be locked
 func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, parent string, names []string, mountLabel string, writeable bool, lOptions *LayerOptions, diff io.Reader, slo *stagedLayerOptions) (*Layer, int64, error) {
+	if err := s.containerStore.startWriting(); err != nil {
+		return nil, -1, err
+	}
+	defer s.containerStore.stopWriting()
+
 	var parentLayer *Layer
 	var options LayerOptions
 	if lOptions != nil {
@@ -1525,10 +1532,6 @@ func (s *store) PutLayer(id, parent string, names []string, mountLabel string, w
 		return nil, -1, err
 	}
 	defer rlstore.stopWriting()
-	if err := s.containerStore.startWriting(); err != nil {
-		return nil, -1, err
-	}
-	defer s.containerStore.stopWriting()
 	return s.putLayer(rlstore, rlstores, id, parent, names, mountLabel, writeable, lOptions, diff, nil)
 }
 
@@ -3016,11 +3019,6 @@ func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
 	}
 
 	// if the layer doesn't exist yet, try to create it.
-
-	if err := s.containerStore.startWriting(); err != nil {
-		return nil, err
-	}
-	defer s.containerStore.stopWriting()
 
 	slo := stagedLayerOptions{
 		DiffOutput:  args.DiffOutput,
