@@ -3009,6 +3009,9 @@ func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
 		return layer, err
 	}
 	if err == nil {
+		// This code path exists only for cmd/containers/storage.applyDiffUsingStagingDirectory; we have tests that
+		// assume layer creation and applying a staged layer are separate steps. Production pull code always uses the
+		// other path, where layer creation is atomic.
 		return layer, rlstore.applyDiffFromStagingDirectory(args.ID, args.DiffOutput, args.DiffOptions)
 	}
 
