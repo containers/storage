@@ -87,37 +87,52 @@ func TestDumpNode(t *testing.T) {
 		Linkname: "existingfile",
 	}
 
-	var bufRegularFile, bufDirectory, bufSymlink, bufHardlink bytes.Buffer
+	missingParentEntry := &internal.FileMetadata{
+		Name:    "foo/bar/baz/entry",
+		Type:    internal.TypeReg,
+		ModTime: &modTime,
+	}
 
-	err := dumpNode(&bufRegularFile, map[string]int{}, map[string]string{}, regularFileEntry)
+	var bufRegularFile, bufDirectory, bufSymlink, bufHardlink, bufMissingParent bytes.Buffer
+
+	added := map[string]struct{}{"/": {}}
+
+	err := dumpNode(&bufRegularFile, added, map[string]int{}, map[string]string{}, regularFileEntry)
 	if err != nil {
 		t.Errorf("unexpected error for regular file: %v", err)
 	}
 
-	err = dumpNode(&bufDirectory, map[string]int{}, map[string]string{}, directoryEntry)
+	err = dumpNode(&bufDirectory, added, map[string]int{}, map[string]string{}, directoryEntry)
 	if err != nil {
 		t.Errorf("unexpected error for directory: %v", err)
 	}
 
-	err = dumpNode(&bufSymlink, map[string]int{}, map[string]string{}, symlinkEntry)
+	err = dumpNode(&bufSymlink, added, map[string]int{}, map[string]string{}, symlinkEntry)
 	if err != nil {
 		t.Errorf("unexpected error for symlink: %v", err)
 	}
 
-	err = dumpNode(&bufHardlink, map[string]int{}, map[string]string{}, hardlinkEntry)
+	err = dumpNode(&bufHardlink, added, map[string]int{}, map[string]string{}, hardlinkEntry)
 	if err != nil {
 		t.Errorf("unexpected error for hardlink: %v", err)
+	}
+
+	err = dumpNode(&bufMissingParent, added, map[string]int{}, map[string]string{}, missingParentEntry)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 
 	expectedRegularFile := "/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n"
 	expectedDirectory := "/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n"
 	expectedSymlink := "/mysymlink 0 120000 1 0 0 0 1672531200.0 targetfile - -\n"
 	expectedHardlink := "/myhardlink 0 @100000 1 0 0 0 1672531200.0 /existingfile - -\n"
+	expectedActualMissingParent := "/foo 0 40755 1 0 0 0 0.0 - - -\n/foo/bar 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz/entry 0 100000 1 0 0 0 1672531200.0 - - -\n"
 
 	actualRegularFile := bufRegularFile.String()
 	actualDirectory := bufDirectory.String()
 	actualSymlink := bufSymlink.String()
 	actualHardlink := bufHardlink.String()
+	actualMissingParent := bufMissingParent.String()
 
 	if actualRegularFile != expectedRegularFile {
 		t.Errorf("for regular file, got %q, want %q", actualRegularFile, expectedRegularFile)
@@ -133,5 +148,8 @@ func TestDumpNode(t *testing.T) {
 
 	if actualHardlink != expectedHardlink {
 		t.Errorf("for hardlink, got %q, want %q", actualHardlink, expectedHardlink)
+	}
+	if actualMissingParent != expectedActualMissingParent {
+		t.Errorf("for missing parent, got %q, want %q", actualMissingParent, expectedActualMissingParent)
 	}
 }
