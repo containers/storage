@@ -6,7 +6,7 @@ toolchain go1.21.0
 module github.com/containers/storage
 
 require (
-	github.com/BurntSushi/toml v1.3.2
+	github.com/BurntSushi/toml v1.4.0
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/Microsoft/hcsshim v0.12.3
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1
