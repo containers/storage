@@ -104,8 +104,22 @@ func sanitizeName(name string) string {
 	return path
 }
 
-func dumpNode(out io.Writer, links map[string]int, verityDigests map[string]string, entry *internal.FileMetadata) error {
+func dumpNode(out io.Writer, added map[string]struct{}, links map[string]int, verityDigests map[string]string, entry *internal.FileMetadata) error {
 	path := sanitizeName(entry.Name)
+
+	parent := filepath.Dir(path)
+	if _, found := added[parent]; !found && entry.Name != "/" {
+		parentEntry := &internal.FileMetadata{
+			Name: parent,
+			Type: internal.TypeDir,
+			Mode: 0o755,
+		}
+		if err := dumpNode(out, added, links, verityDigests, parentEntry); err != nil {
+			return err
+		}
+
+	}
+	added[path] = struct{}{}
 
 	if _, err := fmt.Fprint(out, escaped(path, ESCAPE_STANDARD)); err != nil {
 		return err
@@ -201,6 +215,7 @@ func GenerateDump(tocI interface{}, verityDigests map[string]string) (io.Reader,
 		}()
 
 		links := make(map[string]int)
+		added := make(map[string]struct{})
 		for _, e := range toc.Entries {
 			if e.Linkname == "" {
 				continue
@@ -211,14 +226,14 @@ func GenerateDump(tocI interface{}, verityDigests map[string]string) (io.Reader,
 			links[e.Linkname] = links[e.Linkname] + 1
 		}
 
-		if len(toc.Entries) == 0 || (sanitizeName(toc.Entries[0].Name) != "/") {
+		if len(toc.Entries) == 0 {
 			root := &internal.FileMetadata{
 				Name: "/",
 				Type: internal.TypeDir,
 				Mode: 0o755,
 			}
 
-			if err := dumpNode(w, links, verityDigests, root); err != nil {
+			if err := dumpNode(w, added, links, verityDigests, root); err != nil {
 				pipeW.CloseWithError(err)
 				closed = true
 				return
@@ -229,7 +244,7 @@ func GenerateDump(tocI interface{}, verityDigests map[string]string) (io.Reader,
 			if e.Type == internal.TypeChunk {
 				continue
 			}
-			if err := dumpNode(w, links, verityDigests, &e); err != nil {
+			if err := dumpNode(w, added, links, verityDigests, &e); err != nil {
 				pipeW.CloseWithError(err)
 				closed = true
 				return
