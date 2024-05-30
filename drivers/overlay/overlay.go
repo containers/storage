@@ -1,3 +1,76 @@
+// Package overlay uses the overlay union filesystem for containers
+// with diff directories for each layer.
+//
+// # Requirements
+//
+// This version of the overlay driver requires at least Linux kernel
+// 4.0.0 in order to support mounting multiple diff directories.
+//
+// # Layout stability
+//
+// The documentation below describes the current data layout; it
+// is however an internal implementation of this package, and
+// may change incompatibly in the future.  Do not directly parse
+// or access the files or directories described here; only access
+// them via the higher level Go APIs (or a higher level CLI/API
+// which use the Go APIs, such as `podman`).
+//
+// # The "overlay/" directory
+//
+// This directory holds layers; the sha256 digest here is a
+// "chain ID" identifying the precise sequence of parent1→parent2→…→child
+// layer IDs; and with zstd:chunked, also identifying the contents of the
+// layer depending on how we actually created it.
+// I.e. a layer with the same DiffID can have several physical objects in this directory.
+// More on "chain ID" in [opencontainers ChainID].
+//
+// Each layer has at least a "diff" directory and "link" file.
+// If there is also a "lower" file when there are diff layers
+// below as well as "merged" and "work" directories. The "diff" directory
+// has the upper layer of the overlay and is used to capture any
+// changes to the layer. The "lower" file contains all the lower layer
+// mounts separated by ":" and ordered from uppermost to lowermost
+// layers. The overlay itself is mounted in the "merged" directory,
+// and the "work" dir is needed for overlay to work.
+//
+// The "link" file for each layer contains a unique string for the layer.
+// Under the "l" directory at the root there will be a symbolic link
+// with that unique string pointing the "diff" directory for the layer.
+// The symbolic links are used to reference lower layers in the "lower"
+// file and on mount. The links are used to shorten the total length
+// of a layer reference without requiring changes to the layer identifier
+// or root directory. Mounts are always done relative to root and
+// referencing the symbolic links in order to ensure the number of
+// lower directories can fit in a single page for making the mount
+// syscall. A hard upper limit of 500 lower layers is enforced to ensure
+// that mounts do not fail due to length.
+//
+// # The "overlay-layers" directory
+//
+// Created by [storage.getLayerStoreLocked].
+//
+// Each layer will have a `${layerid}.tar-split.gz` file containing the
+// original input tar stream without file content; this is necessary
+// to be able to reconstruct the original tar stream exactly after
+// a layer content has been unpacked into `diff/`.  More in [tar-split].
+//
+// Other files in this directory:
+//
+// - layers.json: Global metadata associated with layers
+// - volatile-layers.json: Global metadata, but will not persist across reboot
+// - layers.lock: Protects changes to this directory
+//
+// # The "overlay-containers" directory
+//
+// Created by [storage.load].  This directory holds running container images.
+//
+// - containers.json: Global metadata for containers
+// - volatile-containers.json: Global metadata, but will not persist across reboot
+// - containers.lock: Protects changes to this directory
+//
+// [opencontainers ChainID]: https://github.com/opencontainers/image-spec/blob/main/config.md#layer-chainid
+// [tar-split]: https://github.com/vbatts/tar-split
+
 //go:build linux
 // +build linux
 
@@ -50,33 +123,6 @@ const (
 	selinuxLabelTest     = "system_u:object_r:container_file_t:s0"
 	mountProgramFlagFile = ".has-mount-program"
 )
-
-// This backend uses the overlay union filesystem for containers
-// with diff directories for each layer.
-
-// This version of the overlay driver requires at least kernel
-// 4.0.0 in order to support mounting multiple diff directories.
-
-// Each container/image has at least a "diff" directory and "link" file.
-// If there is also a "lower" file when there are diff layers
-// below as well as "merged" and "work" directories. The "diff" directory
-// has the upper layer of the overlay and is used to capture any
-// changes to the layer. The "lower" file contains all the lower layer
-// mounts separated by ":" and ordered from uppermost to lowermost
-// layers. The overlay itself is mounted in the "merged" directory,
-// and the "work" dir is needed for overlay to work.
-
-// The "link" file for each layer contains a unique string for the layer.
-// Under the "l" directory at the root there will be a symbolic link
-// with that unique string pointing the "diff" directory for the layer.
-// The symbolic links are used to reference lower layers in the "lower"
-// file and on mount. The links are used to shorten the total length
-// of a layer reference without requiring changes to the layer identifier
-// or root directory. Mounts are always done relative to root and
-// referencing the symbolic links in order to ensure the number of
-// lower directories can fit in a single page for making the mount
-// syscall. A hard upper limit of 500 lower layers is enforced to ensure
-// that mounts do not fail due to length.
 
 const (
 	linkDir    = "l"
