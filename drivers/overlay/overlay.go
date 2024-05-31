@@ -1539,11 +1539,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	for err == nil {
 		absLowers = append(absLowers, filepath.Join(dir, nameWithSuffix("diff", diffN)))
 		diffN++
-		st, err = os.Stat(filepath.Join(dir, nameWithSuffix("diff", diffN)))
-		if err == nil && !permsKnown {
-			perms = os.FileMode(st.Mode())
-			permsKnown = true
-		}
+		err = fileutils.Exists(filepath.Join(dir, nameWithSuffix("diff", diffN)))
 	}
 
 	idmappedMountProcessPid := -1
