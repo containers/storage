@@ -143,7 +143,7 @@ func TestSetRemapUIDsGIDsOpts(t *testing.T) {
 		},
 	}
 
-	err := ReloadConfigurationFile("./storage_test.conf", &remapOpts)
+	err := ReloadConfigurationFile("./storage_test.conf", &remapOpts, true)
 	require.NoError(t, err)
 	if !reflect.DeepEqual(uidmap, remapOpts.UIDMap) {
 		t.Errorf("Failed to set UIDMap: Expected %v Actual %v", uidmap, remapOpts.UIDMap)
@@ -185,7 +185,7 @@ remap-group = "%s"
 
 	mappings, err := idtools.NewIDMappings(user, user)
 	require.NoError(t, err)
-	err = ReloadConfigurationFile(configPath, &remapOpts)
+	err = ReloadConfigurationFile(configPath, &remapOpts, true)
 	require.NoError(t, err)
 	if !reflect.DeepEqual(mappings.UIDs(), remapOpts.UIDMap) {
 		t.Errorf("Failed to set UIDMap: Expected %v Actual %v", mappings.UIDs(), remapOpts.UIDMap)
@@ -199,10 +199,65 @@ func TestReloadConfigurationFile(t *testing.T) {
 	content := bytes.NewBufferString("")
 	logrus.SetOutput(content)
 	var storageOpts StoreOptions
-	err := ReloadConfigurationFile("./storage_broken.conf", &storageOpts)
+	err := ReloadConfigurationFile("./storage_broken.conf", &storageOpts, true)
 	require.NoError(t, err)
 	assert.Equal(t, storageOpts.RunRoot, "/run/containers/test")
 	logrus.SetOutput(os.Stderr)
 
 	assert.Equal(t, strings.Contains(content.String(), "Failed to decode the keys [\\\"foo\\\" \\\"storage.options.graphroot\\\"] from \\\"./storage_broken.conf\\\"\""), true)
+}
+
+func TestMergeConfigFromDirectory(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testConfigDir")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Creating a mix of files with .txt and .conf extensions
+	fileNames := []string{"config1.conf", "config2.conf", "ignore.txt", "config3.conf", "config4.txt"}
+	contents := []string{
+		`[storage]
+runroot = 'temp/run1'
+graphroot = 'temp/graph1'`,
+		`[storage]
+runroot = 'temp/run2'
+graphroot = 'temp/graph2'`,
+		`[storage]
+runroot = 'should/ignore'
+graphroot = 'should/ignore'`,
+		`[storage]
+runroot = 'temp/run3'`,
+		`[storage]
+runroot = 'temp/run4'
+graphroot = 'temp/graph4'`,
+	}
+	for i, fileName := range fileNames {
+		filePath := filepath.Join(tempDir, fileName)
+		if err := os.WriteFile(filePath, []byte(contents[i]), 0o666); err != nil {
+			t.Fatalf("Failed to write to temp file: %v", err)
+		}
+	}
+
+	// Set base options
+	baseOptions := StoreOptions{
+		RunRoot:        "initial/run",
+		GraphRoot:      "initial/graph",
+		TransientStore: true,
+	}
+
+	// Expected results after merging configurations from only .conf files
+	expectedOptions := StoreOptions{
+		RunRoot:        "temp/run3", // Last .conf file (config3.conf) read overrides earlier values
+		GraphRoot:      "temp/graph2",
+		TransientStore: true,
+	}
+
+	// Run the merging function
+	err = mergeConfigFromDirectory(&baseOptions, tempDir)
+	if err != nil {
+		t.Fatalf("Error merging config from directory: %v", err)
+	}
+
+	assert.DeepEqual(t, expectedOptions, baseOptions)
 }

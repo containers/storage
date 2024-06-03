@@ -49,6 +49,12 @@ var (
 	defaultConfigFile = SystemConfigFile
 	// DefaultStoreOptions is a reasonable default set of options.
 	defaultStoreOptions StoreOptions
+
+	// defaultOverrideConfigFile path to override the default system wide storage.conf file
+	defaultOverrideConfigFile = "/etc/containers/storage.conf"
+
+	// defaultDropInConfigDir path to the folder containing drop in config files
+	defaultDropInConfigDir = defaultOverrideConfigFile + ".d"
 )
 
 func loadDefaultStoreOptions() {
@@ -114,11 +120,53 @@ func loadDefaultStoreOptions() {
 
 // loadStoreOptions returns the default storage ops for containers
 func loadStoreOptions() (StoreOptions, error) {
-	storageConf, err := DefaultConfigFile()
+	baseConf, err := DefaultConfigFile()
 	if err != nil {
 		return defaultStoreOptions, err
 	}
-	return loadStoreOptionsFromConfFile(storageConf)
+
+	// Load the base config file
+	baseOptions, err := loadStoreOptionsFromConfFile(baseConf)
+	if err != nil {
+		return defaultStoreOptions, err
+	}
+
+	if _, err := os.Stat(defaultDropInConfigDir); err == nil {
+		// The directory exists, so merge the configuration from this directory
+		err = mergeConfigFromDirectory(&baseOptions, defaultDropInConfigDir)
+		if err != nil {
+			return defaultStoreOptions, err
+		}
+	} else if !os.IsNotExist(err) {
+		// There was an error other than the directory not existing
+		return defaultStoreOptions, err
+	}
+
+	return baseOptions, nil
+}
+
+func mergeConfigFromDirectory(baseOptions *StoreOptions, configDir string) error {
+	return filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		// Only consider files with .conf extension
+		if filepath.Ext(path) != ".conf" {
+			return nil
+		}
+
+		// Load drop-in options from the current file
+		err = ReloadConfigurationFile(path, baseOptions, false)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // usePerUserStorage returns whether the user private storage must be used.
@@ -399,7 +447,7 @@ func ReloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 		return nil
 	}
 
-	if err := ReloadConfigurationFile(configFile, storeOptions); err != nil {
+	if err := ReloadConfigurationFile(configFile, storeOptions, true); err != nil {
 		return err
 	}
 
@@ -412,7 +460,7 @@ func ReloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 
 // ReloadConfigurationFile parses the specified configuration file and overrides
 // the configuration in storeOptions.
-func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) error {
+func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions, initializeOptions bool) error {
 	config := new(TomlConfig)
 
 	meta, err := toml.DecodeFile(configFile, &config)
@@ -428,8 +476,11 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) erro
 		}
 	}
 
-	// Clear storeOptions of previous settings
-	*storeOptions = StoreOptions{}
+	if initializeOptions {
+		// Clear storeOptions of previous settings
+		*storeOptions = StoreOptions{}
+	}
+
 	if config.Storage.Driver != "" {
 		storeOptions.GraphDriverName = config.Storage.Driver
 	}
@@ -519,8 +570,13 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) erro
 		storeOptions.PullOptions = config.Storage.Options.PullOptions
 	}
 
-	storeOptions.DisableVolatile = config.Storage.Options.DisableVolatile
-	storeOptions.TransientStore = config.Storage.TransientStore
+	if config.Storage.Options.DisableVolatile {
+		storeOptions.DisableVolatile = config.Storage.Options.DisableVolatile
+	}
+
+	if config.Storage.TransientStore {
+		storeOptions.TransientStore = config.Storage.TransientStore
+	}
 
 	storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, cfg.GetGraphDriverOptions(storeOptions.GraphDriverName, config.Storage.Options)...)
 

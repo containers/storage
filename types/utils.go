@@ -66,7 +66,7 @@ func reloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 		return
 	}
 
-	ReloadConfigurationFile(configFile, storeOptions)
+	ReloadConfigurationFile(configFile, storeOptions, true)
 
 	prevReloadConfig.storeOptions = storeOptions
 	prevReloadConfig.mod = mtime
