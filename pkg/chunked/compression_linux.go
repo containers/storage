@@ -210,14 +210,18 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 
 	decodedTarSplit := []byte{}
 	if tarSplitChunk.Offset > 0 {
-		tarSplit, err := readBlob(tarSplitChunk.Length)
-		if err != nil {
-			return nil, nil, nil, 0, err
-		}
+		tarSplitDigest := toc.TarSplitDigest.String()
+		// ignore the tar-split data if the digest was not specified
+		if tarSplitDigest != "" {
+			tarSplit, err := readBlob(tarSplitChunk.Length)
+			if err != nil {
+				return nil, nil, nil, 0, err
+			}
 
-		decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, toc.TarSplitDigest.String())
-		if err != nil {
-			return nil, nil, nil, 0, fmt.Errorf("validating and decompressing tar-split: %w", err)
+			decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, toc.TarSplitDigest.String())
+			if err != nil {
+				return nil, nil, nil, 0, fmt.Errorf("validating and decompressing tar-split: %w", err)
+			}
 		}
 	}
 	return decodedBlob, toc, decodedTarSplit, int64(manifestChunk.Offset), err
