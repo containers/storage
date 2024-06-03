@@ -42,7 +42,7 @@ import (
 
 const (
 	maxNumberMissingChunks  = 1024
-	autoMergePartsThreshold = 128 // if the gap between two ranges is below this threshold, automatically merge them.
+	autoMergePartsThreshold = 1024 // if the gap between two ranges is below this threshold, automatically merge them.
 	newFileFlags            = (unix.O_CREAT | unix.O_TRUNC | unix.O_EXCL | unix.O_WRONLY)
 	containersOverrideXattr = "user.containers.override_stat"
 	bigDataKey              = "zstd-chunked-manifest"
