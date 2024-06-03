@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/containers/storage/pkg/chunked/internal"
 	"golang.org/x/sys/unix"
@@ -25,15 +24,21 @@ func escaped(val string, escape int) string {
 	escapeEqual := escape&ESCAPE_EQUAL != 0
 	escapeLoneDash := escape&ESCAPE_LONE_DASH != 0
 
-	length := len(val)
-
 	if escapeLoneDash && val == "-" {
 		return fmt.Sprintf("\\x%.2x", val[0])
 	}
 
+	// This is intended to match the C isprint API with LC_CTYPE=C
+	isprint := func(c byte) bool {
+		return c >= 32 && c < 127
+	}
+	// This is intended to match the C isgraph API with LC_CTYPE=C
+	isgraph := func(c byte) bool {
+		return c > 32 && c < 127
+	}
+
 	var result string
-	for i := 0; i < length; i++ {
-		c := val[i]
+	for _, c := range []byte(val) {
 		hexEscape := false
 		var special string
 
@@ -50,9 +55,9 @@ func escaped(val string, escape int) string {
 			hexEscape = escapeEqual
 		default:
 			if noescapeSpace {
-				hexEscape = !unicode.IsPrint(rune(c))
+				hexEscape = !isprint(c)
 			} else {
-				hexEscape = !unicode.IsPrint(rune(c)) || unicode.IsSpace(rune(c))
+				hexEscape = !isgraph(c)
 			}
 		}
 

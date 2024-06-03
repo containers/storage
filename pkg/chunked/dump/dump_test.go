@@ -30,6 +30,7 @@ func TestEscaped(t *testing.T) {
 		{"\n\t", NOESCAPE_SPACE, "\\n\\t"},
 		{"Hello World!", 0, "Hello\\x20World!"},
 		{"Hello World!", NOESCAPE_SPACE, "Hello World!"},
+		{"NetLock_Arany_=Class_Gold=_Főtanúsítvány.crt", 0, `NetLock_Arany_=Class_Gold=_F\xc5\x91tan\xc3\xbas\xc3\xadtv\xc3\xa1ny.crt`},
 	}
 
 	for _, test := range tests {
