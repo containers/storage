@@ -113,7 +113,7 @@ func dumpNode(out io.Writer, added map[string]struct{}, links map[string]int, ve
 	path := sanitizeName(entry.Name)
 
 	parent := filepath.Dir(path)
-	if _, found := added[parent]; !found && entry.Name != "/" {
+	if _, found := added[parent]; !found && path != "/" {
 		parentEntry := &internal.FileMetadata{
 			Name: parent,
 			Type: internal.TypeDir,
