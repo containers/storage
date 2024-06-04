@@ -375,13 +375,13 @@ func makeCopyBuffer() []byte {
 // dirfd is an open file descriptor to the destination root directory.
 // useHardLinks defines whether the deduplication can be performed using hard links.
 func copyFileFromOtherLayer(file *fileMetadata, source string, name string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
-	srcDirfd, err := unix.Open(source, unix.O_RDONLY, 0)
+	srcDirfd, err := unix.Open(source, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return false, nil, 0, fmt.Errorf("open source file: %w", err)
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY, 0)
+	srcFile, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY|syscall.O_CLOEXEC, 0)
 	if err != nil {
 		return false, nil, 0, fmt.Errorf("open source file under target rootfs (%s): %w", name, err)
 	}
@@ -476,7 +476,7 @@ func findFileInOSTreeRepos(file *fileMetadata, ostreeRepos []string, dirfd int, 
 		if st.Size() != file.Size {
 			continue
 		}
-		fd, err := unix.Open(sourceFile, unix.O_RDONLY|unix.O_NONBLOCK, 0)
+		fd, err := unix.Open(sourceFile, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
 		if err != nil {
 			logrus.Debugf("could not open sourceFile %s: %v", sourceFile, err)
 			return false, nil, 0, nil
@@ -585,13 +585,13 @@ type missingPart struct {
 }
 
 func (o *originFile) OpenFile() (io.ReadCloser, error) {
-	srcDirfd, err := unix.Open(o.Root, unix.O_RDONLY, 0)
+	srcDirfd, err := unix.Open(o.Root, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open source file: %w", err)
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY, 0)
+	srcFile, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open source file under target rootfs: %w", err)
 	}
@@ -720,7 +720,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 			root = newRoot
 		}
 
-		parentDirfd, err := unix.Open(root, unix.O_PATH, 0)
+		parentDirfd, err := unix.Open(root, unix.O_PATH|unix.O_CLOEXEC, 0)
 		if err != nil {
 			return -1, err
 		}
@@ -1797,7 +1797,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		}
 	}
 
-	dirfd, err := unix.Open(dest, unix.O_RDONLY|unix.O_PATH, 0)
+	dirfd, err := unix.Open(dest, unix.O_RDONLY|unix.O_PATH|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return output, fmt.Errorf("cannot open %q: %w", dest, err)
 	}
@@ -2167,13 +2167,13 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 // validateChunkChecksum checks if the file at $root/$path[offset:chunk.ChunkSize] has the
 // same digest as chunk.ChunkDigest
 func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offset int64, copyBuffer []byte) bool {
-	parentDirfd, err := unix.Open(root, unix.O_PATH, 0)
+	parentDirfd, err := unix.Open(root, unix.O_PATH|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return false
 	}
 	defer unix.Close(parentDirfd)
 
-	fd, err := openFileUnderRoot(path, parentDirfd, unix.O_RDONLY, 0)
+	fd, err := openFileUnderRoot(path, parentDirfd, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return false
 	}
