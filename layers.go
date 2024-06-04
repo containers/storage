@@ -408,7 +408,7 @@ type layerStore struct {
 	// The following fields can only be read/written with read/write ownership of inProcessLock, respectively.
 	// Almost all users should use startReading() or startWriting().
 	lastWrite           lockfile.LastWrite
-	mountsLastWrite     lockfile.LastWrite // Only valid if lockfile.IsReadWrite()
+	mountsLastWrite     lockfile.LastWrite
 	layers              []*Layer
 	idindex             *truncindex.TruncIndex
 	byid                map[string]*Layer
@@ -616,7 +616,7 @@ func (r *layerStore) modified() (bool, error) {
 	if m {
 		return true, nil
 	}
-	if r.lockfile.IsReadWrite() {
+	if r.mountsLockfile != nil {
 		// This means we get, release, and re-obtain, r.mountsLockfile if we actually need to do any kind of reload.
 		// That’s a bit expensive, but hopefully most callers will be read-only and see no changes.
 		// We can’t eliminate these mountsLockfile accesses given the current assumption that Layer objects have _some_ not-very-obsolete
@@ -687,7 +687,7 @@ func (r *layerStore) reloadIfChanged(lockedForWriting bool) (bool, error) {
 		r.lastWrite = lastWrite
 		return false, nil
 	}
-	if r.lockfile.IsReadWrite() {
+	if r.mountsLockfile != nil {
 		r.mountsLockfile.RLock()
 		defer r.mountsLockfile.Unlock()
 		if err := r.reloadMountsIfChanged(); err != nil {
@@ -880,7 +880,7 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 	r.bytocsum = tocsums
 
 	// Load and merge information about which layers are mounted, and where.
-	if r.lockfile.IsReadWrite() {
+	if r.mountsLockfile != nil {
 		r.mountsLockfile.RLock()
 		defer r.mountsLockfile.Unlock()
 		// We need to reload mounts unconditionally, becuause by creating r.layers from scratch, we have discarded the previous
@@ -1047,9 +1047,6 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 // The caller must hold r.mountsLockfile for writing.
 // The caller must hold r.inProcessLock for WRITING.
 func (r *layerStore) saveMounts() error {
-	if !r.lockfile.IsReadWrite() {
-		return fmt.Errorf("not allowed to modify the layer store at %q: %w", r.layerdir, ErrStoreIsReadOnly)
-	}
 	r.mountsLockfile.AssertLockedForWriting()
 	mpath := r.mountspath()
 	if err := os.MkdirAll(filepath.Dir(mpath), 0o700); err != nil {
@@ -1156,23 +1153,24 @@ func (s *store) newLayerStore(rundir, layerdir, imagedir string, driver drivers.
 }
 
 func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roLayerStore, error) {
-	lockfile, err := lockfile.GetROLockFile(filepath.Join(layerdir, "layers.lock"))
+	roLockfile, err := lockfile.GetROLockFile(filepath.Join(layerdir, "layers.lock"))
 	if err != nil {
 		return nil, err
 	}
+	// Ignore errors if the lock file could not be opened
+	mountsLockfile, _ := lockfile.GetLockFile(filepath.Join(rundir, "mountpoints.lock"))
 	rlstore := layerStore{
-		lockfile:       newMultipleLockFile(lockfile),
-		mountsLockfile: nil,
+		lockfile:       newMultipleLockFile(roLockfile),
+		mountsLockfile: mountsLockfile,
 		rundir:         rundir,
 		jsonPath: [numLayerLocationIndex]string{
 			filepath.Join(layerdir, "layers.json"),
 			filepath.Join(layerdir, "volatile-layers.json"),
 		},
 		layerdir: layerdir,
-
-		byid:    make(map[string]*Layer),
-		byname:  make(map[string]*Layer),
-		bymount: make(map[string]*Layer),
+		byid:     make(map[string]*Layer),
+		byname:   make(map[string]*Layer),
+		bymount:  make(map[string]*Layer),
 
 		driver: driver,
 	}
@@ -1579,6 +1577,9 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 	if !r.lockfile.IsReadWrite() && !hasReadOnlyOpt(options.Options) {
 		return "", fmt.Errorf("not allowed to update mount locations for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
+	if r.mountsLockfile == nil {
+		return "", fmt.Errorf("cannot mount layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
+	}
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
 	if err := r.reloadMountsIfChanged(); err != nil {
@@ -1634,6 +1635,9 @@ func (r *layerStore) unmount(id string, force bool, conditional bool) (bool, err
 	if !r.lockfile.IsReadWrite() {
 		return false, fmt.Errorf("not allowed to update mount locations for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
+	if r.mountsLockfile == nil {
+		return false, fmt.Errorf("cannot unmount layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
+	}
 	r.mountsLockfile.Lock()
 	defer r.mountsLockfile.Unlock()
 	if err := r.reloadMountsIfChanged(); err != nil {
@@ -1671,7 +1675,7 @@ func (r *layerStore) unmount(id string, force bool, conditional bool) (bool, err
 
 // Requires startReading or startWriting.
 func (r *layerStore) ParentOwners(id string) (uids, gids []int, err error) {
-	if !r.lockfile.IsReadWrite() {
+	if r.mountsLockfile == nil {
 		return nil, nil, fmt.Errorf("no mount information for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
 	r.mountsLockfile.RLock()
