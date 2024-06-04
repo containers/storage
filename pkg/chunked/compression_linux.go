@@ -210,14 +210,13 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 
 	decodedTarSplit := []byte{}
 	if tarSplitChunk.Offset > 0 {
-		tarSplitDigest := toc.TarSplitDigest.String()
-		// ignore the tar-split data if the digest was not specified
-		if tarSplitDigest != "" {
-			tarSplit, err := readBlob(tarSplitChunk.Length)
-			if err != nil {
-				return nil, nil, nil, 0, err
-			}
-
+		// we must consume the data to not block the producer
+		tarSplit, err := readBlob(tarSplitChunk.Length)
+		if err != nil {
+			return nil, nil, nil, 0, err
+		}
+		// but ignore it when the digest is not present, because we can’t authenticate it against tocDigest
+		if toc.TarSplitDigest != "" {
 			decodedTarSplit, err = decodeAndValidateBlob(tarSplit, tarSplitLengthUncompressed, toc.TarSplitDigest.String())
 			if err != nil {
 				return nil, nil, nil, 0, fmt.Errorf("validating and decompressing tar-split: %w", err)
