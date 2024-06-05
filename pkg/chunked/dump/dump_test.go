@@ -100,74 +100,78 @@ func TestDumpNode(t *testing.T) {
 		ModTime: &modTime,
 	}
 
-	var bufRootEntry, bufRegularFile, bufDirectory, bufSymlink, bufHardlink, bufMissingParent bytes.Buffer
+	testCases := []struct {
+		name     string
+		entries  []*internal.FileMetadata
+		expected string
+	}{
+		{
+			name: "root entry",
+			entries: []*internal.FileMetadata{
+				rootEntry,
+			},
+			expected: "/ 0 40000 1 0 0 0 1672531200.0 - - -\n",
+		},
+		{
+			name: "regular file",
+			entries: []*internal.FileMetadata{
+				regularFileEntry,
+			},
+			expected: "/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n",
+		},
+		{
+			name: "directory",
+			entries: []*internal.FileMetadata{
+				directoryEntry,
+			},
+			expected: "/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
+		},
+		{
+			name: "symlink",
+			entries: []*internal.FileMetadata{
+				symlinkEntry,
+			},
+			expected: "/mysymlink 0 120000 1 0 0 0 1672531200.0 targetfile - -\n",
+		},
+		{
+			name: "hardlink",
+			entries: []*internal.FileMetadata{
+				hardlinkEntry,
+			},
+			expected: "/myhardlink 0 @100000 1 0 0 0 1672531200.0 /existingfile - -\n",
+		},
+		{
+			name: "missing parent",
+			entries: []*internal.FileMetadata{
+				missingParentEntry,
+			},
+			expected: "/foo 0 40755 1 0 0 0 0.0 - - -\n/foo/bar 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz/entry 0 100000 1 0 0 0 1672531200.0 - - -\n",
+		},
+		// Additional test cases
+		{
+			name: "complex case",
+			entries: []*internal.FileMetadata{
+				rootEntry,
+				regularFileEntry,
+				directoryEntry,
+			},
+			expected: "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
+		},
+	}
 
 	added := map[string]struct{}{"/": {}}
 
-	err := dumpNode(&bufRootEntry, map[string]struct{}{}, map[string]int{}, map[string]string{}, rootEntry)
-	if err != nil {
-		t.Errorf("unexpected error for root entry: %v", err)
-	}
-
-	err = dumpNode(&bufRegularFile, added, map[string]int{}, map[string]string{}, regularFileEntry)
-	if err != nil {
-		t.Errorf("unexpected error for regular file: %v", err)
-	}
-
-	err = dumpNode(&bufDirectory, added, map[string]int{}, map[string]string{}, directoryEntry)
-	if err != nil {
-		t.Errorf("unexpected error for directory: %v", err)
-	}
-
-	err = dumpNode(&bufSymlink, added, map[string]int{}, map[string]string{}, symlinkEntry)
-	if err != nil {
-		t.Errorf("unexpected error for symlink: %v", err)
-	}
-
-	err = dumpNode(&bufHardlink, added, map[string]int{}, map[string]string{}, hardlinkEntry)
-	if err != nil {
-		t.Errorf("unexpected error for hardlink: %v", err)
-	}
-
-	err = dumpNode(&bufMissingParent, added, map[string]int{}, map[string]string{}, missingParentEntry)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	}
-
-	expectedRootEntry := "/ 0 40000 1 0 0 0 1672531200.0 - - -\n"
-	expectedRegularFile := "/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n"
-	expectedDirectory := "/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n"
-	expectedSymlink := "/mysymlink 0 120000 1 0 0 0 1672531200.0 targetfile - -\n"
-	expectedHardlink := "/myhardlink 0 @100000 1 0 0 0 1672531200.0 /existingfile - -\n"
-	expectedActualMissingParent := "/foo 0 40755 1 0 0 0 0.0 - - -\n/foo/bar 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz/entry 0 100000 1 0 0 0 1672531200.0 - - -\n"
-
-	actualRootEntry := bufRootEntry.String()
-	actualRegularFile := bufRegularFile.String()
-	actualDirectory := bufDirectory.String()
-	actualSymlink := bufSymlink.String()
-	actualHardlink := bufHardlink.String()
-	actualMissingParent := bufMissingParent.String()
-
-	if actualRootEntry != expectedRootEntry {
-		t.Errorf("for root entry, got %q, want %q", actualRootEntry, expectedRootEntry)
-	}
-
-	if actualRegularFile != expectedRegularFile {
-		t.Errorf("for regular file, got %q, want %q", actualRegularFile, expectedRegularFile)
-	}
-
-	if actualDirectory != expectedDirectory {
-		t.Errorf("for directory, got %q, want %q", actualDirectory, expectedDirectory)
-	}
-
-	if actualSymlink != expectedSymlink {
-		t.Errorf("for symlink, got %q, want %q", actualSymlink, expectedSymlink)
-	}
-
-	if actualHardlink != expectedHardlink {
-		t.Errorf("for hardlink, got %q, want %q", actualHardlink, expectedHardlink)
-	}
-	if actualMissingParent != expectedActualMissingParent {
-		t.Errorf("for missing parent, got %q, want %q", actualMissingParent, expectedActualMissingParent)
+	for _, testCase := range testCases {
+		var buf bytes.Buffer
+		for _, entry := range testCase.entries {
+			err := dumpNode(&buf, added, map[string]int{}, map[string]string{}, entry)
+			if err != nil {
+				t.Errorf("unexpected error for %s: %v", testCase.name, err)
+			}
+		}
+		actual := buf.String()
+		if actual != testCase.expected {
+			t.Errorf("for %s, got %q, want %q", testCase.name, actual, testCase.expected)
+		}
 	}
 }
