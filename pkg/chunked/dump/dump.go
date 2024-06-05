@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -109,7 +110,7 @@ func sanitizeName(name string) string {
 	return path
 }
 
-func dumpNode(out io.Writer, added map[string]struct{}, links map[string]int, verityDigests map[string]string, entry *internal.FileMetadata) error {
+func dumpNode(out io.Writer, added map[string]*internal.FileMetadata, links map[string]int, verityDigests map[string]string, entry *internal.FileMetadata) error {
 	path := sanitizeName(entry.Name)
 
 	parent := filepath.Dir(path)
@@ -124,7 +125,14 @@ func dumpNode(out io.Writer, added map[string]struct{}, links map[string]int, ve
 		}
 
 	}
-	added[path] = struct{}{}
+	if e, found := added[path]; found {
+		// if the entry was already added, make sure it has the same data
+		if !reflect.DeepEqual(*e, *entry) {
+			return fmt.Errorf("entry %q already added with different data", path)
+		}
+		return nil
+	}
+	added[path] = entry
 
 	if _, err := fmt.Fprint(out, escaped(path, ESCAPE_STANDARD)); err != nil {
 		return err
@@ -220,7 +228,7 @@ func GenerateDump(tocI interface{}, verityDigests map[string]string) (io.Reader,
 		}()
 
 		links := make(map[string]int)
-		added := make(map[string]struct{})
+		added := make(map[string]*internal.FileMetadata)
 		for _, e := range toc.Entries {
 			if e.Linkname == "" {
 				continue
