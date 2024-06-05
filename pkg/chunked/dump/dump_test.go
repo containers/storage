@@ -66,6 +66,14 @@ func TestDumpNode(t *testing.T) {
 		Name:    "./",
 		Type:    internal.TypeDir,
 		ModTime: &modTime,
+		UID:     0,
+	}
+
+	rootEntry2 := &internal.FileMetadata{
+		Name:    "./",
+		Type:    internal.TypeDir,
+		ModTime: &modTime,
+		UID:     101,
 	}
 
 	directoryEntry := &internal.FileMetadata{
@@ -101,16 +109,38 @@ func TestDumpNode(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name     string
-		entries  []*internal.FileMetadata
-		expected string
+		name                string
+		entries             []*internal.FileMetadata
+		expected            string
+		skipAddingRootEntry bool
+		expectError         bool
 	}{
 		{
 			name: "root entry",
 			entries: []*internal.FileMetadata{
 				rootEntry,
 			},
-			expected: "/ 0 40000 1 0 0 0 1672531200.0 - - -\n",
+			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n",
+			skipAddingRootEntry: true,
+		},
+		{
+			name: "duplicate root entry",
+			entries: []*internal.FileMetadata{
+				rootEntry,
+				rootEntry,
+				rootEntry,
+			},
+			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n",
+			skipAddingRootEntry: true,
+		},
+		{
+			name: "duplicate root entry with mismatch",
+			entries: []*internal.FileMetadata{
+				rootEntry,
+				rootEntry2,
+			},
+			skipAddingRootEntry: true,
+			expectError:         true,
 		},
 		{
 			name: "regular file",
@@ -118,6 +148,15 @@ func TestDumpNode(t *testing.T) {
 				regularFileEntry,
 			},
 			expected: "/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n",
+		},
+		{
+			name: "root entry with file",
+			entries: []*internal.FileMetadata{
+				rootEntry,
+				regularFileEntry,
+			},
+			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n",
+			skipAddingRootEntry: true,
 		},
 		{
 			name: "directory",
@@ -147,7 +186,6 @@ func TestDumpNode(t *testing.T) {
 			},
 			expected: "/foo 0 40755 1 0 0 0 0.0 - - -\n/foo/bar 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz/entry 0 100000 1 0 0 0 1672531200.0 - - -\n",
 		},
-		// Additional test cases
 		{
 			name: "complex case",
 			entries: []*internal.FileMetadata{
@@ -155,23 +193,37 @@ func TestDumpNode(t *testing.T) {
 				regularFileEntry,
 				directoryEntry,
 			},
-			expected: "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
+			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
+			skipAddingRootEntry: true,
 		},
 	}
 
-	added := map[string]struct{}{"/": {}}
-
 	for _, testCase := range testCases {
 		var buf bytes.Buffer
+
+		added := map[string]*internal.FileMetadata{}
+		if !testCase.skipAddingRootEntry {
+			added["/"] = rootEntry
+		}
+		var foundErr error
 		for _, entry := range testCase.entries {
 			err := dumpNode(&buf, added, map[string]int{}, map[string]string{}, entry)
 			if err != nil {
-				t.Errorf("unexpected error for %s: %v", testCase.name, err)
+				foundErr = err
 			}
 		}
-		actual := buf.String()
-		if actual != testCase.expected {
-			t.Errorf("for %s, got %q, want %q", testCase.name, actual, testCase.expected)
+		if testCase.expectError && foundErr == nil {
+			t.Errorf("expected error for %s, got nil", testCase.name)
 		}
+		if !testCase.expectError {
+			if foundErr != nil {
+				t.Errorf("unexpected error for %s: %v", testCase.name, foundErr)
+			}
+			actual := buf.String()
+			if actual != testCase.expected {
+				t.Errorf("for %s, got %q, want %q", testCase.name, actual, testCase.expected)
+			}
+		}
+
 	}
 }
