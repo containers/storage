@@ -303,7 +303,7 @@ func openFileUnderRoot(dirfd int, name string, flags uint64, mode os.FileMode) (
 	if errors.Is(err, unix.ENOENT) && hasCreate {
 		parent := filepath.Dir(name)
 		if parent != "" {
-			newDirfd, err2 := openOrCreateDirUnderRoot(parent, dirfd, 0)
+			newDirfd, err2 := openOrCreateDirUnderRoot(dirfd, parent, 0)
 			if err2 == nil {
 				defer newDirfd.Close()
 				fd, err := openFileUnderRootRaw(int(newDirfd.Fd()), filepath.Base(name), flags, mode)
@@ -317,10 +317,10 @@ func openFileUnderRoot(dirfd int, name string, flags uint64, mode os.FileMode) (
 }
 
 // openOrCreateDirUnderRoot safely opens a directory or create it if it is missing.
-// name is the path to open relative to dirfd.
 // dirfd is an open file descriptor to the target checkout directory.
+// name is the path to open relative to dirfd.
 // mode specifies the mode to use for newly created files.
-func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.File, error) {
+func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.File, error) {
 	fd, err := openFileUnderRootRaw(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, mode)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
@@ -329,7 +329,7 @@ func openOrCreateDirUnderRoot(name string, dirfd int, mode os.FileMode) (*os.Fil
 	if errors.Is(err, unix.ENOENT) {
 		parent := filepath.Dir(name)
 		if parent != "" {
-			pDir, err2 := openOrCreateDirUnderRoot(parent, dirfd, mode)
+			pDir, err2 := openOrCreateDirUnderRoot(dirfd, parent, mode)
 			if err2 != nil {
 				return nil, err
 			}
@@ -369,7 +369,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata,
 
 	parentFd := dirfd
 	if parent != "." {
-		parentFile, err := openOrCreateDirUnderRoot(parent, dirfd, 0)
+		parentFile, err := openOrCreateDirUnderRoot(dirfd, parent, 0)
 		if err != nil {
 			return err
 		}
@@ -402,7 +402,7 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "." {
-		f, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
+		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
 		if err != nil {
 			return err
 		}
@@ -438,7 +438,7 @@ func safeSymlink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *a
 	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "." {
-		f, err := openOrCreateDirUnderRoot(destDir, dirfd, 0)
+		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
 		if err != nil {
 			return err
 		}
@@ -458,7 +458,7 @@ type whiteoutHandler struct {
 }
 
 func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
-	file, err := openOrCreateDirUnderRoot(path, d.Dirfd, 0)
+	file, err := openOrCreateDirUnderRoot(d.Dirfd, path, 0)
 	if err != nil {
 		return err
 	}
@@ -476,7 +476,7 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 
 	dirfd := d.Dirfd
 	if dir != "" {
-		dir, err := openOrCreateDirUnderRoot(dir, d.Dirfd, 0)
+		dir, err := openOrCreateDirUnderRoot(d.Dirfd, dir, 0)
 		if err != nil {
 			return err
 		}
