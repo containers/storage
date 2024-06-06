@@ -139,11 +139,8 @@ func convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *se
 		f.Close()
 		return 0, nil, "", nil, err
 	}
-	is := seekableFile{
-		file: f,
-	}
 
-	return copied, &is, convertedOutputDigester.Digest(), newAnnotations, nil
+	return copied, newSeekableFile(f), convertedOutputDigester.Digest(), newAnnotations, nil
 }
 
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.

@@ -518,12 +518,18 @@ func (d whiteoutHandler) Chown(path string, uid, gid int) error {
 	return nil
 }
 
+type readerAtCloser interface {
+	io.ReaderAt
+	io.Closer
+}
+
+// seekableFile is a struct that wraps an *os.File to provide an ImageSourceSeekable.
 type seekableFile struct {
-	file *os.File
+	reader readerAtCloser
 }
 
 func (f *seekableFile) Close() error {
-	return f.file.Close()
+	return f.reader.Close()
 }
 
 func (f *seekableFile) GetBlobAt(chunks []ImageSourceChunk) (chan io.ReadCloser, chan error, error) {
@@ -532,11 +538,15 @@ func (f *seekableFile) GetBlobAt(chunks []ImageSourceChunk) (chan io.ReadCloser,
 
 	go func() {
 		for _, chunk := range chunks {
-			streams <- io.NopCloser(io.NewSectionReader(f.file, int64(chunk.Offset), int64(chunk.Length)))
+			streams <- io.NopCloser(io.NewSectionReader(f.reader, int64(chunk.Offset), int64(chunk.Length)))
 		}
 		close(streams)
 		close(errs)
 	}()
 
 	return streams, errs, nil
+}
+
+func newSeekableFile(reader readerAtCloser) *seekableFile {
+	return &seekableFile{reader: reader}
 }
