@@ -66,7 +66,7 @@ func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.F
 	if useHardLinks {
 		destDirPath := filepath.Dir(destFile)
 		destBase := filepath.Base(destFile)
-		destDir, err := openFileUnderRoot(destDirPath, dirfd, 0, mode)
+		destDir, err := openFileUnderRoot(destDirPath, dirfd, 0, 0)
 		if err == nil {
 			defer destDir.Close()
 
