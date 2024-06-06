@@ -268,7 +268,7 @@ func copyFileFromOtherLayer(file *fileMetadata, source string, name string, dirf
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(name, srcDirfd, unix.O_RDONLY|syscall.O_CLOEXEC, 0)
+	srcFile, err := openFileUnderRoot(srcDirfd, name, unix.O_RDONLY|syscall.O_CLOEXEC, 0)
 	if err != nil {
 		return false, nil, 0, fmt.Errorf("open source file under target rootfs (%s): %w", name, err)
 	}
@@ -478,7 +478,7 @@ func (o *originFile) OpenFile() (io.ReadCloser, error) {
 	}
 	defer unix.Close(srcDirfd)
 
-	srcFile, err := openFileUnderRoot(o.Path, srcDirfd, unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	srcFile, err := openFileUnderRoot(srcDirfd, o.Path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open source file under target rootfs: %w", err)
 	}
@@ -604,7 +604,7 @@ type destinationFile struct {
 }
 
 func openDestinationFile(dirfd int, metadata *fileMetadata, options *archive.TarOptions, skipValidation bool, recordFsVerity recordFsVerityFunc) (*destinationFile, error) {
-	file, err := openFileUnderRoot(metadata.Name, dirfd, newFileFlags, 0)
+	file, err := openFileUnderRoot(dirfd, metadata.Name, newFileFlags, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -1388,7 +1388,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			if r.Size == 0 {
 				// Used to have a scope for cleanup.
 				createEmptyFile := func() error {
-					file, err := openFileUnderRoot(r.Name, dirfd, newFileFlags, 0)
+					file, err := openFileUnderRoot(dirfd, r.Name, newFileFlags, 0)
 					if err != nil {
 						return err
 					}
@@ -1645,7 +1645,7 @@ func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offs
 	}
 	defer unix.Close(parentDirfd)
 
-	fd, err := openFileUnderRoot(path, parentDirfd, unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	fd, err := openFileUnderRoot(parentDirfd, path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return false
 	}

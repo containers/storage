@@ -66,7 +66,7 @@ func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.F
 	if useHardLinks {
 		destDirPath := filepath.Dir(destFile)
 		destBase := filepath.Base(destFile)
-		destDir, err := openFileUnderRoot(destDirPath, dirfd, 0, 0)
+		destDir, err := openFileUnderRoot(dirfd, destDirPath, 0, 0)
 		if err == nil {
 			defer destDir.Close()
 
@@ -80,7 +80,7 @@ func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.F
 	}
 
 	// If the destination file already exists, we shouldn't blow it away
-	dstFile, err := openFileUnderRoot(destFile, dirfd, newFileFlags, mode)
+	dstFile, err := openFileUnderRoot(dirfd, destFile, newFileFlags, mode)
 	if err != nil {
 		return nil, -1, fmt.Errorf("open file %q under rootfs for copy: %w", destFile, err)
 	}
@@ -127,7 +127,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	if usePath {
 		dirName := filepath.Dir(metadata.Name)
 		if dirName != "" {
-			parentFd, err := openFileUnderRoot(dirName, dirfd, unix.O_PATH|unix.O_DIRECTORY, 0)
+			parentFd, err := openFileUnderRoot(dirfd, dirName, unix.O_PATH|unix.O_DIRECTORY, 0)
 			if err != nil {
 				return err
 			}
@@ -289,11 +289,11 @@ func openFileUnderRootRaw(dirfd int, name string, flags uint64, mode os.FileMode
 }
 
 // openFileUnderRoot safely opens a file under the specified root directory using openat2
-// name is the path to open relative to dirfd.
 // dirfd is an open file descriptor to the target checkout directory.
+// name is the path to open relative to dirfd.
 // flags are the flags to pass to the open syscall.
 // mode specifies the mode to use for newly created files.
-func openFileUnderRoot(name string, dirfd int, flags uint64, mode os.FileMode) (*os.File, error) {
+func openFileUnderRoot(dirfd int, name string, flags uint64, mode os.FileMode) (*os.File, error) {
 	fd, err := openFileUnderRootRaw(dirfd, name, flags, mode)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
@@ -383,7 +383,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata,
 		}
 	}
 
-	file, err := openFileUnderRoot(base, parentFd, unix.O_DIRECTORY|unix.O_RDONLY, 0)
+	file, err := openFileUnderRoot(parentFd, base, unix.O_DIRECTORY|unix.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata,
 }
 
 func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *archive.TarOptions) error {
-	sourceFile, err := openFileUnderRoot(metadata.Linkname, dirfd, unix.O_PATH|unix.O_RDONLY|unix.O_NOFOLLOW, 0)
+	sourceFile, err := openFileUnderRoot(dirfd, metadata.Linkname, unix.O_PATH|unix.O_RDONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return err
 	}
@@ -415,11 +415,11 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 		return fmt.Errorf("create hardlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
 	}
 
-	newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
+	newFile, err := openFileUnderRoot(dirfd, metadata.Name, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		// If the target is a symlink, open the file with O_PATH.
 		if errors.Is(err, unix.ELOOP) {
-			newFile, err := openFileUnderRoot(metadata.Name, dirfd, unix.O_PATH|unix.O_NOFOLLOW, 0)
+			newFile, err := openFileUnderRoot(dirfd, metadata.Name, unix.O_PATH|unix.O_NOFOLLOW, 0)
 			if err != nil {
 				return err
 			}
@@ -500,7 +500,7 @@ func checkChownErr(err error, name string, uid, gid int) error {
 }
 
 func (d whiteoutHandler) Chown(path string, uid, gid int) error {
-	file, err := openFileUnderRoot(path, d.Dirfd, unix.O_PATH, 0)
+	file, err := openFileUnderRoot(d.Dirfd, path, unix.O_PATH, 0)
 	if err != nil {
 		return err
 	}
