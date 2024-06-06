@@ -321,7 +321,7 @@ func openFileUnderRoot(dirfd int, name string, flags uint64, mode os.FileMode) (
 // name is the path to open relative to dirfd.
 // mode specifies the mode to use for newly created files.
 func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.File, error) {
-	fd, err := openFileUnderRootRaw(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, mode)
+	fd, err := openFileUnderRootRaw(dirfd, name, unix.O_DIRECTORY|unix.O_RDONLY, 0)
 	if err == nil {
 		return os.NewFile(uintptr(fd), name), nil
 	}
@@ -337,11 +337,11 @@ func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.Fil
 
 			baseName := filepath.Base(name)
 
-			if err2 := unix.Mkdirat(int(pDir.Fd()), baseName, 0o755); err2 != nil {
+			if err2 := unix.Mkdirat(int(pDir.Fd()), baseName, uint32(mode)); err2 != nil {
 				return nil, err
 			}
 
-			fd, err = openFileUnderRootRaw(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, mode)
+			fd, err = openFileUnderRootRaw(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, 0)
 			if err == nil {
 				return os.NewFile(uintptr(fd), name), nil
 			}
