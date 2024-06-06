@@ -64,8 +64,7 @@ func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.F
 	copyWithFileRange, copyWithFileClone := true, true
 
 	if useHardLinks {
-		destDirPath := filepath.Dir(destFile)
-		destBase := filepath.Base(destFile)
+		destDirPath, destBase := filepath.Split(destFile)
 		destDir, err := openFileUnderRoot(dirfd, destDirPath, 0, 0)
 		if err == nil {
 			defer destDir.Close()
@@ -211,9 +210,9 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 	// If O_NOFOLLOW is specified in the flags, then resolve only the parent directory and use the
 	// last component as the path to openat().
 	if hasNoFollow {
-		dirName := filepath.Dir(name)
-		if dirName != "" {
-			newRoot, err := securejoin.SecureJoin(root, filepath.Dir(name))
+		dirName, baseName := filepath.Split(name)
+		if dirName != "" && dirName != "." {
+			newRoot, err := securejoin.SecureJoin(root, dirName)
 			if err != nil {
 				return -1, err
 			}
@@ -226,7 +225,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 		}
 		defer unix.Close(parentDirfd)
 
-		fd, err = unix.Openat(parentDirfd, filepath.Base(name), int(flags), uint32(mode))
+		fd, err = unix.Openat(parentDirfd, baseName, int(flags), uint32(mode))
 		if err != nil {
 			return -1, err
 		}
@@ -274,6 +273,9 @@ var skipOpenat2 int32
 func openFileUnderRootRaw(dirfd int, name string, flags uint64, mode os.FileMode) (int, error) {
 	var fd int
 	var err error
+	if name == "" {
+		return unix.Dup(dirfd)
+	}
 	if atomic.LoadInt32(&skipOpenat2) > 0 {
 		fd, err = openFileUnderRootFallback(dirfd, name, flags, mode)
 	} else {
@@ -364,11 +366,9 @@ func appendHole(fd int, size int64) error {
 }
 
 func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata, options *archive.TarOptions) error {
-	parent := filepath.Dir(name)
-	base := filepath.Base(name)
-
+	parent, base := filepath.Split(name)
 	parentFd := dirfd
-	if parent != "." {
+	if parent != "" && parent != "." {
 		parentFile, err := openOrCreateDirUnderRoot(dirfd, parent, 0)
 		if err != nil {
 			return err
@@ -399,9 +399,9 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 	}
 	defer sourceFile.Close()
 
-	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
+	destDir, destBase := filepath.Split(metadata.Name)
 	destDirFd := dirfd
-	if destDir != "." {
+	if destDir != "" && destDir != "." {
 		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
 		if err != nil {
 			return err
@@ -435,9 +435,9 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 }
 
 func safeSymlink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *archive.TarOptions) error {
-	destDir, destBase := filepath.Dir(metadata.Name), filepath.Base(metadata.Name)
+	destDir, destBase := filepath.Split(metadata.Name)
 	destDirFd := dirfd
-	if destDir != "." {
+	if destDir != "" && destDir != "." {
 		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
 		if err != nil {
 			return err
@@ -471,11 +471,9 @@ func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
 }
 
 func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
-	dir := filepath.Dir(path)
-	base := filepath.Base(path)
-
+	dir, base := filepath.Split(path)
 	dirfd := d.Dirfd
-	if dir != "" {
+	if dir != "" && dir != "." {
 		dir, err := openOrCreateDirUnderRoot(d.Dirfd, dir, 0)
 		if err != nil {
 			return err
