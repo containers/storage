@@ -513,7 +513,7 @@ func safeSymlink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *a
 	}
 
 	if err := unix.Symlinkat(metadata.Linkname, destDirFd, destBase); err != nil {
-		return fmt.Errorf("create symlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
+		return &fs.PathError{Op: "symlinkat", Path: metadata.Name, Err: err}
 	}
 	return nil
 }
