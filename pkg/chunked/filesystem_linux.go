@@ -197,7 +197,11 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	doSetXattr := func(k string, v []byte) error {
-		return unix.Fsetxattr(fd, k, v, 0)
+		err := unix.Fsetxattr(fd, k, v, 0)
+		if err != nil {
+			return &fs.PathError{Op: "fsetxattr", Path: metadata.Name, Err: err}
+		}
+		return nil
 	}
 
 	doUtimes := func() error {
@@ -519,7 +523,7 @@ func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
 	defer file.Close()
 
 	if err := unix.Fsetxattr(int(file.Fd()), name, value, 0); err != nil {
-		return fmt.Errorf("set xattr %s=%q for %q: %w", name, value, path, err)
+		return &fs.PathError{Op: "fsetxattr", Path: path, Err: err}
 	}
 	return nil
 }
