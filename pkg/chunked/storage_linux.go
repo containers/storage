@@ -1263,9 +1263,12 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	if options.ForceMask != nil {
 		uid, gid, mode, err := archive.GetFileOwner(dest)
 		if err == nil {
-			value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
-			if err := unix.Setxattr(dest, containersOverrideXattr, []byte(value), 0); err != nil {
-				return output, &fs.PathError{Op: "setxattr", Path: dest, Err: err}
+			value := idtools.Stat{
+				IDs:  idtools.IDPair{UID: int(uid), GID: int(gid)},
+				Mode: os.FileMode(mode),
+			}
+			if err := idtools.SetContainersOverrideXattr(dest, value); err != nil {
+				return output, err
 			}
 		}
 	}

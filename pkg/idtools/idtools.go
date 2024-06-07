@@ -419,19 +419,19 @@ func SetContainersOverrideXattr(path string, stat Stat) error {
 
 func SafeChown(name string, uid, gid int) error {
 	if runtime.GOOS == "darwin" {
-		var mode uint64 = 0o0700
+		var mode os.FileMode = 0o0700
 		xstat, err := system.Lgetxattr(name, ContainersOverrideXattr)
 		if err == nil {
 			attrs := strings.Split(string(xstat), ":")
 			if len(attrs) == 3 {
 				val, err := strconv.ParseUint(attrs[2], 8, 32)
 				if err == nil {
-					mode = val
+					mode = os.FileMode(val)
 				}
 			}
 		}
-		value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
-		if err = system.Lsetxattr(name, ContainersOverrideXattr, []byte(value), 0); err != nil {
+		value := Stat{IDPair{uid, gid}, mode}
+		if err = SetContainersOverrideXattr(name, value); err != nil {
 			return err
 		}
 		uid = os.Getuid()
@@ -447,19 +447,19 @@ func SafeChown(name string, uid, gid int) error {
 
 func SafeLchown(name string, uid, gid int) error {
 	if runtime.GOOS == "darwin" {
-		var mode uint64 = 0o0700
+		var mode os.FileMode = 0o0700
 		xstat, err := system.Lgetxattr(name, ContainersOverrideXattr)
 		if err == nil {
 			attrs := strings.Split(string(xstat), ":")
 			if len(attrs) == 3 {
 				val, err := strconv.ParseUint(attrs[2], 8, 32)
 				if err == nil {
-					mode = val
+					mode = os.FileMode(val)
 				}
 			}
 		}
-		value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
-		if err = system.Lsetxattr(name, ContainersOverrideXattr, []byte(value), 0); err != nil {
+		value := Stat{IDPair{uid, gid}, mode}
+		if err = SetContainersOverrideXattr(name, value); err != nil {
 			return err
 		}
 		uid = os.Getuid()
