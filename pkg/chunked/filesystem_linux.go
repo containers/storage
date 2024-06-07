@@ -48,7 +48,18 @@ type fileMetadata struct {
 	skipSetAttrs bool
 }
 
-func doHardLink(srcFd int, destDirFd int, destBase string) error {
+func doHardLink(dirfd, srcFd int, destFile string) error {
+	destDir, destBase := filepath.Split(destFile)
+	destDirFd := dirfd
+	if destDir != "" && destDir != "." {
+		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		destDirFd = int(f.Fd())
+	}
+
 	doLink := func() error {
 		// Using unix.AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH while this variant that uses
 		// /proc/self/fd doesn't and can be used with rootless.
@@ -77,17 +88,11 @@ func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.F
 	copyWithFileRange, copyWithFileClone := true, true
 
 	if useHardLinks {
-		destDirPath, destBase := filepath.Split(destFile)
-		destDir, err := openFileUnderRoot(dirfd, destDirPath, 0, 0)
+		err := doHardLink(dirfd, srcFd, destFile)
 		if err == nil {
-			defer destDir.Close()
-
-			err := doHardLink(srcFd, int(destDir.Fd()), destBase)
-			if err == nil {
-				// if the file was deduplicated with a hard link, skip overriding file metadata.
-				fileMetadata.skipSetAttrs = true
-				return nil, st.Size(), nil
-			}
+			// if the file was deduplicated with a hard link, skip overriding file metadata.
+			fileMetadata.skipSetAttrs = true
+			return nil, st.Size(), nil
 		}
 	}
 
@@ -412,20 +417,9 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 	}
 	defer sourceFile.Close()
 
-	destDir, destBase := filepath.Split(metadata.Name)
-	destDirFd := dirfd
-	if destDir != "" && destDir != "." {
-		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		destDirFd = int(f.Fd())
-	}
-
-	err = doHardLink(int(sourceFile.Fd()), destDirFd, destBase)
+	err = doHardLink(dirfd, int(sourceFile.Fd()), metadata.Name)
 	if err != nil {
-		return fmt.Errorf("create hardlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
+		return err
 	}
 
 	newFile, err := openFileUnderRoot(dirfd, metadata.Name, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
