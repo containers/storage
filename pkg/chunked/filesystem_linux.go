@@ -290,13 +290,13 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 
 		parentDirfd, err := unix.Open(root, unix.O_PATH|unix.O_CLOEXEC, 0)
 		if err != nil {
-			return -1, err
+			return -1, &fs.PathError{Op: "open", Path: root, Err: err}
 		}
 		defer unix.Close(parentDirfd)
 
 		fd, err = unix.Openat(parentDirfd, baseName, int(flags), uint32(mode))
 		if err != nil {
-			return -1, err
+			return -1, &fs.PathError{Op: "openat", Path: name, Err: err}
 		}
 	} else {
 		newPath, err := securejoin.SecureJoin(root, name)
@@ -305,7 +305,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 		}
 		fd, err = unix.Openat(dirfd, newPath, int(flags), uint32(mode))
 		if err != nil {
-			return -1, err
+			return -1, &fs.PathError{Op: "openat", Path: newPath, Err: err}
 		}
 	}
 
@@ -330,7 +330,11 @@ func openFileUnderRootOpenat2(dirfd int, name string, flags uint64, mode os.File
 		Mode:    uint64(mode & 0o7777),
 		Resolve: unix.RESOLVE_IN_ROOT,
 	}
-	return unix.Openat2(dirfd, name, &how)
+	fd, err := unix.Openat2(dirfd, name, &how)
+	if err != nil {
+		return -1, &fs.PathError{Op: "openat2", Path: name, Err: err}
+	}
+	return fd, nil
 }
 
 // skipOpenat2 is set when openat2 is not supported by the underlying kernel and avoid
