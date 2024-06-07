@@ -153,7 +153,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	if metadata.skipSetAttrs {
 		return nil
 	}
-	if file == nil || file.Fd() < 0 {
+	if file == nil {
 		return errors.New("invalid file")
 	}
 	fd := int(file.Fd())
