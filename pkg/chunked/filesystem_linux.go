@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,6 +121,29 @@ func timeToTimespec(time *time.Time) (ts unix.Timespec) {
 	return unix.NsecToTimespec(time.UnixNano())
 }
 
+// chown changes the owner and group of the file at the specified path under the directory
+// pointed by dirfd.
+// If nofollow is true, the function will not follow symlinks.
+// If path is empty, the function will change the owner and group of the file descriptor.
+// absolutePath is the absolute path of the file, used only for error messages.
+func chown(dirfd int, path string, uid, gid int, nofollow bool, absolutePath string) error {
+	var err error
+	flags := 0
+	if nofollow {
+		flags |= unix.AT_SYMLINK_NOFOLLOW
+	} else if path == "" {
+		flags |= unix.AT_EMPTY_PATH
+	}
+	err = unix.Fchownat(dirfd, path, uid, gid, flags)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, syscall.EINVAL) {
+		return fmt.Errorf(`potentially insufficient UIDs or GIDs available in the user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally and run "podman system migrate": %w`, uid, gid, path, err)
+	}
+	return &fs.PathError{Op: "fchownat", Path: absolutePath, Err: err}
+}
+
 // setFileAttrs sets the file attributes for file given metadata
 func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMetadata, options *archive.TarOptions, usePath bool) error {
 	if metadata.skipSetAttrs {
@@ -156,10 +180,16 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	doChown := func() error {
+		var err error
 		if usePath {
-			return unix.Fchownat(dirfd, baseName, metadata.UID, metadata.GID, unix.AT_SYMLINK_NOFOLLOW)
+			err = chown(dirfd, baseName, metadata.UID, metadata.GID, true, metadata.Name)
+		} else {
+			err = chown(fd, "", metadata.UID, metadata.GID, false, metadata.Name)
 		}
-		return unix.Fchown(fd, metadata.UID, metadata.GID)
+		if options.IgnoreChownErrors {
+			return nil
+		}
+		return err
 	}
 
 	doSetXattr := func(k string, v []byte) error {
@@ -182,9 +212,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	if err := doChown(); err != nil {
-		if !options.IgnoreChownErrors {
-			return fmt.Errorf("chown %q to %d:%d: %w", metadata.Name, metadata.UID, metadata.GID, err)
-		}
+		return err
 	}
 
 	canIgnore := func(err error) bool {
@@ -497,13 +525,6 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 	return nil
 }
 
-func checkChownErr(err error, name string, uid, gid int) error {
-	if errors.Is(err, syscall.EINVAL) {
-		return fmt.Errorf(`potentially insufficient UIDs or GIDs available in user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally and run "podman system migrate": %w`, uid, gid, name, err)
-	}
-	return err
-}
-
 func (d whiteoutHandler) Chown(path string, uid, gid int) error {
 	file, err := openFileUnderRoot(d.Dirfd, path, unix.O_PATH, 0)
 	if err != nil {
@@ -511,16 +532,7 @@ func (d whiteoutHandler) Chown(path string, uid, gid int) error {
 	}
 	defer file.Close()
 
-	if err := unix.Fchownat(int(file.Fd()), "", uid, gid, unix.AT_EMPTY_PATH); err != nil {
-		var stat unix.Stat_t
-		if unix.Fstat(int(file.Fd()), &stat) == nil {
-			if stat.Uid == uint32(uid) && stat.Gid == uint32(gid) {
-				return nil
-			}
-		}
-		return checkChownErr(err, path, uid, gid)
-	}
-	return nil
+	return chown(int(file.Fd()), "", uid, gid, false, path)
 }
 
 type readerAtCloser interface {
