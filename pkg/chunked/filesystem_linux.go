@@ -417,7 +417,7 @@ func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.Fil
 			baseName := filepath.Base(name)
 
 			if err2 := unix.Mkdirat(int(pDir.Fd()), baseName, uint32(mode)); err2 != nil {
-				return nil, err
+				return nil, &fs.PathError{Op: "mkdirat", Path: name, Err: err2}
 			}
 
 			fd, err = openFileUnderRootRaw(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, 0)
@@ -456,7 +456,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata,
 
 	if err := unix.Mkdirat(parentFd, base, uint32(mode)); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir %q: %w", name, err)
+			return &fs.PathError{Op: "mkdirat", Path: name, Err: err}
 		}
 	}
 
