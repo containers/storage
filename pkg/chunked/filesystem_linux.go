@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,12 +49,27 @@ type fileMetadata struct {
 	skipSetAttrs bool
 }
 
-func doHardLink(srcFd int, destDirFd int, destBase string) error {
+func doHardLink(dirfd, srcFd int, destFile string) error {
+	destDir, destBase := filepath.Split(destFile)
+	destDirFd := dirfd
+	if destDir != "" && destDir != "." {
+		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		destDirFd = int(f.Fd())
+	}
+
 	doLink := func() error {
 		// Using unix.AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH while this variant that uses
 		// /proc/self/fd doesn't and can be used with rootless.
 		srcPath := procPathForFd(srcFd)
-		return unix.Linkat(unix.AT_FDCWD, srcPath, destDirFd, destBase, unix.AT_SYMLINK_FOLLOW)
+		err := unix.Linkat(unix.AT_FDCWD, srcPath, destDirFd, destBase, unix.AT_SYMLINK_FOLLOW)
+		if err != nil {
+			return &fs.PathError{Op: "linkat", Path: destFile, Err: err}
+		}
+		return nil
 	}
 
 	err := doLink()
@@ -77,17 +93,11 @@ func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.F
 	copyWithFileRange, copyWithFileClone := true, true
 
 	if useHardLinks {
-		destDirPath, destBase := filepath.Split(destFile)
-		destDir, err := openFileUnderRoot(dirfd, destDirPath, 0, 0)
+		err := doHardLink(dirfd, srcFd, destFile)
 		if err == nil {
-			defer destDir.Close()
-
-			err := doHardLink(srcFd, int(destDir.Fd()), destBase)
-			if err == nil {
-				// if the file was deduplicated with a hard link, skip overriding file metadata.
-				fileMetadata.skipSetAttrs = true
-				return nil, st.Size(), nil
-			}
+			// if the file was deduplicated with a hard link, skip overriding file metadata.
+			fileMetadata.skipSetAttrs = true
+			return nil, st.Size(), nil
 		}
 	}
 
@@ -113,6 +123,29 @@ func timeToTimespec(time *time.Time) (ts unix.Timespec) {
 		return
 	}
 	return unix.NsecToTimespec(time.UnixNano())
+}
+
+// chown changes the owner and group of the file at the specified path under the directory
+// pointed by dirfd.
+// If nofollow is true, the function will not follow symlinks.
+// If path is empty, the function will change the owner and group of the file descriptor.
+// absolutePath is the absolute path of the file, used only for error messages.
+func chown(dirfd int, path string, uid, gid int, nofollow bool, absolutePath string) error {
+	var err error
+	flags := 0
+	if nofollow {
+		flags |= unix.AT_SYMLINK_NOFOLLOW
+	} else if path == "" {
+		flags |= unix.AT_EMPTY_PATH
+	}
+	err = unix.Fchownat(dirfd, path, uid, gid, flags)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, syscall.EINVAL) {
+		return fmt.Errorf(`potentially insufficient UIDs or GIDs available in the user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally and run "podman system migrate": %w`, uid, gid, path, err)
+	}
+	return &fs.PathError{Op: "fchownat", Path: absolutePath, Err: err}
 }
 
 // setFileAttrs sets the file attributes for file given metadata
@@ -151,35 +184,58 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	doChown := func() error {
+		var err error
 		if usePath {
-			return unix.Fchownat(dirfd, baseName, metadata.UID, metadata.GID, unix.AT_SYMLINK_NOFOLLOW)
+			err = chown(dirfd, baseName, metadata.UID, metadata.GID, true, metadata.Name)
+		} else {
+			err = chown(fd, "", metadata.UID, metadata.GID, false, metadata.Name)
 		}
-		return unix.Fchown(fd, metadata.UID, metadata.GID)
+		if options.IgnoreChownErrors {
+			return nil
+		}
+		return err
 	}
 
 	doSetXattr := func(k string, v []byte) error {
-		return unix.Fsetxattr(fd, k, v, 0)
+		err := unix.Fsetxattr(fd, k, v, 0)
+		if err != nil {
+			return &fs.PathError{Op: "fsetxattr", Path: metadata.Name, Err: err}
+		}
+		return nil
 	}
 
 	doUtimes := func() error {
 		ts := []unix.Timespec{timeToTimespec(metadata.AccessTime), timeToTimespec(metadata.ModTime)}
+		var err error
 		if usePath {
-			return unix.UtimesNanoAt(dirfd, baseName, ts, unix.AT_SYMLINK_NOFOLLOW)
+			err = unix.UtimesNanoAt(dirfd, baseName, ts, unix.AT_SYMLINK_NOFOLLOW)
+		} else {
+			err = unix.UtimesNanoAt(unix.AT_FDCWD, procPathForFd(fd), ts, 0)
 		}
-		return unix.UtimesNanoAt(unix.AT_FDCWD, procPathForFd(fd), ts, 0)
+		if err != nil {
+			return &fs.PathError{Op: "utimensat", Path: metadata.Name, Err: err}
+		}
+		return nil
 	}
 
 	doChmod := func() error {
+		var err error
+		op := ""
 		if usePath {
-			return unix.Fchmodat(dirfd, baseName, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
+			err = unix.Fchmodat(dirfd, baseName, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
+			op = "fchmodat"
+		} else {
+			err = unix.Fchmod(fd, uint32(mode))
+			op = "fchmod"
 		}
-		return unix.Fchmod(fd, uint32(mode))
+		if err != nil {
+			return &fs.PathError{Op: op, Path: metadata.Name, Err: err}
+		}
+		return nil
 	}
 
 	if err := doChown(); err != nil {
-		if !options.IgnoreChownErrors {
-			return fmt.Errorf("chown %q to %d:%d: %w", metadata.Name, metadata.UID, metadata.GID, err)
-		}
+		return err
 	}
 
 	canIgnore := func(err error) bool {
@@ -200,11 +256,11 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	if err := doUtimes(); !canIgnore(err) {
-		return fmt.Errorf("set utimes for %q: %w", metadata.Name, err)
+		return err
 	}
 
 	if err := doChmod(); !canIgnore(err) {
-		return fmt.Errorf("chmod %q: %w", metadata.Name, err)
+		return err
 	}
 	return nil
 }
@@ -234,13 +290,13 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 
 		parentDirfd, err := unix.Open(root, unix.O_PATH|unix.O_CLOEXEC, 0)
 		if err != nil {
-			return -1, err
+			return -1, &fs.PathError{Op: "open", Path: root, Err: err}
 		}
 		defer unix.Close(parentDirfd)
 
 		fd, err = unix.Openat(parentDirfd, baseName, int(flags), uint32(mode))
 		if err != nil {
-			return -1, err
+			return -1, &fs.PathError{Op: "openat", Path: name, Err: err}
 		}
 	} else {
 		newPath, err := securejoin.SecureJoin(root, name)
@@ -249,7 +305,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 		}
 		fd, err = unix.Openat(dirfd, newPath, int(flags), uint32(mode))
 		if err != nil {
-			return -1, err
+			return -1, &fs.PathError{Op: "openat", Path: newPath, Err: err}
 		}
 	}
 
@@ -274,7 +330,11 @@ func openFileUnderRootOpenat2(dirfd int, name string, flags uint64, mode os.File
 		Mode:    uint64(mode & 0o7777),
 		Resolve: unix.RESOLVE_IN_ROOT,
 	}
-	return unix.Openat2(dirfd, name, &how)
+	fd, err := unix.Openat2(dirfd, name, &how)
+	if err != nil {
+		return -1, &fs.PathError{Op: "openat2", Path: name, Err: err}
+	}
+	return fd, nil
 }
 
 // skipOpenat2 is set when openat2 is not supported by the underlying kernel and avoid
@@ -287,7 +347,11 @@ func openFileUnderRootRaw(dirfd int, name string, flags uint64, mode os.FileMode
 	var fd int
 	var err error
 	if name == "" {
-		return unix.Dup(dirfd)
+		fd, err := unix.Dup(dirfd)
+		if err != nil {
+			return -1, fmt.Errorf("failed to duplicate file descriptor %d: %w", dirfd, err)
+		}
+		return fd, nil
 	}
 	if atomic.LoadInt32(&skipOpenat2) > 0 {
 		fd, err = openFileUnderRootFallback(dirfd, name, flags, mode)
@@ -353,7 +417,7 @@ func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.Fil
 			baseName := filepath.Base(name)
 
 			if err2 := unix.Mkdirat(int(pDir.Fd()), baseName, uint32(mode)); err2 != nil {
-				return nil, err
+				return nil, &fs.PathError{Op: "mkdirat", Path: name, Err: err2}
 			}
 
 			fd, err = openFileUnderRootRaw(int(pDir.Fd()), baseName, unix.O_DIRECTORY|unix.O_RDONLY, 0)
@@ -366,14 +430,17 @@ func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.Fil
 }
 
 // appendHole creates a hole with the specified size at the open fd.
-func appendHole(fd int, size int64) error {
+// fd is the open file descriptor.
+// name is the path to use for error messages.
+// size is the size of the hole to create.
+func appendHole(fd int, name string, size int64) error {
 	off, err := unix.Seek(fd, size, unix.SEEK_CUR)
 	if err != nil {
-		return err
+		return &fs.PathError{Op: "seek", Path: name, Err: err}
 	}
 	// Make sure the file size is changed.  It might be the last hole and no other data written afterwards.
 	if err := unix.Ftruncate(fd, off); err != nil {
-		return err
+		return &fs.PathError{Op: "ftruncate", Path: name, Err: err}
 	}
 	return nil
 }
@@ -392,7 +459,7 @@ func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata,
 
 	if err := unix.Mkdirat(parentFd, base, uint32(mode)); err != nil {
 		if !os.IsExist(err) {
-			return fmt.Errorf("mkdir %q: %w", name, err)
+			return &fs.PathError{Op: "mkdirat", Path: name, Err: err}
 		}
 	}
 
@@ -412,20 +479,9 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 	}
 	defer sourceFile.Close()
 
-	destDir, destBase := filepath.Split(metadata.Name)
-	destDirFd := dirfd
-	if destDir != "" && destDir != "." {
-		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		destDirFd = int(f.Fd())
-	}
-
-	err = doHardLink(int(sourceFile.Fd()), destDirFd, destBase)
+	err = doHardLink(dirfd, int(sourceFile.Fd()), metadata.Name)
 	if err != nil {
-		return fmt.Errorf("create hardlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
+		return err
 	}
 
 	newFile, err := openFileUnderRoot(dirfd, metadata.Name, unix.O_WRONLY|unix.O_NOFOLLOW, 0)
@@ -460,7 +516,7 @@ func safeSymlink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *a
 	}
 
 	if err := unix.Symlinkat(metadata.Linkname, destDirFd, destBase); err != nil {
-		return fmt.Errorf("create symlink %q pointing to %q: %w", metadata.Name, metadata.Linkname, err)
+		return &fs.PathError{Op: "symlinkat", Path: metadata.Name, Err: err}
 	}
 	return nil
 }
@@ -478,7 +534,7 @@ func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
 	defer file.Close()
 
 	if err := unix.Fsetxattr(int(file.Fd()), name, value, 0); err != nil {
-		return fmt.Errorf("set xattr %s=%q for %q: %w", name, value, path, err)
+		return &fs.PathError{Op: "fsetxattr", Path: path, Err: err}
 	}
 	return nil
 }
@@ -497,17 +553,10 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 	}
 
 	if err := unix.Mknodat(dirfd, base, mode, dev); err != nil {
-		return fmt.Errorf("mknod %q: %w", path, err)
+		return &fs.PathError{Op: "mknodat", Path: path, Err: err}
 	}
 
 	return nil
-}
-
-func checkChownErr(err error, name string, uid, gid int) error {
-	if errors.Is(err, syscall.EINVAL) {
-		return fmt.Errorf(`potentially insufficient UIDs or GIDs available in user namespace (requested %d:%d for %s): Check /etc/subuid and /etc/subgid if configured locally and run "podman system migrate": %w`, uid, gid, name, err)
-	}
-	return err
 }
 
 func (d whiteoutHandler) Chown(path string, uid, gid int) error {
@@ -517,16 +566,7 @@ func (d whiteoutHandler) Chown(path string, uid, gid int) error {
 	}
 	defer file.Close()
 
-	if err := unix.Fchownat(int(file.Fd()), "", uid, gid, unix.AT_EMPTY_PATH); err != nil {
-		var stat unix.Stat_t
-		if unix.Fstat(int(file.Fd()), &stat) == nil {
-			if stat.Uid == uint32(uid) && stat.Gid == uint32(gid) {
-				return nil
-			}
-		}
-		return checkChownErr(err, path, uid, gid)
-	}
-	return nil
+	return chown(int(file.Fd()), "", uid, gid, false, path)
 }
 
 type readerAtCloser interface {

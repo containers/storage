@@ -575,7 +575,7 @@ func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileT
 			return err
 		}
 	case fileTypeHole:
-		if err := appendHole(int(destFile.file.Fd()), size); err != nil {
+		if err := appendHole(int(destFile.file.Fd()), destFile.metadata.Name, size); err != nil {
 			return err
 		}
 		if destFile.hash != nil {

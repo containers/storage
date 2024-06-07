@@ -70,17 +70,17 @@ func TestDoHardLink(t *testing.T) {
 	defer syscall.Close(destDirFd)
 
 	destBase := "dest-file"
-	err = doHardLink(srcFd, destDirFd, destBase)
+	err = doHardLink(destDirFd, srcFd, destBase)
 	require.NoError(t, err)
 
 	// an existing file is unlinked first
-	err = doHardLink(srcFd, destDirFd, destBase)
+	err = doHardLink(destDirFd, srcFd, destBase)
 	assert.NoError(t, err)
 
-	err = doHardLink(-1, destDirFd, destBase)
+	err = doHardLink(destDirFd, -1, destBase)
 	assert.Error(t, err)
 
-	err = doHardLink(srcFd, -1, destBase)
+	err = doHardLink(-1, srcFd, destBase)
 	assert.Error(t, err)
 }
 
@@ -94,7 +94,7 @@ func TestAppendHole(t *testing.T) {
 
 	size := int64(1024)
 
-	err := appendHole(fd, size)
+	err := appendHole(fd, tmpFile.Name(), size)
 	assert.NoError(t, err, "Appending hole failed")
 
 	fileSize, err := syscall.Seek(fd, 0, io.SeekEnd)
