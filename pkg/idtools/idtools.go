@@ -367,6 +367,18 @@ func checkChownErr(err error, name string, uid, gid int) error {
 	return err
 }
 
+// Stat contains file states that can be overriden with ContainersOverrideXattr.
+type Stat struct {
+	IDs  IDPair
+	Mode os.FileMode
+}
+
+// SetContainersOverrideXattr will encode and set ContainersOverrideXattr.
+func SetContainersOverrideXattr(path string, stat Stat) error {
+	value := fmt.Sprintf("%d:%d:0%o", stat.IDs.UID, stat.IDs.GID, stat.Mode)
+	return system.Lsetxattr(path, ContainersOverrideXattr, []byte(value), 0)
+}
+
 func SafeChown(name string, uid, gid int) error {
 	if runtime.GOOS == "darwin" {
 		var mode uint64 = 0o0700

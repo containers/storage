@@ -1050,17 +1050,17 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		return err
 	}
 
-	perms := defaultPerms
+	st := idtools.Stat{IDs: idPair, Mode: defaultPerms}
 
 	if parent != "" {
 		parentBase := d.dir(parent)
-		st, err := system.Stat(filepath.Join(parentBase, "diff"))
+		systemSt, err := system.Stat(filepath.Join(parentBase, "diff"))
 		if err != nil {
 			return err
 		}
-		rootUID = int(st.UID())
-		rootGID = int(st.GID())
-		perms = os.FileMode(st.Mode())
+		st.IDs.UID = int(systemSt.UID())
+		st.IDs.GID = int(systemSt.GID())
+		st.Mode = os.FileMode(systemSt.Mode())
 	}
 
 	if err := fileutils.Lexists(dir); err == nil {
@@ -1106,12 +1106,20 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		}
 	}
 
+	forcedPerms := st.Mode
 	if d.options.forceMask != nil {
-		perms = *d.options.forceMask
+		forcedPerms = *d.options.forceMask
 	}
 
-	if err := idtools.MkdirAs(path.Join(dir, "diff"), perms, rootUID, rootGID); err != nil {
+	diff := path.Join(dir, "diff")
+	if err := idtools.MkdirAs(diff, forcedPerms, st.IDs.UID, st.IDs.GID); err != nil {
 		return err
+	}
+
+	if d.options.forceMask != nil {
+		if err := idtools.SetContainersOverrideXattr(diff, st); err != nil {
+			return err
+		}
 	}
 
 	lid := generateID(idLength)
@@ -1126,16 +1134,16 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		return err
 	}
 
-	if err := idtools.MkdirAs(path.Join(dir, "work"), 0o700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAs(path.Join(dir, "work"), 0o700, st.IDs.UID, st.IDs.GID); err != nil {
 		return err
 	}
-	if err := idtools.MkdirAs(path.Join(dir, "merged"), 0o700, rootUID, rootGID); err != nil {
+	if err := idtools.MkdirAs(path.Join(dir, "merged"), 0o700, st.IDs.UID, st.IDs.GID); err != nil {
 		return err
 	}
 
 	// if no parent directory, create a dummy lower directory and skip writing a "lowers" file
 	if parent == "" {
-		return idtools.MkdirAs(path.Join(dir, "empty"), 0o700, rootUID, rootGID)
+		return idtools.MkdirAs(path.Join(dir, "empty"), 0o700, st.IDs.UID, st.IDs.GID)
 	}
 
 	lower, err := d.getLower(parent)
