@@ -94,7 +94,7 @@ func TestAppendHole(t *testing.T) {
 
 	size := int64(1024)
 
-	err := appendHole(fd, size)
+	err := appendHole(fd, tmpFile.Name(), size)
 	assert.NoError(t, err, "Appending hole failed")
 
 	fileSize, err := syscall.Seek(fd, 0, io.SeekEnd)

@@ -430,14 +430,17 @@ func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.Fil
 }
 
 // appendHole creates a hole with the specified size at the open fd.
-func appendHole(fd int, size int64) error {
+// fd is the open file descriptor.
+// name is the path to use for error messages.
+// size is the size of the hole to create.
+func appendHole(fd int, name string, size int64) error {
 	off, err := unix.Seek(fd, size, unix.SEEK_CUR)
 	if err != nil {
-		return err
+		return &fs.PathError{Op: "seek", Path: name, Err: err}
 	}
 	// Make sure the file size is changed.  It might be the last hole and no other data written afterwards.
 	if err := unix.Ftruncate(fd, off); err != nil {
-		return err
+		return &fs.PathError{Op: "ftruncate", Path: name, Err: err}
 	}
 	return nil
 }
