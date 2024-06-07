@@ -65,7 +65,11 @@ func doHardLink(dirfd, srcFd int, destFile string) error {
 		// Using unix.AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH while this variant that uses
 		// /proc/self/fd doesn't and can be used with rootless.
 		srcPath := procPathForFd(srcFd)
-		return unix.Linkat(unix.AT_FDCWD, srcPath, destDirFd, destBase, unix.AT_SYMLINK_FOLLOW)
+		err := unix.Linkat(unix.AT_FDCWD, srcPath, destDirFd, destBase, unix.AT_SYMLINK_FOLLOW)
+		if err != nil {
+			return &fs.PathError{Op: "linkat", Path: destFile, Err: err}
+		}
+		return nil
 	}
 
 	err := doLink()
