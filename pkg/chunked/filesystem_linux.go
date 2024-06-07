@@ -550,7 +550,7 @@ func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
 	}
 
 	if err := unix.Mknodat(dirfd, base, mode, dev); err != nil {
-		return fmt.Errorf("mknod %q: %w", path, err)
+		return &fs.PathError{Op: "mknodat", Path: path, Err: err}
 	}
 
 	return nil
