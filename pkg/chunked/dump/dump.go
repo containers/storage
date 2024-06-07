@@ -170,7 +170,7 @@ func dumpNode(out io.Writer, added map[string]struct{}, links map[string]int, ve
 		}
 	}
 
-	if _, err := fmt.Fprintf(out, escapedOptional(payload, ESCAPE_LONE_DASH)); err != nil {
+	if _, err := fmt.Fprint(out, escapedOptional(payload, ESCAPE_LONE_DASH)); err != nil {
 		return err
 	}
 
@@ -184,7 +184,7 @@ func dumpNode(out io.Writer, added map[string]struct{}, links map[string]int, ve
 		return err
 	}
 	digest := verityDigests[payload]
-	if _, err := fmt.Fprintf(out, escapedOptional(digest, ESCAPE_LONE_DASH)); err != nil {
+	if _, err := fmt.Fprint(out, escapedOptional(digest, ESCAPE_LONE_DASH)); err != nil {
 		return err
 	}
 
