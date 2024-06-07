@@ -347,7 +347,11 @@ func openFileUnderRootRaw(dirfd int, name string, flags uint64, mode os.FileMode
 	var fd int
 	var err error
 	if name == "" {
-		return unix.Dup(dirfd)
+		fd, err := unix.Dup(dirfd)
+		if err != nil {
+			return -1, fmt.Errorf("failed to duplicate file descriptor %d: %w", dirfd, err)
+		}
+		return fd, nil
 	}
 	if atomic.LoadInt32(&skipOpenat2) > 0 {
 		fd, err = openFileUnderRootFallback(dirfd, name, flags, mode)
