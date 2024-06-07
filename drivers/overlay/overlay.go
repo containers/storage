@@ -1049,6 +1049,9 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 	if err := idtools.MkdirAllAndChownNew(path.Dir(dir), 0o755, idPair); err != nil {
 		return err
 	}
+
+	perms := defaultPerms
+
 	if parent != "" {
 		parentBase := d.dir(parent)
 		st, err := system.Stat(filepath.Join(parentBase, "diff"))
@@ -1057,6 +1060,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		}
 		rootUID = int(st.UID())
 		rootGID = int(st.GID())
+		perms = os.FileMode(st.Mode())
 	}
 
 	if err := fileutils.Lexists(dir); err == nil {
@@ -1102,18 +1106,8 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		}
 	}
 
-	perms := defaultPerms
 	if d.options.forceMask != nil {
 		perms = *d.options.forceMask
-	}
-
-	if parent != "" {
-		parentBase := d.dir(parent)
-		st, err := system.Stat(filepath.Join(parentBase, "diff"))
-		if err != nil {
-			return err
-		}
-		perms = os.FileMode(st.Mode())
 	}
 
 	if err := idtools.MkdirAs(path.Join(dir, "diff"), perms, rootUID, rootGID); err != nil {
