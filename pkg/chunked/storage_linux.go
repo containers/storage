@@ -307,7 +307,7 @@ func canDedupFileWithHardLink(file *fileMetadata, fd int, s os.FileInfo) bool {
 		return false
 	}
 
-	path := fmt.Sprintf("/proc/self/fd/%d", fd)
+	path := procPathForFd(fd)
 
 	listXattrs, err := system.Llistxattr(path)
 	if err != nil {
@@ -987,7 +987,7 @@ type findAndCopyFileOptions struct {
 }
 
 func reopenFileReadOnly(f *os.File) (*os.File, error) {
-	path := fmt.Sprintf("/proc/self/fd/%d", f.Fd())
+	path := procPathForFile(f)
 	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return nil, err

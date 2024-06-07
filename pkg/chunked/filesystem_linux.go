@@ -20,6 +20,19 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// procPathForFile returns an absolute path in /proc which
+// refers to the file; see procPathForFd.
+func procPathForFile(f *os.File) string {
+	return procPathForFd(int(f.Fd()))
+}
+
+// procPathForFd returns an absolute path in /proc which
+// refers to the file; this allows passing a file descriptor
+// in places that don't accept a file descriptor.
+func procPathForFd(fd int) string {
+	return fmt.Sprintf("/proc/self/fd/%d", fd)
+}
+
 // fileMetadata is a wrapper around internal.FileMetadata with additional private fields that
 // are not part of the TOC document.
 // Type: TypeChunk entries are stored in Chunks, the primary [fileMetadata] entries never use TypeChunk.
@@ -39,7 +52,7 @@ func doHardLink(srcFd int, destDirFd int, destBase string) error {
 	doLink := func() error {
 		// Using unix.AT_EMPTY_PATH requires CAP_DAC_READ_SEARCH while this variant that uses
 		// /proc/self/fd doesn't and can be used with rootless.
-		srcPath := fmt.Sprintf("/proc/self/fd/%d", srcFd)
+		srcPath := procPathForFd(srcFd)
 		return unix.Linkat(unix.AT_FDCWD, srcPath, destDirFd, destBase, unix.AT_SYMLINK_FOLLOW)
 	}
 
@@ -55,7 +68,7 @@ func doHardLink(srcFd int, destDirFd int, destBase string) error {
 
 func copyFileContent(srcFd int, fileMetadata *fileMetadata, dirfd int, mode os.FileMode, useHardLinks bool) (*os.File, int64, error) {
 	destFile := fileMetadata.Name
-	src := fmt.Sprintf("/proc/self/fd/%d", srcFd)
+	src := procPathForFd(srcFd)
 	st, err := os.Stat(src)
 	if err != nil {
 		return nil, -1, fmt.Errorf("copy file content for %q: %w", destFile, err)
@@ -153,7 +166,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 		if usePath {
 			return unix.UtimesNanoAt(dirfd, baseName, ts, unix.AT_SYMLINK_NOFOLLOW)
 		}
-		return unix.UtimesNanoAt(unix.AT_FDCWD, fmt.Sprintf("/proc/self/fd/%d", fd), ts, 0)
+		return unix.UtimesNanoAt(unix.AT_FDCWD, procPathForFd(fd), ts, 0)
 	}
 
 	doChmod := func() error {
@@ -197,7 +210,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 }
 
 func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.FileMode) (int, error) {
-	root := fmt.Sprintf("/proc/self/fd/%d", dirfd)
+	root := procPathForFd(dirfd)
 
 	targetRoot, err := os.Readlink(root)
 	if err != nil {
@@ -240,7 +253,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 		}
 	}
 
-	target, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", fd))
+	target, err := os.Readlink(procPathForFd(fd))
 	if err != nil {
 		unix.Close(fd)
 		return -1, err
