@@ -202,10 +202,16 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 
 	doUtimes := func() error {
 		ts := []unix.Timespec{timeToTimespec(metadata.AccessTime), timeToTimespec(metadata.ModTime)}
+		var err error
 		if usePath {
-			return unix.UtimesNanoAt(dirfd, baseName, ts, unix.AT_SYMLINK_NOFOLLOW)
+			err = unix.UtimesNanoAt(dirfd, baseName, ts, unix.AT_SYMLINK_NOFOLLOW)
+		} else {
+			err = unix.UtimesNanoAt(unix.AT_FDCWD, procPathForFd(fd), ts, 0)
 		}
-		return unix.UtimesNanoAt(unix.AT_FDCWD, procPathForFd(fd), ts, 0)
+		if err != nil {
+			return &fs.PathError{Op: "utimensat", Path: metadata.Name, Err: err}
+		}
+		return nil
 	}
 
 	doChmod := func() error {
@@ -246,7 +252,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	if err := doUtimes(); !canIgnore(err) {
-		return fmt.Errorf("set utimes for %q: %w", metadata.Name, err)
+		return err
 	}
 
 	if err := doChmod(); !canIgnore(err) {
