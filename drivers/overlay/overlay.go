@@ -1054,13 +1054,18 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 
 	if parent != "" {
 		parentBase := d.dir(parent)
-		systemSt, err := system.Stat(filepath.Join(parentBase, "diff"))
-		if err != nil {
-			return err
+		parentDiff := filepath.Join(parentBase, "diff")
+		if xSt, err := idtools.GetContainersOverrideXattr(parentDiff); err == nil {
+			st = xSt
+		} else {
+			systemSt, err := system.Stat(parentDiff)
+			if err != nil {
+				return err
+			}
+			st.IDs.UID = int(systemSt.UID())
+			st.IDs.GID = int(systemSt.GID())
+			st.Mode = os.FileMode(systemSt.Mode())
 		}
-		st.IDs.UID = int(systemSt.UID())
-		st.IDs.GID = int(systemSt.GID())
-		st.Mode = os.FileMode(systemSt.Mode())
 	}
 
 	if err := fileutils.Lexists(dir); err == nil {

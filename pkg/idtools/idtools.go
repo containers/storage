@@ -373,6 +373,44 @@ type Stat struct {
 	Mode os.FileMode
 }
 
+// GetContainersOverrideXattr will get and decode ContainersOverrideXattr.
+func GetContainersOverrideXattr(path string) (Stat, error) {
+	var stat Stat
+	xstat, err := system.Lgetxattr(path, ContainersOverrideXattr)
+	if err != nil {
+		return stat, err
+	}
+
+	attrs := strings.Split(string(xstat), ":")
+	if len(attrs) != 3 {
+		return stat, fmt.Errorf("The number of clons in %s does not equal to 3",
+			ContainersOverrideXattr)
+	}
+
+	value, err := strconv.ParseUint(attrs[0], 10, 32)
+	if err != nil {
+		return stat, fmt.Errorf("Failed to parse UID: %w", err)
+	}
+
+	stat.IDs.UID = int(value)
+
+	value, err = strconv.ParseUint(attrs[0], 10, 32)
+	if err != nil {
+		return stat, fmt.Errorf("Failed to parse GID: %w", err)
+	}
+
+	stat.IDs.GID = int(value)
+
+	value, err = strconv.ParseUint(attrs[2], 8, 32)
+	if err != nil {
+		return stat, fmt.Errorf("Failed to parse mode: %w", err)
+	}
+
+	stat.Mode = os.FileMode(value)
+
+	return stat, nil
+}
+
 // SetContainersOverrideXattr will encode and set ContainersOverrideXattr.
 func SetContainersOverrideXattr(path string, stat Stat) error {
 	value := fmt.Sprintf("%d:%d:0%o", stat.IDs.UID, stat.IDs.GID, stat.Mode)
