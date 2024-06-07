@@ -1106,13 +1106,14 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		}
 	}
 
-	forcedPerms := st.Mode
+	forcedSt := st
 	if d.options.forceMask != nil {
-		forcedPerms = *d.options.forceMask
+		forcedSt.IDs = idPair
+		forcedSt.Mode = *d.options.forceMask
 	}
 
 	diff := path.Join(dir, "diff")
-	if err := idtools.MkdirAs(diff, forcedPerms, st.IDs.UID, st.IDs.GID); err != nil {
+	if err := idtools.MkdirAs(diff, forcedSt.Mode, forcedSt.IDs.UID, forcedSt.IDs.GID); err != nil {
 		return err
 	}
 
@@ -1134,16 +1135,16 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 		return err
 	}
 
-	if err := idtools.MkdirAs(path.Join(dir, "work"), 0o700, st.IDs.UID, st.IDs.GID); err != nil {
+	if err := idtools.MkdirAs(path.Join(dir, "work"), 0o700, forcedSt.IDs.UID, forcedSt.IDs.GID); err != nil {
 		return err
 	}
-	if err := idtools.MkdirAs(path.Join(dir, "merged"), 0o700, st.IDs.UID, st.IDs.GID); err != nil {
+	if err := idtools.MkdirAs(path.Join(dir, "merged"), 0o700, forcedSt.IDs.UID, forcedSt.IDs.GID); err != nil {
 		return err
 	}
 
 	// if no parent directory, create a dummy lower directory and skip writing a "lowers" file
 	if parent == "" {
-		return idtools.MkdirAs(path.Join(dir, "empty"), 0o700, st.IDs.UID, st.IDs.GID)
+		return idtools.MkdirAs(path.Join(dir, "empty"), 0o700, forcedSt.IDs.UID, forcedSt.IDs.GID)
 	}
 
 	lower, err := d.getLower(parent)
