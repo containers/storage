@@ -205,10 +205,19 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	doChmod := func() error {
+		var err error
+		op := ""
 		if usePath {
-			return unix.Fchmodat(dirfd, baseName, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
+			err = unix.Fchmodat(dirfd, baseName, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
+			op = "fchmodat"
+		} else {
+			err = unix.Fchmod(fd, uint32(mode))
+			op = "fchmod"
 		}
-		return unix.Fchmod(fd, uint32(mode))
+		if err != nil {
+			return &fs.PathError{Op: op, Path: metadata.Name, Err: err}
+		}
+		return nil
 	}
 
 	if err := doChown(); err != nil {
@@ -237,7 +246,7 @@ func setFileAttrs(dirfd int, file *os.File, mode os.FileMode, metadata *fileMeta
 	}
 
 	if err := doChmod(); !canIgnore(err) {
-		return fmt.Errorf("chmod %q: %w", metadata.Name, err)
+		return err
 	}
 	return nil
 }
