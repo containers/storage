@@ -18,6 +18,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/chunked/internal"
 	"github.com/containers/storage/pkg/ioutils"
+	"github.com/docker/go-units"
 	jsoniter "github.com/json-iterator/go"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
@@ -34,6 +35,8 @@ const (
 	// https://pages.cs.wisc.edu/~cao/papers/summary-cache/node8.html
 	bloomFilterScale  = 10 // how much bigger is the bloom filter than the number of entries
 	bloomFilterHashes = 3  // number of hash functions for the bloom filter
+
+	maxTagsLen = 100 * units.MB // max size for tags len
 )
 
 type cacheFile struct {
@@ -635,6 +638,11 @@ func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	if err := binary.Read(bigData, binary.LittleEndian, &fnamesLen); err != nil {
 		return nil, err
 	}
+
+	if tagsLen > maxTagsLen {
+		return nil, fmt.Errorf("tags len %d exceeds the maximum allowed size %d", tagsLen, maxTagsLen)
+	}
+
 	tags := make([]byte, tagsLen)
 	if _, err := bigData.Read(tags); err != nil {
 		return nil, err
