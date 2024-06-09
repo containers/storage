@@ -642,6 +642,9 @@ func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	if tagsLen > maxTagsLen {
 		return nil, fmt.Errorf("tags len %d exceeds the maximum allowed size %d", tagsLen, maxTagsLen)
 	}
+	if digestLen > tagLen {
+		return nil, fmt.Errorf("digest len %d exceeds the tag len %d", digestLen, tagLen)
+	}
 
 	tags := make([]byte, tagsLen)
 	if _, err := bigData.Read(tags); err != nil {
