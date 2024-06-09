@@ -44,13 +44,7 @@ type Driver struct {
 	refCount int
 }
 
-func newDriver(t testing.TB, name string, options []string) *Driver {
-	root, err := os.MkdirTemp("", "storage-graphtest-")
-	require.NoError(t, err)
-	runroot, err := os.MkdirTemp("", "storage-graphtest-")
-	require.NoError(t, err)
-
-	require.NoError(t, os.MkdirAll(root, 0o755))
+func newGraphDriver(t testing.TB, name string, options []string, root string, runroot string) graphdriver.Driver {
 	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root, RunRoot: runroot})
 	if err != nil {
 		t.Logf("graphdriver: %v\n", err)
@@ -63,7 +57,17 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 		}
 		t.Fatal(err)
 	}
-	return &Driver{d, root, runroot, 1}
+	return d
+}
+
+func newDriver(t testing.TB, name string, options []string) *Driver {
+	root, err := os.MkdirTemp("", "storage-graphtest-")
+	require.NoError(t, err)
+	runroot, err := os.MkdirTemp("", "storage-graphtest-")
+	require.NoError(t, err)
+
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	return &Driver{newGraphDriver(t, name, options, root, runroot), root, runroot, 1}
 }
 
 func cleanup(t testing.TB, d *Driver) {
@@ -82,6 +86,13 @@ func GetDriver(t testing.TB, name string, options ...string) graphdriver.Driver 
 		drv.refCount++
 	}
 	return drv
+}
+
+func ReconfigureDriver(t testing.TB, name string, options ...string) {
+	if err := drv.Cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	drv.Driver = newGraphDriver(t, name, options, drv.root, drv.runroot)
 }
 
 // PutDriver removes the driver if it is no longer used and updates the reference count.
