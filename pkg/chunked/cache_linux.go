@@ -651,6 +651,10 @@ func readCacheFileFromMemory(bigDataBuffer []byte) (*cacheFile, error) {
 	// retrieve the unread part of the buffer.
 	remaining := bigDataBuffer[len(bigDataBuffer)-bigData.Len():]
 
+	if vdataLen >= uint64(len(remaining)) {
+		return nil, fmt.Errorf("vdata len %d exceeds the remaining buffer size %d", vdataLen, len(remaining))
+	}
+
 	vdata := remaining[:vdataLen]
 	fnames := remaining[vdataLen:]
 
