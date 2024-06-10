@@ -225,6 +225,30 @@ func TestReadCache(t *testing.T) {
 	}
 }
 
+func FuzzReadCache(f *testing.F) {
+	dest := &bigDataToBuffer{
+		buf: bytes.NewBuffer(nil),
+	}
+	_, err := writeCache([]byte(jsonTOC), graphdriver.DifferOutputFormatDir, "foobar", dest)
+	if err != nil {
+		f.Errorf("got error from writeCache: %v", err)
+	}
+
+	f.Add(dest.buf.Bytes())
+	dest = nil
+
+	f.Fuzz(func(t *testing.T, orig []byte) {
+		cacheRead, err := readCacheFileFromMemory([]byte(orig))
+		if err != nil || cacheRead == nil {
+			return
+		}
+		findTag("", cacheRead)
+		findTag("foo", cacheRead)
+		findTag("foo:bar", cacheRead)
+		findTag("sha256:5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03", cacheRead)
+	})
+}
+
 func TestUnmarshalToc(t *testing.T) {
 	toc, err := unmarshalToc([]byte(jsonTOC))
 	assert.NoError(t, err)
