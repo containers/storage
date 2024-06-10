@@ -220,6 +220,12 @@ func DecompressStream(archive io.Reader) (_ io.ReadCloser, Err error) {
 		readBufWrapper := p.NewReadCloserWrapper(buf, xzReader)
 		return readBufWrapper, nil
 	case Zstd:
+		cleanup := func() {
+			p.Put(buf)
+		}
+		if rc, canUse := tryProcFilter([]string{"zstd", "-d"}, buf, cleanup); canUse {
+			return rc, nil
+		}
 		return zstdReader(buf)
 	default:
 		return nil, fmt.Errorf("unsupported compression format %s", (&compression).Extension())
