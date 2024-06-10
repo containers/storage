@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -116,7 +117,7 @@ func convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *se
 
 	fd, err := unix.Open(destDirectory, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
 	if err != nil {
-		return 0, nil, "", nil, err
+		return 0, nil, "", nil, &fs.PathError{Op: "open", Path: destDirectory, Err: err}
 	}
 
 	f := os.NewFile(uintptr(fd), destDirectory)
@@ -264,13 +265,13 @@ func makeCopyBuffer() []byte {
 func copyFileFromOtherLayer(file *fileMetadata, source string, name string, dirfd int, useHardLinks bool) (bool, *os.File, int64, error) {
 	srcDirfd, err := unix.Open(source, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file: %w", err)
+		return false, nil, 0, &fs.PathError{Op: "open", Path: source, Err: err}
 	}
 	defer unix.Close(srcDirfd)
 
 	srcFile, err := openFileUnderRoot(srcDirfd, name, unix.O_RDONLY|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		return false, nil, 0, fmt.Errorf("open source file under target rootfs (%s): %w", name, err)
+		return false, nil, 0, err
 	}
 	defer srcFile.Close()
 
@@ -474,13 +475,13 @@ type missingPart struct {
 func (o *originFile) OpenFile() (io.ReadCloser, error) {
 	srcDirfd, err := unix.Open(o.Root, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, fmt.Errorf("open source file: %w", err)
+		return nil, &fs.PathError{Op: "open", Path: o.Root, Err: err}
 	}
 	defer unix.Close(srcDirfd)
 
 	srcFile, err := openFileUnderRoot(srcDirfd, o.Path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, fmt.Errorf("open source file under target rootfs: %w", err)
+		return nil, err
 	}
 
 	if _, err := srcFile.Seek(o.Offset, 0); err != nil {
@@ -990,7 +991,7 @@ func reopenFileReadOnly(f *os.File) (*os.File, error) {
 	path := procPathForFile(f)
 	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, err
+		return nil, &fs.PathError{Op: "open", Path: path, Err: err}
 	}
 	return os.NewFile(uintptr(fd), f.Name()), nil
 }
@@ -1132,7 +1133,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	if c.convertToZstdChunked {
 		fd, err := unix.Open(dest, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
 		if err != nil {
-			return graphdriver.DriverWithDifferOutput{}, err
+			return graphdriver.DriverWithDifferOutput{}, &fs.PathError{Op: "open", Path: dest, Err: err}
 		}
 		blobFile := os.NewFile(uintptr(fd), "blob-file")
 		defer func() {
@@ -1264,14 +1265,14 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		if err == nil {
 			value := fmt.Sprintf("%d:%d:0%o", uid, gid, mode)
 			if err := unix.Setxattr(dest, containersOverrideXattr, []byte(value), 0); err != nil {
-				return output, err
+				return output, &fs.PathError{Op: "setxattr", Path: dest, Err: err}
 			}
 		}
 	}
 
 	dirfd, err := unix.Open(dest, unix.O_RDONLY|unix.O_PATH|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return output, fmt.Errorf("cannot open %q: %w", dest, err)
+		return output, &fs.PathError{Op: "open", Path: dest, Err: err}
 	}
 	defer unix.Close(dirfd)
 
