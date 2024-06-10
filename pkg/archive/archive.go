@@ -196,6 +196,12 @@ func DecompressStream(archive io.Reader) (_ io.ReadCloser, Err error) {
 		readBufWrapper := p.NewReadCloserWrapper(buf, buf)
 		return readBufWrapper, nil
 	case Gzip:
+		cleanup := func() {
+			p.Put(buf)
+		}
+		if rc, canUse := tryProcFilter([]string{"pigz", "-d"}, buf, cleanup); canUse {
+			return rc, nil
+		}
 		gzReader, err := gzip.NewReader(buf)
 		if err != nil {
 			return nil, err
