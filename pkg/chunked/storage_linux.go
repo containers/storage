@@ -109,7 +109,7 @@ type chunkedLayerData struct {
 	Format graphdriver.DifferOutputFormat `json:"format"`
 }
 
-func convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *seekableFile, digest.Digest, map[string]string, error) {
+func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *seekableFile, digest.Digest, map[string]string, error) {
 	diff, err := archive.DecompressStream(payload)
 	if err != nil {
 		return 0, nil, "", nil, err
@@ -131,7 +131,7 @@ func convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *se
 	}
 
 	convertedOutputDigester := digest.Canonical.Digester()
-	copied, err := io.Copy(io.MultiWriter(chunked, convertedOutputDigester.Hash()), diff)
+	copied, err := io.CopyBuffer(io.MultiWriter(chunked, convertedOutputDigester.Hash()), diff, c.copyBuffer)
 	if err != nil {
 		f.Close()
 		return 0, nil, "", nil, err
@@ -1109,7 +1109,7 @@ func (c *chunkedDiffer) copyAllBlobToFile(destination *os.File) (digest.Digest, 
 	r := io.TeeReader(payload, originalRawDigester.Hash())
 
 	// copy the entire tarball and compute its digest
-	_, err = io.Copy(destination, r)
+	_, err = io.CopyBuffer(destination, r, c.copyBuffer)
 
 	return originalRawDigester.Digest(), err
 }
@@ -1156,7 +1156,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
 
-		tarSize, fileSource, diffID, annotations, err := convertTarToZstdChunked(dest, blobFile)
+		tarSize, fileSource, diffID, annotations, err := c.convertTarToZstdChunked(dest, blobFile)
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
