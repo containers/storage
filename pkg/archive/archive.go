@@ -701,8 +701,11 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 	}
 
 	if forceMask != nil && (hdr.Typeflag != tar.TypeSymlink || runtime.GOOS == "darwin") {
-		value := fmt.Sprintf("%d:%d:0%o", hdr.Uid, hdr.Gid, hdrInfo.Mode()&0o7777)
-		if err := system.Lsetxattr(path, idtools.ContainersOverrideXattr, []byte(value), 0); err != nil {
+		value := idtools.Stat{
+			IDs:  idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid},
+			Mode: hdrInfo.Mode() & 0o7777,
+		}
+		if err := idtools.SetContainersOverrideXattr(path, value); err != nil {
 			return err
 		}
 	}
@@ -1114,11 +1117,13 @@ loop:
 	}
 
 	if options.ForceMask != nil {
-		value := "0:0:0755"
+		value := idtools.Stat{Mode: 0o755}
 		if rootHdr != nil {
-			value = fmt.Sprintf("%d:%d:0%o", rootHdr.Uid, rootHdr.Gid, rootHdr.Mode)
+			value.IDs.UID = rootHdr.Uid
+			value.IDs.GID = rootHdr.Gid
+			value.Mode = os.FileMode(rootHdr.Mode)
 		}
-		if err := system.Lsetxattr(dest, idtools.ContainersOverrideXattr, []byte(value), 0); err != nil {
+		if err := idtools.SetContainersOverrideXattr(dest, value); err != nil {
 			return err
 		}
 	}

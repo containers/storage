@@ -4,12 +4,16 @@
 package overlay
 
 import (
+	"os"
+	"os/exec"
 	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/reexec"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const driverName = "overlay"
@@ -29,6 +33,31 @@ func skipIfNaive(t *testing.T) {
 	if err := doesSupportNativeDiff(td, ""); err != nil {
 		t.Skipf("Cannot run test with naive diff")
 	}
+}
+
+// Ensure that a layer created with force_mask will keep the root directory mode
+// with user.containers.override_stat. This preserved mode should also be
+// inherited by the upper layer, whether force_mask is set or not.
+//
+// This test is placed before TestOverlaySetup() because it uses driver options
+// different from the other tests.
+func TestContainersOverlayXattr(t *testing.T) {
+	path, err := exec.LookPath("fuse-overlayfs")
+	if err != nil {
+		t.Skipf("fuse-overlayfs unavailable")
+	}
+
+	driver := graphtest.GetDriver(t, driverName, "force_mask=700", "mount_program="+path)
+	defer graphtest.PutDriver(t)
+	require.NoError(t, driver.Create("lower", "", nil))
+	graphtest.ReconfigureDriver(t, driverName, "mount_program="+path)
+	require.NoError(t, driver.Create("upper", "lower", nil))
+
+	root, err := driver.Get("upper", graphdriver.MountOpts{})
+	require.NoError(t, err)
+	fi, err := os.Stat(root)
+	require.NoError(t, err)
+	assert.Equal(t, 0o555&os.ModePerm, fi.Mode()&os.ModePerm, root)
 }
 
 // This avoids creating a new driver for each test if all tests are run
