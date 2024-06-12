@@ -33,7 +33,7 @@ func statDifferent(oldStat *system.StatT, oldInfo *FileInfo, newStat *system.Sta
 		oldStat.Flags() != newStat.Flags() ||
 		!sameFsTimeSpec(oldStat.Mtim(), newStat.Mtim()) ||
 		// Don't look at size for dirs, its not a good measure of change
-		(!sameFsTimeSpec(oldStat.Mtim(), newStat.Mtim()) || (oldStat.Size() != newStat.Size())) {
+		((oldStat.Mode()&unix.S_IFDIR != unix.S_IFDIR) && (oldStat.Size() != newStat.Size())) {
 		return true
 	}
 	return false
