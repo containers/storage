@@ -151,7 +151,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 		return nil, err
 	}
 
-	if !parseBooleanPullOption(&storeOpts, "enable_partial_images", true) {
+	if !parseBooleanPullOption(storeOpts.PullOptions, "enable_partial_images", true) {
 		return nil, errors.New("enable_partial_images not configured")
 	}
 
@@ -181,7 +181,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 }
 
 func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
-	if !parseBooleanPullOption(storeOpts, "convert_images", false) {
+	if !parseBooleanPullOption(storeOpts.PullOptions, "convert_images", false) {
 		return nil, errors.New("convert_images not configured")
 	}
 
@@ -974,8 +974,8 @@ type hardLinkToCreate struct {
 	metadata *fileMetadata
 }
 
-func parseBooleanPullOption(storeOpts *storage.StoreOptions, name string, def bool) bool {
-	if value, ok := storeOpts.PullOptions[name]; ok {
+func parseBooleanPullOption(pullOptions map[string]string, name string, def bool) bool {
+	if value, ok := pullOptions[name]; ok {
 		return strings.ToLower(value) == "true"
 	}
 	return def
@@ -1233,7 +1233,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 	// When the hard links deduplication is used, file attributes are ignored because setting them
 	// modifies the source file as well.
-	useHardLinks := parseBooleanPullOption(c.storeOpts, "use_hard_links", false)
+	useHardLinks := parseBooleanPullOption(c.storeOpts.PullOptions, "use_hard_links", false)
 
 	// List of OSTree repositories to use for deduplication
 	ostreeRepos := strings.Split(c.storeOpts.PullOptions["ostree_repos"], ":")
