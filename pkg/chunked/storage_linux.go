@@ -27,7 +27,6 @@ import (
 	"github.com/containers/storage/pkg/fsverity"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/system"
-	"github.com/containers/storage/types"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
@@ -93,7 +92,7 @@ type chunkedDiffer struct {
 
 	blobSize int64
 
-	storeOpts *types.StoreOptions
+	pullOptions map[string]string
 
 	useFsVerity     graphdriver.DifferFsVerity
 	fsVerityDigests map[string]string
@@ -146,12 +145,9 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
 func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {
-	storeOpts, err := types.DefaultStoreOptions()
-	if err != nil {
-		return nil, err
-	}
+	pullOptions := store.PullOptions()
 
-	if !parseBooleanPullOption(&storeOpts, "enable_partial_images", true) {
+	if !parseBooleanPullOption(pullOptions, "enable_partial_images", true) {
 		return nil, errors.New("enable_partial_images not configured")
 	}
 
@@ -167,21 +163,21 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 		if err != nil {
 			return nil, fmt.Errorf("parsing zstd:chunked TOC digest %q: %w", zstdChunkedTOCDigestString, err)
 		}
-		return makeZstdChunkedDiffer(ctx, store, blobSize, zstdChunkedTOCDigest, annotations, iss, &storeOpts)
+		return makeZstdChunkedDiffer(ctx, store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
 	}
 	if hasEstargzTOC {
 		estargzTOCDigest, err := digest.Parse(estargzTOCDigestString)
 		if err != nil {
 			return nil, fmt.Errorf("parsing estargz TOC digest %q: %w", estargzTOCDigestString, err)
 		}
-		return makeEstargzChunkedDiffer(ctx, store, blobSize, estargzTOCDigest, iss, &storeOpts)
+		return makeEstargzChunkedDiffer(ctx, store, blobSize, estargzTOCDigest, iss, pullOptions)
 	}
 
-	return makeConvertFromRawDiffer(ctx, store, blobDigest, blobSize, annotations, iss, &storeOpts)
+	return makeConvertFromRawDiffer(ctx, store, blobDigest, blobSize, annotations, iss, pullOptions)
 }
 
-func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
-	if !parseBooleanPullOption(storeOpts, "convert_images", false) {
+func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+	if !parseBooleanPullOption(pullOptions, "convert_images", false) {
 		return nil, errors.New("convert_images not configured")
 	}
 
@@ -197,12 +193,12 @@ func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDige
 		convertToZstdChunked: true,
 		copyBuffer:           makeCopyBuffer(),
 		layersCache:          layersCache,
-		storeOpts:            storeOpts,
+		pullOptions:          pullOptions,
 		stream:               iss,
 	}, nil
 }
 
-func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
+func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -221,14 +217,14 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 		layersCache:     layersCache,
 		manifest:        manifest,
 		toc:             toc,
-		storeOpts:       storeOpts,
+		pullOptions:     pullOptions,
 		stream:          iss,
 		tarSplit:        tarSplit,
 		tocOffset:       tocOffset,
 	}, nil
 }
 
-func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, storeOpts *types.StoreOptions) (*chunkedDiffer, error) {
+func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -246,7 +242,7 @@ func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize
 		fileType:        fileTypeEstargz,
 		layersCache:     layersCache,
 		manifest:        manifest,
-		storeOpts:       storeOpts,
+		pullOptions:     pullOptions,
 		stream:          iss,
 		tocOffset:       tocOffset,
 	}, nil
@@ -974,8 +970,8 @@ type hardLinkToCreate struct {
 	metadata *fileMetadata
 }
 
-func parseBooleanPullOption(storeOpts *storage.StoreOptions, name string, def bool) bool {
-	if value, ok := storeOpts.PullOptions[name]; ok {
+func parseBooleanPullOption(pullOptions map[string]string, name string, def bool) bool {
+	if value, ok := pullOptions[name]; ok {
 		return strings.ToLower(value) == "true"
 	}
 	return def
@@ -1233,10 +1229,10 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 	// When the hard links deduplication is used, file attributes are ignored because setting them
 	// modifies the source file as well.
-	useHardLinks := parseBooleanPullOption(c.storeOpts, "use_hard_links", false)
+	useHardLinks := parseBooleanPullOption(c.pullOptions, "use_hard_links", false)
 
 	// List of OSTree repositories to use for deduplication
-	ostreeRepos := strings.Split(c.storeOpts.PullOptions["ostree_repos"], ":")
+	ostreeRepos := strings.Split(c.pullOptions["ostree_repos"], ":")
 
 	whiteoutConverter := archive.GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 
