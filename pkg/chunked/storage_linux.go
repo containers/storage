@@ -40,7 +40,6 @@ const (
 	maxNumberMissingChunks  = 1024
 	autoMergePartsThreshold = 1024 // if the gap between two ranges is below this threshold, automatically merge them.
 	newFileFlags            = (unix.O_CREAT | unix.O_TRUNC | unix.O_EXCL | unix.O_WRONLY)
-	containersOverrideXattr = "user.containers.override_stat"
 	bigDataKey              = "zstd-chunked-manifest"
 	chunkedData             = "zstd-chunked-data"
 	chunkedLayerDataKey     = "zstd-chunked-layer-data"
@@ -1342,8 +1341,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	filesToWaitFor := 0
 	for i, r := range mergedEntries {
 		if options.ForceMask != nil {
-			value := fmt.Sprintf("%d:%d:0%o", r.UID, r.GID, r.Mode&0o7777)
-			r.Xattrs[containersOverrideXattr] = base64.StdEncoding.EncodeToString([]byte(value))
+			value := idtools.FormatContainersOverrideXattr(r.UID, r.GID, int(r.Mode))
+			mergedEntries[i].Xattrs[idtools.ContainersOverrideXattr] = base64.StdEncoding.EncodeToString([]byte(value))
 			r.Mode = int64(*options.ForceMask)
 		}
 
