@@ -1339,11 +1339,14 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	}
 
 	filesToWaitFor := 0
-	for i, r := range mergedEntries {
+	for i := range mergedEntries {
+		r := &mergedEntries[i]
 		if options.ForceMask != nil {
 			value := idtools.FormatContainersOverrideXattr(r.UID, r.GID, int(r.Mode))
-			mergedEntries[i].Xattrs[idtools.ContainersOverrideXattr] = base64.StdEncoding.EncodeToString([]byte(value))
-			r.Mode = int64(*options.ForceMask)
+			if r.Xattrs == nil {
+				r.Xattrs = make(map[string]string)
+			}
+			r.Xattrs[idtools.ContainersOverrideXattr] = base64.StdEncoding.EncodeToString([]byte(value))
 		}
 
 		mode := os.FileMode(r.Mode)
@@ -1392,7 +1395,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 						return err
 					}
 					defer file.Close()
-					if err := setFileAttrs(dirfd, file, mode, &r, options, false); err != nil {
+					if err := setFileAttrs(dirfd, file, mode, r, options, false); err != nil {
 						return err
 					}
 					return nil
@@ -1407,7 +1410,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			if r.Name == "" || r.Name == "." {
 				output.RootDirMode = &mode
 			}
-			if err := safeMkdir(dirfd, mode, r.Name, &r, options); err != nil {
+			if err := safeMkdir(dirfd, mode, r.Name, r, options); err != nil {
 				return output, err
 			}
 			continue
@@ -1421,12 +1424,12 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 				dest:     dest,
 				dirfd:    dirfd,
 				mode:     mode,
-				metadata: &r,
+				metadata: r,
 			})
 			continue
 
 		case tar.TypeSymlink:
-			if err := safeSymlink(dirfd, mode, &r, options); err != nil {
+			if err := safeSymlink(dirfd, mode, r, options); err != nil {
 				return output, err
 			}
 			continue
