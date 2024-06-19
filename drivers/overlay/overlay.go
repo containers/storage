@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -2112,7 +2111,7 @@ func (d *Driver) DiffGetter(id string) (_ graphdriver.FileGetCloser, Err error) 
 			// not a composefs layer, ignore it
 			continue
 		}
-		dir, err := ioutil.TempDir(d.runhome, "composefs-mnt")
+		dir, err := os.MkdirTemp(d.runhome, "composefs-mnt")
 		if err != nil {
 			return nil, err
 		}
