@@ -382,8 +382,6 @@ type Options struct {
 	ImageStore          string
 	DriverPriority      []string
 	DriverOptions       []string
-	UIDMaps             []idtools.IDMap
-	GIDMaps             []idtools.IDMap
 	ExperimentalEnabled bool
 }
 

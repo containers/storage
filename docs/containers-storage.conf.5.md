@@ -111,24 +111,6 @@ containers/storage supports four keys
     partial pulls in order to take advantage of local deduplication and hardlinking.  It is an
     expensive operation so it is not enabled by default.
 
-**remap-uids=**""
-**remap-gids=**""
-  Remap-UIDs/GIDs is the mapping from UIDs/GIDs as they should appear inside of a container, to the UIDs/GIDs outside of the container, and the length of the range of UIDs/GIDs.  Additional mapped sets can be listed and will be heeded by libraries, but there are limits to the number of mappings which the kernel will allow when you later attempt to run a container.
-
-  Example
-     remap-uids = "0:1668442479:65536"
-     remap-gids = "0:1668442479:65536"
-
-  These mappings tell the container engines to map UID 0 inside of the container to UID 1668442479 outside.  UID 1 will be mapped to 1668442480. UID 2 will be mapped to 1668442481, etc, for the next 65533 UIDs in succession.
-
-**remap-user**=""
-**remap-group**=""
-  Remap-User/Group is a user name which can be used to look up one or more UID/GID ranges in the /etc/subuid or /etc/subgid file.  Mappings are set up starting with an in-container ID of 0 and then a host-level ID taken from the lowest range that matches the specified name, and using the length of that range. Additional ranges are then assigned, using the ranges which specify the lowest host-level IDs first, to the lowest not-yet-mapped in-container ID, until all of the entries have been used for maps.  This setting overrides the Remap-UIDs/GIDs setting.
-
-  Example
-     remap-user = "containers"
-     remap-group = "containers"
-
 **root-auto-userns-user**=""
   Root-auto-userns-user is a user name which can be used to look up one or more UID/GID ranges in the /etc/subuid and /etc/subgid file.  These ranges will be partitioned to containers configured to create automatically a user namespace.  Containers configured to automatically create a user namespace can still overlap with containers having an explicit mapping set.  This setting is ignored when running as rootless.
 
