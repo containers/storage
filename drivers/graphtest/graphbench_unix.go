@@ -175,8 +175,7 @@ func DriverBenchDiffApplyN(b *testing.B, fileCount int, drivername string, drive
 		arch.Close()
 
 		if applyDiffSize != diffSize {
-			// TODO: enforce this
-			// b.Fatalf("Apply diff size different, got %d, expected %s", applyDiffSize, diffSize)
+			b.Fatalf("Apply diff size different, got %d, expected %d\n", applyDiffSize, diffSize)
 		}
 		if err := checkManyFiles(driver, diff, fileCount, 6); err != nil {
 			b.Fatal(err)
