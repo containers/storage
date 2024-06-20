@@ -2161,9 +2161,15 @@ func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
 // ApplyDiffWithDiffer applies the changes in the new layer using the specified function
 func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, errRet error) {
 	var idMappings *idtools.IDMappings
+	forceMask := options.ForceMask
+
 	if options != nil {
 		idMappings = options.Mappings
 	}
+	if d.options.forceMask != nil {
+		forceMask = d.options.forceMask
+	}
+
 	if idMappings == nil {
 		idMappings = &idtools.IDMappings{}
 	}
@@ -2181,8 +2187,8 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
 		perms := defaultPerms
-		if d.options.forceMask != nil {
-			perms = *d.options.forceMask
+		if forceMask != nil {
+			perms = *forceMask
 		}
 		applyDir = filepath.Join(layerDir, "dir")
 		if err := os.Mkdir(applyDir, perms); err != nil {
@@ -2224,6 +2230,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		IgnoreChownErrors: d.options.ignoreChownErrors,
 		WhiteoutFormat:    d.getWhiteoutFormat(),
 		InUserNS:          unshare.IsRootless(),
+		ForceMask:         forceMask,
 	}, &differOptions)
 
 	out.Target = applyDir
