@@ -2162,10 +2162,11 @@ func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
 // ApplyDiffWithDiffer applies the changes in the new layer using the specified function
 func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, errRet error) {
 	var idMappings *idtools.IDMappings
-	forceMask := options.ForceMask
+	var forceMask *os.FileMode
 
 	if options != nil {
 		idMappings = options.Mappings
+		forceMask = options.ForceMask
 	}
 	if d.options.forceMask != nil {
 		forceMask = d.options.forceMask
