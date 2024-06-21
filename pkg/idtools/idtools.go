@@ -373,6 +373,12 @@ type Stat struct {
 	Mode os.FileMode
 }
 
+// FormatContainersOverrideXattr will format the given uid, gid, and mode into a string
+// that can be used as the value for the ContainersOverrideXattr xattr.
+func FormatContainersOverrideXattr(uid, gid, mode int) string {
+	return fmt.Sprintf("%d:%d:0%o", uid, gid, mode&0o7777)
+}
+
 // GetContainersOverrideXattr will get and decode ContainersOverrideXattr.
 func GetContainersOverrideXattr(path string) (Stat, error) {
 	var stat Stat
@@ -413,7 +419,7 @@ func GetContainersOverrideXattr(path string) (Stat, error) {
 
 // SetContainersOverrideXattr will encode and set ContainersOverrideXattr.
 func SetContainersOverrideXattr(path string, stat Stat) error {
-	value := fmt.Sprintf("%d:%d:0%o", stat.IDs.UID, stat.IDs.GID, stat.Mode)
+	value := FormatContainersOverrideXattr(stat.IDs.UID, stat.IDs.GID, int(stat.Mode))
 	return system.Lsetxattr(path, ContainersOverrideXattr, []byte(value), 0)
 }
 

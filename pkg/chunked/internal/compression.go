@@ -89,7 +89,6 @@ const (
 
 var TarTypes = map[byte]string{
 	tar.TypeReg:     TypeReg,
-	tar.TypeRegA:    TypeReg,
 	tar.TypeLink:    TypeLink,
 	tar.TypeChar:    TypeChar,
 	tar.TypeBlock:   TypeBlock,

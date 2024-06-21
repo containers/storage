@@ -5,7 +5,6 @@ package overlay
 
 import (
 	"os"
-	"os/exec"
 	"testing"
 
 	graphdriver "github.com/containers/storage/drivers"
@@ -42,15 +41,10 @@ func skipIfNaive(t *testing.T) {
 // This test is placed before TestOverlaySetup() because it uses driver options
 // different from the other tests.
 func TestContainersOverlayXattr(t *testing.T) {
-	path, err := exec.LookPath("fuse-overlayfs")
-	if err != nil {
-		t.Skipf("fuse-overlayfs unavailable")
-	}
-
-	driver := graphtest.GetDriver(t, driverName, "force_mask=700", "mount_program="+path)
+	driver := graphtest.GetDriver(t, driverName, "force_mask=700")
 	defer graphtest.PutDriver(t)
 	require.NoError(t, driver.Create("lower", "", nil))
-	graphtest.ReconfigureDriver(t, driverName, "mount_program="+path)
+	graphtest.ReconfigureDriver(t, driverName)
 	require.NoError(t, driver.Create("upper", "lower", nil))
 
 	root, err := driver.Get("upper", graphdriver.MountOpts{})

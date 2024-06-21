@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -375,9 +374,6 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 			return nil, err
 		}
 	} else {
-		if opts.forceMask != nil {
-			return nil, errors.New("'force_mask' is supported only with 'mount_program'")
-		}
 		// check if they are running over btrfs, aufs, overlay, or ecryptfs
 		switch fsMagic {
 		case graphdriver.FsMagicAufs, graphdriver.FsMagicOverlay, graphdriver.FsMagicEcryptfs:
@@ -983,6 +979,10 @@ func (d *Driver) CreateReadWrite(id, parent string, opts *graphdriver.CreateOpts
 		opts = &graphdriver.CreateOpts{
 			StorageOpt: map[string]string{},
 		}
+	}
+
+	if d.options.forceMask != nil && d.options.mountProgram == "" {
+		return fmt.Errorf("overlay: force_mask option for writeable layers is only supported with a mount_program")
 	}
 
 	if _, ok := opts.StorageOpt["size"]; !ok {
@@ -2112,7 +2112,7 @@ func (d *Driver) DiffGetter(id string) (_ graphdriver.FileGetCloser, Err error) 
 			// not a composefs layer, ignore it
 			continue
 		}
-		dir, err := ioutil.TempDir(d.runhome, "composefs-mnt")
+		dir, err := os.MkdirTemp(d.runhome, "composefs-mnt")
 		if err != nil {
 			return nil, err
 		}
@@ -2162,9 +2162,15 @@ func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
 // ApplyDiffWithDiffer applies the changes in the new layer using the specified function
 func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, errRet error) {
 	var idMappings *idtools.IDMappings
+	forceMask := options.ForceMask
+
 	if options != nil {
 		idMappings = options.Mappings
 	}
+	if d.options.forceMask != nil {
+		forceMask = d.options.forceMask
+	}
+
 	if idMappings == nil {
 		idMappings = &idtools.IDMappings{}
 	}
@@ -2182,8 +2188,8 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
 		perms := defaultPerms
-		if d.options.forceMask != nil {
-			perms = *d.options.forceMask
+		if forceMask != nil {
+			perms = *forceMask
 		}
 		applyDir = filepath.Join(layerDir, "dir")
 		if err := os.Mkdir(applyDir, perms); err != nil {
@@ -2225,6 +2231,7 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 		IgnoreChownErrors: d.options.ignoreChownErrors,
 		WhiteoutFormat:    d.getWhiteoutFormat(),
 		InUserNS:          unshare.IsRootless(),
+		ForceMask:         forceMask,
 	}, &differOptions)
 
 	out.Target = applyDir
