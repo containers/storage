@@ -8,4 +8,3 @@ linters:
     - gofumpt
   disable:
     - errcheck
-    - staticcheck
