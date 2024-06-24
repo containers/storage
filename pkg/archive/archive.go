@@ -70,6 +70,8 @@ type (
 	}
 )
 
+const PaxSchilyXattr = "SCHILY.xattr."
+
 const (
 	tarExt  = "tar"
 	solaris = "solaris"
@@ -417,11 +419,11 @@ func FileInfoHeader(name string, fi os.FileInfo, link string) (*tar.Header, erro
 	return hdr, nil
 }
 
-// ReadSecurityXattrToTarHeader reads security.capability, security,image
+// readSecurityXattrToTarHeader reads security.capability, security,image
 // xattrs from filesystem to a tar header
-func ReadSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
-	if hdr.Xattrs == nil {
-		hdr.Xattrs = make(map[string]string)
+func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
+	if hdr.PAXRecords == nil {
+		hdr.PAXRecords = make(map[string]string)
 	}
 	for _, xattr := range []string{"security.capability", "security.ima"} {
 		capability, err := system.Lgetxattr(path, xattr)
@@ -429,14 +431,14 @@ func ReadSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 			return fmt.Errorf("failed to read %q attribute from %q: %w", xattr, path, err)
 		}
 		if capability != nil {
-			hdr.Xattrs[xattr] = string(capability)
+			hdr.PAXRecords[PaxSchilyXattr+xattr] = string(capability)
 		}
 	}
 	return nil
 }
 
-// ReadUserXattrToTarHeader reads user.* xattr from filesystem to a tar header
-func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
+// readUserXattrToTarHeader reads user.* xattr from filesystem to a tar header
+func readUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	xattrs, err := system.Llistxattr(path)
 	if err != nil && !errors.Is(err, system.EOPNOTSUPP) && err != system.ErrNotSupportedPlatform {
 		return err
@@ -451,10 +453,10 @@ func ReadUserXattrToTarHeader(path string, hdr *tar.Header) error {
 				}
 				return err
 			}
-			if hdr.Xattrs == nil {
-				hdr.Xattrs = make(map[string]string)
+			if hdr.PAXRecords == nil {
+				hdr.PAXRecords = make(map[string]string)
 			}
-			hdr.Xattrs[key] = string(value)
+			hdr.PAXRecords[PaxSchilyXattr+key] = string(value)
 		}
 	}
 	return nil
@@ -542,10 +544,10 @@ func (ta *tarAppender) addTarFile(path, name string) error {
 	if err != nil {
 		return err
 	}
-	if err := ReadSecurityXattrToTarHeader(path, hdr); err != nil {
+	if err := readSecurityXattrToTarHeader(path, hdr); err != nil {
 		return err
 	}
-	if err := ReadUserXattrToTarHeader(path, hdr); err != nil {
+	if err := readUserXattrToTarHeader(path, hdr); err != nil {
 		return err
 	}
 	if err := ReadFileFlagsToTarHeader(path, hdr); err != nil {
@@ -782,11 +784,15 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 	}
 
 	var errs []string
-	for key, value := range hdr.Xattrs {
-		if _, found := xattrsToIgnore[key]; found {
+	for key, value := range hdr.PAXRecords {
+		xattrKey, ok := strings.CutPrefix(key, PaxSchilyXattr)
+		if !ok {
 			continue
 		}
-		if err := system.Lsetxattr(path, key, []byte(value), 0); err != nil {
+		if _, found := xattrsToIgnore[xattrKey]; found {
+			continue
+		}
+		if err := system.Lsetxattr(path, xattrKey, []byte(value), 0); err != nil {
 			if errors.Is(err, syscall.ENOTSUP) || (inUserns && errors.Is(err, syscall.EPERM)) {
 				// We ignore errors here because not all graphdrivers support
 				// xattrs *cough* old versions of AUFS *cough*. However only
@@ -1371,7 +1377,7 @@ func remapIDs(readIDMappings, writeIDMappings *idtools.IDMappings, chownOpts *id
 			}
 		} else if runtime.GOOS == darwin {
 			uid, gid = hdr.Uid, hdr.Gid
-			if xstat, ok := hdr.Xattrs[idtools.ContainersOverrideXattr]; ok {
+			if xstat, ok := hdr.PAXRecords[PaxSchilyXattr+idtools.ContainersOverrideXattr]; ok {
 				attrs := strings.Split(string(xstat), ":")
 				if len(attrs) == 3 {
 					val, err := strconv.ParseUint(attrs[0], 10, 32)
