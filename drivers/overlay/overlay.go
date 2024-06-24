@@ -2532,6 +2532,19 @@ func nameWithSuffix(name string, number int) string {
 	return fmt.Sprintf("%s%d", name, number)
 }
 
+func validateOneAdditionalLayerPath(target string) error {
+	for _, p := range []string{
+		filepath.Join(target, "diff"),
+		filepath.Join(target, "info"),
+		filepath.Join(target, "blob"),
+	} {
+		if err := fileutils.Exists(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (d *Driver) getAdditionalLayerPath(tocDigest digest.Digest, ref string) (string, error) {
 	refElem := base64.StdEncoding.EncodeToString([]byte(ref))
 	for _, ls := range d.options.layerStores {
@@ -2540,18 +2553,11 @@ func (d *Driver) getAdditionalLayerPath(tocDigest digest.Digest, ref string) (st
 			ref = refElem
 		}
 		target := path.Join(ls.path, ref, tocDigest.String())
-		// Check if all necessary files exist
-		for _, p := range []string{
-			filepath.Join(target, "diff"),
-			filepath.Join(target, "info"),
-			filepath.Join(target, "blob"),
-		} {
-			if err := fileutils.Exists(p); err != nil {
-				wrapped := fmt.Errorf("failed to stat additional layer %q: %w", p, err)
-				return "", fmt.Errorf("%v: %w", wrapped, graphdriver.ErrLayerUnknown)
-			}
+		err := validateOneAdditionalLayerPath(target)
+		if err == nil {
+			return target, nil
 		}
-		return target, nil
+		logrus.Debugf("additional Layer Store %v failed to stat additional layer: %v", ls, err)
 	}
 
 	return "", fmt.Errorf("additional layer (%q, %q) not found: %w", tocDigest, ref, graphdriver.ErrLayerUnknown)
