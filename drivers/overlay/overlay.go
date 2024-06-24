@@ -120,8 +120,6 @@ type Driver struct {
 	home             string
 	runhome          string
 	imageStore       string
-	uidMaps          []idtools.IDMap
-	gidMaps          []idtools.IDMap
 	ctr              *graphdriver.RefCounter
 	quotaCtl         *quota.Control
 	options          overlayOptions
@@ -333,13 +331,9 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	backingFs = fsName
 
 	runhome := filepath.Join(options.RunRoot, filepath.Base(home))
-	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UIDMaps, options.GIDMaps)
-	if err != nil {
-		return nil, err
-	}
 
 	// Create the driver home dir
-	if err := idtools.MkdirAllAs(path.Join(home, linkDir), 0o755, 0, 0); err != nil {
+	if err := os.MkdirAll(path.Join(home, linkDir), 0o755); err != nil {
 		return nil, err
 	}
 
@@ -349,7 +343,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		}
 	}
 
-	if err := idtools.MkdirAllAs(runhome, 0o700, rootUID, rootGID); err != nil {
+	if err := os.MkdirAll(runhome, 0o700); err != nil {
 		return nil, err
 	}
 
@@ -455,8 +449,6 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		home:             home,
 		imageStore:       options.ImageStore,
 		runhome:          runhome,
-		uidMaps:          options.UIDMaps,
-		gidMaps:          options.GIDMaps,
 		ctr:              graphdriver.NewRefCounter(graphdriver.NewFsChecker(fileSystemType)),
 		supportsDType:    supportsDType,
 		usingMetacopy:    usingMetacopy,
@@ -1023,8 +1015,8 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 
 	disableQuota := readOnly
 
-	uidMaps := d.uidMaps
-	gidMaps := d.gidMaps
+	var uidMaps []idtools.IDMap
+	var gidMaps []idtools.IDMap
 
 	if opts != nil && opts.IDMappings != nil {
 		uidMaps = opts.IDMappings.UIDs()
@@ -1293,12 +1285,6 @@ func (d *Driver) getLowerDirs(id string) ([]string, error) {
 }
 
 func (d *Driver) optsAppendMappings(opts string, uidMaps, gidMaps []idtools.IDMap) string {
-	if uidMaps == nil {
-		uidMaps = d.uidMaps
-	}
-	if gidMaps == nil {
-		gidMaps = d.gidMaps
-	}
 	if uidMaps != nil {
 		var uids, gids bytes.Buffer
 		if len(uidMaps) == 1 && uidMaps[0].Size == 1 {

@@ -1088,8 +1088,6 @@ func (s *store) createGraphDriverLocked() (drivers.Driver, error) {
 		RunRoot:        s.runRoot,
 		DriverPriority: s.graphDriverPriority,
 		DriverOptions:  s.graphOptions,
-		UIDMaps:        s.uidMap,
-		GIDMaps:        s.gidMap,
 	}
 	return drivers.New(s.graphDriverName, config)
 }

@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/unshare"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -124,75 +122,6 @@ func TestGetRootlessStorageOpts2(t *testing.T) {
 	storageOpts, err := getRootlessStorageOpts(opts)
 	assert.NilError(t, err)
 	assert.Equal(t, storageOpts.GraphRoot, expectedPath)
-}
-
-func TestSetRemapUIDsGIDsOpts(t *testing.T) {
-	var remapOpts StoreOptions
-	uidmap := []idtools.IDMap{
-		{
-			ContainerID: 0,
-			HostID:      1000000000,
-			Size:        30000,
-		},
-	}
-	gidmap := []idtools.IDMap{
-		{
-			ContainerID: 0,
-			HostID:      1500000000,
-			Size:        60000,
-		},
-	}
-
-	err := ReloadConfigurationFile("./storage_test.conf", &remapOpts)
-	require.NoError(t, err)
-	if !reflect.DeepEqual(uidmap, remapOpts.UIDMap) {
-		t.Errorf("Failed to set UIDMap: Expected %v Actual %v", uidmap, remapOpts.UIDMap)
-	}
-	if !reflect.DeepEqual(gidmap, remapOpts.GIDMap) {
-		t.Errorf("Failed to set GIDMap: Expected %v Actual %v", gidmap, remapOpts.GIDMap)
-	}
-}
-
-func TestSetRemapUserGroupOpts(t *testing.T) {
-	var remapOpts StoreOptions
-
-	user := os.Getenv("USER")
-	if user == "root" {
-		t.Skip("This test is enabled only rootless user")
-	}
-
-	configPath := "./remap_user_test.conf"
-	config := fmt.Sprintf(`
-[storage]
-driver = ""
-
-[storage.options]
-remap-uids = "0:1000000000:30000"
-remap-gids = "0:1500000000:60000"
-
-remap-user = "%s"
-remap-group = "%s"
-`, user, user)
-	f, err := os.Create(configPath)
-	require.NoError(t, err)
-	defer func() {
-		f.Close()
-		os.Remove(configPath)
-	}()
-
-	_, err = f.Write([]byte(config))
-	require.NoError(t, err)
-
-	mappings, err := idtools.NewIDMappings(user, user)
-	require.NoError(t, err)
-	err = ReloadConfigurationFile(configPath, &remapOpts)
-	require.NoError(t, err)
-	if !reflect.DeepEqual(mappings.UIDs(), remapOpts.UIDMap) {
-		t.Errorf("Failed to set UIDMap: Expected %v Actual %v", mappings.UIDs(), remapOpts.UIDMap)
-	}
-	if !reflect.DeepEqual(mappings.GIDs(), remapOpts.GIDMap) {
-		t.Errorf("Failed to set GIDMap: Expected %v Actual %v", mappings.GIDs(), remapOpts.GIDMap)
-	}
 }
 
 func TestReloadConfigurationFile(t *testing.T) {
