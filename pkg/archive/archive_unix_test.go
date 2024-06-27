@@ -232,6 +232,8 @@ func TestTarUntarWithXattr(t *testing.T) {
 	encoded := [20]byte{0, 0, 0, 2}
 	err = system.Lsetxattr(filepath.Join(origin, "2"), "security.capability", encoded[:], 0)
 	require.NoError(t, err)
+	err = system.Lsetxattr(filepath.Join(origin, "1"), "user.test", []byte("helloWord"), 0)
+	require.NoError(t, err)
 
 	for _, c := range []Compression{
 		Uncompressed,
@@ -248,9 +250,13 @@ func TestTarUntarWithXattr(t *testing.T) {
 		if len(changes) != 1 || changes[0].Path != "/3" {
 			t.Fatalf("Unexpected differences after tarUntar: %v", changes)
 		}
-		capability, _ := system.Lgetxattr(filepath.Join(origin, "2"), "security.capability")
-		if capability == nil && capability[0] != 0x00 {
-			t.Fatalf("Untar should have kept the 'security.capability' xattr.")
-		}
+
+		capability, err := system.Lgetxattr(filepath.Join(origin, "2"), "security.capability")
+		require.NoError(t, err)
+		assert.Equal(t, encoded[:], capability)
+
+		test, err := system.Lgetxattr(filepath.Join(origin, "1"), "user.test")
+		require.NoError(t, err)
+		assert.Equal(t, []byte("helloWord"), test)
 	}
 }
