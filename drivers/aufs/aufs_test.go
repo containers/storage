@@ -744,7 +744,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 	}
 
 	parent := ids[1]
-	ids = append(ids[2:])
+	ids = ids[2:]
 
 	chErr := make(chan error, numConcurrent)
 	var outerGroup sync.WaitGroup
