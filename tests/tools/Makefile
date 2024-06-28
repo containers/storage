@@ -33,9 +33,6 @@ $(BUILDDIR)/git-validation:
 $(BUILDDIR)/go-md2man:
 	$(call go-build,./vendor/github.com/cpuguy83/go-md2man)
 
+$(BUILDDIR)/golangci-lint: VERSION=v1.55.2
 $(BUILDDIR)/golangci-lint:
-	export \
-		VERSION=v1.24.0 \
-		URL=https://raw.githubusercontent.com/golangci/golangci-lint \
-		BINDIR=$(BUILDDIR) && \
-	curl -sfL $$URL/$$VERSION/install.sh | sh -s $$VERSION
+	curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/$(VERSION)/install.sh | sh -s -- -b ./$(BUILDDIR) $(VERSION)
