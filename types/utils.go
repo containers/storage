@@ -66,7 +66,10 @@ func reloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 		return
 	}
 
-	ReloadConfigurationFile(configFile, storeOptions)
+	if err := ReloadConfigurationFile(configFile, storeOptions); err != nil {
+		logrus.Warningf("Failed to reload %s %v\n", configFile, err.Error())
+		return
+	}
 
 	prevReloadConfig.storeOptions = storeOptions
 	prevReloadConfig.mod = mtime
