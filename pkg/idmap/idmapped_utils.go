@@ -65,7 +65,7 @@ func CreateUsernsProcess(uidMaps []idtools.IDMap, gidMaps []idtools.IDMap) (int,
 		}
 	}
 	cleanupFunc := func() {
-		unix.Kill(int(pid), unix.SIGKILL)
+		_ = unix.Kill(int(pid), unix.SIGKILL)
 		_, _ = unix.Wait4(int(pid), nil, 0, nil)
 	}
 	writeMappings := func(fname string, idmap []idtools.IDMap) error {
