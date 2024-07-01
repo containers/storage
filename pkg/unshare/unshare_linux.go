@@ -590,7 +590,12 @@ func MaybeReexecUsingUserNamespace(evenForRoot bool) {
 	cmd.Hook = func(int) error {
 		go func() {
 			for receivedSignal := range interrupted {
-				cmd.Cmd.Process.Signal(receivedSignal)
+				if err := cmd.Cmd.Process.Signal(receivedSignal); err != nil {
+					logrus.Debugf(
+						"Failed send a signal '%d' to the Process (PID: %d): %v",
+						receivedSignal, cmd.Cmd.Process.Pid, err,
+					)
+				}
 			}
 		}()
 		return nil
