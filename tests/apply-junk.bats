@@ -10,17 +10,17 @@ function applyjunk_main() {
 	storage create-layer --id layer-${compressed}
 
 	echo [[${compressed} /etc/os-release]]
-	if ! ${compressed} < /etc/os-release > junkfile ; then
+	if ! ${compressed} < /etc/os-release > ${TESTDIR}/junkfile ; then
 		skip "error running ${compressed}"
 	fi
-	run storage apply-diff --file junkfile layer-${compressed}
+	run storage apply-diff --file ${TESTDIR}/junkfile layer-${compressed}
 	echo "$output"
 	[[ "$status" -ne 0 ]]
 	[[ "$output" =~ "invalid tar header" ]] || [[ "$output" =~ "unexpected EOF" ]]
 
 	echo [[${compressed}]]
-	echo "sorry, not even enough info for a tar header here" | ${compressed} > junkfile
-	run storage apply-diff --file junkfile layer-${compressed}
+	echo "sorry, not even enough info for a tar header here" | ${compressed} > ${TESTDIR}/junkfile
+	run storage apply-diff --file ${TESTDIR}/junkfile layer-${compressed}
 	echo "$output"
 	[[ "$status" -ne 0 ]]
 	[[ "$output" =~ "unexpected EOF" ]]
