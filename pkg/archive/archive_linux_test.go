@@ -93,9 +93,11 @@ func checkFileMode(t *testing.T, path string, perm os.FileMode) {
 }
 
 func TestOverlayTarUntar(t *testing.T) {
-	oldmask, err := system.Umask(0)
+	oldMask, err := system.Umask(0)
 	require.NoError(t, err)
-	defer system.Umask(oldmask)
+	defer func() {
+		_, _ = system.Umask(oldMask) // Ignore err. This can only fail with ErrNotSupportedPlatform, in which case we would have failed above.
+	}()
 
 	src := t.TempDir()
 	setupOverlayTestDir(t, src)
@@ -131,9 +133,11 @@ func TestOverlayTarUntar(t *testing.T) {
 }
 
 func TestOverlayTarAUFSUntar(t *testing.T) {
-	oldmask, err := system.Umask(0)
+	oldMask, err := system.Umask(0)
 	require.NoError(t, err)
-	defer system.Umask(oldmask)
+	defer func() {
+		_, _ = system.Umask(oldMask) // Ignore err. This can only fail with ErrNotSupportedPlatform, in which case we would have failed above.
+	}()
 
 	src := t.TempDir()
 	setupOverlayTestDir(t, src)
