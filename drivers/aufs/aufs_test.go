@@ -774,7 +774,9 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 				}()
 			}
 			innerGroup.Wait()
-			d.Remove(id)
+			if err := d.Remove(id); err != nil {
+				b.Log(err)
+			}
 		}(id)
 	}
 
