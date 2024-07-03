@@ -43,7 +43,10 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 
 	dir, err := driver.Get(name, graphdriver.MountOpts{})
 	require.NoError(t, err)
-	defer driver.Put(name)
+	defer func() {
+		err = driver.Put(name)
+		require.NoError(t, err)
+	}()
 
 	subdir := path.Join(dir, "a subdir")
 	require.NoError(t, os.Mkdir(subdir, defaultSubdirPerms|os.ModeSticky))
@@ -57,7 +60,10 @@ func createBase(t testing.TB, driver graphdriver.Driver, name string) {
 func verifyBase(t testing.TB, driver graphdriver.Driver, name string, defaultPerm os.FileMode) {
 	dir, err := driver.Get(name, graphdriver.MountOpts{})
 	require.NoError(t, err)
-	defer driver.Put(name)
+	defer func() {
+		err = driver.Put(name)
+		require.NoError(t, err)
+	}()
 
 	verifyFile(t, dir, defaultPerm|os.ModeDir, 0, 0)
 

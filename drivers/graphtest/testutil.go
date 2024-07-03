@@ -18,6 +18,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +39,11 @@ func addFiles(drv graphdriver.Driver, layer string, seed int64) error {
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	if err := os.WriteFile(path.Join(root, "file-a"), randomContent(64, seed), 0o755); err != nil {
 		return err
@@ -58,7 +63,11 @@ func checkFile(drv graphdriver.Driver, layer, filename string, content []byte) e
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	fileContent, err := os.ReadFile(path.Join(root, filename))
 	if err != nil {
@@ -77,7 +86,11 @@ func addFile(drv graphdriver.Driver, layer, filename string, content []byte) err
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	return os.WriteFile(path.Join(root, filename), content, 0o755)
 }
@@ -87,7 +100,11 @@ func addDirectory(drv graphdriver.Driver, layer, dir string) error {
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	return os.MkdirAll(path.Join(root, dir), 0o755)
 }
@@ -97,7 +114,11 @@ func removeAll(drv graphdriver.Driver, layer string, names ...string) error {
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	for _, filename := range names {
 		if err := os.RemoveAll(path.Join(root, filename)); err != nil {
@@ -112,7 +133,11 @@ func checkFileRemoved(drv graphdriver.Driver, layer, filename string) error {
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	if _, err := os.Stat(path.Join(root, filename)); err == nil {
 		return fmt.Errorf("file still exists: %s", path.Join(root, filename))
@@ -128,7 +153,11 @@ func addManyFiles(drv graphdriver.Driver, layer string, count int, seed int64) e
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	for i := 0; i < count; i += 100 {
 		dir := path.Join(root, fmt.Sprintf("directory-%d", i))
@@ -151,7 +180,11 @@ func changeManyFiles(drv graphdriver.Driver, layer string, count int, seed int64
 	if err != nil {
 		return nil, err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	changes := []archive.Change{}
 	for i := 0; i < count; i += 100 {
@@ -211,7 +244,11 @@ func checkManyFiles(drv graphdriver.Driver, layer string, count int, seed int64)
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	for i := 0; i < count; i += 100 {
 		dir := path.Join(root, fmt.Sprintf("directory-%d", i))
@@ -265,7 +302,11 @@ func addLayerFiles(drv graphdriver.Driver, layer, parent string, i int) error {
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	if err := os.WriteFile(path.Join(root, "top-id"), []byte(layer), 0o755); err != nil {
 		return err
@@ -307,7 +348,11 @@ func checkManyLayers(drv graphdriver.Driver, layer string, count int) error {
 	if err != nil {
 		return err
 	}
-	defer drv.Put(layer)
+	defer func() {
+		if err := drv.Put(layer); err != nil {
+			logrus.Warn(err)
+		}
+	}()
 
 	layerIDBytes, err := os.ReadFile(path.Join(root, "top-id"))
 	if err != nil {
