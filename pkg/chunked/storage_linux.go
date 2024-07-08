@@ -557,7 +557,11 @@ func hashHole(h hash.Hash, size int64, copyBuffer []byte) error {
 func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileType, destFile *destinationFile, size int64) error {
 	switch compression {
 	case fileTypeZstdChunked:
-		defer c.zstdReader.Reset(nil)
+		defer func() {
+			if err := c.zstdReader.Reset(nil); err != nil {
+				logrus.Warnf("release of references to the previous zstd reader failed: %v", err)
+			}
+		}()
 		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.zstdReader, size), c.copyBuffer); err != nil {
 			return err
 		}
