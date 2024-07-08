@@ -14,6 +14,7 @@ import (
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/mflag"
 	digest "github.com/opencontainers/go-digest"
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -192,7 +193,9 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 		DiffOptions: &options,
 	}
 	if _, err := m.ApplyStagedLayer(applyStagedLayerArgs); err != nil {
-		m.CleanupStagedLayer(out)
+		if err := m.CleanupStagedLayer(out); err != nil {
+			logrus.Warnf("cleanup of the staged layer failed: %v", err)
+		}
 		return 1, err
 	}
 	return 0, nil
