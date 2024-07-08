@@ -692,7 +692,9 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 
 	selinuxLabelTest := selinux.PrivContainerMountLabel()
 
-	exec.Command("modprobe", "overlay").Run()
+	if err := exec.Command("modprobe", "overlay").Run(); err != nil {
+		logrus.Warnf("Execution of `modprobe overlay` ended with error: %v", err)
+	}
 
 	logLevel := logrus.ErrorLevel
 	if unshare.IsRootless() {
