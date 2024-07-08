@@ -1287,7 +1287,9 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		for _, e := range mergedEntries {
 			d := e.Name[0:2]
 			if _, found := createdDirs[d]; !found {
-				unix.Mkdirat(dirfd, d, 0o755)
+				if err := unix.Mkdirat(dirfd, d, 0o755); err != nil {
+					return output, &fs.PathError{Op: "mkdirat", Path: d, Err: err}
+				}
 				createdDirs[d] = struct{}{}
 			}
 		}
