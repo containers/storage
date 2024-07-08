@@ -821,7 +821,9 @@ func (d *Driver) useNaiveDiff() bool {
 			logrus.Info(nativeDiffCacheText)
 			useNaiveDiffOnly = true
 		}
-		cachedFeatureRecord(d.runhome, feature, !useNaiveDiffOnly, nativeDiffCacheText)
+		if err := cachedFeatureRecord(d.runhome, feature, !useNaiveDiffOnly, nativeDiffCacheText); err != nil {
+			logrus.Warnf("Recording overlay native-diff support status: %v", err)
+		}
 	})
 	return useNaiveDiffOnly
 }
