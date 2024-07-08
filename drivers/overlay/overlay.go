@@ -2087,7 +2087,9 @@ func (d *Driver) DiffGetter(id string) (_ graphdriver.FileGetCloser, Err error) 
 		if Err != nil {
 			for _, f := range composefsMounts {
 				f.Close()
-				unix.Rmdir(f.Name())
+				if err := unix.Rmdir(f.Name()); err != nil && !os.IsNotExist(err) {
+					logrus.Warnf("Failed to remove %s: %v", f.Name(), err)
+				}
 			}
 		}
 	}()
