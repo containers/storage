@@ -764,13 +764,19 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				innerGroup.Add(1)
 				go func() {
-					d.Get(id, graphdriver.MountOpts{})
-					d.Put(id)
+					if _, err := d.Get(id, graphdriver.MountOpts{}); err != nil {
+						b.Log(err)
+					}
+					if err := d.Put(id); err != nil {
+						b.Log(err)
+					}
 					innerGroup.Done()
 				}()
 			}
 			innerGroup.Wait()
-			d.Remove(id)
+			if err := d.Remove(id); err != nil {
+				b.Log(err)
+			}
 		}(id)
 	}
 

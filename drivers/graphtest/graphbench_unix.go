@@ -240,7 +240,11 @@ func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, d
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer driver.Put(topLayer)
+	defer func() {
+		if err := driver.Put(topLayer); err != nil {
+			b.Fatal(err)
+		}
+	}()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

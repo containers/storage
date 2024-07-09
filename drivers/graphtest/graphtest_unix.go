@@ -131,7 +131,8 @@ func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...str
 	require.NoError(t, err)
 	assert.Len(t, fis, 0)
 
-	driver.Put("empty")
+	err = driver.Put("empty")
+	require.NoError(t, err)
 }
 
 // DriverTestCreateBase create a base driver and verify.
@@ -162,7 +163,8 @@ func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...stri
 	assert.NoError(t, err)
 	err = os.Chmod(root, modifiedPerms)
 	require.NoError(t, err)
-	driver.Put("Snap2")
+	err = driver.Put("Snap2")
+	require.NoError(t, err)
 
 	err = driver.Create("SecondSnap", "Snap2", nil)
 	require.NoError(t, err)
