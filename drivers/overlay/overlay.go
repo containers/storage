@@ -1557,7 +1557,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	composefsMounts := []string{}
 	defer func() {
 		for _, m := range composefsMounts {
-			defer unix.Unmount(m, unix.MNT_DETACH)
+			defer func(m string) {
+				if err := unix.Unmount(m, unix.MNT_DETACH); err != nil {
+					logrus.Warnf("Unmount %q: %v", m, err)
+				}
+			}(m)
 		}
 	}()
 
@@ -1661,7 +1665,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 				skipIDMappingLayers[composefsMount] = composefsMount
 				// overlay takes a reference on the mount, so it is safe to unmount
 				// the mapped idmounts as soon as the final overlay file system is mounted.
-				defer unix.Unmount(composefsMount, unix.MNT_DETACH)
+				defer func() {
+					if err := unix.Unmount(composefsMount, unix.MNT_DETACH); err != nil {
+						logrus.Warnf("Unmount %q: %v", composefsMount, err)
+					}
+				}()
 			}
 			absLowers = append(absLowers, composefsMount)
 			continue
@@ -1768,7 +1776,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 				// overlay takes a reference on the mount, so it is safe to unmount
 				// the mapped idmounts as soon as the final overlay file system is mounted.
-				defer unix.Unmount(root, unix.MNT_DETACH)
+				defer func() {
+					if err := unix.Unmount(root, unix.MNT_DETACH); err != nil {
+						logrus.Warnf("Unmount %q: %v", root, err)
+					}
+				}()
 			}
 
 			// relative path to the layer through the id mapped mount

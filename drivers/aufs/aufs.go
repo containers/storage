@@ -683,7 +683,9 @@ func (a *Driver) Cleanup() error {
 func (a *Driver) aufsMount(ro []string, rw, target string, options graphdriver.MountOpts) (err error) {
 	defer func() {
 		if err != nil {
-			Unmount(target)
+			if err1 := Unmount(target); err1 != nil {
+				logrus.Warnf("Unmount %q: %v", target, err1)
+			}
 		}
 	}()
 
