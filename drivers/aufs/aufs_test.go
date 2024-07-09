@@ -221,7 +221,11 @@ func TestMountedFalseResponse(t *testing.T) {
 func TestMountedTrueResponse(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	err := d.Create("1", "", nil)
 	require.NoError(t, err)
@@ -488,7 +492,11 @@ func TestDiffSize(t *testing.T) {
 func TestChildDiffSize(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	if err := d.CreateReadWrite("1", "", nil); err != nil {
 		t.Fatal(err)
@@ -543,7 +551,11 @@ func TestChildDiffSize(t *testing.T) {
 func TestExists(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	if err := d.Create("1", "", nil); err != nil {
 		t.Fatal(err)
@@ -561,7 +573,11 @@ func TestExists(t *testing.T) {
 func TestStatus(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	if err := d.Create("1", "", nil); err != nil {
 		t.Fatal(err)
@@ -589,7 +605,11 @@ func TestStatus(t *testing.T) {
 func TestApplyDiff(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	if err := d.CreateReadWrite("1", "", nil); err != nil {
 		t.Fatal(err)
@@ -652,7 +672,11 @@ func testMountMoreThan42Layers(t *testing.T, mountPath string) {
 
 	defer os.RemoveAll(mountPath)
 	d := testInit(mountPath, t).(*Driver)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	var last string
 	var expected int
 
@@ -726,7 +750,11 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 
 	d := newDriver(b)
 	defer os.RemoveAll(tmp)
-	defer d.Cleanup()
+	defer func() {
+		if err := d.Cleanup(); err != nil {
+			b.Fatal(err)
+		}
+	}()
 
 	numConcurrent := 256
 	// create a bunch of ids

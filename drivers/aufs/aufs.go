@@ -349,7 +349,9 @@ func (a *Driver) createDirsFor(id, parent string) error {
 // Remove will unmount and remove the given id.
 func (a *Driver) Remove(id string) error {
 	a.locker.Lock(id)
-	defer a.locker.Unlock(id)
+	defer func() {
+		_ = a.locker.Unlock(id)
+	}()
 	a.pathCacheLock.Lock()
 	mountpoint, exists := a.pathCache[id]
 	a.pathCacheLock.Unlock()
@@ -440,7 +442,10 @@ func atomicRemove(source string) error {
 // This will mount the dir at its given path
 func (a *Driver) Get(id string, options graphdriver.MountOpts) (string, error) {
 	a.locker.Lock(id)
-	defer a.locker.Unlock(id)
+	defer func() {
+		_ = a.locker.Unlock(id)
+	}()
+
 	parents, err := a.getParentLayerPaths(id)
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
@@ -477,7 +482,10 @@ func (a *Driver) Get(id string, options graphdriver.MountOpts) (string, error) {
 // Put unmounts and updates list of active mounts.
 func (a *Driver) Put(id string) error {
 	a.locker.Lock(id)
-	defer a.locker.Unlock(id)
+	defer func() {
+		_ = a.locker.Unlock(id)
+	}()
+
 	a.pathCacheLock.Lock()
 	m, exists := a.pathCache[id]
 	if !exists {
@@ -500,7 +508,9 @@ func (a *Driver) Put(id string) error {
 // For AUFS, it queries the mountpoint for this ID.
 func (a *Driver) ReadWriteDiskUsage(id string) (*directory.DiskUsage, error) {
 	a.locker.Lock(id)
-	defer a.locker.Unlock(id)
+	defer func() {
+		_ = a.locker.Unlock(id)
+	}()
 	a.pathCacheLock.Lock()
 	m, exists := a.pathCache[id]
 	if !exists {
