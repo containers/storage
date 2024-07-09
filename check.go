@@ -304,7 +304,14 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 							archiveErr = err
 						}
 						// consume any trailer after the EOF marker
-						io.Copy(io.Discard, diffReader)
+						if _, err := io.Copy(io.Discard, diffReader); err != nil {
+							err = fmt.Errorf("layer %s: consume any trailer after the EOF marker: %w", layerID, err)
+							if isReadWrite {
+								report.Layers[layerID] = append(report.Layers[layerID], err)
+							} else {
+								report.ROLayers[layerID] = append(report.ROLayers[layerID], err)
+							}
+						}
 						wg.Done()
 					}(id, reader)
 					wg.Wait()

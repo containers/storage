@@ -823,7 +823,9 @@ func (d *Driver) useNaiveDiff() bool {
 			logrus.Info(nativeDiffCacheText)
 			useNaiveDiffOnly = true
 		}
-		cachedFeatureRecord(d.runhome, feature, !useNaiveDiffOnly, nativeDiffCacheText)
+		if err := cachedFeatureRecord(d.runhome, feature, !useNaiveDiffOnly, nativeDiffCacheText); err != nil {
+			logrus.Warnf("Recording overlay native-diff support status: %v", err)
+		}
 	})
 	return useNaiveDiffOnly
 }
@@ -2087,7 +2089,9 @@ func (d *Driver) DiffGetter(id string) (_ graphdriver.FileGetCloser, Err error) 
 		if Err != nil {
 			for _, f := range composefsMounts {
 				f.Close()
-				unix.Rmdir(f.Name())
+				if err := unix.Rmdir(f.Name()); err != nil && !os.IsNotExist(err) {
+					logrus.Warnf("Failed to remove %s: %v", f.Name(), err)
+				}
 			}
 		}
 	}()
