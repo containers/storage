@@ -557,7 +557,11 @@ func hashHole(h hash.Hash, size int64, copyBuffer []byte) error {
 func (c *chunkedDiffer) appendCompressedStreamToFile(compression compressedFileType, destFile *destinationFile, size int64) error {
 	switch compression {
 	case fileTypeZstdChunked:
-		defer c.zstdReader.Reset(nil)
+		defer func() {
+			if err := c.zstdReader.Reset(nil); err != nil {
+				logrus.Warnf("release of references to the previous zstd reader failed: %v", err)
+			}
+		}()
 		if _, err := io.CopyBuffer(destFile.to, io.LimitReader(c.zstdReader, size), c.copyBuffer); err != nil {
 			return err
 		}
@@ -1283,7 +1287,9 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		for _, e := range mergedEntries {
 			d := e.Name[0:2]
 			if _, found := createdDirs[d]; !found {
-				unix.Mkdirat(dirfd, d, 0o755)
+				if err := unix.Mkdirat(dirfd, d, 0o755); err != nil {
+					return output, &fs.PathError{Op: "mkdirat", Path: d, Err: err}
+				}
 				createdDirs[d] = struct{}{}
 			}
 		}

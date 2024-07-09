@@ -188,7 +188,9 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 func supportsAufs() error {
 	// We can try to modprobe aufs first before looking at
 	// proc/filesystems for when aufs is supported
-	exec.Command("modprobe", "aufs").Run()
+	if err := exec.Command("modprobe", "aufs").Run(); err != nil {
+		logrus.Warnf("Execution of `modprobe aufs` ended with error: %v", err)
+	}
 
 	if unshare.IsRootless() {
 		return ErrAufsNested

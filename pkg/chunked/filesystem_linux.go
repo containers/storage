@@ -76,7 +76,9 @@ func doHardLink(dirfd, srcFd int, destFile string) error {
 
 	// if the destination exists, unlink it first and try again
 	if err != nil && os.IsExist(err) {
-		unix.Unlinkat(destDirFd, destBase, 0)
+		if err := unix.Unlinkat(destDirFd, destBase, 0); err != nil {
+			return err
+		}
 		return doLink()
 	}
 	return err
