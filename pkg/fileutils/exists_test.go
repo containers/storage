@@ -24,24 +24,24 @@ func TestExist(t *testing.T) {
 	require.NoError(t, err)
 
 	assertSameError := func(err1, err2 error, description string) {
-		assert.Equal(t, err1 == nil, err2 == nil, "only one error is set")
+		assert.Equal(t, err1 == nil, err2 == nil, description+": only one error is set")
 		if err1 == nil {
 			return
 		}
 
 		var pathErr1 *os.PathError
 		var pathErr2 *os.PathError
-		assert.ErrorAs(t, err1, &pathErr1, "wrong error type")
-		assert.ErrorAs(t, err2, &pathErr2, "wrong error type")
-		assert.Equal(t, pathErr1.Path, pathErr1.Path, "different file path")
+		assert.ErrorAs(t, err1, &pathErr1, description+": wrong error type")
+		assert.ErrorAs(t, err2, &pathErr2, description+": wrong error type")
+		assert.Equal(t, pathErr1.Path, pathErr1.Path, description+": different file path")
 
 		// on Linux validates that the syscall error is the same
 		if runtime.GOOS == "linux" {
 			var syscallErr1 syscall.Errno
 			var syscallErr2 syscall.Errno
-			assert.ErrorAs(t, err1, &syscallErr1, "wrong error type")
-			assert.ErrorAs(t, err2, &syscallErr2, "wrong error type")
-			assert.Equal(t, syscallErr1, syscallErr2, "same error for existing path (follow=false)")
+			assert.ErrorAs(t, err1, &syscallErr1, description+": wrong error type")
+			assert.ErrorAs(t, err2, &syscallErr2, description+": wrong error type")
+			assert.Equal(t, syscallErr1, syscallErr2, description+": same error for existing path (follow=false)")
 		}
 	}
 

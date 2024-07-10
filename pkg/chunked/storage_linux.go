@@ -162,20 +162,20 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 		if err != nil {
 			return nil, fmt.Errorf("parsing zstd:chunked TOC digest %q: %w", zstdChunkedTOCDigestString, err)
 		}
-		return makeZstdChunkedDiffer(ctx, store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
+		return makeZstdChunkedDiffer(store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
 	}
 	if hasEstargzTOC {
 		estargzTOCDigest, err := digest.Parse(estargzTOCDigestString)
 		if err != nil {
 			return nil, fmt.Errorf("parsing estargz TOC digest %q: %w", estargzTOCDigestString, err)
 		}
-		return makeEstargzChunkedDiffer(ctx, store, blobSize, estargzTOCDigest, iss, pullOptions)
+		return makeEstargzChunkedDiffer(store, blobSize, estargzTOCDigest, iss, pullOptions)
 	}
 
-	return makeConvertFromRawDiffer(ctx, store, blobDigest, blobSize, annotations, iss, pullOptions)
+	return makeConvertFromRawDiffer(store, blobDigest, blobSize, iss, pullOptions)
 }
 
-func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	if !parseBooleanPullOption(pullOptions, "convert_images", false) {
 		return nil, errors.New("convert_images not configured")
 	}
@@ -197,7 +197,7 @@ func makeConvertFromRawDiffer(ctx context.Context, store storage.Store, blobDige
 	}, nil
 }
 
-func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -223,7 +223,7 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	}, nil
 }
 
-func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -707,7 +707,7 @@ func (c *chunkedDiffer) recordFsVerity(path string, roFile *os.File) error {
 	return nil
 }
 
-func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) (Err error) {
+func (c *chunkedDiffer) storeMissingFiles(streams chan io.ReadCloser, errs chan error, dirfd int, missingParts []missingPart, options *archive.TarOptions) (Err error) {
 	var destFile *destinationFile
 
 	filesToClose := make(chan *destinationFile, 3)
@@ -921,7 +921,7 @@ func mergeMissingChunks(missingParts []missingPart, target int) []missingPart {
 	return newMissingParts
 }
 
-func (c *chunkedDiffer) retrieveMissingFiles(stream ImageSourceSeekable, dest string, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
+func (c *chunkedDiffer) retrieveMissingFiles(stream ImageSourceSeekable, dirfd int, missingParts []missingPart, options *archive.TarOptions) error {
 	var chunksToRequest []ImageSourceChunk
 
 	calculateChunksToRequest := func() {
@@ -960,7 +960,7 @@ func (c *chunkedDiffer) retrieveMissingFiles(stream ImageSourceSeekable, dest st
 		return err
 	}
 
-	if err := c.storeMissingFiles(streams, errs, dest, dirfd, missingParts, options); err != nil {
+	if err := c.storeMissingFiles(streams, errs, dirfd, missingParts, options); err != nil {
 		return err
 	}
 	return nil
@@ -1437,7 +1437,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			continue
 
 		case tar.TypeSymlink:
-			if err := safeSymlink(dirfd, mode, r, options); err != nil {
+			if err := safeSymlink(dirfd, r); err != nil {
 				return output, err
 			}
 			continue
@@ -1539,7 +1539,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	}
 	// There are some missing files.  Prepare a multirange request for the missing chunks.
 	if len(missingParts) > 0 {
-		if err := c.retrieveMissingFiles(stream, dest, dirfd, missingParts, options); err != nil {
+		if err := c.retrieveMissingFiles(stream, dirfd, missingParts, options); err != nil {
 			return output, err
 		}
 	}

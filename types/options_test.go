@@ -35,7 +35,7 @@ func TestGetRootlessStorageOpts(t *testing.T) {
 
 		assert.NilError(t, err)
 		expectedDriver := vfsDriver
-		if canUseRootlessOverlay(home, runhome) {
+		if canUseRootlessOverlay() {
 			expectedDriver = overlayDriver
 		}
 		assert.Equal(t, storageOpts.GraphDriverName, expectedDriver)

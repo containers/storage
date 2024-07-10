@@ -505,7 +505,7 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 	return setFileAttrs(dirfd, newFile, mode, metadata, options, false)
 }
 
-func safeSymlink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *archive.TarOptions) error {
+func safeSymlink(dirfd int, metadata *fileMetadata) error {
 	destDir, destBase := filepath.Split(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "" && destDir != "." {

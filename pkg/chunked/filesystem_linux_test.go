@@ -210,12 +210,8 @@ func TestSafeSymlink(t *testing.T) {
 			Mode:     0o755,
 		},
 	}
-	options := &archive.TarOptions{
-		// Allow the test to run without privileges
-		IgnoreChownErrors: true,
-	}
 
-	err = safeSymlink(rootFd, 0o755, &metadata, options)
+	err = safeSymlink(rootFd, &metadata)
 	require.NoError(t, err)
 
 	// validate it was created
