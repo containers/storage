@@ -162,14 +162,14 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 		if err != nil {
 			return nil, fmt.Errorf("parsing zstd:chunked TOC digest %q: %w", zstdChunkedTOCDigestString, err)
 		}
-		return makeZstdChunkedDiffer(ctx, store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
+		return makeZstdChunkedDiffer(store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
 	}
 	if hasEstargzTOC {
 		estargzTOCDigest, err := digest.Parse(estargzTOCDigestString)
 		if err != nil {
 			return nil, fmt.Errorf("parsing estargz TOC digest %q: %w", estargzTOCDigestString, err)
 		}
-		return makeEstargzChunkedDiffer(ctx, store, blobSize, estargzTOCDigest, iss, pullOptions)
+		return makeEstargzChunkedDiffer(store, blobSize, estargzTOCDigest, iss, pullOptions)
 	}
 
 	return makeConvertFromRawDiffer(store, blobDigest, blobSize, iss, pullOptions)
@@ -197,7 +197,7 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 	}, nil
 }
 
-func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -223,7 +223,7 @@ func makeZstdChunkedDiffer(ctx context.Context, store storage.Store, blobSize in
 	}, nil
 }
 
-func makeEstargzChunkedDiffer(ctx context.Context, store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
