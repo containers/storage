@@ -962,6 +962,9 @@ func (c *checkDirectory) add(path string, typeflag byte, uid, gid int, size int6
 					mtime:    mtime,
 				}
 			}
+		case tar.TypeXGlobalHeader:
+			// ignore, since even though it looks like a valid pathname, it doesn't end
+			// up on the filesystem
 		default:
 			// treat these as TypeReg items
 			delete(c.directory, components[0])
@@ -973,9 +976,6 @@ func (c *checkDirectory) add(path string, typeflag byte, uid, gid int, size int6
 				mode:     mode,
 				mtime:    mtime,
 			}
-		case tar.TypeXGlobalHeader:
-			// ignore, since even though it looks like a valid pathname, it doesn't end
-			// up on the filesystem
 		}
 		return
 	}
