@@ -1126,6 +1126,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	// stream to use for reading the zstd:chunked or Estargz file.
 	stream := c.stream
 
+	var compressedDigest digest.Digest
 	var uncompressedDigest digest.Digest
 	var convertedBlobSize int64
 
@@ -1142,7 +1143,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		}()
 
 		// calculate the checksum before accessing the file.
-		compressedDigest, err := c.copyAllBlobToFile(blobFile)
+		compressedDigest, err = c.copyAllBlobToFile(blobFile)
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
@@ -1228,6 +1229,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		},
 		TOCDigest:          c.tocDigest,
 		UncompressedDigest: uncompressedDigest,
+		CompressedDigest:   compressedDigest,
 	}
 
 	// When the hard links deduplication is used, file attributes are ignored because setting them
