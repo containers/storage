@@ -5,5 +5,3 @@ run:
 linters:
   enable:
     - gofumpt
-  disable:
-    - errcheck
