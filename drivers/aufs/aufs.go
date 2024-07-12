@@ -189,7 +189,7 @@ func supportsAufs() error {
 	// We can try to modprobe aufs first before looking at
 	// proc/filesystems for when aufs is supported
 	if err := exec.Command("modprobe", "aufs").Run(); err != nil {
-		logrus.Warnf("Execution of `modprobe aufs` ended with error: %v", err)
+		logrus.Debugf("Execution of `modprobe aufs` ended with error: %v", err)
 	}
 
 	if unshare.IsRootless() {
