@@ -692,8 +692,11 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 
 	selinuxLabelTest := selinux.PrivContainerMountLabel()
 
-	if err := exec.Command("modprobe", "overlay").Run(); err != nil {
-		logrus.Debugf("Execution of `modprobe overlay` ended with error: %v", err)
+	// don't try to modprobe overlay if it's already loaded
+	if err := fileutils.Exists("/sys/module/overlay"); err != nil {
+		if err := exec.Command("modprobe", "overlay").Run(); err != nil {
+			logrus.Debugf("Execution of `modprobe overlay` ended with error: %v", err)
+		}
 	}
 
 	logLevel := logrus.ErrorLevel
