@@ -111,7 +111,7 @@ func getLayersCacheRef(store storage.Store) *layersCache {
 		cache.refs++
 		return cache
 	}
-	cache := &layersCache{
+	cache = &layersCache{
 		store:   store,
 		refs:    1,
 		created: time.Now(),
@@ -254,13 +254,13 @@ func (c *layersCache) createCacheFileFromTOC(layerID string) (*layer, error) {
 }
 
 func (c *layersCache) load() error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	loadedLayers := make(map[string]*layer)
+	c.mutex.RLock()
 	for _, r := range c.layers {
 		loadedLayers[r.id] = r
 	}
+	c.mutex.RUnlock()
+
 	allLayers, err := c.store.Layers()
 	if err != nil {
 		return err
@@ -300,7 +300,9 @@ func (c *layersCache) load() error {
 	for _, l := range loadedLayers {
 		l.release()
 	}
+	c.mutex.Lock()
 	c.layers = newLayers
+	c.mutex.Unlock()
 	return nil
 }
 
