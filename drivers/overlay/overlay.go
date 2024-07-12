@@ -688,13 +688,7 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 }
 
 func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
-	// We can try to modprobe overlay first
-
 	selinuxLabelTest := selinux.PrivContainerMountLabel()
-
-	if err := exec.Command("modprobe", "overlay").Run(); err != nil {
-		logrus.Warnf("Execution of `modprobe overlay` ended with error: %v", err)
-	}
 
 	logLevel := logrus.ErrorLevel
 	if unshare.IsRootless() {

@@ -30,7 +30,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -183,15 +182,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 }
 
 // Return a nil error if the kernel supports aufs
-// We cannot modprobe because inside dind modprobe fails
-// to run
 func supportsAufs() error {
-	// We can try to modprobe aufs first before looking at
-	// proc/filesystems for when aufs is supported
-	if err := exec.Command("modprobe", "aufs").Run(); err != nil {
-		logrus.Warnf("Execution of `modprobe aufs` ended with error: %v", err)
-	}
-
 	if unshare.IsRootless() {
 		return ErrAufsNested
 	}
