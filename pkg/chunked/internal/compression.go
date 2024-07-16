@@ -43,6 +43,8 @@ type TOC struct {
 // is used instead of that in the tar stream.  The contents of the tar stream
 // are not used in this scenario.
 type FileMetadata struct {
+	// If you add any fields, update ensureFileMetadataMatches as well!
+
 	// The metadata below largely duplicates that in the tar headers.
 	Type       string            `json:"type"`
 	Name       string            `json:"name"`
