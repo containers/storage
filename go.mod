@@ -8,7 +8,7 @@ module github.com/containers/storage
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Microsoft/go-winio v0.6.2
-	github.com/Microsoft/hcsshim v0.12.4
+	github.com/Microsoft/hcsshim v0.12.5
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1
 	github.com/cyphar/filepath-securejoin v0.3.0
 	github.com/docker/go-units v0.5.0
@@ -39,7 +39,7 @@ require (
 	github.com/containerd/errdefs v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
