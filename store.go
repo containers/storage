@@ -2846,7 +2846,7 @@ func (s *store) mount(id string, options drivers.MountOpts) (string, error) {
 		exists := store.Exists(id)
 		store.stopReading()
 		if exists {
-			return "", fmt.Errorf("mounting read/only store images is not allowed: %w", ErrLayerUnknown)
+			return "", fmt.Errorf("mounting read/only store images is not allowed: %w", ErrStoreIsReadOnly)
 		}
 	}
 
