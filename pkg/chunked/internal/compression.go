@@ -39,6 +39,16 @@ type TOC struct {
 // that duplicates what can found in the tar header (and should match), but
 // also special/custom content (see below).
 //
+// Regular files may optionally be represented as a sequence of “chunks”,
+// which may be ChunkTypeData or ChunkTypeZeros (and ChunkTypeData boundaries
+// are heuristically determined to increase chance of chunk matching / reuse
+// similar to rsync). In that case, the regular file is represented
+// as an initial TypeReg entry (with all metadata for the file as a whole)
+// immediately followed by zero or more TypeChunk entries (containing only Type,
+// Name and Chunk* fields); if there is at least one TypeChunk entry, the Chunk*
+// fields are relevant in all of these entries, including the initial
+// TypeReg one.
+//
 // Note that the metadata here, when fetched by a zstd:chunked aware client,
 // is used instead of that in the tar stream.  The contents of the tar stream
 // are not used in this scenario.
