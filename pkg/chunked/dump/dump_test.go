@@ -4,6 +4,7 @@ package dump
 
 import (
 	"bytes"
+	"encoding/base64"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ func TestEscaped(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			result := escaped(test.input, test.escape)
+			result := escaped([]byte(test.input), test.escape)
 			if result != test.want {
 				t.Errorf("got %q, want %q", result, test.want)
 			}
@@ -60,7 +61,7 @@ func TestDumpNode(t *testing.T) {
 		Linkname: "",
 		Digest:   "sha256:abcdef1234567890",
 		Xattrs: map[string]string{
-			"user.key1": "value1",
+			"user.key1": base64.StdEncoding.EncodeToString([]byte("value1")),
 		},
 	}
 
@@ -86,7 +87,7 @@ func TestDumpNode(t *testing.T) {
 		ModTime:  &modTime,
 		Linkname: "",
 		Xattrs: map[string]string{
-			"user.key2": "value2",
+			"user.key2": base64.StdEncoding.EncodeToString([]byte("value2")),
 		},
 	}
 
@@ -226,6 +227,5 @@ func TestDumpNode(t *testing.T) {
 				t.Errorf("for %s, got %q, want %q", testCase.name, actual, testCase.expected)
 			}
 		}
-
 	}
 }
