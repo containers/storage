@@ -17,6 +17,9 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vbatts/tar-split/archive/tar"
+	"github.com/vbatts/tar-split/tar/asm"
+	"github.com/vbatts/tar-split/tar/storage"
 )
 
 type seekable struct {
@@ -88,13 +91,36 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	annotations := make(map[string]string)
 	offsetManifest := uint64(100000)
 
+	var tsTarball bytes.Buffer
+	tsTarW := tar.NewWriter(&tsTarball)
+	for _, e := range someFiles {
+		tf, err := typeToTarType(e.Type)
+		require.NoError(t, err)
+		err = tsTarW.WriteHeader(&tar.Header{
+			Typeflag: tf,
+			Name:     e.Name,
+			Size:     e.Size,
+			Mode:     e.Mode,
+		})
+		require.NoError(t, err)
+		data := make([]byte, e.Size)
+		_, err = tsTarW.Write(data)
+		require.NoError(t, err)
+	}
+	err := tsTarW.Close()
+	require.NoError(t, err)
+	var tarSplitUncompressed bytes.Buffer
+	tsReader, err := asm.NewInputTarStream(&tsTarball, storage.NewJSONPacker(&tarSplitUncompressed), storage.NewDiscardFilePutter())
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, tsReader)
+	require.NoError(t, err)
+
 	encoder, err := zstd.NewWriter(nil)
 	if err != nil {
 		t.Error(err)
 	}
 	defer encoder.Close()
-
-	tarSplitCompressedData := encoder.EncodeAll([]byte("TAR-SPLIT"), nil)
+	tarSplitCompressedData := encoder.EncodeAll(tarSplitUncompressed.Bytes(), nil)
 
 	ts := internal.TarSplitData{
 		Data:             tarSplitCompressedData,
@@ -131,9 +157,9 @@ func TestGenerateAndParseManifest(t *testing.T) {
 		t.Fatal("no manifest written")
 	}
 
-	var tarSplitOffset, tarSplitLength, tarSplitUncompressed uint64
+	var tarSplitOffset, tarSplitLength, tarSplitUncompressedLength uint64
 	tarSplitMetadata := annotations[internal.TarSplitInfoKey]
-	if _, err := fmt.Sscanf(tarSplitMetadata, "%d:%d:%d", &tarSplitOffset, &tarSplitLength, &tarSplitUncompressed); err != nil {
+	if _, err := fmt.Sscanf(tarSplitMetadata, "%d:%d:%d", &tarSplitOffset, &tarSplitLength, &tarSplitUncompressedLength); err != nil {
 		t.Error(err)
 	}
 
