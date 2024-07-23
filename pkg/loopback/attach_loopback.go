@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 // Loopback related errors
@@ -71,7 +72,9 @@ func openNextAvailableLoopback(sparseName string, sparseFile *os.File) (loopFile
 		// OpenFile adds O_CLOEXEC
 		loopFile, err = os.OpenFile(target, os.O_RDWR, 0o644)
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
+			// The kernel returns ENXIO when opening a device that is in the "deleting" or "rundown" state, so
+			// just treat ENXIO as if the device does not exist.
+			if errors.Is(err, fs.ErrNotExist) || errors.Is(err, unix.ENXIO) {
 				// Another process could have taken the loopback device in the meantime.  So repeat
 				// the process with the next loopback device.
 				continue
