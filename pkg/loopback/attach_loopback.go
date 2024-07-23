@@ -40,7 +40,7 @@ func getNextFreeLoopbackIndex() (int, error) {
 	return index, err
 }
 
-func openNextAvailableLoopback(index int, sparseName string, sparseFile *os.File) (loopFile *os.File, err error) {
+func openNextAvailableLoopback(sparseName string, sparseFile *os.File) (loopFile *os.File, err error) {
 	// Read information about the loopback file.
 	var st syscall.Stat_t
 	err = syscall.Fstat(int(sparseFile.Fd()), &st)
@@ -49,15 +49,31 @@ func openNextAvailableLoopback(index int, sparseName string, sparseFile *os.File
 		return nil, ErrAttachLoopbackDevice
 	}
 
+	// upper bound to avoid infinite loop
+	remaining := 1000
+
 	// Start looking for a free /dev/loop
 	for {
+		if remaining == 0 {
+			logrus.Errorf("No free loopback devices available")
+			return nil, ErrAttachLoopbackDevice
+		}
+		remaining--
+
+		index, err := getNextFreeLoopbackIndex()
+		if err != nil {
+			logrus.Debugf("Error retrieving the next available loopback: %s", err)
+			return nil, err
+		}
+
 		target := fmt.Sprintf("/dev/loop%d", index)
-		index++
 
 		// OpenFile adds O_CLOEXEC
 		loopFile, err = os.OpenFile(target, os.O_RDWR, 0o644)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
+				// Another process could have taken the loopback device in the meantime.  So repeat
+				// the process with the next loopback device.
 				continue
 			}
 			logrus.Errorf("Opening loopback device: %s", err)
@@ -127,14 +143,6 @@ func AttachLoopDeviceRO(sparseName string) (loop *os.File, err error) {
 }
 
 func attachLoopDevice(sparseName string, readonly bool) (loop *os.File, err error) {
-	// Try to retrieve the next available loopback device via syscall.
-	// If it fails, we discard error and start looping for a
-	// loopback from index 0.
-	startIndex, err := getNextFreeLoopbackIndex()
-	if err != nil {
-		logrus.Debugf("Error retrieving the next available loopback: %s", err)
-	}
-
 	var sparseFile *os.File
 
 	// OpenFile adds O_CLOEXEC
@@ -149,7 +157,7 @@ func attachLoopDevice(sparseName string, readonly bool) (loop *os.File, err erro
 	}
 	defer sparseFile.Close()
 
-	loopFile, err := openNextAvailableLoopback(startIndex, sparseName, sparseFile)
+	loopFile, err := openNextAvailableLoopback(sparseName, sparseFile)
 	if err != nil {
 		return nil, err
 	}
