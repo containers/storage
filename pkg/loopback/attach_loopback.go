@@ -6,6 +6,7 @@ package loopback
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"syscall"
 
@@ -53,24 +54,26 @@ func openNextAvailableLoopback(index int, sparseName string, sparseFile *os.File
 		target := fmt.Sprintf("/dev/loop%d", index)
 		index++
 
-		fi, err := os.Stat(target)
-		if err != nil {
-			if os.IsNotExist(err) {
-				logrus.Error("There are no more loopback devices available.")
-			}
-			return nil, ErrAttachLoopbackDevice
-		}
-
-		if fi.Mode()&os.ModeDevice != os.ModeDevice {
-			logrus.Errorf("Loopback device %s is not a block device.", target)
-			continue
-		}
-
 		// OpenFile adds O_CLOEXEC
 		loopFile, err = os.OpenFile(target, os.O_RDWR, 0o644)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
 			logrus.Errorf("Opening loopback device: %s", err)
 			return nil, ErrAttachLoopbackDevice
+		}
+
+		fi, err := loopFile.Stat()
+		if err != nil {
+			loopFile.Close()
+			logrus.Errorf("Stat loopback device: %s", err)
+			return nil, ErrAttachLoopbackDevice
+		}
+		if fi.Mode()&os.ModeDevice != os.ModeDevice {
+			loopFile.Close()
+			logrus.Errorf("Loopback device %s is not a block device.", target)
+			continue
 		}
 
 		// Try to attach to the loop file
