@@ -2433,14 +2433,18 @@ func (d *Driver) Changes(id string, idMappings *idtools.IDMappings, parent strin
 	// layers.
 	diffPath, err := d.getDiffPath(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get diff path: %w", err)
 	}
 	layers, err := d.getLowerDiffPaths(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get lower diff path: %w", err)
 	}
 
-	return archive.OverlayChanges(layers, diffPath)
+	c, err := archive.OverlayChanges(layers, diffPath)
+	if err != nil {
+		return nil, fmt.Errorf("computing changes: %w", err)
+	}
+	return c, nil
 }
 
 // AdditionalImageStores returns additional image stores supported by the driver
