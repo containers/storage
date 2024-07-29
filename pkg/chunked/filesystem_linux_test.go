@@ -126,7 +126,7 @@ func TestSafeMkdir(t *testing.T) {
 	err = safeMkdir(rootFd, 0o755, dirName, &metadata, options)
 	require.NoError(t, err)
 
-	dir, err := openFileUnderRoot(rootFd, dirName, syscall.O_DIRECTORY, 0)
+	dir, err := openFileUnderRoot(rootFd, dirName, syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
 	assert.NoError(t, err)
 	err = dir.Close()
 	assert.NoError(t, err)
@@ -247,7 +247,7 @@ func TestOpenOrCreateDirUnderRoot(t *testing.T) {
 	err = dir.Close()
 	assert.NoError(t, err)
 
-	dir, err = openFileUnderRoot(rootFd, dirName, syscall.O_DIRECTORY, 0)
+	dir, err = openFileUnderRoot(rootFd, dirName, syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
 	require.NoError(t, err)
 	err = dir.Close()
 	require.NoError(t, err)
