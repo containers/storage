@@ -10,8 +10,7 @@ func invokeUnpack(decompressedArchive io.Reader,
 	dest string,
 	options *archive.TarOptions, root string,
 ) error {
-	_ = root // Restricting the operation to this root is not implemented on macOS
-	return archive.Unpack(decompressedArchive, dest, options)
+	return fmt.Errorf("cannot unpack via chroot on this platform")
 }
 
 func invokePack(srcPath string, options *archive.TarOptions, root string) (io.ReadCloser, error) {
