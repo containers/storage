@@ -146,9 +146,9 @@ func mountComposefsBlob(dataDir, mountPoint string) error {
 	if err != nil {
 		return err
 	}
-	mountOpts := "ro"
+	mountOpts := ""
 	if !hasACL {
-		mountOpts += ",noacl"
+		mountOpts += "noacl"
 	}
 
 	if err := unix.Mount(loop.Name(), mountPoint, "erofs", unix.MS_RDONLY, mountOpts); err != nil {
