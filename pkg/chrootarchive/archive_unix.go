@@ -30,6 +30,9 @@ func (dst *unpackDestination) Close() error {
 	return dst.root.Close()
 }
 
+// tarOptionsDescriptor is passed as an extra file
+const tarOptionsDescriptor = 3
+
 // rootFileDescriptor is passed as an extra file
 const rootFileDescriptor = 4
 
@@ -51,7 +54,7 @@ func untar() {
 	var options archive.TarOptions
 
 	// read the options from the pipe "ExtraFiles"
-	if err := json.NewDecoder(os.NewFile(3, "options")).Decode(&options); err != nil {
+	if err := json.NewDecoder(os.NewFile(tarOptionsDescriptor, "options")).Decode(&options); err != nil {
 		fatal(err)
 	}
 
@@ -132,6 +135,7 @@ func invokeUnpack(decompressedArchive io.Reader, dest *unpackDestination, option
 	cmd := reexec.Command("storage-untar", dest.dest, procPathForFd(rootFileDescriptor))
 	cmd.Stdin = decompressedArchive
 
+	// If you change this, change tarOptionsDescriptor above
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r) // fd 3
 	// If you change this, change rootFileDescriptor above too
 	cmd.ExtraFiles = append(cmd.ExtraFiles, dest.root) // fd 4
