@@ -149,13 +149,39 @@ func mountComposefsBlob(dataDir, mountPoint string) error {
 	if err != nil {
 		return err
 	}
-	mountOpts := ""
-	if !hasACL {
-		mountOpts += "noacl"
+
+	fsfd, err := unix.Fsopen("erofs", 0)
+	if err != nil {
+		return fmt.Errorf("failed to open erofs filesystem: %w", err)
+	}
+	defer unix.Close(fsfd)
+
+	if err := unix.FsconfigSetString(fsfd, "source", loop.Name()); err != nil {
+		return fmt.Errorf("failed to set source for erofs filesystem: %w", err)
 	}
 
-	if err := unix.Mount(loop.Name(), mountPoint, "erofs", unix.MS_RDONLY, mountOpts); err != nil {
-		return fmt.Errorf("failed to mount erofs image at %q: %w", mountPoint, err)
+	if err := unix.FsconfigSetFlag(fsfd, "ro"); err != nil {
+		return fmt.Errorf("failed to set erofs filesystem read-only: %w", err)
+	}
+
+	if !hasACL {
+		if err := unix.FsconfigSetFlag(fsfd, "noacl"); err != nil {
+			return fmt.Errorf("failed to set noacl for erofs filesystem: %w", err)
+		}
+	}
+
+	if err := unix.FsconfigCreate(fsfd); err != nil {
+		return fmt.Errorf("failed to create erofs filesystem: %w", err)
+	}
+
+	mfd, err := unix.Fsmount(fsfd, 0, unix.MOUNT_ATTR_RDONLY)
+	if err != nil {
+		return fmt.Errorf("failed to mount erofs filesystem: %w", err)
+	}
+	defer unix.Close(mfd)
+
+	if err := unix.MoveMount(mfd, "", unix.AT_FDCWD, mountPoint, unix.MOVE_MOUNT_F_EMPTY_PATH); err != nil {
+		return fmt.Errorf("failed to move mount: %w", err)
 	}
 	return nil
 }
