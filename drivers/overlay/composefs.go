@@ -171,11 +171,19 @@ func mountComposefsBlob(dataDir, mountPoint string) error {
 	}
 
 	if err := unix.FsconfigCreate(fsfd); err != nil {
+		buffer := make([]byte, 4096)
+		if n, _ := unix.Read(fsfd, buffer); n > 0 {
+			return fmt.Errorf("failed to create erofs filesystem: %s: %w", string(buffer[:n]), err)
+		}
 		return fmt.Errorf("failed to create erofs filesystem: %w", err)
 	}
 
 	mfd, err := unix.Fsmount(fsfd, 0, unix.MOUNT_ATTR_RDONLY)
 	if err != nil {
+		buffer := make([]byte, 4096)
+		if n, _ := unix.Read(fsfd, buffer); n > 0 {
+			return fmt.Errorf("failed to mount erofs filesystem: %s: %w", string(buffer[:n]), err)
+		}
 		return fmt.Errorf("failed to mount erofs filesystem: %w", err)
 	}
 	defer unix.Close(mfd)
