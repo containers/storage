@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/containers/storage/pkg/idtools"
+	"github.com/containers/storage/pkg/reexec"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -483,5 +484,109 @@ func TestWithSplitStore(t *testing.T) {
 	require.Error(t, err)
 
 	store.Free()
+	store.Free()
+}
+
+func TestStoreMultiList(t *testing.T) {
+	reexec.Init()
+	wd := t.TempDir()
+
+	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
+	store, err := GetStore(StoreOptions{
+		RunRoot:            filepath.Join(wd, "run"),
+		GraphRoot:          filepath.Join(wd, "root"),
+		GraphDriverName:    "vfs",
+		GraphDriverOptions: []string{},
+		UIDMap: []idtools.IDMap{{
+			ContainerID: 0,
+			HostID:      os.Getuid(),
+			Size:        1,
+		}},
+		GIDMap: []idtools.IDMap{{
+			ContainerID: 0,
+			HostID:      os.Getgid(),
+			Size:        1,
+		}},
+		PullOptions: pullOpts,
+	})
+	require.NoError(t, err)
+
+	root := store.RunRoot()
+	require.NotNil(t, root)
+
+	_, err = store.GraphDriver()
+	require.Nil(t, err)
+
+	_, err = store.CreateLayer("Layer", "", nil, "", false, nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateImage("Image", nil, "Layer", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateContainer("Container", nil, "Image", "", "", nil)
+	require.NoError(t, err)
+
+	tests := []struct {
+		options         MultiListOptions
+		layerCounts     int
+		imageCounts     int
+		containerCounts int
+	}{
+		{
+			options: MultiListOptions{
+				Layers:     true,
+				Images:     true,
+				Containers: true,
+			},
+			layerCounts:     3,
+			imageCounts:     1,
+			containerCounts: 1,
+		},
+
+		{
+			options: MultiListOptions{
+				Layers:     true,
+				Images:     false,
+				Containers: false,
+			},
+			layerCounts:     3,
+			imageCounts:     0,
+			containerCounts: 0,
+		},
+
+		{
+			options: MultiListOptions{
+				Layers:     false,
+				Images:     true,
+				Containers: false,
+			},
+			layerCounts:     0,
+			imageCounts:     1,
+			containerCounts: 0,
+		},
+
+		{
+			options: MultiListOptions{
+				Layers:     false,
+				Images:     false,
+				Containers: true,
+			},
+			layerCounts:     0,
+			imageCounts:     0,
+			containerCounts: 1,
+		},
+	}
+
+	for _, test := range tests {
+		listResults, err := store.MultiList(test.options)
+		require.NoError(t, err)
+		require.Len(t, listResults.Layers, test.layerCounts)
+		require.Len(t, listResults.Images, test.imageCounts)
+		require.Len(t, listResults.Containers, test.containerCounts)
+	}
+
+	_, err = store.Shutdown(true)
+	require.Nil(t, err)
+
 	store.Free()
 }
