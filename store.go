@@ -3815,3 +3815,5 @@ func (s *store) GarbageCollect() error {
 
 	return firstErr
 }
+
+// tests
