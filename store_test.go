@@ -12,28 +12,47 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStore(t *testing.T) {
+func newTestStore(t *testing.T, testOptions StoreOptions) Store {
 	wd := t.TempDir()
 
-	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
-	store, err := GetStore(StoreOptions{
-		RunRoot:            filepath.Join(wd, "run"),
-		GraphRoot:          filepath.Join(wd, "root"),
-		GraphDriverName:    "vfs",
-		GraphDriverOptions: []string{},
-		UIDMap: []idtools.IDMap{{
+	options := testOptions
+	if testOptions.RunRoot == "" {
+		options.RunRoot = filepath.Join(wd, "run")
+	}
+	if testOptions.GraphRoot == "" {
+		options.GraphRoot = filepath.Join(wd, "root")
+	}
+	if testOptions.GraphDriverName == "" {
+		options.GraphDriverName = "vfs"
+	}
+	if testOptions.GraphDriverOptions == nil {
+		options.GraphDriverOptions = []string{}
+	}
+	if len(testOptions.UIDMap) == 0 {
+		options.UIDMap = []idtools.IDMap{{
 			ContainerID: 0,
 			HostID:      os.Getuid(),
 			Size:        1,
-		}},
-		GIDMap: []idtools.IDMap{{
+		}}
+	}
+	if len(testOptions.GIDMap) == 0 {
+		options.GIDMap = []idtools.IDMap{{
 			ContainerID: 0,
 			HostID:      os.Getgid(),
 			Size:        1,
-		}},
+		}}
+	}
+
+	store, err := GetStore(options)
+	require.NoError(t, err)
+	return store
+}
+
+func TestStore(t *testing.T) {
+	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
+	store := newTestStore(t, StoreOptions{
 		PullOptions: pullOpts,
 	})
-	require.NoError(t, err)
 
 	root := store.RunRoot()
 	require.NotNil(t, root)
@@ -53,7 +72,7 @@ func TestStore(t *testing.T) {
 	opts := store.PullOptions()
 	assert.Equal(t, pullOpts, opts)
 
-	_, err = store.GraphDriver()
+	_, err := store.GraphDriver()
 	require.Nil(t, err)
 
 	_, err = store.CreateLayer("foo", "bar", nil, "", false, nil)
@@ -253,25 +272,10 @@ func TestWithSplitStore(t *testing.T) {
 	wd := t.TempDir()
 
 	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
-	store, err := GetStore(StoreOptions{
-		RunRoot:            filepath.Join(wd, "run"),
-		GraphRoot:          filepath.Join(wd, "root"),
-		ImageStore:         filepath.Join(wd, "imgstore"),
-		GraphDriverName:    "vfs",
-		GraphDriverOptions: []string{},
-		UIDMap: []idtools.IDMap{{
-			ContainerID: 0,
-			HostID:      os.Getuid(),
-			Size:        1,
-		}},
-		GIDMap: []idtools.IDMap{{
-			ContainerID: 0,
-			HostID:      os.Getgid(),
-			Size:        1,
-		}},
+	store := newTestStore(t, StoreOptions{
+		ImageStore:  filepath.Join(wd, "imgstore"),
 		PullOptions: pullOpts,
 	})
-	require.NoError(t, err)
 
 	root := store.RunRoot()
 	require.NotNil(t, root)
@@ -291,7 +295,7 @@ func TestWithSplitStore(t *testing.T) {
 	opts := store.PullOptions()
 	assert.Equal(t, pullOpts, opts)
 
-	_, err = store.GraphDriver()
+	_, err := store.GraphDriver()
 	require.Nil(t, err)
 
 	_, err = store.CreateLayer("foo", "bar", nil, "", false, nil)
@@ -489,35 +493,10 @@ func TestWithSplitStore(t *testing.T) {
 
 func TestStoreMultiList(t *testing.T) {
 	reexec.Init()
-	wd := t.TempDir()
 
-	pullOpts := map[string]string{"Test1": "test1", "Test2": "test2"}
-	store, err := GetStore(StoreOptions{
-		RunRoot:            filepath.Join(wd, "run"),
-		GraphRoot:          filepath.Join(wd, "root"),
-		GraphDriverName:    "vfs",
-		GraphDriverOptions: []string{},
-		UIDMap: []idtools.IDMap{{
-			ContainerID: 0,
-			HostID:      os.Getuid(),
-			Size:        1,
-		}},
-		GIDMap: []idtools.IDMap{{
-			ContainerID: 0,
-			HostID:      os.Getgid(),
-			Size:        1,
-		}},
-		PullOptions: pullOpts,
-	})
-	require.NoError(t, err)
+	store := newTestStore(t, StoreOptions{})
 
-	root := store.RunRoot()
-	require.NotNil(t, root)
-
-	_, err = store.GraphDriver()
-	require.Nil(t, err)
-
-	_, err = store.CreateLayer("Layer", "", nil, "", false, nil)
+	_, err := store.CreateLayer("Layer", "", nil, "", false, nil)
 	require.NoError(t, err)
 
 	_, err = store.CreateImage("Image", nil, "Layer", "", nil)
