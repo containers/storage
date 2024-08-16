@@ -1,6 +1,5 @@
 GO := go
 BUILDDIR := build
-GOLANGCI_LINT_VERSION := 1.60.1
 
 all: $(BUILDDIR)
 
@@ -31,4 +30,5 @@ $(BUILDDIR)/go-md2man:
 	$(call go-build,./vendor/github.com/cpuguy83/go-md2man)
 
 $(BUILDDIR)/golangci-lint:
+	@[ "${GOLANGCI_LINT_VERSION}" ] || ( echo "GOLANGCI_LINT_VERSION is not set"; exit 1 )
 	curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/v$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b ./$(BUILDDIR) v$(GOLANGCI_LINT_VERSION)
