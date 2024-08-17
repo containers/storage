@@ -973,6 +973,14 @@ type hardLinkToCreate struct {
 	metadata *fileMetadata
 }
 
+// parseBooleanPullOption coerces a string value we deserialized from toml into a bool value.
+// Any value which is not exactly the string "true" is treated as false, and no warning
+// is emitted.
+// Note that unlike e.g. use_composefs which is also a "string bool", this function
+// does not use https://pkg.go.dev/strconv#ParseBool
+// You can search the source code for the term "string bool" for other places to which behave similiarly.
+// Ideally of course we would parse booleans in a consistent
+// way - which would be most especially clear if we supported native TOML values.
 func parseBooleanPullOption(pullOptions map[string]string, name string, def bool) bool {
 	if value, ok := pullOptions[name]; ok {
 		return strings.ToLower(value) == "true"

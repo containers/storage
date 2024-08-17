@@ -20,6 +20,8 @@ type BtrfsOptionsConfig struct {
 type OverlayOptionsConfig struct {
 	// IgnoreChownErrors is a flag for whether chown errors should be
 	// ignored when building an image.
+	// This can take any value accepted by Go's https://pkg.go.dev/strconv#ParseBool
+	// Search the source code for the term "string bool" to find other places which behave similarly.
 	IgnoreChownErrors string `toml:"ignore_chown_errors,omitempty"`
 	// MountOpt specifies extra mount options used when mounting
 	MountOpt string `toml:"mountopt,omitempty"`
@@ -30,8 +32,12 @@ type OverlayOptionsConfig struct {
 	// Inodes is used to set a maximum inodes of the container image.
 	Inodes string `toml:"inodes,omitempty"`
 	// Do not create a bind mount on the storage home
+	// This can take any value accepted by Go's https://pkg.go.dev/strconv#ParseBool
+	// Search the source code for the term "string bool" to find other places which behave similarly.
 	SkipMountHome string `toml:"skip_mount_home,omitempty"`
-	// Specify whether composefs must be used to mount the data layers
+	// Specify whether composefs must be used to mount the data layers.
+	// This can take any value accepted by Go's https://pkg.go.dev/strconv#ParseBool
+	// Search the source code for the term "string bool" to find other places which behave similarly.
 	UseComposefs string `toml:"use_composefs,omitempty"`
 	// ForceMask indicates the permissions mask (e.g. "0755") to use for new
 	// files and directories
