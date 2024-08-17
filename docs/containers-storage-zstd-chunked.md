@@ -16,13 +16,16 @@ to include additional metadata (especially a "table of contents") that includes 
 Additionally chunks are compressed separately. This allows a client to dynamically fetch only content which
 it doesn't already have using HTTP range requests.
 
-To enable zstd:chunked requires the following changes to `containers-storage.conf`:
+At the time of this writing, support for this is enabled by default in the code.
+
+You can explicitly enable or disable zstd:chunked with following changes to `containers-storage.conf`:
 
 ```
-pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
+[storage.overlay.pull_options]
+enable_partial_images = "true" | "false"
 ```
 
-This option may or may not be enabled by default in your distribution/operating system.
+Note that the value of this field must be a "string bool", it cannot be a native TOML boolean.
 
 ## INTERNALS
 

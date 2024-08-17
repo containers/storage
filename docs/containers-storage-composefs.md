@@ -3,7 +3,6 @@
 ## NAME
 containers-storage-composefs - Information about composefs and containers/storage
 
-
 ## DESCRIPTION
 
 To enable composefs at a baseline requires the following configuration in `containers-storage.conf`:
@@ -12,6 +11,8 @@ To enable composefs at a baseline requires the following configuration in `conta
 [storage.options.overlay]
 use_composefs = "true"
 ```
+
+This value must be a "string bool", it cannot be a native TOML boolean.
 
 However at the current time, composefs requires zstd:chunked images, so first
 you must be sure that zstd:chunked is enabled. For more, see [zstd:chunked](containers-storage-zstd-chunked.md).
@@ -23,8 +24,11 @@ latency to image pulls.
 Putting these things together, the following is required (in addition to the above config).
 
 ```
-pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos="", convert_images = "true"}
+[storage.options.pull_options]
+convert_images = "true"
 ```
+
+This value must be a "string bool", it cannot be a native TOML boolean.
 
 ## BUGS
 
