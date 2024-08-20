@@ -1456,6 +1456,32 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		return "", err
 	}
 
+	// user namespace requires this to move a directory from lower to upper.
+	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UidMaps, options.GidMaps)
+	if err != nil {
+		return "", err
+	}
+
+	mergedDir := d.getMergedDir(id, dir, inAdditionalStore)
+	// Attempt to create the merged dir only if it doesn't exist.
+	if err := fileutils.Exists(mergedDir); err != nil && os.IsNotExist(err) {
+		if err := idtools.MkdirAllAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
+			return "", err
+		}
+	}
+	if count := d.ctr.Increment(mergedDir); count > 1 {
+		return mergedDir, nil
+	}
+	defer func() {
+		if retErr != nil {
+			if c := d.ctr.Decrement(mergedDir); c <= 0 {
+				if mntErr := unix.Unmount(mergedDir, 0); mntErr != nil {
+					logrus.Errorf("Unmounting %v: %v", mergedDir, mntErr)
+				}
+			}
+		}
+	}()
+
 	readWrite := !inAdditionalStore
 
 	if !d.SupportsShifting() || options.DisableShifting {
@@ -1683,12 +1709,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		optsList = append(optsList, "metacopy=on", "redirect_dir=on")
 	}
 
-	// user namespace requires this to move a directory from lower to upper.
-	rootUID, rootGID, err := idtools.GetRootUIDGID(options.UidMaps, options.GidMaps)
-	if err != nil {
-		return "", err
-	}
-
 	if len(absLowers) == 0 {
 		absLowers = append(absLowers, path.Join(dir, "empty"))
 	}
@@ -1702,26 +1722,6 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			return "", err
 		}
 	}
-
-	mergedDir := d.getMergedDir(id, dir, inAdditionalStore)
-	// Attempt to create the merged dir only if it doesn't exist.
-	if err := fileutils.Exists(mergedDir); err != nil && os.IsNotExist(err) {
-		if err := idtools.MkdirAllAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
-			return "", err
-		}
-	}
-	if count := d.ctr.Increment(mergedDir); count > 1 {
-		return mergedDir, nil
-	}
-	defer func() {
-		if retErr != nil {
-			if c := d.ctr.Decrement(mergedDir); c <= 0 {
-				if mntErr := unix.Unmount(mergedDir, 0); mntErr != nil {
-					logrus.Errorf("Unmounting %v: %v", mergedDir, mntErr)
-				}
-			}
-		}
-	}()
 
 	workdir := path.Join(dir, "work")
 
