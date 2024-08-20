@@ -2128,24 +2128,16 @@ func (d *Driver) DiffGetter(id string) (_ graphdriver.FileGetCloser, Err error) 
 	for _, diffDir := range diffDirs {
 		// diffDir has the form $GRAPH_ROOT/overlay/$ID/diff, so grab the $ID from the parent directory
 		id := path.Base(path.Dir(diffDir))
-		composefsBlob := d.getComposefsData(id)
-		if fileutils.Exists(composefsBlob) != nil {
+		composefsData := d.getComposefsData(id)
+		if fileutils.Exists(composefsData) != nil {
 			// not a composefs layer, ignore it
 			continue
 		}
-		dir, err := os.MkdirTemp(d.runhome, "composefs-mnt")
+		fd, err := openComposefsMount(composefsData)
 		if err != nil {
 			return nil, err
 		}
-		if err := mountComposefsBlob(composefsBlob, dir); err != nil {
-			return nil, err
-		}
-		fd, err := os.Open(dir)
-		if err != nil {
-			return nil, err
-		}
-		composefsMounts[diffDir] = fd
-		_ = unix.Unmount(dir, unix.MNT_DETACH)
+		composefsMounts[diffDir] = os.NewFile(uintptr(fd), composefsData)
 	}
 	return &overlayFileGetter{diffDirs: diffDirs, composefsMounts: composefsMounts}, nil
 }
