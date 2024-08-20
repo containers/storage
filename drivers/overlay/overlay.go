@@ -1575,7 +1575,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 			return "", fmt.Errorf("cannot mount a composefs layer as writeable")
 		}
 
-		dest := filepath.Join(composeFsLayersDir, fmt.Sprintf("%d", i))
+		dest := filepath.Join(composeFsLayersDir, strconv.Itoa(i))
 		if err := os.MkdirAll(dest, 0o700); err != nil {
 			return "", err
 		}
