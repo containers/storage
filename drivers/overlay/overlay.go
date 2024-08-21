@@ -1463,12 +1463,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 	}
 
 	mergedDir := d.getMergedDir(id, dir, inAdditionalStore)
-	// Attempt to create the merged dir only if it doesn't exist.
-	if err := fileutils.Exists(mergedDir); err != nil && os.IsNotExist(err) {
-		if err := idtools.MkdirAllAs(mergedDir, 0o700, rootUID, rootGID); err != nil && !os.IsExist(err) {
-			return "", err
-		}
+	// Attempt to create the merged dir if it doesn't exist, but don't chown an already existing directory (it might be in an additional store)
+	if err := idtools.MkdirAllAndChownNew(mergedDir, 0o700, idtools.IDPair{UID: rootUID, GID: rootGID}); err != nil && !os.IsExist(err) {
+		return "", err
 	}
+
 	if count := d.ctr.Increment(mergedDir); count > 1 {
 		return mergedDir, nil
 	}
