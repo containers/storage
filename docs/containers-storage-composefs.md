@@ -30,6 +30,33 @@ convert_images = "true"
 
 This value must be a "string bool", it cannot be a native TOML boolean.
 
+## IMPLEMENTATION
+
+As is implied by the setting `use_composefs = "true"`, currently composefs
+is implemented as an "option" for the `overlay` driver. Some file formats
+remain unchanged and are inherited from the overlay driver, even when
+composefs is in use. The primary differences are enumerated below.
+
+The `diff/` directory for each layer is no longer a plain unpacking of the tarball,
+but becomes an "object hash directory", where each filename is the sha256 of its contents. This `diff/`
+directory is the backing store for a `composefs-data/composefs.blob` created for
+each layer which is the composefs "superblock" containing all the non-regular-file content (i.e. metadata) from the tarball.
+
+As with `zstd:chunked`, existing layers are scanned for matching objects, and reused
+(via hardlink or reflink as configured) if objects with a matching "full sha256" are
+found.
+
+There is currently no support for enforced integrity with composefs;
+an attempt is made to enable fsverity for the backing files and the composefs file,
+but it is not an error if unsupported. There is as of yet no defined mechanism to
+verify the fsverity digest of the composefs block before mounting; some work on that is
+ongoing.
+
+In order to mount a layer (or a full image, with all of its dependencies), any
+layer that has a composefs blob is mounted and included in the "final" overlayfs
+stack. This is optional - any layers that are not in "composefs format" but
+in the "default overlay" (unpacked) format will be reused as is.
+
 ## BUGS
 
 - https://github.com/containers/storage/issues?q=is%3Aissue+is%3Aopen+label%3Aarea%2Fcomposefs

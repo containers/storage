@@ -27,12 +27,25 @@ enable_partial_images = "true" | "false"
 
 Note that the value of this field must be a "string bool", it cannot be a native TOML boolean.
 
-## INTERNALS
+## IMPLEMENTATION
+
+Each layer has an associated "big data" key called `chunked-manifest-cache` that
+is a custom binary format suitable for mmap() that contains index metadata
+for each layer with the full sha256 digest of each file plus its "chunks" (as
+computed by `zstd:chunked`).
+
+When any image is pulled all existing other layers are scanned using `chunked-manifest-cache` to see if they contain a file with a matching digest. If one is found, the other file is hardlinked if `use_hardlinks = "true`",
+otherwise it is reflinked (if supported by the filesystem, or a full physical copy
+is made). There is a best-effort attempt to enable fsverity on the file if configured
+(see <https://github.com/containers/storage/issues/2017>).
+
+For more information, at the current time the file with the most information is [pkg/chunked/internal/compression.go](https://github.com/containers/storage/blob/39d469c34c96db67062e25954bc9d18f2bf6dae3/pkg/chunked/internal/compression.go).
+The above is a permanent link for stability, but be sure to check to see if there are newer changes too.
+
+## STANDARDIZATION
 
 At the current time the format is not officially standardized or documented beyond
-the comments and code in the reference implementation. At the current time
-the file with the most information is [pkg/chunked/internal/compression.go](https://github.com/containers/storage/blob/39d469c34c96db67062e25954bc9d18f2bf6dae3/pkg/chunked/internal/compression.go).
-The above is a permanent link for stability, but be sure to check to see if there are newer changes too.
+the comments and code in the reference implementation.
 
 ## BUGS
 
