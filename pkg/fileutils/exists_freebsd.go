@@ -27,10 +27,11 @@ func Lexists(path string) error {
 	// faccessat. In this case, the call to faccessat will return EINVAL and
 	// we fall back to using Lstat.
 	err := unix.Faccessat(unix.AT_FDCWD, path, unix.F_OK, unix.AT_SYMLINK_NOFOLLOW)
-	if err != nil && errors.Is(err, syscall.EINVAL) {
-		_, err = os.Lstat(path)
-	}
 	if err != nil {
+		if errors.Is(err, syscall.EINVAL) {
+			_, err = os.Lstat(path)
+			return err
+		}
 		return &os.PathError{Op: "faccessat", Path: path, Err: err}
 	}
 	return nil
