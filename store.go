@@ -641,6 +641,8 @@ type LayerOptions struct {
 	// Currently these can only be set when the layer record is created, but that
 	// could change in the future.
 	Flags map[string]interface{}
+	// LayerFilename is the target filename of the layer blob.
+	LayerFilename *string
 }
 
 type LayerBigDataOption struct {

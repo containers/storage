@@ -790,6 +790,23 @@ func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGI
 	return supportsDType, fmt.Errorf("'overlay' not found as a supported filesystem on this host. Please ensure kernel is new enough and has overlay support loaded.: %w", graphdriver.ErrNotSupported)
 }
 
+func cp(r io.Reader, dest string, filename string) error {
+	if seeker, ok := r.(io.Seeker); ok {
+		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+	}
+
+	f, err := os.Create(filepath.Join(dest, filename))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, r)
+	return err
+}
+
 func (d *Driver) useNaiveDiff() bool {
 	if d.usingComposefs {
 		return true
@@ -2329,17 +2346,25 @@ func (d *Driver) ApplyDiff(id, parent string, options graphdriver.ApplyDiffOpts)
 		return 0, err
 	}
 
-	logrus.Debugf("Applying tar in %s", applyDir)
-	// Overlay doesn't need the parent id to apply the diff
-	if err := untar(options.Diff, applyDir, &archive.TarOptions{
-		UIDMaps:           idMappings.UIDs(),
-		GIDMaps:           idMappings.GIDs(),
-		IgnoreChownErrors: d.options.ignoreChownErrors,
-		ForceMask:         d.options.forceMask,
-		WhiteoutFormat:    d.getWhiteoutFormat(),
-		InUserNS:          unshare.IsRootless(),
-	}); err != nil {
-		return 0, err
+	if options.LayerFilename != nil {
+		logrus.Debugf("Applying file in %s", applyDir)
+		err := cp(options.Diff, applyDir, *options.LayerFilename)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		logrus.Debugf("Applying tar in %s", applyDir)
+		// Overlay doesn't need the parent id to apply the diff
+		if err := untar(options.Diff, applyDir, &archive.TarOptions{
+			UIDMaps:           idMappings.UIDs(),
+			GIDMaps:           idMappings.GIDs(),
+			IgnoreChownErrors: d.options.ignoreChownErrors,
+			ForceMask:         d.options.forceMask,
+			WhiteoutFormat:    d.getWhiteoutFormat(),
+			InUserNS:          unshare.IsRootless(),
+		}); err != nil {
+			return 0, err
+		}
 	}
 
 	return directory.Size(applyDir)

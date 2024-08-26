@@ -2422,14 +2422,21 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 		if uncompressedDigester != nil {
 			uncompressedWriter = io.MultiWriter(uncompressedWriter, uncompressedDigester.Hash())
 		}
-		payload, err := asm.NewInputTarStream(io.TeeReader(uncompressed, uncompressedWriter), metadata, storage.NewDiscardFilePutter())
-		if err != nil {
-			return -1, err
+
+		var payload io.Reader
+		if layerOptions != nil && layerOptions.LayerFilename != nil {
+			payload = diff
+		} else {
+			payload, err = asm.NewInputTarStream(io.TeeReader(uncompressed, uncompressedWriter), metadata, storage.NewDiscardFilePutter())
+			if err != nil {
+				return -1, err
+			}
 		}
 		options := drivers.ApplyDiffOpts{
-			Diff:       payload,
-			Mappings:   r.layerMappings(layer),
-			MountLabel: layer.MountLabel,
+			Diff:          payload,
+			Mappings:      r.layerMappings(layer),
+			MountLabel:    layer.MountLabel,
+			LayerFilename: layerOptions.LayerFilename,
 		}
 		size, err := r.driver.ApplyDiff(layer.ID, layer.Parent, options)
 		if err != nil {
@@ -2468,6 +2475,12 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 	layer.UncompressedDigest = uncompressedDigest
 	layer.UncompressedSize = uncompressedCounter.Count
 	layer.CompressionType = compression
+
+	if layerOptions != nil && layerOptions.LayerFilename != nil {
+		layer.CompressedSize = size
+		layer.UncompressedSize = size
+	}
+
 	layer.UIDs = make([]uint32, 0, len(uidLog))
 	for uid := range uidLog {
 		layer.UIDs = append(layer.UIDs, uid)
