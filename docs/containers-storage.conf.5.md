@@ -71,7 +71,7 @@ Default directory to store all temporary writable content created by container s
 By default, the storage driver is set via the `driver` option. If it is not defined, then the best driver will be picked according to the current platform. This option allows you to override this internal priority list with a custom one to prefer certain drivers.
 Setting this option only has an effect if the local storage has not been initialized yet and the driver name is not set.
 
-**transient_store** = "false" | "true"
+**transient_store** = "false"|"true"
 
 Transient store mode makes all container metadata be saved in temporary storage
 (i.e. runroot above). This is faster, but doesn't persist across reboots.
@@ -84,33 +84,6 @@ The `storage.options` table supports the following options:
 **additionalimagestores**=[]
   Paths to additional container image stores. Usually these are read/only and stored on remote network shares.
 
-**pull_options** = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
-
-Allows specification of how storage is populated when pulling images. This
-option can speed the pulling process of images compressed with format zstd:chunked. Containers/storage looks
-for files within images that are being pulled from a container registry that
-were previously pulled to the host.  It can copy or create
-a hard link to the existing file when it finds them, eliminating the need to pull them from the
-container registry. These options can deduplicate pulling of content, disk
-storage of content and can allow the kernel to use less memory when running
-containers.
-
-containers/storage supports four keys
-  * enable_partial_images="true" | "false"
-    Tells containers/storage to look for files previously pulled in storage
-    rather then always pulling them from the container registry.
-  * use_hard_links = "false" | "true"
-    Tells containers/storage to use hard links rather then create new files in
-    the image, if an identical file already existed in storage.
-  * ostree_repos = ""
-    Tells containers/storage where an ostree repository exists that might have
-    previously pulled content which can be used when attempting to avoid
-    pulling content from the container registry
-  * convert_images = "false" | "true"
-    If set to true, containers/storage will convert images to a format compatible with
-    partial pulls in order to take advantage of local deduplication and hardlinking.  It is an
-    expensive operation so it is not enabled by default.
-
 **root-auto-userns-user**=""
   Root-auto-userns-user is a user name which can be used to look up one or more UID/GID ranges in the /etc/subuid and /etc/subgid file.  These ranges will be partitioned to containers configured to create automatically a user namespace.  Containers configured to automatically create a user namespace can still overlap with containers having an explicit mapping set.  This setting is ignored when running as rootless.
 
@@ -122,6 +95,34 @@ containers/storage supports four keys
 
 **disable-volatile**=true
   If disable-volatile is set, then the "volatile" mount optimization is disabled for all the containers.
+
+### STORAGE PULL OPTIONS TABLE
+
+The `storage.options.pull_options` table supports the following keys:
+
+**enable_partial_images="true"|"false"**
+  Enable the "zstd:chunked" feature, which allows partial pulls, reusing
+  content that already exists on the system. This is enabled by default,
+  but can be explicitly disabled. For more on zstd:chunked, see
+  <https://github.com/containers/storage/blob/main/docs/containers-storage-zstd-chunked.md>.
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
+
+**use_hard_links="false"|"true"**
+  Tells containers/storage to use hard links rather then create new files in
+  the image, if an identical file already existed in storage.
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
+
+**ostree_repos=""**
+  Path to an ostree repository that might have
+  previously pulled content which can be used when attempting to avoid
+  pulling content from the container registry.
+
+**convert_images="false"|"true"**
+  If set to "true", containers/storage will convert images that are
+  not already in zstd:chunked format to that format before processing
+  in order to take advantage of local deduplication and hard linking.
+  It is an expensive operation so it is not enabled by default.
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
 
 ### STORAGE OPTIONS FOR AUFS TABLE
 
@@ -145,7 +146,8 @@ The `storage.options.btrfs` table supports the following options:
 The `storage.options.overlay` table supports the following options:
 
 **ignore_chown_errors** = "false"
-  ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: false)
+  ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: "false")
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
 
 **inodes**=""
   Maximum inodes in a read/write layer.   This flag can be used to set a quota on the inodes allocated for a read/write layer of a container.
@@ -194,21 +196,26 @@ based file systems.
 **mountopt**=""
   Comma separated list of default options to be used to mount container images.  Suggested value "nodev". Mount options are documented in the mount(8) man page.
 
-**skip_mount_home=""**
+**skip_mount_home="false"**
   Tell storage drivers to not create a PRIVATE bind mount on their home directory.
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
 
 **size**=""
   Maximum size of a read/write layer.   This flag can be used to set quota on the size of a read/write layer of a container. (format: <number>[<unit>], where unit = b (bytes), k (kilobytes), m (megabytes), or g (gigabytes))
 
 **use_composefs** = "false"
-    Use ComposeFS to mount the data layers image.  ComposeFS support is experimental and not recommended for production use.  (default: false)
+    Use ComposeFS to mount the data layers image.  ComposeFS support is experimental and not recommended for production use.
+    This is a "string bool": "false"|"true" (cannot be native TOML boolean)
+
 
 ### STORAGE OPTIONS FOR VFS TABLE
 
 The `storage.options.vfs` table supports the following options:
 
 **ignore_chown_errors** = "false"
-  ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container. (default: false)
+  ignore_chown_errors can be set to allow a non privileged user running with a  single UID within a user namespace to run containers. The user can pull and use any image even those with multiple uids.  Note multiple UIDs will be squashed down to the default uid in the container.  These images will have no separation between the users in the container.
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
+
 
 ### STORAGE OPTIONS FOR ZFS TABLE
 
