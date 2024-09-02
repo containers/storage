@@ -1475,7 +1475,11 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		if retErr != nil {
 			if c := d.ctr.Decrement(mergedDir); c <= 0 {
 				if mntErr := unix.Unmount(mergedDir, 0); mntErr != nil {
-					logrus.Errorf("Unmounting %v: %v", mergedDir, mntErr)
+					// Ignore EINVAL, it means the directory is not a mount point and it can happen
+					// if the current function fails before the mount point is created.
+					if !errors.Is(mntErr, unix.EINVAL) {
+						logrus.Errorf("Unmounting %v: %v", mergedDir, mntErr)
+					}
 				}
 			}
 		}
