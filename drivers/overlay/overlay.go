@@ -1882,10 +1882,21 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 // getMergedDir returns the directory path that should be used as the mount point for the overlayfs.
 func (d *Driver) getMergedDir(id, dir string, inAdditionalStore bool) string {
-	// If the layer is in an additional store, the lock we might hold only a reading lock.  To prevent
-	// races with other processes, use a private directory under the main store rundir.  At this point, the
-	// current process is holding an exclusive lock on the store, and since the rundir cannot be shared for
-	// different stores, it is safe to assume the current process has exclusive access to it.
+	// Ordinarily, .Get() (layer mounting) callers are supposed to guarantee exclusion.
+	//
+	// But additional stores are initialized with RO locks and don’t support a write
+	// lock operation at all; and naiveDiff operations cause mounts/unmounts, so they might
+	// happen on code paths where we might only holding a RO lock for the additional store.
+	// To prevent races with other processes mounting or unmounting the layer,
+	// use a private directory under the main store rundir, not the "merged" directory inside the
+	// original layer store holding the layer data.
+	//
+	// To support this, contrary to the _general_ locking rules for .Diff / .Changes (which allow a RO lock),
+	// the top-level Store implementation uses an exclusive lock for the primary layer store;
+	// and since the rundir cannot be shared for different stores, it is safe to assume the
+	// current process has exclusive access to it.
+	//
+	// LOCKING BUG? the .DiffSize operation does not currently hold an exclusive lock on the primary store.
 	if inAdditionalStore {
 		return path.Join(d.runhome, id, "merged")
 	}
