@@ -40,7 +40,7 @@ func initCache(sizeCache int) (*cacheFile, string, string, *bloomFilter) {
 
 	digester := digest.Canonical.Digester()
 	hash := digester.Hash()
-	for i := 0; i < sizeCache; i++ {
+	for range sizeCache {
 		hash.Write([]byte("1"))
 		d := digester.Digest().String()
 		digestLen = len(d)
@@ -89,7 +89,7 @@ func init() {
 }
 
 func BenchmarkLookupBloomFilter(b *testing.B) {
-	for i := 0; i < benchmarkN; i++ {
+	for range benchmarkN {
 		if preloadedbloomFilter.maybeContains(notPresentDigestInCacheBinary) {
 			findTag(notPresentDigestInCache, preloadedCache)
 		}
@@ -100,7 +100,7 @@ func BenchmarkLookupBloomFilter(b *testing.B) {
 }
 
 func BenchmarkLookupBloomRaw(b *testing.B) {
-	for i := 0; i < benchmarkN; i++ {
+	for range benchmarkN {
 		findTag(notPresentDigestInCache, preloadedCache)
 		findTag(presentDigestInCache, preloadedCache)
 	}
@@ -110,7 +110,7 @@ func TestBloomFilter(t *testing.T) {
 	bloomFilter := newBloomFilter(1000, 1)
 	digester := digest.Canonical.Digester()
 	hash := digester.Hash()
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		hash.Write([]byte("1"))
 		d := digester.Digest().String()
 		bd, err := makeBinaryDigest(d)
@@ -118,7 +118,7 @@ func TestBloomFilter(t *testing.T) {
 		contains := bloomFilter.maybeContains(bd)
 		assert.False(t, contains)
 	}
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		hash.Write([]byte("1"))
 		d := digester.Digest().String()
 		bd, err := makeBinaryDigest(d)

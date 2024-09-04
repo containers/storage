@@ -31,7 +31,7 @@ func TestHole(t *testing.T) {
 		threshold: 1000,
 		reader:    bufio.NewReader(bytes.NewReader(data)),
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		hole, b, err := hf.readByte()
 		if err != nil {
 			t.Errorf("got error: %v", err)

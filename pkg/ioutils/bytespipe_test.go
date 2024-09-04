@@ -138,7 +138,7 @@ func TestBytesPipeWriteRandomChunks(t *testing.T) {
 
 func BenchmarkBytesPipeWrite(b *testing.B) {
 	testData := []byte("pretty short line, because why not?")
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		readBuf := make([]byte, 1024)
 		buf := NewBytesPipe()
 		go func() {
@@ -147,7 +147,7 @@ func BenchmarkBytesPipeWrite(b *testing.B) {
 				_, err = buf.Read(readBuf)
 			}
 		}()
-		for j := 0; j < 1000; j++ {
+		for range 1000 {
 			_, err := buf.Write(testData)
 			require.NoError(b, err)
 		}
@@ -157,15 +157,15 @@ func BenchmarkBytesPipeWrite(b *testing.B) {
 
 func BenchmarkBytesPipeRead(b *testing.B) {
 	rd := make([]byte, 512)
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		b.StopTimer()
 		buf := NewBytesPipe()
-		for j := 0; j < 500; j++ {
+		for range 500 {
 			_, err := buf.Write(make([]byte, 1024))
 			require.NoError(b, err)
 		}
 		b.StartTimer()
-		for j := 0; j < 1000; j++ {
+		for range 1000 {
 			if n, _ := buf.Read(rd); n != 512 {
 				b.Fatalf("Wrong number of bytes: %d", n)
 			}

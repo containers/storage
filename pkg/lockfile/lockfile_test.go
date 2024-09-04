@@ -420,7 +420,7 @@ func TestLockfileWriteConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	var highestMutex sync.Mutex
 	var counter, highest int64
-	for i := 0; i < 8000; i++ {
+	for range 8000 {
 		wg.Add(1)
 		go func() {
 			l.Lock()
@@ -456,7 +456,7 @@ func TestLockfileReadConcurrent(t *testing.T) {
 	unlocked := make(chan bool)
 	done := make(chan bool)
 
-	for i := 0; i < numReaders; i++ {
+	for range numReaders {
 		go func() {
 			l.RLock()
 			locked <- true
@@ -467,15 +467,15 @@ func TestLockfileReadConcurrent(t *testing.T) {
 	}
 
 	// Wait for all parallel locks to succeed
-	for i := 0; i < numReaders; i++ {
+	for range numReaders {
 		<-locked
 	}
 	// Instruct all parallel locks to unlock
-	for i := 0; i < numReaders; i++ {
+	for range numReaders {
 		unlocked <- true
 	}
 	// Wait for all parallel locks to be unlocked
-	for i := 0; i < numReaders; i++ {
+	for range numReaders {
 		<-done
 	}
 }
@@ -496,7 +496,7 @@ func TestLockfileMixedConcurrent(t *testing.T) {
 	// A writer always adds `diff` to the counter. Hence, `diff` is the
 	// only valid value in the critical section.
 	writer := func(c *int32) {
-		for i := 0; i < numIterations; i++ {
+		for range numIterations {
 			l.Lock()
 			tmp := atomic.AddInt32(c, diff)
 			assert.True(t, tmp == diff, "counter should be %d but instead is %d", diff, tmp)
@@ -510,7 +510,7 @@ func TestLockfileMixedConcurrent(t *testing.T) {
 	// A reader always adds `1` to the counter. Hence,
 	// [1,`numReaders*numIterations`] are valid values.
 	reader := func(c *int32) {
-		for i := 0; i < numIterations; i++ {
+		for range numIterations {
 			l.RLock()
 			tmp := atomic.AddInt32(c, 1)
 			assert.True(t, tmp >= 1 && tmp < diff)
@@ -529,7 +529,7 @@ func TestLockfileMixedConcurrent(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < numReaders+numWriters; i++ {
+	for range numReaders + numWriters {
 		<-done
 	}
 }
