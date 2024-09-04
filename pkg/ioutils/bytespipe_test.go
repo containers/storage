@@ -3,7 +3,7 @@ package ioutils
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 	"time"
 
@@ -105,7 +105,7 @@ func TestBytesPipeWriteRandomChunks(t *testing.T) {
 
 		go func() {
 			// random delay before read starts
-			<-time.After(time.Duration(rand.Intn(10)) * time.Millisecond)
+			<-time.After(rand.N(10 * time.Millisecond))
 			for i := 0; ; i++ {
 				p := make([]byte, readChunks[(c.iterations*c.readsPerLoop+i)%len(readChunks)])
 				n, _ := buf.Read(p)
