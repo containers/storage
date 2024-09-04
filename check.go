@@ -770,12 +770,9 @@ func (s *store) Repair(report CheckReport, options *RepairOptions) []error {
 		return d
 	}
 	isUnaccounted := func(errs []error) bool {
-		for _, err := range errs {
-			if errors.Is(err, ErrLayerUnaccounted) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(errs, func(err error) bool {
+			return errors.Is(err, ErrLayerUnaccounted)
+		})
 	}
 	sort.Slice(layersToDelete, func(i, j int) bool {
 		// we've not heard of either of them, so remove them in the order the driver suggested

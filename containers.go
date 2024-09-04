@@ -3,6 +3,7 @@ package storage
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -163,17 +164,17 @@ type containerStore struct {
 func copyContainer(c *Container) *Container {
 	return &Container{
 		ID:             c.ID,
-		Names:          copyStringSlice(c.Names),
+		Names:          slices.Clone(c.Names),
 		ImageID:        c.ImageID,
 		LayerID:        c.LayerID,
 		Metadata:       c.Metadata,
-		BigDataNames:   copyStringSlice(c.BigDataNames),
-		BigDataSizes:   copyStringInt64Map(c.BigDataSizes),
-		BigDataDigests: copyStringDigestMap(c.BigDataDigests),
+		BigDataNames:   slices.Clone(c.BigDataNames),
+		BigDataSizes:   maps.Clone(c.BigDataSizes),
+		BigDataDigests: maps.Clone(c.BigDataDigests),
 		Created:        c.Created,
 		UIDMap:         copyIDMap(c.UIDMap),
 		GIDMap:         copyIDMap(c.GIDMap),
-		Flags:          copyStringInterfaceMap(c.Flags),
+		Flags:          maps.Clone(c.Flags),
 		volatileStore:  c.volatileStore,
 	}
 }
@@ -937,14 +938,7 @@ func (r *containerStore) SetBigData(id, key string, data []byte) error {
 		if !sizeOk || oldSize != c.BigDataSizes[key] || !digestOk || oldDigest != newDigest {
 			save = true
 		}
-		addName := true
-		for _, name := range c.BigDataNames {
-			if name == key {
-				addName = false
-				break
-			}
-		}
-		if addName {
+		if !slices.Contains(c.BigDataNames, key) {
 			c.BigDataNames = append(c.BigDataNames, key)
 			save = true
 		}

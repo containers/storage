@@ -6,7 +6,10 @@ package mount
 import (
 	"os"
 	"path"
+	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestMountOptionsParsing(t *testing.T) {
@@ -151,14 +154,9 @@ func TestGetMounts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	root := false
-	for _, entry := range mounts {
-		if entry.Mountpoint == "/" {
-			root = true
-		}
-	}
-
-	if !root {
+	if !slices.ContainsFunc(mounts, func(entry *Info) bool {
+		return entry.Mountpoint == "/"
+	}) {
 		t.Fatal("/ should be mounted at least")
 	}
 }
@@ -170,14 +168,7 @@ func TestMergeTmpfsOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(expected) != len(merged) {
-		t.Fatalf("Expected %s got %s", expected, merged)
-	}
-	for index := range merged {
-		if merged[index] != expected[index] {
-			t.Fatalf("Expected %s for the %dth option, got %s", expected, index, merged)
-		}
-	}
+	require.Equal(t, expected, merged)
 
 	options = []string{"noatime", "ro", "size=10k", "atime", "rw", "rprivate", "size=1024k", "slave", "size"}
 	_, err = MergeTmpfsOptions(options)

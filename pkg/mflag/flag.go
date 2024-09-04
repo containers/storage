@@ -86,6 +86,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -356,14 +357,7 @@ func sortFlags(flags map[string]*Flag) []*Flag {
 			continue
 		}
 
-		found := false
-		for _, name := range list {
-			if name == fName {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(list, fName) {
 			list = append(list, fName)
 		}
 	}

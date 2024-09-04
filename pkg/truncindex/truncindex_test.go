@@ -2,6 +2,7 @@ package truncindex
 
 import (
 	"math/rand/v2"
+	"slices"
 	"testing"
 	"time"
 
@@ -114,13 +115,9 @@ func assertIndexIterate(t *testing.T) {
 	index := NewTruncIndex(ids)
 
 	index.Iterate(func(targetId string) {
-		for _, id := range ids {
-			if targetId == id {
-				return
-			}
+		if !slices.Contains(ids, targetId) {
+			t.Fatalf("An unknown ID '%s'", targetId)
 		}
-
-		t.Fatalf("An unknown ID '%s'", targetId)
 	})
 }
 

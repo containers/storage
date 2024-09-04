@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -436,7 +437,7 @@ func layerLocation(l *Layer) layerLocations {
 func copyLayer(l *Layer) *Layer {
 	return &Layer{
 		ID:                 l.ID,
-		Names:              copyStringSlice(l.Names),
+		Names:              slices.Clone(l.Names),
 		Parent:             l.Parent,
 		Metadata:           l.Metadata,
 		MountLabel:         l.MountLabel,
@@ -451,8 +452,8 @@ func copyLayer(l *Layer) *Layer {
 		CompressionType:    l.CompressionType,
 		ReadOnly:           l.ReadOnly,
 		volatileStore:      l.volatileStore,
-		BigDataNames:       copyStringSlice(l.BigDataNames),
-		Flags:              copyStringInterfaceMap(l.Flags),
+		BigDataNames:       slices.Clone(l.BigDataNames),
+		Flags:              maps.Clone(l.Flags),
 		UIDMap:             copyIDMap(l.UIDMap),
 		GIDMap:             copyIDMap(l.GIDMap),
 		UIDs:               copyUint32Slice(l.UIDs),
@@ -1565,19 +1566,9 @@ func (r *layerStore) Mount(id string, options drivers.MountOpts) (string, error)
 	// - r.layers[].MountPoint (directly and via loadMounts / saveMounts)
 	// - r.bymount (via loadMounts / saveMounts)
 
-	// check whether options include ro option
-	hasReadOnlyOpt := func(opts []string) bool {
-		for _, item := range opts {
-			if item == "ro" {
-				return true
-			}
-		}
-		return false
-	}
-
 	// You are not allowed to mount layers from readonly stores if they
 	// are not mounted read/only.
-	if !r.lockfile.IsReadWrite() && !hasReadOnlyOpt(options.Options) {
+	if !r.lockfile.IsReadWrite() && !slices.Contains(options.Options, "ro") {
 		return "", fmt.Errorf("not allowed to update mount locations for layers at %q: %w", r.mountspath(), ErrStoreIsReadOnly)
 	}
 	r.mountsLockfile.Lock()
@@ -1837,14 +1828,7 @@ func (r *layerStore) setBigData(layer *Layer, key string, data io.Reader) error 
 		return fmt.Errorf("closing bigdata file for the layer: %w", err)
 	}
 
-	addName := true
-	for _, name := range layer.BigDataNames {
-		if name == key {
-			addName = false
-			break
-		}
-	}
-	if addName {
+	if !slices.Contains(layer.BigDataNames, key) {
 		layer.BigDataNames = append(layer.BigDataNames, key)
 		return r.saveFor(layer)
 	}
@@ -1942,17 +1926,10 @@ func (r *layerStore) deleteInternal(id string) error {
 	r.layers = slices.DeleteFunc(r.layers, func(candidate *Layer) bool {
 		return candidate.ID == id
 	})
-	if mountLabel != "" {
-		var found bool
-		for _, candidate := range r.layers {
-			if candidate.MountLabel == mountLabel {
-				found = true
-				break
-			}
-		}
-		if !found {
-			selinux.ReleaseLabel(mountLabel)
-		}
+	if mountLabel != "" && !slices.ContainsFunc(r.layers, func(candidate *Layer) bool {
+		return candidate.MountLabel == mountLabel
+	}) {
+		selinux.ReleaseLabel(mountLabel)
 	}
 	return nil
 }
@@ -2528,9 +2505,7 @@ func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *driver
 		if layer.Flags == nil {
 			layer.Flags = make(map[string]interface{})
 		}
-		for k, v := range options.Flags {
-			layer.Flags[k] = v
-		}
+		maps.Copy(layer.Flags, options.Flags)
 	}
 	if err = r.saveFor(layer); err != nil {
 		return err
