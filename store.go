@@ -3812,11 +3812,8 @@ func GetMountOptions(driver string, graphDriverOptions []string) ([]string, erro
 
 // Free removes the store from the list of stores
 func (s *store) Free() {
-	for i := 0; i < len(stores); i++ {
-		if stores[i] == s {
-			stores = append(stores[:i], stores[i+1:]...)
-			return
-		}
+	if i := slices.Index(stores, s); i != -1 {
+		stores = slices.Delete(stores, i, i+1)
 	}
 }
 
