@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1372,7 +1373,7 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 		templateCompressedDigest, templateCompressedSize = templateLayer.CompressedDigest, templateLayer.CompressedSize
 		templateUncompressedDigest, templateUncompressedSize = templateLayer.UncompressedDigest, templateLayer.UncompressedSize
 		templateCompressionType = templateLayer.CompressionType
-		templateUIDs, templateGIDs = append([]uint32{}, templateLayer.UIDs...), append([]uint32{}, templateLayer.GIDs...)
+		templateUIDs, templateGIDs = slices.Clone(templateLayer.UIDs), slices.Clone(templateLayer.GIDs)
 		templateTSdata, err = os.ReadFile(r.tspath(templateLayer.ID))
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return nil, -1, err

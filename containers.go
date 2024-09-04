@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -696,7 +697,7 @@ func (r *containerStore) create(id string, names []string, image, layer string, 
 		volatileStore:  options.Volatile,
 	}
 	if options.MountOpts != nil {
-		container.Flags[mountOptsFlag] = append([]string{}, options.MountOpts...)
+		container.Flags[mountOptsFlag] = slices.Clone(options.MountOpts)
 	}
 	if options.Volatile {
 		container.Flags[volatileFlag] = true

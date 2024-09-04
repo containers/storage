@@ -3737,7 +3737,7 @@ func copyImageBigDataOptionSlice(slice []ImageBigDataOption) []ImageBigDataOptio
 	ret := make([]ImageBigDataOption, len(slice))
 	for i := range slice {
 		ret[i].Key = slice[i].Key
-		ret[i].Data = append([]byte{}, slice[i].Data...)
+		ret[i].Data = slices.Clone(slice[i].Data)
 		ret[i].Digest = slice[i].Digest
 	}
 	return ret
@@ -3747,7 +3747,7 @@ func copyContainerBigDataOptionSlice(slice []ContainerBigDataOption) []Container
 	ret := make([]ContainerBigDataOption, len(slice))
 	for i := range slice {
 		ret[i].Key = slice[i].Key
-		ret[i].Data = append([]byte{}, slice[i].Data...)
+		ret[i].Data = slices.Clone(slice[i].Data)
 	}
 	return ret
 }

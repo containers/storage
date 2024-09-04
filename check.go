@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1044,7 +1045,7 @@ func (c *checkDirectory) header(hdr *tar.Header) {
 
 // headers updates a checkDirectory using information from the passed-in header slice
 func (c *checkDirectory) headers(hdrs []*tar.Header) {
-	hdrs = append([]*tar.Header{}, hdrs...)
+	hdrs = slices.Clone(hdrs)
 	// sort the headers from the diff to ensure that whiteouts appear
 	// before content when they both appear in the same directory, per
 	// https://github.com/opencontainers/image-spec/blob/main/layer.md#whiteouts
