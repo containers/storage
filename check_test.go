@@ -2,7 +2,6 @@ package storage
 
 import (
 	"archive/tar"
-	"sort"
 	"testing"
 
 	"github.com/containers/storage/pkg/archive"
@@ -62,10 +61,7 @@ func TestCheckDirectory(t *testing.T) {
 				cd.header(&hdr)
 			}
 			actual := cd.names()
-			sort.Strings(actual)
-			expected := append([]string{}, vectors[i].expected...)
-			sort.Strings(expected)
-			assert.Equal(t, expected, actual)
+			assert.ElementsMatch(t, vectors[i].expected, actual)
 		})
 	}
 }
