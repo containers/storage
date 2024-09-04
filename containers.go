@@ -789,13 +789,6 @@ func (r *containerStore) Delete(id string) error {
 		return ErrContainerUnknown
 	}
 	id = container.ID
-	toDeleteIndex := -1
-	for i, candidate := range r.containers {
-		if candidate.ID == id {
-			toDeleteIndex = i
-			break
-		}
-	}
 	delete(r.byid, id)
 	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
 	// The store’s Delete method is used on various paths to recover from failures, so this should be robust against partially missing data.
@@ -804,14 +797,9 @@ func (r *containerStore) Delete(id string) error {
 	for _, name := range container.Names {
 		delete(r.byname, name)
 	}
-	if toDeleteIndex != -1 {
-		// delete the container at toDeleteIndex
-		if toDeleteIndex == len(r.containers)-1 {
-			r.containers = r.containers[:len(r.containers)-1]
-		} else {
-			r.containers = append(r.containers[:toDeleteIndex], r.containers[toDeleteIndex+1:]...)
-		}
-	}
+	r.containers = slices.DeleteFunc(r.containers, func(candidate *Container) bool {
+		return candidate.ID == id
+	})
 	if err := r.saveFor(container); err != nil {
 		return err
 	}

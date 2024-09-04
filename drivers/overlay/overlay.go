@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -164,15 +165,6 @@ func hasMetacopyOption(opts []string) bool {
 		}
 	}
 	return false
-}
-
-func stripOption(opts []string, option string) []string {
-	for i, s := range opts {
-		if s == option {
-			return stripOption(append(opts[:i], opts[i+1:]...), option)
-		}
-	}
-	return opts
 }
 
 func hasVolatileOption(opts []string) bool {
@@ -1526,7 +1518,9 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 				logrus.Debugf("Ignoring global metacopy option, the mount program doesn't support it")
 			}
 		}
-		optsList = stripOption(optsList, "metacopy=on")
+		optsList = slices.DeleteFunc(optsList, func(opt string) bool {
+			return opt == "metacopy=on"
+		})
 	}
 
 	for _, o := range optsList {

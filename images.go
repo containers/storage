@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -863,12 +864,6 @@ func (r *imageStore) Delete(id string) error {
 		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
 	id = image.ID
-	toDeleteIndex := -1
-	for i, candidate := range r.images {
-		if candidate.ID == id {
-			toDeleteIndex = i
-		}
-	}
 	delete(r.byid, id)
 	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
 	// The store’s Delete method is used on various paths to recover from failures, so this should be robust against partially missing data.
@@ -884,14 +879,9 @@ func (r *imageStore) Delete(id string) error {
 			r.bydigest[digest] = prunedList
 		}
 	}
-	if toDeleteIndex != -1 {
-		// delete the image at toDeleteIndex
-		if toDeleteIndex == len(r.images)-1 {
-			r.images = r.images[:len(r.images)-1]
-		} else {
-			r.images = append(r.images[:toDeleteIndex], r.images[toDeleteIndex+1:]...)
-		}
-	}
+	r.images = slices.DeleteFunc(r.images, func(candidate *Image) bool {
+		return candidate.ID == id
+	})
 	if err := r.Save(); err != nil {
 		return err
 	}

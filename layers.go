@@ -1939,21 +1939,9 @@ func (r *layerStore) deleteInternal(id string) error {
 		delete(r.bymount, layer.MountPoint)
 	}
 	r.deleteInDigestMap(id)
-	toDeleteIndex := -1
-	for i, candidate := range r.layers {
-		if candidate.ID == id {
-			toDeleteIndex = i
-			break
-		}
-	}
-	if toDeleteIndex != -1 {
-		// delete the layer at toDeleteIndex
-		if toDeleteIndex == len(r.layers)-1 {
-			r.layers = r.layers[:len(r.layers)-1]
-		} else {
-			r.layers = append(r.layers[:toDeleteIndex], r.layers[toDeleteIndex+1:]...)
-		}
-	}
+	r.layers = slices.DeleteFunc(r.layers, func(candidate *Layer) bool {
+		return candidate.ID == id
+	})
 	if mountLabel != "" {
 		var found bool
 		for _, candidate := range r.layers {
@@ -1972,21 +1960,15 @@ func (r *layerStore) deleteInternal(id string) error {
 // Requires startWriting.
 func (r *layerStore) deleteInDigestMap(id string) {
 	for digest, layers := range r.bycompressedsum {
-		for i, layerID := range layers {
-			if layerID == id {
-				layers = append(layers[:i], layers[i+1:]...)
-				r.bycompressedsum[digest] = layers
-				break
-			}
+		if i := slices.Index(layers, id); i != -1 {
+			layers = slices.Delete(layers, i, i+1)
+			r.bycompressedsum[digest] = layers
 		}
 	}
 	for digest, layers := range r.byuncompressedsum {
-		for i, layerID := range layers {
-			if layerID == id {
-				layers = append(layers[:i], layers[i+1:]...)
-				r.byuncompressedsum[digest] = layers
-				break
-			}
+		if i := slices.Index(layers, id); i != -1 {
+			layers = slices.Delete(layers, i, i+1)
+			r.byuncompressedsum[digest] = layers
 		}
 	}
 }
