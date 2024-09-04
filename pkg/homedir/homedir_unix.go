@@ -38,9 +38,9 @@ func Get() string {
 	return homedir
 }
 
-// GetShortcutString returns the string that is shortcut to user's home directory
+// ShortcutString returns the string that is shortcut to user's home directory
 // in the native shell of the platform running on.
-func GetShortcutString() string {
+func ShortcutString() string {
 	return "~"
 }
 
@@ -52,7 +52,7 @@ func GetShortcutString() string {
 //
 // See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
 func StickRuntimeDirContents(files []string) ([]string, error) {
-	runtimeDir, err := GetRuntimeDir()
+	runtimeDir, err := RuntimeDir()
 	if err != nil {
 		// ignore error if runtimeDir is empty
 		return nil, nil //nolint: nilerr
@@ -101,11 +101,20 @@ func isWriteableOnlyByOwner(perm os.FileMode) bool {
 	return (perm & 0o722) == 0o700
 }
 
-// GetConfigHome returns XDG_CONFIG_HOME.
-// GetConfigHome returns $HOME/.config and nil error if XDG_CONFIG_HOME is not set.
-//
-// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
+// GetConfigHome deprecated
 func GetConfigHome() (string, error) {
+	rootlessConfigHomeDir, rootlessConfigHomeDirError = ConfigHome()
+	if rootlessConfigHomeDirError == nil {
+		_ = os.MkdirAll(rootlessConfigHomeDir, 0o700)
+	}
+
+	return rootlessConfigHomeDir, rootlessConfigHomeDirError
+}
+
+// ConfigHome returns XDG_CONFIG_HOME. (Deprecated)
+// ConfigHome returns $HOME/.config and nil error if XDG_CONFIG_HOME is not set.
+// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
+func ConfigHome() (string, error) {
 	rootlessConfigHomeDirOnce.Do(func() {
 		cfgHomeDir := os.Getenv("XDG_CONFIG_HOME")
 		if cfgHomeDir == "" {
@@ -115,18 +124,15 @@ func GetConfigHome() (string, error) {
 				rootlessConfigHomeDirError = fmt.Errorf("cannot resolve %s: %w", home, err)
 				return
 			}
-			tmpDir := filepath.Join(resolvedHome, ".config")
-			_ = os.MkdirAll(tmpDir, 0o700)
-			st, err := os.Stat(tmpDir)
-			if err != nil {
-				rootlessConfigHomeDirError = err
-				return
-			} else if int(st.Sys().(*syscall.Stat_t).Uid) == os.Geteuid() {
-				cfgHomeDir = tmpDir
-			} else {
-				rootlessConfigHomeDirError = fmt.Errorf("path %q exists and it is not owned by the current user", tmpDir)
-				return
-			}
+			cfgHomeDir = filepath.Join(resolvedHome, ".config")
+		}
+		st, err := os.Stat(cfgHomeDir)
+		if err != nil {
+			rootlessConfigHomeDirError = err
+			return
+		} else if int(st.Sys().(*syscall.Stat_t).Uid) != os.Geteuid() {
+			rootlessConfigHomeDirError = fmt.Errorf("path %q exists and it is not owned by the current user", tmpDir)
+			return
 		}
 		rootlessConfigHomeDir = cfgHomeDir
 	})
@@ -134,14 +140,14 @@ func GetConfigHome() (string, error) {
 	return rootlessConfigHomeDir, rootlessConfigHomeDirError
 }
 
-// GetRuntimeDir returns a directory suitable to store runtime files.
+// RuntimeDir returns a directory suitable to store runtime files.
 // The function will try to use the XDG_RUNTIME_DIR env variable if it is set.
 // XDG_RUNTIME_DIR is typically configured via pam_systemd.
-// If XDG_RUNTIME_DIR is not set, GetRuntimeDir will try to find a suitable
+// If XDG_RUNTIME_DIR is not set, RuntimeDir will try to find a suitable
 // directory for the current user.
 //
 // See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
-func GetRuntimeDir() (string, error) {
+func RuntimeDir() (string, error) {
 	var rootlessRuntimeDirError error
 
 	rootlessRuntimeDirOnce.Do(func() {

@@ -26,16 +26,21 @@ func Get() string {
 	return home
 }
 
-// GetConfigHome returns the home directory of the current user with the help of
+// GetConfigHome (deprecated)
+func GetConfigHome() (string, error) {
+	return ConfigHome()
+}
+
+// ConfigHome returns the home directory of the current user with the help of
 // environment variables depending on the target operating system.
 // Returned path should be used with "path/filepath" to form new paths.
-func GetConfigHome() (string, error) {
+func ConfigHome() (string, error) {
 	return filepath.Join(Get(), ".config"), nil
 }
 
-// GetShortcutString returns the string that is shortcut to user's home directory
+// ShortcutString returns the string that is shortcut to user's home directory
 // in the native shell of the platform running on.
-func GetShortcutString() string {
+func ShortcutString() string {
 	return "%USERPROFILE%" // be careful while using in format functions
 }
 
@@ -44,15 +49,15 @@ func StickRuntimeDirContents(files []string) ([]string, error) {
 	return nil, nil
 }
 
-// GetRuntimeDir returns a directory suitable to store runtime files.
+// RuntimeDir returns a directory suitable to store runtime files.
 // The function will try to use the XDG_RUNTIME_DIR env variable if it is set.
 // XDG_RUNTIME_DIR is typically configured via pam_systemd.
-// If XDG_RUNTIME_DIR is not set, GetRuntimeDir will try to find a suitable
+// If XDG_RUNTIME_DIR is not set, RuntimeDir will try to find a suitable
 // directory for the current user.
 //
 // See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
-func GetRuntimeDir() (string, error) {
-	data, err := GetDataHome()
+func RuntimeDir() (string, error) {
+	data, err := DataHome()
 	if err != nil {
 		return "", err
 	}
