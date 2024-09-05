@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -940,9 +941,7 @@ func (s *store) GraphOptions() []string {
 
 func (s *store) PullOptions() map[string]string {
 	cp := make(map[string]string, len(s.pullOptions))
-	for k, v := range s.pullOptions {
-		cp[k] = v
-	}
+	maps.Copy(cp, s.pullOptions)
 	return cp
 }
 
@@ -1465,7 +1464,7 @@ func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, pare
 	if lOptions != nil {
 		options = *lOptions
 		options.BigData = copyLayerBigDataOptionSlice(lOptions.BigData)
-		options.Flags = copyStringInterfaceMap(lOptions.Flags)
+		options.Flags = maps.Clone(lOptions.Flags)
 	}
 	if options.HostUIDMapping {
 		options.UIDMap = nil
@@ -1606,7 +1605,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, i
 						CreationDate: i.Created,
 						Digest:       i.Digest,
 						Digests:      copyDigestSlice(i.Digests),
-						NamesHistory: copyStringSlice(i.NamesHistory),
+						NamesHistory: slices.Clone(i.NamesHistory),
 					}
 					for _, key := range i.BigDataNames {
 						data, err := store.BigData(id, key)
@@ -1637,18 +1636,16 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, i
 			if iOptions.Digest != "" {
 				options.Digest = iOptions.Digest
 			}
-			options.Digests = append(options.Digests, copyDigestSlice(iOptions.Digests)...)
+			options.Digests = append(options.Digests, iOptions.Digests...)
 			if iOptions.Metadata != "" {
 				options.Metadata = iOptions.Metadata
 			}
 			options.BigData = append(options.BigData, copyImageBigDataOptionSlice(iOptions.BigData)...)
-			options.NamesHistory = append(options.NamesHistory, copyStringSlice(iOptions.NamesHistory)...)
+			options.NamesHistory = append(options.NamesHistory, iOptions.NamesHistory...)
 			if options.Flags == nil {
 				options.Flags = make(map[string]interface{})
 			}
-			for k, v := range iOptions.Flags {
-				options.Flags[k] = v
-			}
+			maps.Copy(options.Flags, iOptions.Flags)
 		}
 
 		if options.CreationDate.IsZero() {
@@ -1783,7 +1780,7 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		options.IDMappingOptions.UIDMap = copyIDMap(cOptions.IDMappingOptions.UIDMap)
 		options.IDMappingOptions.GIDMap = copyIDMap(cOptions.IDMappingOptions.GIDMap)
 		options.LabelOpts = copyStringSlice(cOptions.LabelOpts)
-		options.Flags = copyStringInterfaceMap(cOptions.Flags)
+		options.Flags = maps.Clone(cOptions.Flags)
 		options.MountOpts = copyStringSlice(cOptions.MountOpts)
 		options.StorageOpt = copyStringStringMap(cOptions.StorageOpt)
 		options.BigData = copyContainerBigDataOptionSlice(cOptions.BigData)
@@ -3684,22 +3681,6 @@ func copyStringSlice(slice []string) []string {
 	return ret
 }
 
-func copyStringInt64Map(m map[string]int64) map[string]int64 {
-	ret := make(map[string]int64, len(m))
-	for k, v := range m {
-		ret[k] = v
-	}
-	return ret
-}
-
-func copyStringDigestMap(m map[string]digest.Digest) map[string]digest.Digest {
-	ret := make(map[string]digest.Digest, len(m))
-	for k, v := range m {
-		ret[k] = v
-	}
-	return ret
-}
-
 func copyStringStringMap(m map[string]string) map[string]string {
 	ret := make(map[string]string, len(m))
 	for k, v := range m {
@@ -3737,7 +3718,7 @@ func copyImageBigDataOptionSlice(slice []ImageBigDataOption) []ImageBigDataOptio
 	ret := make([]ImageBigDataOption, len(slice))
 	for i := range slice {
 		ret[i].Key = slice[i].Key
-		ret[i].Data = append([]byte{}, slice[i].Data...)
+		ret[i].Data = slices.Clone(slice[i].Data)
 		ret[i].Digest = slice[i].Digest
 	}
 	return ret
@@ -3747,7 +3728,7 @@ func copyContainerBigDataOptionSlice(slice []ContainerBigDataOption) []Container
 	ret := make([]ContainerBigDataOption, len(slice))
 	for i := range slice {
 		ret[i].Key = slice[i].Key
-		ret[i].Data = append([]byte{}, slice[i].Data...)
+		ret[i].Data = slices.Clone(slice[i].Data)
 	}
 	return ret
 }
@@ -3801,10 +3782,8 @@ func GetMountOptions(driver string, graphDriverOptions []string) ([]string, erro
 			return nil, err
 		}
 		key = strings.ToLower(key)
-		for _, m := range mountOpts {
-			if m == key {
-				return strings.Split(val, ","), nil
-			}
+		if slices.Contains(mountOpts, key) {
+			return strings.Split(val, ","), nil
 		}
 	}
 	return nil, nil
@@ -3812,11 +3791,8 @@ func GetMountOptions(driver string, graphDriverOptions []string) ([]string, erro
 
 // Free removes the store from the list of stores
 func (s *store) Free() {
-	for i := 0; i < len(stores); i++ {
-		if stores[i] == s {
-			stores = append(stores[:i], stores[i+1:]...)
-			return
-		}
+	if i := slices.Index(stores, s); i != -1 {
+		stores = slices.Delete(stores, i, i+1)
 	}
 }
 

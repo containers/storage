@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -769,12 +770,9 @@ func (s *store) Repair(report CheckReport, options *RepairOptions) []error {
 		return d
 	}
 	isUnaccounted := func(errs []error) bool {
-		for _, err := range errs {
-			if errors.Is(err, ErrLayerUnaccounted) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(errs, func(err error) bool {
+			return errors.Is(err, ErrLayerUnaccounted)
+		})
 	}
 	sort.Slice(layersToDelete, func(i, j int) bool {
 		// we've not heard of either of them, so remove them in the order the driver suggested
@@ -1044,7 +1042,7 @@ func (c *checkDirectory) header(hdr *tar.Header) {
 
 // headers updates a checkDirectory using information from the passed-in header slice
 func (c *checkDirectory) headers(hdrs []*tar.Header) {
-	hdrs = append([]*tar.Header{}, hdrs...)
+	hdrs = slices.Clone(hdrs)
 	// sort the headers from the diff to ensure that whiteouts appear
 	// before content when they both appear in the same directory, per
 	// https://github.com/opencontainers/image-spec/blob/main/layer.md#whiteouts

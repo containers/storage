@@ -205,17 +205,13 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = checkChanges(noChanges, changes); err != nil {
-		t.Fatal(err)
-	}
+	require.ElementsMatch(t, noChanges, changes)
 
 	changes, err = driver.Changes("ROFromTemplate", nil, "Snap3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = checkChanges(noChanges, changes); err != nil {
-		t.Fatal(err)
-	}
+	require.ElementsMatch(t, noChanges, changes)
 
 	if err := checkFile(driver, "FromTemplate", "testfile.txt", content); err != nil {
 		t.Fatal(err)
@@ -236,25 +232,19 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = checkChanges(expectedChanges, changes); err != nil {
-		t.Fatal(err)
-	}
+	require.ElementsMatch(t, expectedChanges, changes)
 
 	changes, err = driver.Changes("FromTemplate", nil, "Base3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = checkChanges(expectedChanges, changes); err != nil {
-		t.Fatal(err)
-	}
+	require.ElementsMatch(t, expectedChanges, changes)
 
 	changes, err = driver.Changes("ROFromTemplate", nil, "Base3", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = checkChanges(expectedChanges, changes); err != nil {
-		t.Fatal(err)
-	}
+	require.ElementsMatch(t, expectedChanges, changes)
 
 	verifyBase(t, driver, "Base3", defaultPerms)
 }
@@ -417,10 +407,7 @@ func DriverTestChanges(t testing.TB, drivername string, driverOptions ...string)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if err = checkChanges(expectedChanges, changes); err != nil {
-		t.Fatal(err)
-	}
+	require.ElementsMatch(t, expectedChanges, changes)
 }
 
 func writeRandomFile(path string, size uint64) error {
@@ -513,10 +500,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if err = checkChanges(expectedChanges, changes); err != nil {
-			t.Fatal(err)
-		}
+		require.ElementsMatch(t, expectedChanges, changes)
 
 		if err := driver.Create(second, base, nil); err != nil {
 			t.Fatal(err)
@@ -540,10 +524,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if err = checkChanges(expectedChanges, changes); err != nil {
-			t.Fatal(err)
-		}
+		require.ElementsMatch(t, expectedChanges, changes)
 
 		if err = driver.Create(third, second, nil); err != nil {
 			t.Fatal(err)
@@ -573,10 +554,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		if err = checkChanges(expectedChanges, changes); err != nil {
-			t.Fatal(err)
-		}
+		require.ElementsMatch(t, expectedChanges, changes)
 
 		err = driver.Put(third)
 		if err != nil {

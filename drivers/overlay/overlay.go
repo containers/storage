@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -158,30 +159,7 @@ func init() {
 }
 
 func hasMetacopyOption(opts []string) bool {
-	for _, s := range opts {
-		if s == "metacopy=on" {
-			return true
-		}
-	}
-	return false
-}
-
-func stripOption(opts []string, option string) []string {
-	for i, s := range opts {
-		if s == option {
-			return stripOption(append(opts[:i], opts[i+1:]...), option)
-		}
-	}
-	return opts
-}
-
-func hasVolatileOption(opts []string) bool {
-	for _, s := range opts {
-		if s == "volatile" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(opts, "metacopy=on")
 }
 
 func getMountProgramFlagFile(path string) string {
@@ -1526,14 +1504,13 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 				logrus.Debugf("Ignoring global metacopy option, the mount program doesn't support it")
 			}
 		}
-		optsList = stripOption(optsList, "metacopy=on")
+		optsList = slices.DeleteFunc(optsList, func(opt string) bool {
+			return opt == "metacopy=on"
+		})
 	}
 
-	for _, o := range optsList {
-		if o == "ro" {
-			readWrite = false
-			break
-		}
+	if slices.Contains(optsList, "ro") {
+		readWrite = false
 	}
 
 	lowers, err := os.ReadFile(path.Join(dir, lowerFile))
@@ -1732,7 +1709,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 		optsList = append(optsList, "userxattr")
 	}
 
-	if options.Volatile && !hasVolatileOption(optsList) {
+	if options.Volatile && !slices.Contains(optsList, "volatile") {
 		supported, err := d.getSupportsVolatile()
 		if err != nil {
 			return "", err
