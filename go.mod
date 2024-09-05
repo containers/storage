@@ -1,7 +1,7 @@
-go 1.21
+go 1.22.0
 
-// Warning: Ensure the "go" and "toolchain" versions match exactly to prevent unwanted auto-updates
-toolchain go1.21.0
+// Warning: Ensure the "go" and "toolchain" versions match exactly to prevent unwanted auto-updates.
+// That generally means there should be no toolchain directive present.
 
 module github.com/containers/storage
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -1622,7 +1623,7 @@ func (s *store) CreateImage(id string, names []string, layer, metadata string, i
 							Digest: dataDigest,
 						})
 					}
-					namesToAddAfterCreating = dedupeStrings(append(append([]string{}, i.Names...), names...))
+					namesToAddAfterCreating = dedupeStrings(slices.Concat(i.Names, names))
 					break
 				}
 			}

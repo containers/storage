@@ -82,7 +82,7 @@ func BenchmarkRollsum(b *testing.B) {
 	b.ResetTimer()
 	rs := NewRollSum()
 	splits := 0
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		splits = 0
 		for _, b := range buf {
 			rs.Roll(b)

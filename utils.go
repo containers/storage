@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/containers/storage/types"
 )
@@ -54,9 +55,7 @@ func applyNameOperation(oldNames []string, opParameters []string, op updateNameO
 			}
 		}
 	case addNames:
-		result = make([]string, 0, len(opParameters)+len(oldNames))
-		result = append(result, opParameters...)
-		result = append(result, oldNames...)
+		result = slices.Concat(opParameters, oldNames)
 	default:
 		return result, errInvalidUpdateNameOperation
 	}

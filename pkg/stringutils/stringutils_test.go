@@ -13,7 +13,7 @@ func testLengthHelper(t *testing.T, generator func(int) string) {
 func testUniquenessHelper(t *testing.T, generator func(int) string) {
 	repeats := 25
 	set := make(map[string]struct{}, repeats)
-	for i := 0; i < repeats; i = i + 1 {
+	for range repeats {
 		str := generator(64)
 		if len(str) != 64 {
 			t.Fatalf("Id returned is incorrect: %s", str)
