@@ -291,7 +291,7 @@ func (c *layersCache) load() error {
 		if r.ReadOnly {
 			// If the layer is coming from a read-only store, do not attempt
 			// to write to it.
-			// Therefore,we won’t find any matches in read-only-store layers,
+			// Therefore, we won’t find any matches in read-only-store layers,
 			// unless the read-only store layer comes prepopulated with cacheKey data.
 			continue
 		}

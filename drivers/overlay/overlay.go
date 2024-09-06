@@ -1873,7 +1873,9 @@ func (d *Driver) getMergedDir(id, dir string, inAdditionalStore bool) string {
 	// and since the rundir cannot be shared for different stores, it is safe to assume the
 	// current process has exclusive access to it.
 	//
-	// LOCKING BUG? the .DiffSize operation does not currently hold an exclusive lock on the primary store.
+	// TO DO: LOCKING BUG: the .DiffSize operation does not currently hold an exclusive lock on the primary store.
+	// (_Some_ of the callers might be better ported to use a metadata-only size computation instead of DiffSize,
+	// but DiffSize probably needs to remain for computing sizes of container’s RW layers.)
 	if inAdditionalStore {
 		return path.Join(d.runhome, id, "merged")
 	}
