@@ -88,8 +88,7 @@ const (
 
 	stagingLockFile = "staging.lock"
 
-	tocArtifact             = "toc"
-	fsVerityDigestsArtifact = "fs-verity-digests"
+	tocArtifact = "toc"
 
 	// idLength represents the number of random characters
 	// which can be used to create the unique link identifier
@@ -2284,7 +2283,7 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *gr
 
 	if d.usingComposefs {
 		toc := diffOutput.Artifacts[tocArtifact]
-		verityDigests := diffOutput.Artifacts[fsVerityDigestsArtifact].(map[string]string)
+		verityDigests := diffOutput.Artifacts[FsVerityDigestsKey].(map[string]string)
 		if err := generateComposeFsBlob(verityDigests, toc, d.getComposefsData(id)); err != nil {
 			return err
 		}

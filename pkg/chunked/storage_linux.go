@@ -20,6 +20,7 @@ import (
 	"github.com/containerd/stargz-snapshotter/estargz"
 	storage "github.com/containers/storage"
 	graphdriver "github.com/containers/storage/drivers"
+	"github.com/containers/storage/drivers/overlay"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chunked/compressor"
 	"github.com/containers/storage/pkg/chunked/internal"
@@ -44,7 +45,6 @@ const (
 	chunkedData             = "zstd-chunked-data"
 	chunkedLayerDataKey     = "zstd-chunked-layer-data"
 	tocKey                  = "toc"
-	fsVerityDigestsKey      = "fs-verity-digests"
 
 	fileTypeZstdChunked = iota
 	fileTypeEstargz
@@ -1554,7 +1554,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		logrus.Debugf("Missing %d bytes out of %d (%.2f %%)", missingPartsSize, totalChunksSize, float32(missingPartsSize*100.0)/float32(totalChunksSize))
 	}
 
-	output.Artifacts[fsVerityDigestsKey] = c.fsVerityDigests
+	output.Artifacts[overlay.FsVerityDigestsKey] = c.fsVerityDigests
 
 	return output, nil
 }

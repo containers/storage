@@ -21,6 +21,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Key used to find the lookaside digests in associated data with a layer
+const FsVerityDigestsKey = "fs-verity-digests"
+
 var (
 	composeFsHelperOnce sync.Once
 	composeFsHelperPath string
