@@ -3110,16 +3110,18 @@ func (s *store) CleanupStagedLayer(diffOutput *drivers.DriverWithDifferOutput) e
 }
 
 func (s *store) PrepareStagedLayer(options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
-	return s.ApplyDiffWithDiffer("", options, differ)
+	rlstore, err := s.getLayerStore()
+	if err != nil {
+		return nil, err
+	}
+	return rlstore.applyDiffWithDifferNoLock(options, differ)
 }
 
 func (s *store) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
-	return writeToLayerStore(s, func(rlstore rwLayerStore) (*drivers.DriverWithDifferOutput, error) {
-		if to != "" && !rlstore.Exists(to) {
-			return nil, ErrLayerUnknown
-		}
-		return rlstore.ApplyDiffWithDiffer(to, options, differ)
-	})
+	if to != "" {
+		return nil, fmt.Errorf("ApplyDiffWithDiffer does not support non-empty 'layer' parameter")
+	}
+	return s.PrepareStagedLayer(options, differ)
 }
 
 func (s *store) DifferTarget(id string) (string, error) {

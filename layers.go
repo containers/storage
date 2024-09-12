@@ -314,9 +314,8 @@ type rwLayerStore interface {
 	// applies its changes to a specified layer.
 	ApplyDiff(to string, diff io.Reader) (int64, error)
 
-	// ApplyDiffWithDiffer applies the changes through the differ callback function.
-	// If to is the empty string, then a staging directory is created by the driver.
-	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
+	// applyDiffWithDifferNoLock applies the changes through the differ callback function.
+	applyDiffWithDifferNoLock(options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
 	// CleanupStagingDirectory cleanups the staging directory.  It can be used to cleanup the staging directory on errors
 	CleanupStagingDirectory(stagingDirectory string) error
@@ -2543,37 +2542,14 @@ func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *driver
 	return err
 }
 
-// Requires startWriting.
-func (r *layerStore) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
+// It must be called without any c/storage locks held to allow differ to make c/storage calls.
+func (r *layerStore) applyDiffWithDifferNoLock(options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
 	ddriver, ok := r.driver.(drivers.DriverWithDiffer)
 	if !ok {
 		return nil, ErrNotSupported
 	}
 
-	if to == "" {
-		output, err := ddriver.ApplyDiffWithDiffer("", "", options, differ)
-		return &output, err
-	}
-
-	layer, ok := r.lookup(to)
-	if !ok {
-		return nil, ErrLayerUnknown
-	}
-	if options == nil {
-		options = &drivers.ApplyDiffWithDifferOpts{
-			ApplyDiffOpts: drivers.ApplyDiffOpts{
-				Mappings:   r.layerMappings(layer),
-				MountLabel: layer.MountLabel,
-			},
-		}
-	}
-	output, err := ddriver.ApplyDiffWithDiffer(layer.ID, layer.Parent, options, differ)
-	if err != nil {
-		return nil, err
-	}
-	layer.UIDs = output.UIDs
-	layer.GIDs = output.GIDs
-	err = r.saveFor(layer)
+	output, err := ddriver.ApplyDiffWithDiffer("", "", options, differ)
 	return &output, err
 }
 

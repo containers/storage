@@ -82,6 +82,7 @@ func (c *layer) release() {
 		if err := unix.Munmap(c.mmapBuffer); err != nil {
 			logrus.Warnf("Error Munmap: layer %q: %v", c.id, err)
 		}
+		c.mmapBuffer = nil
 	}
 }
 
@@ -110,7 +111,7 @@ func getLayersCacheRef(store storage.Store) *layersCache {
 		cache.refs++
 		return cache
 	}
-	cache := &layersCache{
+	cache = &layersCache{
 		store: store,
 		refs:  1,
 	}
@@ -779,13 +780,13 @@ func (c *layersCache) findDigestInternal(digest string) (string, string, int64, 
 		return "", "", -1, nil
 	}
 
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
 	binaryDigest, err := makeBinaryDigest(digest)
 	if err != nil {
 		return "", "", 0, err
 	}
-
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
 
 	for _, layer := range c.layers {
 		if !layer.cacheFile.bloomFilter.maybeContains(binaryDigest) {
