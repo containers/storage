@@ -65,11 +65,10 @@ type layer struct {
 }
 
 type layersCache struct {
-	layers  []*layer
-	refs    int
-	store   storage.Store
-	mutex   sync.RWMutex
-	created time.Time
+	layers []*layer
+	refs   int
+	store  storage.Store
+	mutex  sync.RWMutex
 }
 
 var (
@@ -107,14 +106,13 @@ func (c *layersCache) release() {
 func getLayersCacheRef(store storage.Store) *layersCache {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
-	if cache != nil && cache.store == store && time.Since(cache.created).Minutes() < 10 {
+	if cache != nil && cache.store == store {
 		cache.refs++
 		return cache
 	}
 	cache := &layersCache{
-		store:   store,
-		refs:    1,
-		created: time.Now(),
+		store: store,
+		refs:  1,
 	}
 	return cache
 }
