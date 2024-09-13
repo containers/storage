@@ -343,7 +343,7 @@ type Store interface {
 
 	// ApplyDiffer applies a diff to a layer.
 	// It is the caller responsibility to clean the staging directory if it is not
-	// successfully applied with ApplyDiffFromStagingDirectory.
+	// successfully applied with ApplyStagedLayer.
 	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
 	// ApplyStagedLayer combines the functions of creating a layer and using the staging
