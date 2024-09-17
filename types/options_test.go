@@ -125,13 +125,52 @@ func TestGetRootlessStorageOpts2(t *testing.T) {
 }
 
 func TestReloadConfigurationFile(t *testing.T) {
-	content := bytes.NewBufferString("")
-	logrus.SetOutput(content)
-	var storageOpts StoreOptions
-	err := ReloadConfigurationFile("./storage_broken.conf", &storageOpts)
-	require.NoError(t, err)
-	assert.Equal(t, storageOpts.RunRoot, "/run/containers/test")
-	logrus.SetOutput(os.Stderr)
-
-	assert.Equal(t, strings.Contains(content.String(), "Failed to decode the keys [\\\"foo\\\" \\\"storage.options.graphroot\\\"] from \\\"./storage_broken.conf\\\"\""), true)
+	t.Run("broken", func(t *testing.T) {
+		content := bytes.NewBufferString("")
+		logrus.SetOutput(content)
+		var storageOpts StoreOptions
+		err := ReloadConfigurationFile("./storage_broken.conf", &storageOpts)
+		require.NoError(t, err)
+		assert.Equal(t, storageOpts.RunRoot, "/run/containers/test")
+		logrus.SetOutput(os.Stderr)
+		assert.Equal(t, strings.Contains(content.String(), "Failed to decode the keys [\\\"foo\\\" \\\"storage.options.graphroot\\\"] from \\\"./storage_broken.conf\\\"\""), true)
+	})
+	t.Run("imagestore-empty", func(t *testing.T) {
+		expectedStore := ""
+		expectedAdditionalStores := ""
+		var storageOpts StoreOptions
+		err := ReloadConfigurationFile("./storage_test.conf", &storageOpts)
+		require.NoError(t, err)
+		var actualStore, actualAdditionalStores string
+		for _, o := range storageOpts.GraphDriverOptions {
+			option := strings.Split(o, "=")
+			switch option[0] {
+			case storageOpts.GraphDriverName + ".imagestore":
+				actualStore = option[1]
+			case storageOpts.GraphDriverName + ".additionalimagestores":
+				actualAdditionalStores = option[1]
+			}
+		}
+		assert.Equal(t, actualStore, expectedStore)
+		assert.Equal(t, actualAdditionalStores, expectedAdditionalStores)
+	})
+	t.Run("imagestore-many", func(t *testing.T) {
+		expectedStore := "/var/lib/containers/storage1"
+		expectedAdditionalStores := "/var/lib/containers/storage1,/var/lib/containers/storage2"
+		var storageOpts StoreOptions
+		err := ReloadConfigurationFile("./storage_imagestores_test.conf", &storageOpts)
+		require.NoError(t, err)
+		var actualStore, actualAdditionalStores string
+		for _, o := range storageOpts.GraphDriverOptions {
+			option := strings.Split(o, "=")
+			switch option[0] {
+			case storageOpts.GraphDriverName + ".imagestore":
+				actualStore = option[1]
+			case storageOpts.GraphDriverName + ".additionalimagestores":
+				actualAdditionalStores = option[1]
+			}
+		}
+		assert.Equal(t, actualStore, expectedStore)
+		assert.Equal(t, actualAdditionalStores, expectedAdditionalStores)
+	})
 }

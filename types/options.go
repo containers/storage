@@ -457,8 +457,11 @@ func ReloadConfigurationFile(configFile string, storeOptions *StoreOptions) erro
 	if config.Storage.RootlessStoragePath != "" {
 		storeOptions.RootlessStoragePath = config.Storage.RootlessStoragePath
 	}
-	for _, s := range config.Storage.Options.AdditionalImageStores {
-		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, s))
+	if len(config.Storage.Options.AdditionalImageStores) > 0 {
+		imageStore := config.Storage.Options.AdditionalImageStores[0]
+		additionalImageStores := strings.Join(config.Storage.Options.AdditionalImageStores, ",")
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.imagestore=%s", config.Storage.Driver, imageStore))
+		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.additionalimagestores=%s", config.Storage.Driver, additionalImageStores))
 	}
 	for _, s := range config.Storage.Options.AdditionalLayerStores {
 		storeOptions.GraphDriverOptions = append(storeOptions.GraphDriverOptions, fmt.Sprintf("%s.additionallayerstore=%s", config.Storage.Driver, s))
