@@ -2166,7 +2166,7 @@ func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
 }
 
 // ApplyDiffWithDiffer applies the changes in the new layer using the specified function
-func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, errRet error) {
+func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpts, differ graphdriver.Differ) (output graphdriver.DriverWithDifferOutput, errRet error) {
 	var idMappings *idtools.IDMappings
 	var forceMask *os.FileMode
 
@@ -2184,44 +2184,36 @@ func (d *Driver) ApplyDiffWithDiffer(id, parent string, options *graphdriver.App
 
 	var applyDir string
 
-	if id == "" {
-		stagingDir := d.getStagingDir(id)
-		err := os.MkdirAll(stagingDir, 0o700)
-		if err != nil && !os.IsExist(err) {
-			return graphdriver.DriverWithDifferOutput{}, err
-		}
-		layerDir, err := os.MkdirTemp(stagingDir, "")
-		if err != nil {
-			return graphdriver.DriverWithDifferOutput{}, err
-		}
-		perms := defaultPerms
-		if forceMask != nil {
-			perms = *forceMask
-		}
-		applyDir = filepath.Join(layerDir, "dir")
-		if err := os.Mkdir(applyDir, perms); err != nil {
-			return graphdriver.DriverWithDifferOutput{}, err
-		}
-
-		lock, err := lockfile.GetLockFile(filepath.Join(layerDir, stagingLockFile))
-		if err != nil {
-			return graphdriver.DriverWithDifferOutput{}, err
-		}
-		defer func() {
-			if errRet != nil {
-				delete(d.stagingDirsLocks, layerDir)
-				lock.Unlock()
-			}
-		}()
-		d.stagingDirsLocks[layerDir] = lock
-		lock.Lock()
-	} else {
-		var err error
-		applyDir, err = d.getDiffPath(id)
-		if err != nil {
-			return graphdriver.DriverWithDifferOutput{}, err
-		}
+	stagingDir := d.getStagingDir("")
+	err := os.MkdirAll(stagingDir, 0o700)
+	if err != nil && !os.IsExist(err) {
+		return graphdriver.DriverWithDifferOutput{}, err
 	}
+	layerDir, err := os.MkdirTemp(stagingDir, "")
+	if err != nil {
+		return graphdriver.DriverWithDifferOutput{}, err
+	}
+	perms := defaultPerms
+	if forceMask != nil {
+		perms = *forceMask
+	}
+	applyDir = filepath.Join(layerDir, "dir")
+	if err := os.Mkdir(applyDir, perms); err != nil {
+		return graphdriver.DriverWithDifferOutput{}, err
+	}
+
+	lock, err := lockfile.GetLockFile(filepath.Join(layerDir, stagingLockFile))
+	if err != nil {
+		return graphdriver.DriverWithDifferOutput{}, err
+	}
+	defer func() {
+		if errRet != nil {
+			delete(d.stagingDirsLocks, layerDir)
+			lock.Unlock()
+		}
+	}()
+	d.stagingDirsLocks[layerDir] = lock
+	lock.Lock()
 
 	logrus.Debugf("Applying differ in %s", applyDir)
 

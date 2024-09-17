@@ -2549,7 +2549,7 @@ func (r *layerStore) applyDiffWithDifferNoLock(options *drivers.ApplyDiffWithDif
 		return nil, ErrNotSupported
 	}
 
-	output, err := ddriver.ApplyDiffWithDiffer("", "", options, differ)
+	output, err := ddriver.ApplyDiffWithDiffer(options, differ)
 	return &output, err
 }
 
