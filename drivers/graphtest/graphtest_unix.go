@@ -1,5 +1,4 @@
 //go:build linux || freebsd || solaris
-// +build linux freebsd solaris
 
 package graphtest
 

@@ -1,5 +1,4 @@
 //go:build linux || freebsd
-// +build linux freebsd
 
 // ^^ The code is conceptually portable, but only called from within *_unix.go in this package.
 // So it is excluded to avoid warnings on other platforms.
