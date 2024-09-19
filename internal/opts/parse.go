@@ -46,14 +46,13 @@ func ParseFlag(arg string, prev Args) (Args, error) {
 		return filters, nil
 	}
 
-	if !strings.Contains(arg, "=") {
+	name, value, ok := strings.Cut(arg, "=")
+	if !ok {
 		return filters, ErrBadFormat
 	}
 
-	f := strings.SplitN(arg, "=", 2)
-
-	name := strings.ToLower(strings.TrimSpace(f[0]))
-	value := strings.TrimSpace(f[1])
+	name = strings.ToLower(strings.TrimSpace(name))
+	value = strings.TrimSpace(value)
 
 	filters.Add(name, value)
 
@@ -140,14 +139,14 @@ func (args Args) MatchKVList(key string, sources map[string]string) bool {
 		return false
 	}
 
-	for value := range fieldValues {
-		testKV := strings.SplitN(value, "=", 2)
+	for field := range fieldValues {
+		key, val, gotVal := strings.Cut(field, "=")
 
-		v, ok := sources[testKV[0]]
+		v, ok := sources[key]
 		if !ok {
 			return false
 		}
-		if len(testKV) == 2 && testKV[1] != v {
+		if gotVal && val != v {
 			return false
 		}
 	}
