@@ -36,12 +36,12 @@ func getRelease() (string, error) {
 	for _, line := range data {
 		if strings.Contains(line, "Kernel Version") {
 			// It has the format like '      Kernel Version: Darwin 14.5.0'
-			content := strings.SplitN(line, ":", 2)
-			if len(content) != 2 {
+			_, val, ok := strings.Cut(line, ":")
+			if !ok {
 				return "", fmt.Errorf("kernel version is invalid")
 			}
 
-			prettyNames, err := shellwords.Parse(content[1])
+			prettyNames, err := shellwords.Parse(val)
 			if err != nil {
 				return "", fmt.Errorf("kernel version is invalid: %w", err)
 			}
