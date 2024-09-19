@@ -554,8 +554,10 @@ func (fs *FlagSet) PrintDefaults() {
 		if len(names) > 0 && len(flag.Usage) > 0 {
 			val := flag.DefValue
 
-			if home != "" && strings.HasPrefix(val, home) {
-				val = homedir.GetShortcutString() + val[len(home):]
+			if home != "" {
+				if relhome, ok := strings.CutPrefix(val, home); ok {
+					val = homedir.GetShortcutString() + relhome
+				}
 			}
 
 			if isZeroValue(val) {
