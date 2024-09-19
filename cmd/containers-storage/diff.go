@@ -182,7 +182,7 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 	}
 
 	var options graphdriver.ApplyDiffWithDifferOpts
-	out, err := m.ApplyDiffWithDiffer("", &options, differ)
+	out, err := m.PrepareStagedLayer(&options, differ)
 	if err != nil {
 		return 1, err
 	}
