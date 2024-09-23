@@ -1,10 +1,11 @@
-// Copyright (c) 2013, Suryandaru Triandana <syndtr@gmail.com>
+// Copyright 2023 The Capability Authors.
+// Copyright 2013 Suryandaru Triandana <syndtr@gmail.com>
 // All rights reserved.
 //
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
-// +build !linux
+//go:build !linux
 
 package capability
 
