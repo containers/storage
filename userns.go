@@ -89,7 +89,7 @@ func parseMountedFiles(containerMount, passwdFile, groupFile string) uint32 {
 		passwdFile = filepath.Join(containerMount, "etc/passwd")
 	}
 	if groupFile == "" {
-		groupFile = filepath.Join(groupFile, "etc/group")
+		groupFile = filepath.Join(containerMount, "etc/group")
 	}
 
 	size := 0
@@ -103,10 +103,10 @@ func parseMountedFiles(containerMount, passwdFile, groupFile string) uint32 {
 				continue
 			}
 			if u.Uid > size && u.Uid != nobodyUser {
-				size = u.Uid
+				size = u.Uid + 1
 			}
 			if u.Gid > size && u.Gid != nobodyUser {
-				size = u.Gid
+				size = u.Gid + 1
 			}
 		}
 	}
@@ -118,7 +118,7 @@ func parseMountedFiles(containerMount, passwdFile, groupFile string) uint32 {
 				continue
 			}
 			if g.Gid > size && g.Gid != nobodyUser {
-				size = g.Gid
+				size = g.Gid + 1
 			}
 		}
 	}
