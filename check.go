@@ -1003,12 +1003,12 @@ func (c *checkDirectory) remove(path string) {
 func (c *checkDirectory) header(hdr *tar.Header) {
 	name := path.Clean(hdr.Name)
 	dir, base := path.Split(name)
-	if strings.HasPrefix(base, archive.WhiteoutPrefix) {
+	if file, ok := strings.CutPrefix(base, archive.WhiteoutPrefix); ok {
 		if base == archive.WhiteoutOpaqueDir {
 			c.remove(path.Clean(dir))
 			c.add(path.Clean(dir), tar.TypeDir, hdr.Uid, hdr.Gid, hdr.Size, os.FileMode(hdr.Mode), hdr.ModTime.Unix())
 		} else {
-			c.remove(path.Join(dir, base[len(archive.WhiteoutPrefix):]))
+			c.remove(path.Join(dir, file))
 		}
 	} else {
 		if hdr.Typeflag == tar.TypeLink {

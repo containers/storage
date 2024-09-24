@@ -209,7 +209,8 @@ func validateMount(t *testing.T, mnt string, opts, optional, vfs string) {
 
 // clean strips off any value param after the colon
 func clean(v string) string {
-	return strings.SplitN(v, ":", 2)[0]
+	ret, _, _ := strings.Cut(v, ":")
+	return ret
 }
 
 // has returns true if key is a member of m

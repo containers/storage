@@ -22,36 +22,36 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 		return 1, nil
 	}
 	if len(chownOptions) > 0 {
-		chownParts := strings.SplitN(chownOptions, ":", 2)
-		if len(chownParts) == 1 {
-			chownParts = append(chownParts, chownParts[0])
+		uidStr, gidStr, ok := strings.Cut(chownOptions, ":")
+		if !ok {
+			gidStr = uidStr
 		}
-		uid, err := strconv.ParseUint(chownParts[0], 10, 32)
+		uid, err := strconv.ParseUint(uidStr, 10, 32)
 		if err != nil {
-			return 1, fmt.Errorf("error %q as a numeric UID: %v", chownParts[0], err)
+			return 1, fmt.Errorf("bad UID: %w", err)
 		}
-		gid, err := strconv.ParseUint(chownParts[1], 10, 32)
+		gid, err := strconv.ParseUint(gidStr, 10, 32)
 		if err != nil {
-			return 1, fmt.Errorf("error %q as a numeric GID: %v", chownParts[1], err)
+			return 1, fmt.Errorf("bad GID: %w", err)
 		}
 		chownOpts = &idtools.IDPair{UID: int(uid), GID: int(gid)}
 	}
 	target := args[len(args)-1]
 	if strings.Contains(target, ":") {
-		targetParts := strings.SplitN(target, ":", 2)
-		if len(targetParts) != 2 {
+		layer, targetRel, ok := strings.Cut(target, ":")
+		if !ok {
 			return 1, fmt.Errorf("error parsing target location %q: only one part", target)
 		}
-		targetLayer, err := m.Layer(targetParts[0])
+		targetLayer, err := m.Layer(layer)
 		if err != nil {
-			return 1, fmt.Errorf("error finding layer %q: %+v", targetParts[0], err)
+			return 1, fmt.Errorf("error finding layer %q: %+v", layer, err)
 		}
 		untarIDMappings = idtools.NewIDMappingsFromMaps(targetLayer.UIDMap, targetLayer.GIDMap)
 		targetMount, err := m.Mount(targetLayer.ID, targetLayer.MountLabel)
 		if err != nil {
 			return 1, fmt.Errorf("error mounting layer %q: %+v", targetLayer.ID, err)
 		}
-		target = filepath.Join(targetMount, targetParts[1])
+		target = filepath.Join(targetMount, targetRel)
 		defer func() {
 			if _, err := m.Unmount(targetLayer.ID, false); err != nil {
 				fmt.Fprintf(os.Stderr, "error unmounting layer %q: %+v\n", targetLayer.ID, err)
@@ -63,21 +63,17 @@ func copyContent(flags *mflag.FlagSet, action string, m storage.Store, args []st
 	for _, srcSpec := range args {
 		var tarIDMappings *idtools.IDMappings
 		source := srcSpec
-		if strings.Contains(source, ":") {
-			sourceParts := strings.SplitN(source, ":", 2)
-			if len(sourceParts) != 2 {
-				return 1, fmt.Errorf("error parsing source location %q: only one part", source)
-			}
-			sourceLayer, err := m.Layer(sourceParts[0])
+		if layer, sourceRel, ok := strings.Cut(source, ":"); ok {
+			sourceLayer, err := m.Layer(layer)
 			if err != nil {
-				return 1, fmt.Errorf("error finding layer %q: %+v", sourceParts[0], err)
+				return 1, fmt.Errorf("error finding layer %q: %+v", layer, err)
 			}
 			tarIDMappings = idtools.NewIDMappingsFromMaps(sourceLayer.UIDMap, sourceLayer.GIDMap)
 			sourceMount, err := m.Mount(sourceLayer.ID, sourceLayer.MountLabel)
 			if err != nil {
 				return 1, fmt.Errorf("error mounting layer %q: %+v", sourceLayer.ID, err)
 			}
-			source = filepath.Join(sourceMount, sourceParts[1])
+			source = filepath.Join(sourceMount, sourceRel)
 			defer func() {
 				if _, err := m.Unmount(sourceLayer.ID, false); err != nil {
 					fmt.Fprintf(os.Stderr, "error unmounting layer %q: %+v\n", sourceLayer.ID, err)

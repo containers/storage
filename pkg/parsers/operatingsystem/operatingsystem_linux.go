@@ -41,14 +41,13 @@ func GetOperatingSystem() (string, error) {
 	scanner := bufio.NewScanner(osReleaseFile)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "PRETTY_NAME=") {
-			data := strings.SplitN(line, "=", 2)
-			prettyNames, err := shellwords.Parse(data[1])
+		if name, ok := strings.CutPrefix(line, "PRETTY_NAME="); ok {
+			prettyNames, err := shellwords.Parse(name)
 			if err != nil {
 				return "", fmt.Errorf("PRETTY_NAME is invalid: %s", err.Error())
 			}
 			if len(prettyNames) != 1 {
-				return "", fmt.Errorf("PRETTY_NAME needs to be enclosed by quotes if they have spaces: %s", data[1])
+				return "", fmt.Errorf("PRETTY_NAME needs to be enclosed by quotes if they have spaces: %s", name)
 			}
 			prettyName = prettyNames[0]
 		}
