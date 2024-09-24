@@ -228,6 +228,15 @@ nobody:x:65534:`,
 			groupContent:  "FOOBAR",
 			expectedMax:   0,
 		},
+		{
+			name:          "nogroup ignored",
+			passwdContent: "",
+			groupContent: `
+root:x:0:
+admin:x:4000:
+nogroup:x:65533:`,
+			expectedMax: 4001,
+		},
 	}
 
 	for _, tt := range tests {
