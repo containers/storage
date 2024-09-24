@@ -869,11 +869,11 @@ func (d *Driver) pruneStagingDirectories() bool {
 
 	anyPresent := false
 
-	homeStagingDir := filepath.Join(d.home, stagingDir)
-	dirs, err := os.ReadDir(homeStagingDir)
+	stagingDirBase := filepath.Join(d.homeDirForImageStore(), stagingDir)
+	dirs, err := os.ReadDir(stagingDirBase)
 	if err == nil {
 		for _, dir := range dirs {
-			stagingDirToRemove := filepath.Join(homeStagingDir, dir.Name())
+			stagingDirToRemove := filepath.Join(stagingDirBase, dir.Name())
 			lock, err := lockfile.GetLockFile(filepath.Join(stagingDirToRemove, stagingLockFile))
 			if err != nil {
 				anyPresent = true
@@ -1205,17 +1205,22 @@ func (d *Driver) getAllImageStores() []string {
 	return additionalImageStores
 }
 
-func (d *Driver) dir2(id string, useImageStore bool) (string, string, bool) {
-	var homedir string
-
-	if useImageStore && d.imageStore != "" {
-		homedir = path.Join(d.imageStore, d.name)
-	} else {
-		homedir = d.home
+// homeDirForImageStore returns the home directory to use when an image store is configured
+func (d *Driver) homeDirForImageStore() string {
+	if d.imageStore != "" {
+		return path.Join(d.imageStore, d.name)
 	}
+	// If there is not an image store configured, use the same
+	// store
+	return d.home
+}
 
+func (d *Driver) dir2(id string, useImageStore bool) (string, string, bool) {
+	homedir := d.home
+	if useImageStore {
+		homedir = d.homeDirForImageStore()
+	}
 	newpath := path.Join(homedir, id)
-
 	if err := fileutils.Exists(newpath); err != nil {
 		for _, p := range d.getAllImageStores() {
 			l := path.Join(p, d.name, id)
@@ -2087,9 +2092,14 @@ func (g *overlayFileGetter) Close() error {
 	return errs.ErrorOrNil()
 }
 
-func (d *Driver) getStagingDir(id string) string {
-	_, homedir, _ := d.dir2(id, d.imageStore != "")
-	return filepath.Join(homedir, stagingDir)
+// newStagingDir creates a new staging directory and returns the path to it.
+func (d *Driver) newStagingDir() (string, error) {
+	stagingDirBase := filepath.Join(d.homeDirForImageStore(), stagingDir)
+	err := os.MkdirAll(stagingDirBase, 0o700)
+	if err != nil && !os.IsExist(err) {
+		return "", err
+	}
+	return os.MkdirTemp(stagingDirBase, "")
 }
 
 // DiffGetter returns a FileGetCloser that can read files from the directory that
@@ -2182,14 +2192,7 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 		idMappings = &idtools.IDMappings{}
 	}
 
-	var applyDir string
-
-	stagingDir := d.getStagingDir("")
-	err := os.MkdirAll(stagingDir, 0o700)
-	if err != nil && !os.IsExist(err) {
-		return graphdriver.DriverWithDifferOutput{}, err
-	}
-	layerDir, err := os.MkdirTemp(stagingDir, "")
+	layerDir, err := d.newStagingDir()
 	if err != nil {
 		return graphdriver.DriverWithDifferOutput{}, err
 	}
@@ -2197,7 +2200,7 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 	if forceMask != nil {
 		perms = *forceMask
 	}
-	applyDir = filepath.Join(layerDir, "dir")
+	applyDir := filepath.Join(layerDir, "dir")
 	if err := os.Mkdir(applyDir, perms); err != nil {
 		return graphdriver.DriverWithDifferOutput{}, err
 	}
@@ -2249,10 +2252,6 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *gr
 			lock.Unlock()
 		}
 	}()
-
-	if filepath.Dir(parentStagingDir) != d.getStagingDir(id) {
-		return fmt.Errorf("%q is not a staging directory", stagingDirectory)
-	}
 
 	diffPath, err := d.getDiffPath(id)
 	if err != nil {
