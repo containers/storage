@@ -8,7 +8,7 @@ module github.com/containers/storage
 require (
 	github.com/BurntSushi/toml v1.4.0
 	github.com/Microsoft/go-winio v0.6.2
-	github.com/Microsoft/hcsshim v0.12.6
+	github.com/Microsoft/hcsshim v0.12.7
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1
 	github.com/cyphar/filepath-securejoin v0.3.2
 	github.com/docker/go-units v0.5.0
@@ -50,7 +50,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
-	google.golang.org/grpc v1.65.0 // indirect
+	google.golang.org/grpc v1.66.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
