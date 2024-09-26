@@ -126,6 +126,7 @@ type Driver struct {
 	naiveDiff        graphdriver.DiffDriver
 	supportsDType    bool
 	supportsVolatile *bool
+	supportsDataOnly *bool
 	usingMetacopy    bool
 	usingComposefs   bool
 
@@ -271,6 +272,18 @@ func (d *Driver) getSupportsVolatile() (bool, error) {
 	return supportsVolatile, nil
 }
 
+func (d *Driver) getSupportsDataOnly() (bool, error) {
+	if d.supportsDataOnly != nil {
+		return *d.supportsDataOnly, nil
+	}
+	supportsDataOnly, err := supportsDataOnlyLayersCached(d.home, d.runhome)
+	if err != nil {
+		return false, err
+	}
+	d.supportsDataOnly = &supportsDataOnly
+	return supportsDataOnly, nil
+}
+
 // isNetworkFileSystem checks if the specified file system is supported by native overlay
 // as backing store when running in a user namespace.
 func isNetworkFileSystem(fsMagic graphdriver.FsMagic) bool {
@@ -358,13 +371,6 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	if opts.useComposefs {
 		if unshare.IsRootless() {
 			return nil, fmt.Errorf("composefs is not supported in user namespaces")
-		}
-		supportsDataOnly, err := supportsDataOnlyLayersCached(home, runhome)
-		if err != nil {
-			return nil, err
-		}
-		if !supportsDataOnly {
-			return nil, fmt.Errorf("composefs is not supported on this kernel: %w", graphdriver.ErrIncompatibleFS)
 		}
 		if _, err := getComposeFsHelper(); err != nil {
 			return nil, fmt.Errorf("composefs helper program not found: %w", err)
@@ -1777,8 +1783,16 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	lowerDirs := strings.Join(absLowers, ":")
 	if len(composeFsLayers) > 0 {
-		composeFsLayersLowerDirs := strings.Join(composeFsLayers, "::")
-		lowerDirs = lowerDirs + "::" + composeFsLayersLowerDirs
+		sep := "::"
+		supportsDataOnly, err := d.getSupportsDataOnly()
+		if err != nil {
+			return "", err
+		}
+		if !supportsDataOnly {
+			sep = ":"
+		}
+		composeFsLayersLowerDirs := strings.Join(composeFsLayers, sep)
+		lowerDirs = lowerDirs + sep + composeFsLayersLowerDirs
 	}
 	// absLowers is not valid anymore now as we have added composeFsLayers to it, so prevent
 	// its usage.
@@ -2161,14 +2175,14 @@ func (d *Driver) CleanupStagingDirectory(stagingDirectory string) error {
 
 func supportsDataOnlyLayersCached(home, runhome string) (bool, error) {
 	feature := "dataonly-layers"
-	overlayCacheResult, overlayCacheText, err := cachedFeatureCheck(runhome, feature)
+	overlayCacheResult, _, err := cachedFeatureCheck(runhome, feature)
 	if err == nil {
 		if overlayCacheResult {
 			logrus.Debugf("Cached value indicated that data-only layers for overlay are supported")
 			return true, nil
 		}
 		logrus.Debugf("Cached value indicated that data-only layers for overlay are not supported")
-		return false, errors.New(overlayCacheText)
+		return false, nil
 	}
 	supportsDataOnly, err := supportsDataOnlyLayers(home)
 	if err2 := cachedFeatureRecord(runhome, feature, supportsDataOnly, ""); err2 != nil {
