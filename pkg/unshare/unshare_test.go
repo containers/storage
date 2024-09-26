@@ -111,27 +111,22 @@ func TestUnshareNamespaces(t *testing.T) {
 		err := cmd.Run()
 		if err != nil {
 			t.Fatalf("run %q: %v: %s", name, err, buf.String())
-			break
 		}
 		if err = json.Unmarshal(buf.Bytes(), &report); err != nil {
 			t.Fatalf("error parsing results: %v", err)
-			break
 		}
 		for ns := range CloneFlags {
 			linkTarget, err := os.Readlink("/proc/self/ns/" + ns)
 			if err != nil {
 				t.Fatalf("Reading link /proc/self/ns/%s: %v", ns, err)
-				os.Exit(1)
 			}
 			if ns == name || ns == "user" { // we always create a new user namespace
 				if report.Namespaces[ns] == linkTarget {
 					t.Fatalf("child is still in our %q namespace", name)
-					os.Exit(1)
 				}
 			} else {
 				if report.Namespaces[ns] != linkTarget {
 					t.Fatalf("child is not in our %q namespace", name)
-					os.Exit(1)
 				}
 			}
 		}
@@ -149,11 +144,9 @@ func TestUnsharePgrp(t *testing.T) {
 		err := cmd.Run()
 		if err != nil {
 			t.Fatalf("run: %v: %s", err, buf.String())
-			break
 		}
 		if err = json.Unmarshal(buf.Bytes(), &report); err != nil {
 			t.Fatalf("error parsing results: %v", err)
-			break
 		}
 		if (report.Pgrp == syscall.Getpgrp()) != same {
 			t.Fatalf("expected %d == %d to be %v", report.Pgrp, syscall.Getpgrp(), same)
@@ -176,11 +169,9 @@ func TestUnshareSid(t *testing.T) {
 		err := cmd.Run()
 		if err != nil {
 			t.Fatalf("run: %v: %s", err, buf.String())
-			break
 		}
 		if err = json.Unmarshal(buf.Bytes(), &report); err != nil {
 			t.Fatalf("error parsing results: %v", err)
-			break
 		}
 		if (report.Sid == sid) != same {
 			t.Fatalf("expected %d == %d to be %v", report.Sid, sid, same)
@@ -199,11 +190,9 @@ func TestUnshareOOMScoreAdj(t *testing.T) {
 		err := cmd.Run()
 		if err != nil {
 			t.Fatalf("run: %v: %s", err, buf.String())
-			break
 		}
 		if err = json.Unmarshal(buf.Bytes(), &report); err != nil {
 			t.Fatalf("error parsing results: %v", err)
-			break
 		}
 		if report.OOMScoreAdj != adj {
 			t.Fatalf("saw oom_score_adj %d to be %v", adj, report.OOMScoreAdj)
