@@ -203,6 +203,9 @@ func DirCopy(srcDir, dstDir string, copyMode Mode, copyXattrs bool) error {
 			if err != nil {
 				return err
 			}
+			if unixListener, ok := s.(*net.UnixListener); ok {
+				unixListener.SetUnlinkOnClose(false)
+			}
 			s.Close()
 
 		case mode&os.ModeDevice != 0:
