@@ -164,16 +164,16 @@ type containerStore struct {
 func copyContainer(c *Container) *Container {
 	return &Container{
 		ID:             c.ID,
-		Names:          copyStringSlice(c.Names),
+		Names:          copySlicePreferringNil(c.Names),
 		ImageID:        c.ImageID,
 		LayerID:        c.LayerID,
 		Metadata:       c.Metadata,
-		BigDataNames:   copyStringSlice(c.BigDataNames),
+		BigDataNames:   copySlicePreferringNil(c.BigDataNames),
 		BigDataSizes:   maps.Clone(c.BigDataSizes),
 		BigDataDigests: maps.Clone(c.BigDataDigests),
 		Created:        c.Created,
-		UIDMap:         copyIDMap(c.UIDMap),
-		GIDMap:         copyIDMap(c.GIDMap),
+		UIDMap:         copySlicePreferringNil(c.UIDMap),
+		GIDMap:         copySlicePreferringNil(c.GIDMap),
 		Flags:          maps.Clone(c.Flags),
 		volatileStore:  c.volatileStore,
 	}
@@ -693,8 +693,8 @@ func (r *containerStore) create(id string, names []string, image, layer string, 
 		BigDataDigests: make(map[string]digest.Digest),
 		Created:        time.Now().UTC(),
 		Flags:          copyStringInterfaceMap(options.Flags),
-		UIDMap:         copyIDMap(options.UIDMap),
-		GIDMap:         copyIDMap(options.GIDMap),
+		UIDMap:         copySlicePreferringNil(options.UIDMap),
+		GIDMap:         copySlicePreferringNil(options.GIDMap),
 		volatileStore:  options.Volatile,
 	}
 	if options.MountOpts != nil {
@@ -906,7 +906,7 @@ func (r *containerStore) BigDataNames(id string) ([]string, error) {
 	if !ok {
 		return nil, ErrContainerUnknown
 	}
-	return copyStringSlice(c.BigDataNames), nil
+	return copySlicePreferringNil(c.BigDataNames), nil
 }
 
 // Requires startWriting.

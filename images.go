@@ -183,13 +183,13 @@ func copyImage(i *Image) *Image {
 	return &Image{
 		ID:              i.ID,
 		Digest:          i.Digest,
-		Digests:         copyDigestSlice(i.Digests),
-		Names:           copyStringSlice(i.Names),
-		NamesHistory:    copyStringSlice(i.NamesHistory),
+		Digests:         copySlicePreferringNil(i.Digests),
+		Names:           copySlicePreferringNil(i.Names),
+		NamesHistory:    copySlicePreferringNil(i.NamesHistory),
 		TopLayer:        i.TopLayer,
-		MappedTopLayers: copyStringSlice(i.MappedTopLayers),
+		MappedTopLayers: copySlicePreferringNil(i.MappedTopLayers),
 		Metadata:        i.Metadata,
-		BigDataNames:    copyStringSlice(i.BigDataNames),
+		BigDataNames:    copySlicePreferringNil(i.BigDataNames),
 		BigDataSizes:    maps.Clone(i.BigDataSizes),
 		BigDataDigests:  maps.Clone(i.BigDataDigests),
 		Created:         i.Created,
@@ -718,7 +718,7 @@ func (r *imageStore) create(id string, names []string, layer string, options Ima
 		Digest:         options.Digest,
 		Digests:        dedupeDigests(options.Digests),
 		Names:          names,
-		NamesHistory:   copyStringSlice(options.NamesHistory),
+		NamesHistory:   copySlicePreferringNil(options.NamesHistory),
 		TopLayer:       layer,
 		Metadata:       options.Metadata,
 		BigDataNames:   []string{},
@@ -967,7 +967,7 @@ func (r *imageStore) BigDataNames(id string) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
-	return copyStringSlice(image.BigDataNames), nil
+	return copySlicePreferringNil(image.BigDataNames), nil
 }
 
 // Requires startWriting.
