@@ -72,6 +72,7 @@ type ApplyDiffOpts struct {
 	MountLabel        string
 	IgnoreChownErrors bool
 	ForceMask         *os.FileMode
+	LayerFilename     *string
 }
 
 // ApplyDiffWithDifferOpts contains optional arguments for ApplyDiffWithDiffer methods.
