@@ -5,6 +5,7 @@ package copy
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -83,6 +84,13 @@ func randomMode(baseMode int) os.FileMode {
 
 func populateSrcDir(t *testing.T, srcDir string, remainingDepth int) {
 	if remainingDepth == 0 {
+		socketName := filepath.Join(srcDir, "srcsocket")
+		s, err := net.Listen("unix", socketName)
+		assert.NilError(t, err)
+		if unixListener, ok := s.(*net.UnixListener); ok {
+			unixListener.SetUnlinkOnClose(false)
+		}
+		s.Close()
 		return
 	}
 	aTime := time.Unix(rand.Int63(), 0)
