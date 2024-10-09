@@ -3,7 +3,6 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -169,12 +168,12 @@ func copyContainer(c *Container) *Container {
 		LayerID:        c.LayerID,
 		Metadata:       c.Metadata,
 		BigDataNames:   copySlicePreferringNil(c.BigDataNames),
-		BigDataSizes:   maps.Clone(c.BigDataSizes),
-		BigDataDigests: maps.Clone(c.BigDataDigests),
+		BigDataSizes:   copyMapPreferringNil(c.BigDataSizes),
+		BigDataDigests: copyMapPreferringNil(c.BigDataDigests),
 		Created:        c.Created,
 		UIDMap:         copySlicePreferringNil(c.UIDMap),
 		GIDMap:         copySlicePreferringNil(c.GIDMap),
-		Flags:          maps.Clone(c.Flags),
+		Flags:          copyMapPreferringNil(c.Flags),
 		volatileStore:  c.volatileStore,
 	}
 }
@@ -692,7 +691,7 @@ func (r *containerStore) create(id string, names []string, image, layer string, 
 		BigDataSizes:   make(map[string]int64),
 		BigDataDigests: make(map[string]digest.Digest),
 		Created:        time.Now().UTC(),
-		Flags:          copyStringInterfaceMap(options.Flags),
+		Flags:          newMapFrom(options.Flags),
 		UIDMap:         copySlicePreferringNil(options.UIDMap),
 		GIDMap:         copySlicePreferringNil(options.GIDMap),
 		volatileStore:  options.Volatile,
