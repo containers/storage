@@ -2,7 +2,6 @@ package storage
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -190,11 +189,11 @@ func copyImage(i *Image) *Image {
 		MappedTopLayers: copySlicePreferringNil(i.MappedTopLayers),
 		Metadata:        i.Metadata,
 		BigDataNames:    copySlicePreferringNil(i.BigDataNames),
-		BigDataSizes:    maps.Clone(i.BigDataSizes),
-		BigDataDigests:  maps.Clone(i.BigDataDigests),
+		BigDataSizes:    copyMapPreferringNil(i.BigDataSizes),
+		BigDataDigests:  copyMapPreferringNil(i.BigDataDigests),
 		Created:         i.Created,
 		ReadOnly:        i.ReadOnly,
-		Flags:           maps.Clone(i.Flags),
+		Flags:           copyMapPreferringNil(i.Flags),
 	}
 }
 
@@ -725,7 +724,7 @@ func (r *imageStore) create(id string, names []string, layer string, options Ima
 		BigDataSizes:   make(map[string]int64),
 		BigDataDigests: make(map[string]digest.Digest),
 		Created:        options.CreationDate,
-		Flags:          copyStringInterfaceMap(options.Flags),
+		Flags:          newMapFrom(options.Flags),
 	}
 	if image.Created.IsZero() {
 		image.Created = time.Now().UTC()

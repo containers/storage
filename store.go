@@ -1446,7 +1446,7 @@ func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, pare
 	if lOptions != nil {
 		options = *lOptions
 		options.BigData = slices.Clone(lOptions.BigData)
-		options.Flags = maps.Clone(lOptions.Flags)
+		options.Flags = copyMapPreferringNil(lOptions.Flags)
 	}
 	if options.HostUIDMapping {
 		options.UIDMap = nil
@@ -1762,9 +1762,9 @@ func (s *store) CreateContainer(id string, names []string, image, layer, metadat
 		options.IDMappingOptions.UIDMap = copySlicePreferringNil(cOptions.IDMappingOptions.UIDMap)
 		options.IDMappingOptions.GIDMap = copySlicePreferringNil(cOptions.IDMappingOptions.GIDMap)
 		options.LabelOpts = copySlicePreferringNil(cOptions.LabelOpts)
-		options.Flags = maps.Clone(cOptions.Flags)
+		options.Flags = copyMapPreferringNil(cOptions.Flags)
 		options.MountOpts = copySlicePreferringNil(cOptions.MountOpts)
-		options.StorageOpt = copyStringStringMap(cOptions.StorageOpt)
+		options.StorageOpt = copyMapPreferringNil(cOptions.StorageOpt)
 		options.BigData = copyContainerBigDataOptionSlice(cOptions.BigData)
 	}
 	if options.HostUIDMapping {
@@ -2429,7 +2429,7 @@ func (s *store) updateNames(id string, names []string, op updateNameOperation) e
 				Digests:      copySlicePreferringNil(i.Digests),
 				Metadata:     i.Metadata,
 				NamesHistory: copySlicePreferringNil(i.NamesHistory),
-				Flags:        copyStringInterfaceMap(i.Flags),
+				Flags:        copyMapPreferringNil(i.Flags),
 			}
 			for _, key := range i.BigDataNames {
 				data, err := store.BigData(id, key)
@@ -3664,18 +3664,22 @@ func copySlicePreferringNil[S ~[]E, E any](s S) S {
 	return slices.Clone(s)
 }
 
-func copyStringStringMap(m map[string]string) map[string]string {
-	ret := make(map[string]string, len(m))
-	for k, v := range m {
-		ret[k] = v
+// copyMapPreferringNil returns a shallow clone of map m.
+// If m is empty, a nil is returned.
+//
+// (As of, e.g., Go 1.23, maps.Clone preserves nil, but that’s not a documented promise;
+// and this function turns even non-nil empty maps into nil.)
+func copyMapPreferringNil[K comparable, V any](m map[K]V) map[K]V {
+	if len(m) == 0 {
+		return nil
 	}
-	return ret
+	return maps.Clone(m)
 }
 
-// copyStringInterfaceMap still forces us to assume that the interface{} is
-// a non-pointer scalar value
-func copyStringInterfaceMap(m map[string]interface{}) map[string]interface{} {
-	ret := make(map[string]interface{}, len(m))
+// newMapFrom returns a shallow clone of map m.
+// If m is empty, an empty map is allocated and returned.
+func newMapFrom[K comparable, V any](m map[K]V) map[K]V {
+	ret := make(map[K]V, len(m))
 	for k, v := range m {
 		ret[k] = v
 	}
