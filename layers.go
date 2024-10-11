@@ -2513,7 +2513,7 @@ func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *driver
 		return err
 	}
 
-	if len(diffOutput.TarSplit) != 0 {
+	if diffOutput.TarSplit != nil {
 		tsdata := bytes.Buffer{}
 		compressor, err := pgzip.NewWriterLevel(&tsdata, pgzip.BestSpeed)
 		if err != nil {

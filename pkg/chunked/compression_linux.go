@@ -139,7 +139,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 }
 
 // readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.
-// Returns (manifest blob, parsed manifest, tar-split blob, manifest offset).
+// Returns (manifest blob, parsed manifest, tar-split blob or nil, manifest offset).
 func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) ([]byte, *internal.TOC, []byte, int64, error) {
 	offsetMetadata := annotations[internal.ManifestInfoKey]
 	if offsetMetadata == "" {
@@ -214,7 +214,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 		return nil, nil, nil, 0, fmt.Errorf("unmarshaling TOC: %w", err)
 	}
 
-	decodedTarSplit := []byte{}
+	var decodedTarSplit []byte = nil
 	if toc.TarSplitDigest != "" {
 		if tarSplitChunk.Offset <= 0 {
 			return nil, nil, nil, 0, fmt.Errorf("TOC requires a tar-split, but the %s annotation does not describe a position", internal.TarSplitInfoKey)
