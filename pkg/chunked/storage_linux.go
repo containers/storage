@@ -89,7 +89,8 @@ type chunkedDiffer struct {
 	// is no TOC referenced by the manifest.
 	blobDigest digest.Digest
 
-	blobSize int64
+	blobSize            int64
+	uncompressedTarSize int64 // -1 if unknown
 
 	pullOptions map[string]string
 
@@ -216,6 +217,7 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 		fsVerityDigests:      make(map[string]string),
 		blobDigest:           blobDigest,
 		blobSize:             blobSize,
+		uncompressedTarSize:  -1, // Will be computed later
 		convertToZstdChunked: true,
 		copyBuffer:           makeCopyBuffer(),
 		layersCache:          layersCache,
@@ -229,24 +231,33 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
+	var uncompressedTarSize int64 = -1
+	if tarSplit != nil {
+		uncompressedTarSize, err = tarSizeFromTarSplit(tarSplit)
+		if err != nil {
+			return nil, fmt.Errorf("computing size from tar-split")
+		}
+	}
+
 	layersCache, err := getLayersCache(store)
 	if err != nil {
 		return nil, err
 	}
 
 	return &chunkedDiffer{
-		fsVerityDigests: make(map[string]string),
-		blobSize:        blobSize,
-		tocDigest:       tocDigest,
-		copyBuffer:      makeCopyBuffer(),
-		fileType:        fileTypeZstdChunked,
-		layersCache:     layersCache,
-		manifest:        manifest,
-		toc:             toc,
-		pullOptions:     pullOptions,
-		stream:          iss,
-		tarSplit:        tarSplit,
-		tocOffset:       tocOffset,
+		fsVerityDigests:     make(map[string]string),
+		blobSize:            blobSize,
+		uncompressedTarSize: uncompressedTarSize,
+		tocDigest:           tocDigest,
+		copyBuffer:          makeCopyBuffer(),
+		fileType:            fileTypeZstdChunked,
+		layersCache:         layersCache,
+		manifest:            manifest,
+		toc:                 toc,
+		pullOptions:         pullOptions,
+		stream:              iss,
+		tarSplit:            tarSplit,
+		tocOffset:           tocOffset,
 	}, nil
 }
 
@@ -261,16 +272,17 @@ func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest dig
 	}
 
 	return &chunkedDiffer{
-		fsVerityDigests: make(map[string]string),
-		blobSize:        blobSize,
-		tocDigest:       tocDigest,
-		copyBuffer:      makeCopyBuffer(),
-		fileType:        fileTypeEstargz,
-		layersCache:     layersCache,
-		manifest:        manifest,
-		pullOptions:     pullOptions,
-		stream:          iss,
-		tocOffset:       tocOffset,
+		fsVerityDigests:     make(map[string]string),
+		blobSize:            blobSize,
+		uncompressedTarSize: -1, // We would have to read and decompress the whole layer
+		tocDigest:           tocDigest,
+		copyBuffer:          makeCopyBuffer(),
+		fileType:            fileTypeEstargz,
+		layersCache:         layersCache,
+		manifest:            manifest,
+		pullOptions:         pullOptions,
+		stream:              iss,
+		tocOffset:           tocOffset,
 	}, nil
 }
 
@@ -1153,7 +1165,6 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 	var compressedDigest digest.Digest
 	var uncompressedDigest digest.Digest
-	var uncompressedSize int64 = -1
 
 	if c.convertToZstdChunked {
 		fd, err := unix.Open(dest, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
@@ -1185,7 +1196,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, err
 		}
-		uncompressedSize = tarSize
+		c.uncompressedTarSize = tarSize
 		// fileSource is a O_TMPFILE file descriptor, so we
 		// need to keep it open until the entire file is processed.
 		defer fileSource.Close()
@@ -1255,7 +1266,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		TOCDigest:          c.tocDigest,
 		UncompressedDigest: uncompressedDigest,
 		CompressedDigest:   compressedDigest,
-		Size:               uncompressedSize,
+		Size:               c.uncompressedTarSize,
 	}
 
 	// When the hard links deduplication is used, file attributes are ignored because setting them

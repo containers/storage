@@ -288,6 +288,36 @@ func ensureTOCMatchesTarSplit(toc *internal.TOC, tarSplit []byte) error {
 	return nil
 }
 
+// tarSizeFromTarSplit computes the total tarball size, using only the tarSplit metadata
+func tarSizeFromTarSplit(tarSplit []byte) (int64, error) {
+	var res int64 = 0
+
+	unpacker := storage.NewJSONUnpacker(bytes.NewReader(tarSplit))
+	for {
+		entry, err := unpacker.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return -1, fmt.Errorf("reading tar-split entries: %w", err)
+		}
+		switch entry.Type {
+		case storage.SegmentType:
+			res += int64(len(entry.Payload))
+		case storage.FileType:
+			// entry.Size is the “logical size”, which might not be the physical size for sparse entries;
+			// but the way tar-split/tar/asm.WriteOutputTarStream combines FileType entries and returned files contents,
+			// sparse files are not supported.
+			// Also https://github.com/opencontainers/image-spec/blob/main/layer.md says
+			// > Sparse files SHOULD NOT be used because they lack consistent support across tar implementations.
+			res += entry.Size
+		default:
+			return -1, fmt.Errorf("unexpected tar-split entry type %q", entry.Type)
+		}
+	}
+	return res, nil
+}
+
 // ensureTimePointersMatch ensures that a and b are equal
 func ensureTimePointersMatch(a, b *time.Time) error {
 	// We didn’t always use “timeIfNotZero” when creating the TOC, so treat time.IsZero the same as nil.
