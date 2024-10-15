@@ -138,10 +138,10 @@ type Layer struct {
 	// UncompressedSize is the length of the blob that was last passed to
 	// ApplyDiff() or create(), after we decompressed it.
 	//
-	// - If UncompressedDigest is set, this must be set to a valid value.
-	// - Otherwise, if TOCDigest is set, this is either valid or -1.
-	// - If neither of this digests is set, this should be treated as if it were
-	//   an uninitialized value.
+	//   - If UncompressedDigest is set, this must be set to a valid value.
+	//   - Otherwise, if TOCDigest is set, this is either valid or -1.
+	//   - If neither of this digests is set, this should be treated as if it were
+	//     an uninitialized value.
 	UncompressedSize int64 `json:"diff-size,omitempty"`
 
 	// CompressionType is the type of compression which we detected on the blob
