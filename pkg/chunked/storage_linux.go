@@ -235,7 +235,7 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 	if tarSplit != nil {
 		uncompressedTarSize, err = tarSizeFromTarSplit(tarSplit)
 		if err != nil {
-			return nil, fmt.Errorf("computing size from tar-split")
+			return nil, fmt.Errorf("computing size from tar-split: %w", err)
 		}
 	}
 
