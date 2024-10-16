@@ -390,7 +390,7 @@ func TestMatches(t *testing.T) {
 					assert.Equal(t, err, filepath.ErrBadPattern)
 				} else {
 					assert.Nil(t, err)
-					assert.Equal(t, test.match, res.isMatched, desc)
+					assert.Equal(t, test.match, res.IsMatched(), desc)
 				}
 			}
 		})
@@ -591,22 +591,24 @@ func TestMatch(t *testing.T) {
 
 func TestMatchesAmount(t *testing.T) {
 	testData := []struct {
-		patterns []string
-		input    string
-		matches  uint
-		excludes uint
-		isMatch  bool
+		patterns   []string
+		input      string
+		matches    uint
+		excludes   uint
+		isMatch    bool
+		canSkipDir bool
 	}{
-		{[]string{"1", "2", "3"}, "2", 1, 0, true},
-		{[]string{"2", "!2", "!2"}, "2", 1, 2, false},
-		{[]string{"1", "2", "2"}, "2", 2, 0, true},
-		{[]string{"1", "2", "2", "2"}, "2", 3, 0, true},
-		{[]string{"/prefix/path", "/prefix/other"}, "/prefix/path", 1, 0, true},
-		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/match", 1, 0, true},
-		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/path", 1, 0, true},
-		{[]string{"/prefix*", "!/prefix/path"}, "prefix/path", 0, 1, false},
-		{[]string{"/prefix*", "!./prefix/path"}, "prefix/path", 0, 1, false},
-		{[]string{"/prefix*", "!prefix/path"}, "prefix/path", 0, 1, false},
+		{[]string{"1", "2", "3"}, "2", 1, 0, true, true},
+		{[]string{"!1", "1"}, "1", 1, 1, true, true},
+		{[]string{"2", "!2", "!2"}, "2", 1, 2, false, false},
+		{[]string{"1", "2", "2"}, "2", 2, 0, true, true},
+		{[]string{"1", "2", "2", "2"}, "2", 3, 0, true, true},
+		{[]string{"/prefix/path", "/prefix/other"}, "/prefix/path", 1, 0, true, true},
+		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/match", 1, 0, true, false},
+		{[]string{"/prefix*", "!/prefix/path"}, "/prefix/path", 1, 0, true, false},
+		{[]string{"/prefix*", "!/prefix/path"}, "prefix/path", 0, 1, false, false},
+		{[]string{"/prefix*", "!./prefix/path"}, "prefix/path", 0, 1, false, false},
+		{[]string{"/prefix*", "!prefix/path"}, "prefix/path", 0, 1, false, false},
 	}
 
 	for _, testCase := range testData {
@@ -618,6 +620,7 @@ func TestMatchesAmount(t *testing.T) {
 		assert.Equal(t, testCase.excludes, res.Excludes(), desc)
 		assert.Equal(t, testCase.matches, res.Matches(), desc)
 		assert.Equal(t, testCase.isMatch, res.IsMatched(), desc)
+		assert.Equal(t, testCase.canSkipDir, res.CanSkipDir(), desc)
 
 		isMatch, err := pm.IsMatch(testCase.input)
 		require.NoError(t, err)
