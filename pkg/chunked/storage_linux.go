@@ -150,7 +150,22 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 	pullOptions := store.PullOptions()
 
 	if !parseBooleanPullOption(pullOptions, "enable_partial_images", true) {
+		// If convertImages is set, the two options disagree whether fallback is permissible.
+		// Right now, we enable it, but that’s not a promise; rather, such a configuration should ideally be rejected.
 		return nil, newErrFallbackToOrdinaryLayerDownload(errors.New("partial images are disabled"))
+	}
+	// convertImages also serves as a “must not fallback to non-partial pull” option (?!)
+	convertImages := parseBooleanPullOption(pullOptions, "convert_images", false)
+
+	graphDriver, err := store.GraphDriver()
+	if err != nil {
+		return nil, err
+	}
+	if _, partialSupported := graphDriver.(graphdriver.DriverWithDiffer); !partialSupported {
+		if convertImages {
+			return nil, fmt.Errorf("graph driver %s does not support partial pull but convert_images requires that", graphDriver.String())
+		}
+		return nil, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("graph driver %s does not support partial pull", graphDriver.String()))
 	}
 
 	differ, canFallback, err := getProperDiffer(store, blobDigest, blobSize, annotations, iss, pullOptions)
@@ -159,8 +174,6 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 			return nil, err
 		}
 		// If convert_images is enabled, always attempt to convert it instead of returning an error or falling back to a different method.
-		// convertImages also serves as a “must not fallback to non-partial pull” option (?!)
-		convertImages := parseBooleanPullOption(pullOptions, "convert_images", false)
 		if convertImages {
 			logrus.Debugf("Created differ to convert blob %q", blobDigest)
 			return makeConvertFromRawDiffer(store, blobDigest, blobSize, iss, pullOptions)
