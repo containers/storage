@@ -179,20 +179,11 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 	zstdChunkedTOCDigestString, hasZstdChunkedTOC := annotations[internal.ManifestChecksumKey]
 	estargzTOCDigestString, hasEstargzTOC := annotations[estargz.TOCJSONDigestAnnotation]
 
-	if hasZstdChunkedTOC && hasEstargzTOC {
+	switch {
+	case hasZstdChunkedTOC && hasEstargzTOC:
 		return nil, false, errors.New("both zstd:chunked and eStargz TOC found")
-	}
 
-	if !hasZstdChunkedTOC && !hasEstargzTOC {
-		convertImages := parseBooleanPullOption(pullOptions, "convert_images", false)
-		if !convertImages {
-			return nil, true, errors.New("no TOC found and convert_images is not configured")
-		}
-		return nil, true, errors.New("no TOC found")
-	}
-
-	// At this point one of hasZstdChunkedTOC, hasEstargzTOC is true.
-	if hasZstdChunkedTOC {
+	case hasZstdChunkedTOC:
 		zstdChunkedTOCDigest, err := digest.Parse(zstdChunkedTOCDigestString)
 		if err != nil {
 			return nil, false, err
@@ -206,7 +197,8 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		}
 		logrus.Debugf("Created zstd:chunked differ for blob %q", blobDigest)
 		return differ, false, nil
-	} else if hasEstargzTOC {
+
+	case hasEstargzTOC:
 		estargzTOCDigest, err := digest.Parse(estargzTOCDigestString)
 		if err != nil {
 			return nil, false, err
@@ -220,8 +212,13 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		}
 		logrus.Debugf("Created eStargz differ for blob %q", blobDigest)
 		return differ, false, nil
-	} else {
-		return nil, false, errors.New("internal error: unreachable")
+
+	default: // no TOC
+		convertImages := parseBooleanPullOption(pullOptions, "convert_images", false)
+		if !convertImages {
+			return nil, true, errors.New("no TOC found and convert_images is not configured")
+		}
+		return nil, true, errors.New("no TOC found")
 	}
 }
 
