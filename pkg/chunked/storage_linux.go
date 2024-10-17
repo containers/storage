@@ -191,37 +191,38 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		return nil, true, errors.New("no TOC found")
 	}
 
-	var err error
-	var differ graphdriver.Differ
 	// At this point one of hasZstdChunkedTOC, hasEstargzTOC is true.
 	if hasZstdChunkedTOC {
-		zstdChunkedTOCDigest, err2 := digest.Parse(zstdChunkedTOCDigestString)
-		if err2 != nil {
-			return nil, false, err2
-		}
-		differ, err = makeZstdChunkedDiffer(store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
-		if err == nil {
-			logrus.Debugf("Created zstd:chunked differ for blob %q", blobDigest)
-			return differ, false, nil
-		}
-	} else if hasEstargzTOC {
-		estargzTOCDigest, err2 := digest.Parse(estargzTOCDigestString)
-		if err2 != nil {
+		zstdChunkedTOCDigest, err := digest.Parse(zstdChunkedTOCDigestString)
+		if err != nil {
 			return nil, false, err
 		}
-		differ, err = makeEstargzChunkedDiffer(store, blobSize, estargzTOCDigest, iss, pullOptions)
-		if err == nil {
-			logrus.Debugf("Created eStargz differ for blob %q", blobDigest)
-			return differ, false, nil
+		differ, err := makeZstdChunkedDiffer(store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
+		if err != nil {
+			logrus.Debugf("Could not create zstd:chunked differ for blob %q: %v", blobDigest, err)
+			// If the error is a bad request to the server, then signal to the caller that it can try a different method.
+			var badRequestErr ErrBadRequest
+			return nil, errors.As(err, &badRequestErr), err
 		}
+		logrus.Debugf("Created zstd:chunked differ for blob %q", blobDigest)
+		return differ, false, nil
+	} else if hasEstargzTOC {
+		estargzTOCDigest, err := digest.Parse(estargzTOCDigestString)
+		if err != nil {
+			return nil, false, err
+		}
+		differ, err := makeEstargzChunkedDiffer(store, blobSize, estargzTOCDigest, iss, pullOptions)
+		if err != nil {
+			logrus.Debugf("Could not create estargz differ for blob %q: %v", blobDigest, err)
+			// If the error is a bad request to the server, then signal to the caller that it can try a different method.
+			var badRequestErr ErrBadRequest
+			return nil, errors.As(err, &badRequestErr), err
+		}
+		logrus.Debugf("Created eStargz differ for blob %q", blobDigest)
+		return differ, false, nil
 	} else {
 		return nil, false, errors.New("internal error: unreachable")
 	}
-	logrus.Debugf("Could not create differ for blob %q: %v", blobDigest, err)
-
-	// If the error is a bad request to the server, then signal to the caller that it can try a different method.
-	var badRequestErr ErrBadRequest
-	return nil, errors.As(err, &badRequestErr), err
 }
 
 func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
