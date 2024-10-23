@@ -1,6 +1,10 @@
+//go:build linux
+
 package storage
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -166,6 +170,99 @@ func TestGetAutoUserNSMapping(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotGIDMappings, tt.wantGIDMappings) {
 				t.Errorf("getAutoUserNSMapping() gotGIDMappings = %v, want %v", gotGIDMappings, tt.wantGIDMappings)
+			}
+		})
+	}
+}
+
+func TestParseMountedFiles(t *testing.T) {
+	tests := []struct {
+		name          string
+		passwdContent string
+		groupContent  string
+		expectedMax   uint32
+	}{
+		{
+			name: "basic case",
+			passwdContent: `
+root:x:0:0:root:/root:/bin/bash
+user1:x:1000:1000::/home/user1:/bin/bash
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin`,
+			groupContent: `
+root:x:0:
+user1:x:1000:
+nogroup:x:65534:`,
+			expectedMax: 1001,
+		},
+		{
+			name: "only passwd",
+			passwdContent: `
+root:x:0:0:root:/root:/bin/bash
+user1:x:4001:4001::/home/user1:/bin/bash
+nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin`,
+			groupContent: "",
+			expectedMax:  4002,
+		},
+		{
+			name:          "only groups",
+			passwdContent: "",
+			groupContent: `
+root:x:0:
+admin:x:3000:
+nobody:x:65534:`,
+			expectedMax: 3001,
+		},
+		{
+			name:          "empty files",
+			passwdContent: "",
+			groupContent:  "",
+			expectedMax:   0,
+		},
+		{
+			name:          "invalid passwd file",
+			passwdContent: "FOOBAR",
+			groupContent:  "",
+			expectedMax:   0,
+		},
+		{
+			name:          "invalid groups file",
+			passwdContent: "",
+			groupContent:  "FOOBAR",
+			expectedMax:   0,
+		},
+		{
+			name:          "nogroup ignored",
+			passwdContent: "",
+			groupContent: `
+root:x:0:
+admin:x:4000:
+nogroup:x:65533:`,
+			expectedMax: 4001,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir, err := os.MkdirTemp("", "containermount")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			passwdFile := filepath.Join(tmpDir, "passwd")
+			if err := os.WriteFile(passwdFile, []byte(tt.passwdContent), 0o644); err != nil {
+				t.Fatalf("Failed to write passwd file: %v", err)
+			}
+
+			groupFile := filepath.Join(tmpDir, "group")
+			if err := os.WriteFile(groupFile, []byte(tt.groupContent), 0o644); err != nil {
+				t.Fatalf("Failed to write group file: %v", err)
+			}
+
+			result := parseMountedFiles(tmpDir, passwdFile, groupFile)
+
+			if result != tt.expectedMax {
+				t.Errorf("Expected max %d, but got %d", tt.expectedMax, result)
 			}
 		})
 	}
