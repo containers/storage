@@ -172,7 +172,7 @@ func openComposefsMount(dataDir string) (int, error) {
 	if err := unix.FsconfigCreate(fsfd); err != nil {
 		buffer := make([]byte, 4096)
 		if n, _ := unix.Read(fsfd, buffer); n > 0 {
-			return -1, fmt.Errorf("failed to create erofs filesystem: %s: %w", string(buffer[:n]), err)
+			return -1, fmt.Errorf("failed to create erofs filesystem: %s: %w", strings.TrimSuffix(string(buffer[:n]), "\n"), err)
 		}
 		return -1, fmt.Errorf("failed to create erofs filesystem: %w", err)
 	}
