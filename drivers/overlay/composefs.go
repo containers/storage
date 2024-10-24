@@ -219,7 +219,7 @@ func mountComposefsBlob(dataDir, mountPoint string) error {
 	defer unix.Close(mfd)
 
 	if err := unix.MoveMount(mfd, "", unix.AT_FDCWD, mountPoint, unix.MOVE_MOUNT_F_EMPTY_PATH); err != nil {
-		return fmt.Errorf("failed to move mount: %w", err)
+		return fmt.Errorf("failed to move mount to %q: %w", mountPoint, err)
 	}
 	return nil
 }
