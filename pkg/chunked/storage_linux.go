@@ -1167,6 +1167,7 @@ func (c *chunkedDiffer) copyAllBlobToFile(destination *os.File) (digest.Digest, 
 	if payload == nil {
 		return "", errors.New("invalid stream returned")
 	}
+	defer payload.Close()
 
 	originalRawDigester := digest.Canonical.Digester()
 
