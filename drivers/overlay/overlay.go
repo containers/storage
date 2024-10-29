@@ -589,7 +589,7 @@ func parseOptions(options []string) (*overlayOptions, error) {
 			m := os.FileMode(mask)
 			o.forceMask = &m
 		default:
-			return nil, fmt.Errorf("overlay: Unknown option %s", key)
+			return nil, fmt.Errorf("overlay: unknown option %s", key)
 		}
 	}
 	return o, nil
