@@ -95,8 +95,11 @@ containers.
 
 containers/storage supports three keys
   * enable_partial_images="true" | "false"
-    Tells containers/storage to look for files previously pulled in storage
-    rather then always pulling them from the container registry.
+    Enable the "zstd:chunked" feature, which allows partial pulls, reusing
+    content that already exists on the system. This is disabled by default,
+    and must be explicitly enabled to be used. For more on zstd:chunked, see
+    <https://github.com/containers/storage/blob/main/docs/containers-storage-zstd-chunked.md>.
+    This is a "string bool": "false"|"true" (cannot be native TOML boolean)
   * use_hard_links = "false" | "true"
     Tells containers/storage to use hard links rather then create new files in
     the image, if an identical file already existed in storage.
