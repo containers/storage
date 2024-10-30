@@ -71,28 +71,28 @@ driver="overlay"
 graphroot="$root"
 runroot="$runroot"
 
-[storage.options]
-pull_options = {enable_partial_images = "true" }
+[storage.options.pull_options]
+enable_partial_images = "true"
 EOF
 
 	# Create a layer.
-	CONTAINERS_STORAGE_CONF=$sconf run storage --debug=false create-layer
+	CONTAINERS_STORAGE_CONF=$sconf run ${STORAGE_BINARY} create-layer
 	[ "$status" -eq 0 ]
 	[ "$output" != "" ]
 	layer="$output"
 
-	CONTAINERS_STORAGE_CONF=$sconf run storage --debug=false applydiff-using-staging-dir $layer $SRC
+	CONTAINERS_STORAGE_CONF=$sconf run ${STORAGE_BINARY} applydiff-using-staging-dir $layer $SRC
 	[ "$status" -eq 0 ]
 
 	name=safe-image
-	CONTAINERS_STORAGE_CONF=$sconf run storage --debug=false create-image --name $name $layer
+	CONTAINERS_STORAGE_CONF=$sconf run ${STORAGE_BINARY} create-image --name $name $layer
 	[ "$status" -eq 0 ]
 
 	ctrname=foo
-	CONTAINERS_STORAGE_CONF=$sconf run storage --debug=false create-container --name $ctrname $name
+	CONTAINERS_STORAGE_CONF=$sconf run ${STORAGE_BINARY} create-container --name $ctrname $name
         [ "$status" -eq 0 ]
 
-	CONTAINERS_STORAGE_CONF=$sconf run storage --debug=false mount $ctrname
+	CONTAINERS_STORAGE_CONF=$sconf run ${STORAGE_BINARY} mount $ctrname
 	[ "$status" -eq 0 ]
 	mount="$output"
 

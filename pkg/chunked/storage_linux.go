@@ -259,7 +259,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobSize int64, annotat
 		return nil, err
 	}
 
-	if !parseBooleanPullOption(&storeOpts, "enable_partial_images", true) {
+	if !parseBooleanPullOption(&storeOpts, "enable_partial_images", false) {
 		return nil, errors.New("enable_partial_images not configured")
 	}
 
