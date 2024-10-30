@@ -146,7 +146,7 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {
 	pullOptions := store.PullOptions()
 
-	if !parseBooleanPullOption(pullOptions, "enable_partial_images", true) {
+	if !parseBooleanPullOption(pullOptions, "enable_partial_images", false) {
 		return nil, errors.New("enable_partial_images not configured")
 	}
 
