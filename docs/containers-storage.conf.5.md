@@ -102,8 +102,8 @@ The `storage.options.pull_options` table supports the following keys:
 
 **enable_partial_images="true"|"false"**
   Enable the "zstd:chunked" feature, which allows partial pulls, reusing
-  content that already exists on the system. This is enabled by default,
-  but can be explicitly disabled. For more on zstd:chunked, see
+  content that already exists on the system. This is disabled by default,
+  and must be explicitly enabled to be used. For more on zstd:chunked, see
   <https://github.com/containers/storage/blob/main/docs/containers-storage-zstd-chunked.md>.
   This is a "string bool": "false"|"true" (cannot be native TOML boolean)
 
