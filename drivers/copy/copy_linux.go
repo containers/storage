@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -200,11 +199,9 @@ func DirCopy(srcDir, dstDir string, copyMode Mode, copyXattrs bool) error {
 			}
 
 		case mode&os.ModeSocket != 0:
-			s, err := net.Listen("unix", dstPath)
-			if err != nil {
+			if err := unix.Mknod(dstPath, stat.Mode, int(stat.Rdev)); err != nil {
 				return err
 			}
-			s.Close()
 
 		case mode&os.ModeDevice != 0:
 			if unshare.IsRootless() {
