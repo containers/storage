@@ -1141,6 +1141,32 @@ func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
 	return new, nil
 }
 
+// checkNoStreams checks that there are no other streams on the channel and that there are no errors.
+func checkNoStreams(streams chan io.ReadCloser, errs chan error) error {
+	var err error
+	closed := 0
+	for {
+		select {
+		case _, ok := <-streams:
+			if !ok {
+				closed++
+			} else if err == nil {
+				// shouldn't happen as this is already checked in containers/image
+				err = fmt.Errorf("invalid stream returned by the server")
+			}
+		case err1, ok := <-errs:
+			if !ok {
+				closed++
+			} else if err == nil {
+				err = err1
+			}
+		}
+		if closed == 2 {
+			return err
+		}
+	}
+}
+
 func (c *chunkedDiffer) copyAllBlobToFile(destination *os.File) (digest.Digest, error) {
 	var payload io.ReadCloser
 	var streams chan io.ReadCloser
@@ -1175,6 +1201,10 @@ func (c *chunkedDiffer) copyAllBlobToFile(destination *os.File) (digest.Digest, 
 
 	// copy the entire tarball and compute its digest
 	_, err = io.CopyBuffer(destination, r, c.copyBuffer)
+
+	if err := checkNoStreams(streams, errs); err != nil {
+		return "", err
+	}
 
 	return originalRawDigester.Digest(), err
 }

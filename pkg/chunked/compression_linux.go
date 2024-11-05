@@ -64,6 +64,9 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 	if _, err := io.ReadFull(reader, footer); err != nil {
 		return nil, 0, err
 	}
+	if err := checkNoStreams(parts, errs); err != nil {
+		return nil, 0, err
+	}
 
 	/* Read the ToC offset:
 	   - 10 bytes  gzip header
@@ -128,6 +131,9 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 	manifestDigester := digest.Canonical.Digester()
 	manifestChecksum := manifestDigester.Hash()
 	if _, err := manifestChecksum.Write(manifestUncompressed); err != nil {
+		return nil, 0, err
+	}
+	if err := checkNoStreams(parts, errs); err != nil {
 		return nil, 0, err
 	}
 
