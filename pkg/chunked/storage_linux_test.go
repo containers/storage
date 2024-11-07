@@ -128,7 +128,11 @@ func TestGetBlobAtWithErrors(t *testing.T) {
 
 	is := &mockImageSource{streams: streams, errors: errorsC}
 
-	resultChan, err := getBlobAt(is)
+	chunks := []ImageSourceChunk{
+		{Offset: 0, Length: 1},
+		{Offset: 1, Length: 1},
+	}
+	resultChan, err := getBlobAt(is, chunks...)
 	require.NoError(t, err)
 
 	expectedErrors := []string{"error1", "error2"}
@@ -149,13 +153,18 @@ func TestGetBlobAtMixedStreamsAndErrors(t *testing.T) {
 	errorsC := make(chan error, 1)
 
 	streams <- mockReadCloserFromContent("stream1")
+	streams <- mockReadCloserFromContent("stream2")
 	errorsC <- errors.New("error1")
 	close(streams)
 	close(errorsC)
 
 	is := &mockImageSource{streams: streams, errors: errorsC}
 
-	resultChan, err := getBlobAt(is)
+	chunks := []ImageSourceChunk{
+		{Offset: 0, Length: 1},
+		{Offset: 1, Length: 1},
+	}
+	resultChan, err := getBlobAt(is, chunks...)
 	require.NoError(t, err)
 
 	var receivedStreams int
@@ -167,6 +176,6 @@ func TestGetBlobAtMixedStreamsAndErrors(t *testing.T) {
 			receivedStreams++
 		}
 	}
-	assert.Equal(t, 0, receivedStreams)
-	assert.Equal(t, 2, receivedErrors)
+	assert.Equal(t, 2, receivedStreams)
+	assert.Equal(t, 1, receivedErrors)
 }

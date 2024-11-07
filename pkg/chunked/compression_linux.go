@@ -20,6 +20,12 @@ import (
 	expMaps "golang.org/x/exp/maps"
 )
 
+const (
+	// maxTocSize is the maximum size of a blob that we will attempt to process.
+	// It is used to prevent DoS attacks from layers that embed a very large TOC file.
+	maxTocSize = (1 << 20) * 50
+)
+
 var typesToTar = map[string]byte{
 	TypeReg:     tar.TypeReg,
 	TypeLink:    tar.TypeLink,
@@ -77,7 +83,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 
 	size := int64(blobSize - footerSize - tocOffset)
 	// set a reasonable limit
-	if size > (1<<20)*50 {
+	if size > maxTocSize {
 		return nil, 0, errors.New("manifest too big")
 	}
 
@@ -106,7 +112,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 					return err
 				}
 				// set a reasonable limit
-				if header.Size > (1<<20)*50 {
+				if header.Size > maxTocSize {
 					return errors.New("manifest too big")
 				}
 
@@ -166,10 +172,10 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 	}
 
 	// set a reasonable limit
-	if manifestChunk.Length > (1<<20)*50 {
+	if manifestChunk.Length > maxTocSize {
 		return nil, nil, nil, 0, errors.New("manifest too big")
 	}
-	if manifestLengthUncompressed > (1<<20)*50 {
+	if manifestLengthUncompressed > maxTocSize {
 		return nil, nil, nil, 0, errors.New("manifest too big")
 	}
 
