@@ -23,6 +23,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chunked/compressor"
 	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/composefs"
 	"github.com/containers/storage/pkg/chunked/toc"
 	"github.com/containers/storage/pkg/fsverity"
 	"github.com/containers/storage/pkg/idtools"
@@ -1124,10 +1125,12 @@ func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
 		}
 		digest, err := digest.Parse(mergedEntries[i].Digest)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid digest %q for %q: %w", mergedEntries[i].Digest, mergedEntries[i].Name, err)
 		}
-		d := digest.Encoded()
-		path := fmt.Sprintf("%s/%s", d[0:2], d[2:])
+		path, err := composefs.RegularFilePathForValidatedDigest(digest)
+		if err != nil {
+			return nil, fmt.Errorf("determining physical file path for %q: %w", mergedEntries[i].Name, err)
+		}
 
 		if _, known := knownFlatPaths[path]; known {
 			continue
@@ -1425,7 +1428,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		}
 		createdDirs := make(map[string]struct{})
 		for _, e := range mergedEntries {
-			d := e.Name[0:2]
+			// This hard-codes an assumption that RegularFilePathForValidatedDigest creates paths with exactly one directory component.
+			d := filepath.Dir(e.Name)
 			if _, found := createdDirs[d]; !found {
 				if err := unix.Mkdirat(dirfd, d, 0o755); err != nil {
 					return output, &fs.PathError{Op: "mkdirat", Path: d, Err: err}
