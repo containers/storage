@@ -1120,7 +1120,7 @@ func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *fileMetadata, copyOptions 
 func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
 	var new []fileMetadata
 
-	hashes := make(map[string]string)
+	knownFlatPaths := make(map[string]struct{})
 	for i := range mergedEntries {
 		if mergedEntries[i].Type != TypeReg {
 			continue
@@ -1133,13 +1133,14 @@ func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
 			return nil, err
 		}
 		d := digest.Encoded()
+		path := fmt.Sprintf("%s/%s", d[0:2], d[2:])
 
-		if hashes[d] != "" {
+		if _, known := knownFlatPaths[path]; known {
 			continue
 		}
-		hashes[d] = d
+		knownFlatPaths[path] = struct{}{}
 
-		mergedEntries[i].Name = fmt.Sprintf("%s/%s", d[0:2], d[2:])
+		mergedEntries[i].Name = path
 		mergedEntries[i].skipSetAttrs = true
 
 		new = append(new, mergedEntries[i])
