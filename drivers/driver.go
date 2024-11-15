@@ -231,8 +231,8 @@ const (
 	// DifferOutputFormatDir means the output is a directory and it will
 	// keep the original layout.
 	DifferOutputFormatDir = iota
-	// DifferOutputFormatFlat will store the files by their checksum, in the form
-	// checksum[0:2]/checksum[2:]
+	// DifferOutputFormatFlat will store the files by their checksum, per
+	// pkg/chunked/internal/composefs.RegularFilePathForValidatedDigest.
 	DifferOutputFormatFlat
 )
 
