@@ -792,19 +792,19 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		if _, found := xattrsToIgnore[xattrKey]; found {
 			continue
 		}
-		if err := system.Lsetxattr(path, xattrKey, []byte(value), 0); err != nil {
+		if err := setExtendedAttribute(path, xattrKey, []byte(value)); err != nil {
 			if errors.Is(err, syscall.ENOTSUP) || (inUserns && errors.Is(err, syscall.EPERM)) {
-				// We ignore errors here because not all graphdrivers support
-				// xattrs *cough* old versions of AUFS *cough*. However only
-				// ENOTSUP should be emitted in that case, otherwise we still
-				// bail.  We also ignore EPERM errors if we are running in a
-				// user namespace.
+				// Ignore specific error cases:
+				// - ENOTSUP: Expected for graphdrivers lacking extended attribute support:
+				//   - Legacy AUFS versions
+				//   - FreeBSD with unsupported namespaces (trusted, security)
+				// - EPERM: Expected when operating within a user namespace
+				// All other errors will cause a failure.
 				errs = append(errs, err.Error())
 				continue
 			}
 			return err
 		}
-
 	}
 
 	// We defer setting flags on directories until the end of
