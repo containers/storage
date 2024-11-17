@@ -13,7 +13,7 @@ msg "Setting up $OS_RELEASE_ID $OS_RELEASE_VER"
 case "$OS_RELEASE_ID" in
     fedora)
         [[ -z "$RPMS_CONFLICTING" ]] || \
-            $SHORT_DNFY erase $RPMS_CONFLICTING
+            $SHORT_DNFY remove $RPMS_CONFLICTING
         ;;
     debian)
         [[ -z "$DEBS_CONFLICTING" ]] || \
