@@ -1247,3 +1247,20 @@ func readFileFromArchive(t *testing.T, archive io.ReadCloser, name string, expec
 	assert.NoError(t, err)
 	return string(content)
 }
+
+func TestCreateFifo(t *testing.T) {
+	hdr := tar.Header{Typeflag: tar.TypeFifo}
+	tmpDir := t.TempDir()
+	buffer := make([]byte, 1<<20)
+	err := createTarFile(filepath.Join(tmpDir, "fifo1"), tmpDir, &hdr, nil, true, nil, false, false, nil, buffer)
+	assert.NoError(t, err)
+
+	forceMask := os.FileMode(0o755)
+	err = createTarFile(filepath.Join(tmpDir, "fifo2"), tmpDir, &hdr, nil, true, nil, false, false, &forceMask, buffer)
+	// expect an error to chown a fifo
+	assert.Error(t, err)
+
+	err = createTarFile(filepath.Join(tmpDir, "fifo3"), tmpDir, &hdr, nil, true, nil, false, true, &forceMask, buffer)
+	// expect no error as honors ignoreChownErrors
+	assert.NoError(t, err)
+}

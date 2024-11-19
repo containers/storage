@@ -734,7 +734,10 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 			Mode: hdrInfo.Mode() & 0o7777,
 		}
 		if err := idtools.SetContainersOverrideXattr(path, value); err != nil {
-			return err
+			if !ignoreChownErrors {
+				return err
+			}
+			logrus.Warnf("Setting override extended attribute failed for %q. Ignoring due to ignoreChownErrors flag: %v", path, err)
 		}
 	}
 
