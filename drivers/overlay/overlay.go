@@ -2740,3 +2740,8 @@ func getMappedMountRoot(path string) string {
 	}
 	return dirName
 }
+
+// Dedup performs deduplication of the driver's storage.
+func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
+	return graphdriver.DedupResult{}, nil
+}
