@@ -64,9 +64,6 @@ func ExtattrListLink(path string, attrnamespace int) ([]string, error) {
 	size, errno := unix.ExtattrListLink(path, attrnamespace,
 		uintptr(unsafe.Pointer(nil)), 0)
 	if errno != nil {
-		if errno == unix.ENOATTR {
-			return nil, nil
-		}
 		return nil, &os.PathError{Op: "extattr_list_link", Path: path, Err: errno}
 	}
 	if size == 0 {
