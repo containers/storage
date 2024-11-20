@@ -792,7 +792,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		if _, found := xattrsToIgnore[xattrKey]; found {
 			continue
 		}
-		if err := setExtendedAttribute(path, xattrKey, []byte(value)); err != nil {
+		if err := system.Lsetxattr(path, xattrKey, []byte(value), 0); err != nil {
 			if errors.Is(err, syscall.ENOTSUP) || (inUserns && errors.Is(err, syscall.EPERM)) {
 				// Ignore specific error cases:
 				// - ENOTSUP: Expected for graphdrivers lacking extended attribute support:
