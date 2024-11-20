@@ -348,3 +348,8 @@ func (d *Driver) Diff(id string, idMappings *idtools.IDMappings, parent string, 
 func (d *Driver) DiffSize(id string, idMappings *idtools.IDMappings, parent string, parentMappings *idtools.IDMappings, mountLabel string) (size int64, err error) {
 	return d.naiveDiff.DiffSize(id, idMappings, parent, parentMappings, mountLabel)
 }
+
+// Dedup performs deduplication of the driver's storage.
+func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
+	return graphdriver.DedupResult{}, nil
+}
