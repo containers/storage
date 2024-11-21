@@ -427,7 +427,7 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 	}
 	for _, xattr := range []string{"security.capability", "security.ima"} {
 		capability, err := system.Lgetxattr(path, xattr)
-		if err != nil && !errors.Is(err, system.EOPNOTSUPP) && err != system.ErrNotSupportedPlatform {
+		if err != nil && !errors.Is(err, system.ENOTSUP) && err != system.ErrNotSupportedPlatform {
 			return fmt.Errorf("failed to read %q attribute from %q: %w", xattr, path, err)
 		}
 		if capability != nil {
@@ -440,7 +440,7 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 // readUserXattrToTarHeader reads user.* xattr from filesystem to a tar header
 func readUserXattrToTarHeader(path string, hdr *tar.Header) error {
 	xattrs, err := system.Llistxattr(path)
-	if err != nil && !errors.Is(err, system.EOPNOTSUPP) && err != system.ErrNotSupportedPlatform {
+	if err != nil && !errors.Is(err, system.ENOTSUP) && err != system.ErrNotSupportedPlatform {
 		return err
 	}
 	for _, key := range xattrs {
@@ -793,7 +793,7 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 			continue
 		}
 		if err := system.Lsetxattr(path, xattrKey, []byte(value), 0); err != nil {
-			if errors.Is(err, syscall.ENOTSUP) || (inUserns && errors.Is(err, syscall.EPERM)) {
+			if errors.Is(err, system.ENOTSUP) || (inUserns && errors.Is(err, syscall.EPERM)) {
 				// Ignore specific error cases:
 				// - ENOTSUP: Expected for graphdrivers lacking extended attribute support:
 				//   - Legacy AUFS versions

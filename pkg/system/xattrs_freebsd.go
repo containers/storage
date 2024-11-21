@@ -2,7 +2,6 @@ package system
 
 import (
 	"strings"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -12,7 +11,7 @@ const (
 	E2BIG unix.Errno = unix.E2BIG
 
 	// Operation not supported
-	EOPNOTSUPP unix.Errno = unix.EOPNOTSUPP
+	ENOTSUP unix.Errno = unix.ENOTSUP
 
 	// Value is too small or too large for maximum size allowed
 	EOVERFLOW unix.Errno = unix.EOVERFLOW
@@ -28,12 +27,12 @@ var (
 func xattrToExtattr(xattr string) (namespace int, extattr string, err error) {
 	namespaceName, extattr, found := strings.Cut(xattr, ".")
 	if !found {
-		return -1, "", syscall.ENOTSUP
+		return -1, "", ENOTSUP
 	}
 
 	namespace, ok := namespaceMap[namespaceName]
 	if !ok {
-		return -1, "", syscall.ENOTSUP
+		return -1, "", ENOTSUP
 	}
 	return namespace, extattr, nil
 }
@@ -56,7 +55,7 @@ func Lsetxattr(path string, attr string, value []byte, flags int) error {
 		// FIXME: Flags are not supported on FreeBSD, but we can implement
 		// them mimicking the behavior of the Linux implementation.
 		// See lsetxattr(2) on Linux for more information.
-		return syscall.ENOTSUP
+		return ENOTSUP
 	}
 
 	namespace, extattr, err := xattrToExtattr(attr)
