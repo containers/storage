@@ -1262,6 +1262,24 @@ func (c *chunkedDiffer) copyAllBlobToFile(destination *os.File) (digest.Digest, 
 	return originalRawDigester.Digest(), err
 }
 
+func typeToOsMode(typ string) (os.FileMode, error) {
+	switch typ {
+	case TypeReg, TypeLink:
+		return 0, nil
+	case TypeSymlink:
+		return os.ModeSymlink, nil
+	case TypeDir:
+		return os.ModeDir, nil
+	case TypeChar:
+		return os.ModeDevice | os.ModeCharDevice, nil
+	case TypeBlock:
+		return os.ModeDevice, nil
+	case TypeFifo:
+		return os.ModeNamedPipe, nil
+	}
+	return 0, fmt.Errorf("unknown file type %q", typ)
+}
+
 func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, differOpts *graphdriver.DifferOptions) (graphdriver.DriverWithDifferOutput, error) {
 	defer c.layersCache.release()
 	defer func() {
@@ -1408,7 +1426,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		if err == nil {
 			value := idtools.Stat{
 				IDs:  idtools.IDPair{UID: int(uid), GID: int(gid)},
-				Mode: os.FileMode(mode),
+				Mode: os.ModeDir | os.FileMode(mode),
 			}
 			if err := idtools.SetContainersOverrideXattr(dest, value); err != nil {
 				return output, err
@@ -1491,19 +1509,39 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	filesToWaitFor := 0
 	for i := range mergedEntries {
 		r := &mergedEntries[i]
-		if options.ForceMask != nil {
-			value := idtools.FormatContainersOverrideXattr(r.UID, r.GID, int(r.Mode))
-			if r.Xattrs == nil {
-				r.Xattrs = make(map[string]string)
-			}
-			r.Xattrs[idtools.ContainersOverrideXattr] = base64.StdEncoding.EncodeToString([]byte(value))
-		}
 
 		mode := os.FileMode(r.Mode)
 
 		t, err := typeToTarType(r.Type)
 		if err != nil {
 			return output, err
+		}
+
+		size := r.Size
+
+		// update also the implementation of ForceMask in pkg/archive
+		if options.ForceMask != nil {
+			mode = *options.ForceMask
+
+			// special files will be stored as regular files
+			if t != tar.TypeDir && t != tar.TypeSymlink && t != tar.TypeReg && t != tar.TypeLink {
+				t = tar.TypeReg
+				size = 0
+			}
+
+			// if the entry will be stored as a directory or a regular file, store in a xattr the original
+			// owner and mode.
+			if t == tar.TypeDir || t == tar.TypeReg {
+				typeMode, err := typeToOsMode(r.Type)
+				if err != nil {
+					return output, err
+				}
+				value := idtools.FormatContainersOverrideXattrDevice(r.UID, r.GID, typeMode|fs.FileMode(r.Mode), int(r.Devmajor), int(r.Devminor))
+				if r.Xattrs == nil {
+					r.Xattrs = make(map[string]string)
+				}
+				r.Xattrs[idtools.ContainersOverrideXattr] = base64.StdEncoding.EncodeToString([]byte(value))
+			}
 		}
 
 		r.Name = filepath.Clean(r.Name)
@@ -1517,8 +1555,8 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 				Typeflag: t,
 				Name:     r.Name,
 				Linkname: r.Linkname,
-				Size:     r.Size,
-				Mode:     r.Mode,
+				Size:     size,
+				Mode:     int64(mode),
 				Uid:      r.UID,
 				Gid:      r.GID,
 			}
@@ -1537,7 +1575,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		switch t {
 		case tar.TypeReg:
 			// Create directly empty files.
-			if r.Size == 0 {
+			if size == 0 {
 				// Used to have a scope for cleanup.
 				createEmptyFile := func() error {
 					file, err := openFileUnderRoot(dirfd, r.Name, newFileFlags, 0)
@@ -1592,7 +1630,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			return output, fmt.Errorf("invalid type %q", t)
 		}
 
-		totalChunksSize += r.Size
+		totalChunksSize += size
 
 		if t == tar.TypeReg {
 			index := i
