@@ -735,7 +735,12 @@ func (d *destinationFile) Close() (Err error) {
 		}
 	}
 
-	return setFileAttrs(d.dirfd, d.file, os.FileMode(d.metadata.Mode), d.metadata, d.options, false)
+	mode := os.FileMode(d.metadata.Mode)
+	if d.options.ForceMask != nil {
+		mode = *d.options.ForceMask
+	}
+
+	return setFileAttrs(d.dirfd, d.file, mode, d.metadata, d.options, false)
 }
 
 func closeDestinationFiles(files chan *destinationFile, errors chan error) {
