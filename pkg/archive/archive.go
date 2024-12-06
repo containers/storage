@@ -655,12 +655,20 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 	// so use hdrInfo.Mode() (they differ for e.g. setuid bits)
 	hdrInfo := hdr.FileInfo()
 
+	typeFlag := hdr.Typeflag
 	mask := hdrInfo.Mode()
+
+	// update also the implementation of ForceMask in pkg/chunked
 	if forceMask != nil {
 		mask = *forceMask
+		// If we have a forceMask, force the real type to either be a directory,
+		// a link, or a regular file.
+		if typeFlag != tar.TypeDir && typeFlag != tar.TypeSymlink && typeFlag != tar.TypeLink {
+			typeFlag = tar.TypeReg
+		}
 	}
 
-	switch hdr.Typeflag {
+	switch typeFlag {
 	case tar.TypeDir:
 		// Create directory unless it exists as a directory already.
 		// In that case we just want to merge the two
@@ -728,16 +736,6 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 		return fmt.Errorf("unhandled tar header type %d", hdr.Typeflag)
 	}
 
-	if forceMask != nil && (hdr.Typeflag != tar.TypeSymlink || runtime.GOOS == "darwin") {
-		value := idtools.Stat{
-			IDs:  idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid},
-			Mode: hdrInfo.Mode() & 0o7777,
-		}
-		if err := idtools.SetContainersOverrideXattr(path, value); err != nil {
-			return err
-		}
-	}
-
 	// Lchown is not supported on Windows.
 	if Lchown && runtime.GOOS != windows {
 		if chownOpts == nil {
@@ -803,6 +801,18 @@ func createTarFile(path, extractDir string, hdr *tar.Header, reader io.Reader, L
 				errs = append(errs, err.Error())
 				continue
 			}
+			return err
+		}
+	}
+
+	if forceMask != nil && (typeFlag == tar.TypeReg || typeFlag == tar.TypeDir || runtime.GOOS == "darwin") {
+		value := idtools.Stat{
+			IDs:   idtools.IDPair{UID: hdr.Uid, GID: hdr.Gid},
+			Mode:  hdrInfo.Mode(),
+			Major: int(hdr.Devmajor),
+			Minor: int(hdr.Devminor),
+		}
+		if err := idtools.SetContainersOverrideXattr(path, value); err != nil {
 			return err
 		}
 	}
@@ -1149,11 +1159,11 @@ loop:
 	}
 
 	if options.ForceMask != nil {
-		value := idtools.Stat{Mode: 0o755}
+		value := idtools.Stat{Mode: os.ModeDir | os.FileMode(0o755)}
 		if rootHdr != nil {
 			value.IDs.UID = rootHdr.Uid
 			value.IDs.GID = rootHdr.Gid
-			value.Mode = os.FileMode(rootHdr.Mode)
+			value.Mode = os.ModeDir | os.FileMode(rootHdr.Mode)
 		}
 		if err := idtools.SetContainersOverrideXattr(dest, value); err != nil {
 			return err
@@ -1379,7 +1389,7 @@ func remapIDs(readIDMappings, writeIDMappings *idtools.IDMappings, chownOpts *id
 			uid, gid = hdr.Uid, hdr.Gid
 			if xstat, ok := hdr.PAXRecords[PaxSchilyXattr+idtools.ContainersOverrideXattr]; ok {
 				attrs := strings.Split(string(xstat), ":")
-				if len(attrs) == 3 {
+				if len(attrs) >= 3 {
 					val, err := strconv.ParseUint(attrs[0], 10, 32)
 					if err != nil {
 						uid = int(val)

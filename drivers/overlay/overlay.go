@@ -1096,6 +1096,7 @@ func (d *Driver) create(id, parent string, opts *graphdriver.CreateOpts, readOnl
 	}
 
 	if d.options.forceMask != nil {
+		st.Mode |= os.ModeDir
 		if err := idtools.SetContainersOverrideXattr(diff, st); err != nil {
 			return err
 		}
