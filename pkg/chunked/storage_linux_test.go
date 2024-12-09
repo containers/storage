@@ -211,3 +211,32 @@ func TestTypeToOsMode(t *testing.T) {
 		})
 	}
 }
+
+func TestIsRootDirectory(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected bool
+	}{
+		{"", true},
+		{".", true},
+		{"..", true},
+		{"../..", true},
+		{"../../foo", false},
+		{"../../foo/..", true},
+		{"./", true},
+		{"././././.", true},
+		{"./.././../.", true},
+		{"/", true},
+		{"/../", true},
+		{"/../../../", true},
+		{"//./../..", true},
+		{"//", true},
+		{"///", true},
+		{"/foo//..", true},
+		{"/home/user", false},
+	}
+
+	for _, test := range tests {
+		assert.Equal(t, isRootDirectory(test.path), test.expected, fmt.Sprintf("path %q failed", test.path))
+	}
+}

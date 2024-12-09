@@ -1280,6 +1280,21 @@ func typeToOsMode(typ string) (os.FileMode, error) {
 	return 0, fmt.Errorf("unknown file type %q", typ)
 }
 
+func removeDotDotPrefix(path string) string {
+	for {
+		var found bool
+		path, found = strings.CutPrefix(path, "../")
+		if !found {
+			return path
+		}
+	}
+}
+
+func isRootDirectory(path string) bool {
+	path = removeDotDotPrefix(filepath.Clean(path))
+	return path == "" || path == ".." || path == "." || path == "/"
+}
+
 func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, differOpts *graphdriver.DifferOptions) (graphdriver.DriverWithDifferOutput, error) {
 	defer c.layersCache.release()
 	defer func() {
@@ -1595,7 +1610,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			}
 
 		case tar.TypeDir:
-			if r.Name == "" || r.Name == "." {
+			if isRootDirectory(r.Name) {
 				output.RootDirMode = &mode
 			}
 			if err := safeMkdir(dirfd, mode, r.Name, r, options); err != nil {
