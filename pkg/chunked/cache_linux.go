@@ -710,7 +710,7 @@ func prepareCacheFile(manifest []byte, format graphdriver.DifferOutputFormat) ([
 	switch format {
 	case graphdriver.DifferOutputFormatDir:
 	case graphdriver.DifferOutputFormatFlat:
-		entries, err = makeEntriesFlat(entries)
+		entries, err = makeEntriesFlat(entries, nil)
 		if err != nil {
 			return nil, err
 		}
