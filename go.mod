@@ -10,7 +10,7 @@ require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/Microsoft/hcsshim v0.12.9
 	github.com/containerd/stargz-snapshotter/estargz v0.16.2
-	github.com/cyphar/filepath-securejoin v0.3.4
+	github.com/cyphar/filepath-securejoin v0.3.5
 	github.com/docker/go-units v0.5.0
 	github.com/google/go-intervals v0.0.2
 	github.com/hashicorp/go-multierror v1.1.1
@@ -31,7 +31,7 @@ require (
 	github.com/ulikunitz/xz v0.5.12
 	github.com/vbatts/tar-split v0.11.6
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
-	golang.org/x/sys v0.27.0
+	golang.org/x/sys v0.28.0
 	gotest.tools v2.2.0+incompatible
 )
 
