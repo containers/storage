@@ -49,8 +49,31 @@ type fileMetadata struct {
 	skipSetAttrs bool
 }
 
+// splitPath takes a file path as input and returns two components: dir and base.
+// Differently than filepath.Split, this function handles some
+// edge cases.  If the path refers to a file in the root directory, the returned
+// dir is the empty string.
+// The returned base value is never empty, it never contains any slash and the
+// value "..".
+func splitPath(path string) (string, string) {
+	path = filepath.Clean(path)
+	dir, base := filepath.Split(path)
+	if isRootDirectory(dir) {
+		dir = ""
+		if base == ".." {
+			base = "."
+		}
+	} else {
+		dir = removeDotDotPrefix(filepath.Clean(dir))
+	}
+	if base == "" {
+		base = "."
+	}
+	return dir, base
+}
+
 func doHardLink(dirfd, srcFd int, destFile string) error {
-	destDir, destBase := filepath.Split(destFile)
+	destDir, destBase := splitPath(destFile)
 	destDirFd := dirfd
 	if destDir != "" && destDir != "." {
 		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
@@ -281,7 +304,7 @@ func openFileUnderRootFallback(dirfd int, name string, flags uint64, mode os.Fil
 	// If O_NOFOLLOW is specified in the flags, then resolve only the parent directory and use the
 	// last component as the path to openat().
 	if hasNoFollow {
-		dirName, baseName := filepath.Split(name)
+		dirName, baseName := splitPath(name)
 		if dirName != "" && dirName != "." {
 			newRoot, err := securejoin.SecureJoin(root, dirName)
 			if err != nil {
@@ -448,7 +471,7 @@ func appendHole(fd int, name string, size int64) error {
 }
 
 func safeMkdir(dirfd int, mode os.FileMode, name string, metadata *fileMetadata, options *archive.TarOptions) error {
-	parent, base := filepath.Split(name)
+	parent, base := splitPath(name)
 	parentFd := dirfd
 	if parent != "" && parent != "." {
 		parentFile, err := openOrCreateDirUnderRoot(dirfd, parent, 0)
@@ -506,7 +529,7 @@ func safeLink(dirfd int, mode os.FileMode, metadata *fileMetadata, options *arch
 }
 
 func safeSymlink(dirfd int, metadata *fileMetadata) error {
-	destDir, destBase := filepath.Split(metadata.Name)
+	destDir, destBase := splitPath(metadata.Name)
 	destDirFd := dirfd
 	if destDir != "" && destDir != "." {
 		f, err := openOrCreateDirUnderRoot(dirfd, destDir, 0)
@@ -542,7 +565,7 @@ func (d whiteoutHandler) Setxattr(path, name string, value []byte) error {
 }
 
 func (d whiteoutHandler) Mknod(path string, mode uint32, dev int) error {
-	dir, base := filepath.Split(path)
+	dir, base := splitPath(path)
 	dirfd := d.Dirfd
 	if dir != "" && dir != "." {
 		dir, err := openOrCreateDirUnderRoot(d.Dirfd, dir, 0)
