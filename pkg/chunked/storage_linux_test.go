@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -178,4 +179,35 @@ func TestGetBlobAtMixedStreamsAndErrors(t *testing.T) {
 	}
 	assert.Equal(t, 2, receivedStreams)
 	assert.Equal(t, 1, receivedErrors)
+}
+
+func TestTypeToOsMode(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		expected  os.FileMode
+		expectErr bool
+	}{
+		{"regular file", TypeReg, 0, false},
+		{"hard link", TypeLink, 0, false},
+		{"symlink", TypeSymlink, os.ModeSymlink, false},
+		{"directory", TypeDir, os.ModeDir, false},
+		{"character device", TypeChar, os.ModeDevice | os.ModeCharDevice, false},
+		{"block device", TypeBlock, os.ModeDevice, false},
+		{"FIFO/pipe", TypeFifo, os.ModeNamedPipe, false},
+		{"unknown type", "unknown", 0, true},
+		{"empty string", "", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mode, err := typeToOsMode(tt.input)
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, mode)
+			}
+		})
+	}
 }
