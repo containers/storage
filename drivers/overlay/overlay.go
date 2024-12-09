@@ -22,6 +22,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
 	"github.com/containers/storage/drivers/quota"
+	"github.com/containers/storage/internal/dedup"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -2740,4 +2741,23 @@ func getMappedMountRoot(path string) string {
 		return filepath.Dir(dirName)
 	}
 	return dirName
+}
+
+// Dedup performs deduplication of the driver's storage.
+func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
+	var dirs []string
+	for _, layer := range req.Layers {
+		dir, _, inAdditionalStore := d.dir2(layer, false)
+		if inAdditionalStore {
+			continue
+		}
+		if err := fileutils.Exists(dir); err == nil {
+			dirs = append(dirs, filepath.Join(dir, "diff"))
+		}
+	}
+	r, err := dedup.DedupDirs(dirs, req.Options)
+	if err != nil {
+		return graphdriver.DedupResult{}, err
+	}
+	return graphdriver.DedupResult{Deduped: r.Deduped}, nil
 }
