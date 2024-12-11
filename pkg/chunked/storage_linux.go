@@ -23,6 +23,7 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chunked/compressor"
 	"github.com/containers/storage/pkg/chunked/internal"
+	path "github.com/containers/storage/pkg/chunked/internal/path"
 	"github.com/containers/storage/pkg/chunked/toc"
 	"github.com/containers/storage/pkg/fsverity"
 	"github.com/containers/storage/pkg/idtools"
@@ -1544,10 +1545,10 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			}
 		}
 
-		r.Name = filepath.Clean(r.Name)
+		r.Name = path.CleanAbsPath(r.Name)
 		// do not modify the value of symlinks
 		if r.Linkname != "" && t != tar.TypeSymlink {
-			r.Linkname = filepath.Clean(r.Linkname)
+			r.Linkname = path.CleanAbsPath(r.Linkname)
 		}
 
 		if whiteoutConverter != nil {
@@ -1595,7 +1596,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			}
 
 		case tar.TypeDir:
-			if r.Name == "" || r.Name == "." {
+			if r.Name == "/" {
 				output.RootDirMode = &mode
 			}
 			if err := safeMkdir(dirfd, mode, r.Name, r, options); err != nil {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/containers/storage/pkg/chunked/internal"
+	storagePath "github.com/containers/storage/pkg/chunked/internal/path"
 	"golang.org/x/sys/unix"
 )
 
@@ -103,18 +104,8 @@ func getStMode(mode uint32, typ string) (uint32, error) {
 	return mode, nil
 }
 
-func sanitizeName(name string) string {
-	path := filepath.Clean(name)
-	if path == "." {
-		path = "/"
-	} else if path[0] != '/' {
-		path = "/" + path
-	}
-	return path
-}
-
 func dumpNode(out io.Writer, added map[string]*internal.FileMetadata, links map[string]int, verityDigests map[string]string, entry *internal.FileMetadata) error {
-	path := sanitizeName(entry.Name)
+	path := storagePath.CleanAbsPath(entry.Name)
 
 	parent := filepath.Dir(path)
 	if _, found := added[parent]; !found && path != "/" {
@@ -172,7 +163,7 @@ func dumpNode(out io.Writer, added map[string]*internal.FileMetadata, links map[
 		if entry.Type == internal.TypeSymlink {
 			payload = entry.Linkname
 		} else {
-			payload = sanitizeName(entry.Linkname)
+			payload = storagePath.CleanAbsPath(entry.Linkname)
 		}
 	} else {
 		if len(entry.Digest) > 10 {
