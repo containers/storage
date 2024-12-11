@@ -127,7 +127,7 @@ func TestSafeMkdir(t *testing.T) {
 	require.NoError(t, err)
 
 	dir, err := openFileUnderRoot(rootFd, dirName, syscall.O_DIRECTORY|syscall.O_CLOEXEC, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	err = dir.Close()
 	assert.NoError(t, err)
 }
@@ -167,7 +167,7 @@ func TestSafeLink(t *testing.T) {
 
 	// validate it was created
 	newFile, err := openFileUnderRoot(rootFd, linkName, syscall.O_RDONLY, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	st := syscall.Stat_t{}
 	err = syscall.Fstat(int(newFile.Fd()), &st)
@@ -216,7 +216,7 @@ func TestSafeSymlink(t *testing.T) {
 
 	// validate it was created
 	newFile, err := openFileUnderRoot(rootFd, linkName, syscall.O_RDONLY, 0)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	st2 := syscall.Stat_t{}
 	err = syscall.Fstat(int(newFile.Fd()), &st2)
