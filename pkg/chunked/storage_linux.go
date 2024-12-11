@@ -2,6 +2,7 @@ package chunked
 
 import (
 	archivetar "archive/tar"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -23,16 +24,20 @@ import (
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chunked/compressor"
 	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/composefs"
 	"github.com/containers/storage/pkg/chunked/toc"
 	"github.com/containers/storage/pkg/fsverity"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/system"
+	securejoin "github.com/cyphar/filepath-securejoin"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/archive/tar"
+	"github.com/vbatts/tar-split/tar/asm"
+	tsStorage "github.com/vbatts/tar-split/tar/storage"
 	"golang.org/x/sys/unix"
 )
 
@@ -1116,10 +1121,13 @@ func (c *chunkedDiffer) findAndCopyFile(dirfd int, r *fileMetadata, copyOptions 
 	return false, nil
 }
 
-func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
+// makeEntriesFlat collects regular-file entries from mergedEntries, and produces a new list
+// where each file content is only represented once, and uses composefs.RegularFilePathForValidatedDigest for its name.
+// if flatPathNameMap is not nil, this function writes to it a mapping from filepath.Clean(originalName) to the composefs name.
+func makeEntriesFlat(mergedEntries []fileMetadata, flatPathNameMap map[string]string) ([]fileMetadata, error) {
 	var new []fileMetadata
 
-	hashes := make(map[string]string)
+	knownFlatPaths := make(map[string]struct{})
 	for i := range mergedEntries {
 		if mergedEntries[i].Type != TypeReg {
 			continue
@@ -1129,16 +1137,22 @@ func makeEntriesFlat(mergedEntries []fileMetadata) ([]fileMetadata, error) {
 		}
 		digest, err := digest.Parse(mergedEntries[i].Digest)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid digest %q for %q: %w", mergedEntries[i].Digest, mergedEntries[i].Name, err)
 		}
-		d := digest.Encoded()
+		path, err := composefs.RegularFilePathForValidatedDigest(digest)
+		if err != nil {
+			return nil, fmt.Errorf("determining physical file path for %q: %w", mergedEntries[i].Name, err)
+		}
+		if flatPathNameMap != nil {
+			flatPathNameMap[filepath.Clean(mergedEntries[i].Name)] = path
+		}
 
-		if hashes[d] != "" {
+		if _, known := knownFlatPaths[path]; known {
 			continue
 		}
-		hashes[d] = d
+		knownFlatPaths[path] = struct{}{}
 
-		mergedEntries[i].Name = fmt.Sprintf("%s/%s", d[0:2], d[2:])
+		mergedEntries[i].Name = path
 		mergedEntries[i].skipSetAttrs = true
 
 		new = append(new, mergedEntries[i])
@@ -1438,16 +1452,20 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	if err != nil {
 		return output, &fs.PathError{Op: "open", Path: dest, Err: err}
 	}
-	defer unix.Close(dirfd)
+	dirFile := os.NewFile(uintptr(dirfd), dest)
+	defer dirFile.Close()
 
+	var flatPathNameMap map[string]string // = nil
 	if differOpts != nil && differOpts.Format == graphdriver.DifferOutputFormatFlat {
-		mergedEntries, err = makeEntriesFlat(mergedEntries)
+		flatPathNameMap = map[string]string{}
+		mergedEntries, err = makeEntriesFlat(mergedEntries, flatPathNameMap)
 		if err != nil {
 			return output, err
 		}
 		createdDirs := make(map[string]struct{})
 		for _, e := range mergedEntries {
-			d := e.Name[0:2]
+			// This hard-codes an assumption that RegularFilePathForValidatedDigest creates paths with exactly one directory component.
+			d := filepath.Dir(e.Name)
 			if _, found := createdDirs[d]; !found {
 				if err := unix.Mkdirat(dirfd, d, 0o755); err != nil {
 					return output, &fs.PathError{Op: "mkdirat", Path: d, Err: err}
@@ -1730,6 +1748,30 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		}
 	}
 
+	// To ensure that consumers of the layer who decompress and read the full tar stream,
+	// and consumers who consume the data via the TOC, both see exactly the same data and metadata,
+	// compute the UncompressedDigest.
+	// c/image will then ensure that this value matches the value in the image config’s RootFS.DiffID, i.e. the image must commit
+	// to one UncompressedDigest value for each layer, and that will avoid the ambiguity (in consumers who validate layers against DiffID).
+	//
+	// c/image also uses the UncompressedDigest as a layer ID, allowing it to use the traditional layer and image IDs.
+	//
+	// This is, sadly, quite costly: Up to now we might have only have had to write, and digest, only the new/modified files.
+	// Here we need to read, and digest, the whole layer, even if almost all of it was already present locally previously.
+	//
+	// Also, layers without a tar-split (estargz layers and old zstd:chunked layers) can't produce an UncompressedDigest that
+	// matches the expected RootFS.DiffID; they will need to use a special TOC-based layer ID, and we need to somehow (??)
+	// ensure unambiguity - either by always falling back to full pulls, or by never falling back.
+	if output.UncompressedDigest == "" && output.TarSplit != nil {
+		metadata := tsStorage.NewJSONUnpacker(bytes.NewReader(output.TarSplit))
+		fg := newStagedFileGetter(dirFile, flatPathNameMap)
+		digester := digest.Canonical.Digester()
+		if err := asm.WriteOutputTarStream(fg, metadata, digester.Hash()); err != nil {
+			return output, fmt.Errorf("digesting staged uncompressed stream: %w", err)
+		}
+		output.UncompressedDigest = digester.Digest()
+	}
+
 	if totalChunksSize > 0 {
 		logrus.Debugf("Missing %d bytes out of %d (%.2f %%)", missingPartsSize, totalChunksSize, float32(missingPartsSize*100.0)/float32(totalChunksSize))
 	}
@@ -1854,4 +1896,34 @@ func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offs
 	}
 
 	return digester.Digest() == digest
+}
+
+// newStagedFileGetter returns an object usable as storage.FileGetter for rootDir.
+// if flatPathNameMap is not nil, it must be used to map logical file names into the backing file paths.
+func newStagedFileGetter(rootDir *os.File, flatPathNameMap map[string]string) *stagedFileGetter {
+	return &stagedFileGetter{
+		rootDir:         rootDir,
+		flatPathNameMap: flatPathNameMap,
+	}
+}
+
+type stagedFileGetter struct {
+	rootDir         *os.File
+	flatPathNameMap map[string]string // nil, or a map from filepath.Clean()ed tar file names to expected on-filesystem names
+}
+
+func (fg *stagedFileGetter) Get(filename string) (io.ReadCloser, error) {
+	if fg.flatPathNameMap != nil {
+		path, ok := fg.flatPathNameMap[filepath.Clean(filename)]
+		if !ok {
+			return nil, fmt.Errorf("no path mapping exists for tar entry %q", filename)
+		}
+		filename = path
+	}
+	pathFD, err := securejoin.OpenatInRoot(fg.rootDir, filename)
+	if err != nil {
+		return nil, err
+	}
+	defer pathFD.Close()
+	return securejoin.Reopen(pathFD, unix.O_RDONLY)
 }
