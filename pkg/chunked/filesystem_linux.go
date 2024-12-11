@@ -409,7 +409,8 @@ func openOrCreateDirUnderRoot(dirfd int, name string, mode os.FileMode) (*os.Fil
 
 	if errors.Is(err, unix.ENOENT) {
 		parent := filepath.Dir(name)
-		if parent != "" {
+		// do not create the root directory, it should always exist
+		if parent != name {
 			pDir, err2 := openOrCreateDirUnderRoot(dirfd, parent, mode)
 			if err2 != nil {
 				return nil, err
