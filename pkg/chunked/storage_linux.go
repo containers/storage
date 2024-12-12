@@ -93,7 +93,7 @@ type chunkedDiffer struct {
 	blobSize            int64
 	uncompressedTarSize int64 // -1 if unknown
 
-	pullOptions map[string]string
+	pullOptions pullOptions
 
 	useFsVerity     graphdriver.DifferFsVerity
 	fsVerityDigests map[string]string
@@ -107,6 +107,36 @@ var xattrsToIgnore = map[string]interface{}{
 // chunkedLayerData is used to store additional information about the layer
 type chunkedLayerData struct {
 	Format graphdriver.DifferOutputFormat `json:"format"`
+}
+
+// pullOptions contains parsed data from storage.Store.PullOptions.
+// TO DO: ideally this should be parsed along with the rest of the config file into StoreOptions directly
+// (and then storage.Store.PullOptions would need to be somehow simulated).
+type pullOptions struct {
+	enablePartialImages bool     // enable_partial_images
+	convertImages       bool     // convert_images
+	useHardLinks        bool     // use_hard_links
+	ostreeRepos         []string // ostree_repos
+}
+
+func parsePullOptions(store storage.Store) pullOptions {
+	options := store.PullOptions()
+
+	res := pullOptions{}
+	for _, e := range []struct {
+		dest         *bool
+		name         string
+		defaultValue bool
+	}{
+		{&res.enablePartialImages, "enable_partial_images", false},
+		{&res.convertImages, "convert_images", false},
+		{&res.useHardLinks, "use_hard_links", false},
+	} {
+		*e.dest = parseBooleanPullOption(options, e.name, e.defaultValue)
+	}
+	res.ostreeRepos = strings.Split(options["ostree_repos"], ":")
+
+	return res
 }
 
 func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *os.File) (int64, *seekableFile, digest.Digest, map[string]string, error) {
@@ -148,22 +178,21 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 // If it returns an error that implements IsErrFallbackToOrdinaryLayerDownload, the caller can
 // retry the operation with a different method.
 func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {
-	pullOptions := store.PullOptions()
+	pullOptions := parsePullOptions(store)
 
-	if !parseBooleanPullOption(pullOptions, "enable_partial_images", false) {
-		// If convertImages is set, the two options disagree whether fallback is permissible.
+	if !pullOptions.enablePartialImages {
+		// If pullOptions.convertImages is set, the two options disagree whether fallback is permissible.
 		// Right now, we enable it, but that’s not a promise; rather, such a configuration should ideally be rejected.
 		return nil, newErrFallbackToOrdinaryLayerDownload(errors.New("partial images are disabled"))
 	}
-	// convertImages also serves as a “must not fallback to non-partial pull” option (?!)
-	convertImages := parseBooleanPullOption(pullOptions, "convert_images", false)
+	// pullOptions.convertImages also serves as a “must not fallback to non-partial pull” option (?!)
 
 	graphDriver, err := store.GraphDriver()
 	if err != nil {
 		return nil, err
 	}
 	if _, partialSupported := graphDriver.(graphdriver.DriverWithDiffer); !partialSupported {
-		if convertImages {
+		if pullOptions.convertImages {
 			return nil, fmt.Errorf("graph driver %s does not support partial pull but convert_images requires that", graphDriver.String())
 		}
 		return nil, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("graph driver %s does not support partial pull", graphDriver.String()))
@@ -175,7 +204,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 			return nil, err
 		}
 		// If convert_images is enabled, always attempt to convert it instead of returning an error or falling back to a different method.
-		if convertImages {
+		if pullOptions.convertImages {
 			logrus.Debugf("Created differ to convert blob %q", blobDigest)
 			return makeConvertFromRawDiffer(store, blobDigest, blobSize, iss, pullOptions)
 		}
@@ -189,7 +218,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 // It returns a “proper” differ (not a convert_images one) if possible.
 // On error, the second parameter is true if a fallback to an alternative (either the makeConverToRaw differ, or a non-partial pull)
 // is permissible.
-func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (graphdriver.Differ, bool, error) {
+func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (graphdriver.Differ, bool, error) {
 	zstdChunkedTOCDigestString, hasZstdChunkedTOC := annotations[minimal.ManifestChecksumKey]
 	estargzTOCDigestString, hasEstargzTOC := annotations[estargz.TOCJSONDigestAnnotation]
 
@@ -228,15 +257,14 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		return differ, false, nil
 
 	default: // no TOC
-		convertImages := parseBooleanPullOption(pullOptions, "convert_images", false)
-		if !convertImages {
+		if !pullOptions.convertImages {
 			return nil, true, errors.New("no TOC found and convert_images is not configured")
 		}
 		return nil, true, errors.New("no TOC found")
 	}
 }
 
-func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
 	layersCache, err := getLayersCache(store)
 	if err != nil {
 		return nil, err
@@ -255,7 +283,7 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 	}, nil
 }
 
-func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -290,7 +318,7 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 	}, nil
 }
 
-func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions map[string]string) (*chunkedDiffer, error) {
+func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
 	if err != nil {
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
@@ -1403,13 +1431,6 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		Size:               c.uncompressedTarSize,
 	}
 
-	// When the hard links deduplication is used, file attributes are ignored because setting them
-	// modifies the source file as well.
-	useHardLinks := parseBooleanPullOption(c.pullOptions, "use_hard_links", false)
-
-	// List of OSTree repositories to use for deduplication
-	ostreeRepos := strings.Split(c.pullOptions["ostree_repos"], ":")
-
 	whiteoutConverter := archive.GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 
 	var missingParts []missingPart
@@ -1469,8 +1490,10 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	missingPartsSize, totalChunksSize := int64(0), int64(0)
 
 	copyOptions := findAndCopyFileOptions{
-		useHardLinks: useHardLinks,
-		ostreeRepos:  ostreeRepos,
+		// When the hard links deduplication is used, file attributes are ignored because setting them
+		// modifies the source file as well.
+		useHardLinks: c.pullOptions.useHardLinks,
+		ostreeRepos:  c.pullOptions.ostreeRepos, // List of OSTree repositories to use for deduplication
 		options:      options,
 	}
 
