@@ -220,7 +220,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 
 // getProperDiffer is an implementation detail of GetDiffer.
 // It returns a “proper” differ (not a convert_images one) if possible.
-// On error, the second parameter is true if a fallback to an alternative (either the makeConverToRaw differ, or a non-partial pull)
+// On error, the second return value is true if a fallback to an alternative (either the makeConverToRaw differ, or a non-partial pull)
 // is permissible.
 func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (graphdriver.Differ, bool, error) {
 	zstdChunkedTOCDigestString, hasZstdChunkedTOC := annotations[minimal.ManifestChecksumKey]
@@ -235,12 +235,10 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		if err != nil {
 			return nil, false, err
 		}
-		differ, err := makeZstdChunkedDiffer(store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
+		differ, canFallback, err := makeZstdChunkedDiffer(store, blobSize, zstdChunkedTOCDigest, annotations, iss, pullOptions)
 		if err != nil {
 			logrus.Debugf("Could not create zstd:chunked differ for blob %q: %v", blobDigest, err)
-			// If the error is a bad request to the server, then signal to the caller that it can try a different method.
-			var badRequestErr ErrBadRequest
-			return nil, errors.As(err, &badRequestErr), err
+			return nil, canFallback, err
 		}
 		logrus.Debugf("Created zstd:chunked differ for blob %q", blobDigest)
 		return differ, false, nil
@@ -250,12 +248,10 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		if err != nil {
 			return nil, false, err
 		}
-		differ, err := makeEstargzChunkedDiffer(store, blobSize, estargzTOCDigest, iss, pullOptions)
+		differ, canFallback, err := makeEstargzChunkedDiffer(store, blobSize, estargzTOCDigest, iss, pullOptions)
 		if err != nil {
 			logrus.Debugf("Could not create estargz differ for blob %q: %v", blobDigest, err)
-			// If the error is a bad request to the server, then signal to the caller that it can try a different method.
-			var badRequestErr ErrBadRequest
-			return nil, errors.As(err, &badRequestErr), err
+			return nil, canFallback, err
 		}
 		logrus.Debugf("Created eStargz differ for blob %q", blobDigest)
 		return differ, false, nil
@@ -287,22 +283,28 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 	}, nil
 }
 
-func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
+// makeZstdChunkedDiffer sets up a chunkedDiffer for a zstd:chunked layer.
+//
+// On error, the second return value is true if a fallback to an alternative (either the makeConverToRaw differ, or a non-partial pull)
+// is permissible.
+func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, bool, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
 	if err != nil {
-		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
+		// If the error is a bad request to the server, then signal to the caller that it can try a different method.
+		var badRequestErr ErrBadRequest
+		return nil, errors.As(err, &badRequestErr), fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	var uncompressedTarSize int64 = -1
 	if tarSplit != nil {
 		uncompressedTarSize, err = tarSizeFromTarSplit(tarSplit)
 		if err != nil {
-			return nil, fmt.Errorf("computing size from tar-split: %w", err)
+			return nil, false, fmt.Errorf("computing size from tar-split: %w", err)
 		}
 	}
 
 	layersCache, err := getLayersCache(store)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return &chunkedDiffer{
@@ -319,17 +321,23 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 		stream:              iss,
 		tarSplit:            tarSplit,
 		tocOffset:           tocOffset,
-	}, nil
+	}, false, nil
 }
 
-func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
+// makeZstdChunkedDiffer sets up a chunkedDiffer for an estargz layer.
+//
+// On error, the second return value is true if a fallback to an alternative (either the makeConverToRaw differ, or a non-partial pull)
+// is permissible.
+func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, bool, error) {
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
 	if err != nil {
-		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
+		// If the error is a bad request to the server, then signal to the caller that it can try a different method.
+		var badRequestErr ErrBadRequest
+		return nil, errors.As(err, &badRequestErr), fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	layersCache, err := getLayersCache(store)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return &chunkedDiffer{
@@ -344,7 +352,7 @@ func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest dig
 		pullOptions:         pullOptions,
 		stream:              iss,
 		tocOffset:           tocOffset,
-	}, nil
+	}, false, nil
 }
 
 func makeCopyBuffer() []byte {
