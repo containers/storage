@@ -15,7 +15,7 @@ import (
 
 	driversCopy "github.com/containers/storage/drivers/copy"
 	"github.com/containers/storage/pkg/archive"
-	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/minimal"
 	storagePath "github.com/containers/storage/pkg/chunked/internal/path"
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/vbatts/tar-split/archive/tar"
@@ -35,14 +35,14 @@ func procPathForFd(fd int) string {
 	return fmt.Sprintf("/proc/self/fd/%d", fd)
 }
 
-// fileMetadata is a wrapper around internal.FileMetadata with additional private fields that
+// fileMetadata is a wrapper around minimal.FileMetadata with additional private fields that
 // are not part of the TOC document.
 // Type: TypeChunk entries are stored in Chunks, the primary [fileMetadata] entries never use TypeChunk.
 type fileMetadata struct {
-	internal.FileMetadata
+	minimal.FileMetadata
 
 	// chunks stores the TypeChunk entries relevant to this entry when FileMetadata.Type == TypeReg.
-	chunks []*internal.FileMetadata
+	chunks []*minimal.FileMetadata
 
 	// skipSetAttrs is set when the file attributes must not be
 	// modified, e.g. it is a hard link from a different source,

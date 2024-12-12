@@ -10,7 +10,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/minimal"
 	"github.com/containers/storage/pkg/chunked/toc"
 	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
@@ -53,7 +53,7 @@ func (s seekable) GetBlobAt(req []ImageSourceChunk) (chan io.ReadCloser, chan er
 	return m, e, nil
 }
 
-var someFiles = []internal.FileMetadata{
+var someFiles = []minimal.FileMetadata{
 	{
 		Type: "dir",
 		Name: "/foo",
@@ -121,7 +121,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	defer encoder.Close()
 	tarSplitCompressedData := encoder.EncodeAll(tarSplitUncompressed.Bytes(), nil)
 
-	ts := internal.TarSplitData{
+	ts := minimal.TarSplitData{
 		Data:             tarSplitCompressedData,
 		Digest:           digest.Canonical.FromBytes(tarSplitCompressedData),
 		UncompressedSize: 9,
@@ -129,14 +129,14 @@ func TestGenerateAndParseManifest(t *testing.T) {
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	if err := internal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], 9); err != nil {
+	if err := minimal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], 9); err != nil {
 		t.Error(err)
 	}
 	if err := writer.Flush(); err != nil {
 		t.Error(err)
 	}
 
-	offsetMetadata := annotations[internal.ManifestInfoKey]
+	offsetMetadata := annotations[minimal.ManifestInfoKey]
 	if offsetMetadata == "" {
 		t.Fatal("Annotation not found")
 	}
@@ -149,7 +149,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	if offset != offsetManifest+8 {
 		t.Fatalf("Invalid offset %d", offset)
 	}
-	if manifestType != internal.ManifestTypeCRFS {
+	if manifestType != minimal.ManifestTypeCRFS {
 		t.Fatalf("Invalid manifest type %d", manifestType)
 	}
 	if b.Len() == 0 {
@@ -157,7 +157,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	}
 
 	var tarSplitOffset, tarSplitLength, tarSplitUncompressedLength uint64
-	tarSplitMetadata := annotations[internal.TarSplitInfoKey]
+	tarSplitMetadata := annotations[minimal.TarSplitInfoKey]
 	if _, err := fmt.Sscanf(tarSplitMetadata, "%d:%d:%d", &tarSplitOffset, &tarSplitLength, &tarSplitUncompressedLength); err != nil {
 		t.Error(err)
 	}
@@ -182,7 +182,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(s, *tocDigest, annotations)
 	require.NoError(t, err)
 
-	var toc internal.TOC
+	var toc minimal.TOC
 	if err := json.Unmarshal(manifest, &toc); err != nil {
 		t.Error(err)
 	}
@@ -209,8 +209,8 @@ func TestGetTarType(t *testing.T) {
 	if _, err := typeToTarType("FOO"); err == nil {
 		t.Fatal("Invalid typeToTarType conversion")
 	}
-	for k, v := range internal.TarTypes {
-		r, err := internal.GetType(k)
+	for k, v := range minimal.TarTypes {
+		r, err := minimal.GetType(k)
 		if err != nil {
 			t.Error(err)
 		}
@@ -218,7 +218,7 @@ func TestGetTarType(t *testing.T) {
 			t.Fatal("Invalid GetType conversion")
 		}
 	}
-	if _, err := internal.GetType(byte('Z')); err == nil {
+	if _, err := minimal.GetType(byte('Z')); err == nil {
 		t.Fatal("Invalid GetType conversion")
 	}
 }

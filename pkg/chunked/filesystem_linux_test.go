@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/containers/storage/pkg/archive"
-	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/minimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -114,8 +114,8 @@ func TestSafeMkdir(t *testing.T) {
 	rootFd := int(rootFile.Fd())
 
 	metadata := fileMetadata{
-		FileMetadata: internal.FileMetadata{
-			Type: internal.TypeDir,
+		FileMetadata: minimal.FileMetadata{
+			Type: minimal.TypeDir,
 			Mode: 0o755,
 		},
 	}
@@ -153,11 +153,11 @@ func TestSafeLink(t *testing.T) {
 	assert.NoError(t, err)
 
 	metadata := fileMetadata{
-		FileMetadata: internal.FileMetadata{
+		FileMetadata: minimal.FileMetadata{
 			Name: linkName,
 			// try to create outside the root
 			Linkname: "../../" + existingFile,
-			Type:     internal.TypeReg,
+			Type:     minimal.TypeReg,
 			Mode:     0o755,
 		},
 	}
@@ -206,11 +206,11 @@ func TestSafeSymlink(t *testing.T) {
 	existingFile := path.Base(file.Name())
 
 	metadata := fileMetadata{
-		FileMetadata: internal.FileMetadata{
+		FileMetadata: minimal.FileMetadata{
 			Name: linkName,
 			// try to create outside the root
 			Linkname: "../../" + existingFile,
-			Type:     internal.TypeReg,
+			Type:     minimal.TypeReg,
 			Mode:     0o755,
 		},
 	}
@@ -280,9 +280,9 @@ func TestCopyFileContent(t *testing.T) {
 	require.NoError(t, err)
 
 	metadata := fileMetadata{
-		FileMetadata: internal.FileMetadata{
+		FileMetadata: minimal.FileMetadata{
 			Name: "new-file",
-			Type: internal.TypeDir,
+			Type: minimal.TypeDir,
 			Mode: 0o755,
 		},
 	}
@@ -304,9 +304,9 @@ func TestCopyFileContent(t *testing.T) {
 	assert.NotEqual(t, st.Ino, st2.Ino)
 
 	metadataCopyHardLinks := fileMetadata{
-		FileMetadata: internal.FileMetadata{
+		FileMetadata: minimal.FileMetadata{
 			Name: "new-file2",
-			Type: internal.TypeDir,
+			Type: minimal.TypeDir,
 			Mode: 0o755,
 		},
 	}
