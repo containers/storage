@@ -132,7 +132,11 @@ func parsePullOptions(store storage.Store) pullOptions {
 		{&res.convertImages, "convert_images", false},
 		{&res.useHardLinks, "use_hard_links", false},
 	} {
-		*e.dest = parseBooleanPullOption(options, e.name, e.defaultValue)
+		if value, ok := options[e.name]; ok {
+			*e.dest = strings.ToLower(value) == "true"
+		} else {
+			*e.dest = e.defaultValue
+		}
 	}
 	res.ostreeRepos = strings.Split(options["ostree_repos"], ":")
 
@@ -1070,13 +1074,6 @@ type hardLinkToCreate struct {
 	dirfd    int
 	mode     os.FileMode
 	metadata *fileMetadata
-}
-
-func parseBooleanPullOption(pullOptions map[string]string, name string, def bool) bool {
-	if value, ok := pullOptions[name]; ok {
-		return strings.ToLower(value) == "true"
-	}
-	return def
 }
 
 type findAndCopyFileOptions struct {
