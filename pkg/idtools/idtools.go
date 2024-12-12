@@ -422,7 +422,7 @@ func GetContainersOverrideXattr(path string) (Stat, error) {
 	if err != nil {
 		return Stat{}, err
 	}
-	return parseOverrideXattr(xstat)
+	return parseOverrideXattr(xstat) // This will fail if (xstat, err) == (nil, nil), i.e. the xattr does not exist.
 }
 
 func parseOverrideXattr(xstat []byte) (Stat, error) {
@@ -522,11 +522,17 @@ func SafeChown(name string, uid, gid int) error {
 			Mode: os.FileMode(0o0700),
 		}
 		xstat, err := system.Lgetxattr(name, ContainersOverrideXattr)
-		if err == nil {
+		if err == nil && xstat != nil {
 			stat, err = parseOverrideXattr(xstat)
 			if err != nil {
 				return err
 			}
+		} else {
+			st, err := os.Stat(name) // Ideally we would share this with system.Stat below, but then we would need to convert Mode.
+			if err != nil {
+				return err
+			}
+			stat.Mode = st.Mode()
 		}
 		stat.IDs = IDPair{UID: uid, GID: gid}
 		if err = SetContainersOverrideXattr(name, stat); err != nil {
@@ -549,11 +555,17 @@ func SafeLchown(name string, uid, gid int) error {
 			Mode: os.FileMode(0o0700),
 		}
 		xstat, err := system.Lgetxattr(name, ContainersOverrideXattr)
-		if err == nil {
+		if err == nil && xstat != nil {
 			stat, err = parseOverrideXattr(xstat)
 			if err != nil {
 				return err
 			}
+		} else {
+			st, err := os.Lstat(name) // Ideally we would share this with system.Stat below, but then we would need to convert Mode.
+			if err != nil {
+				return err
+			}
+			stat.Mode = st.Mode()
 		}
 		stat.IDs = IDPair{UID: uid, GID: gid}
 		if err = SetContainersOverrideXattr(name, stat); err != nil {
