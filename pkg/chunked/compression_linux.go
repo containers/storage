@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/minimal"
 	"github.com/klauspost/compress/zstd"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -148,10 +148,10 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 
 // readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.
 // Returns (manifest blob, parsed manifest, tar-split blob or nil, manifest offset).
-func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) (_ []byte, _ *internal.TOC, _ []byte, _ int64, retErr error) {
-	offsetMetadata := annotations[internal.ManifestInfoKey]
+func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) (_ []byte, _ *minimal.TOC, _ []byte, _ int64, retErr error) {
+	offsetMetadata := annotations[minimal.ManifestInfoKey]
 	if offsetMetadata == "" {
-		return nil, nil, nil, 0, fmt.Errorf("%q annotation missing", internal.ManifestInfoKey)
+		return nil, nil, nil, 0, fmt.Errorf("%q annotation missing", minimal.ManifestInfoKey)
 	}
 	var manifestChunk ImageSourceChunk
 	var manifestLengthUncompressed, manifestType uint64
@@ -161,13 +161,13 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 	// The tarSplit… values are valid if tarSplitChunk.Offset > 0
 	var tarSplitChunk ImageSourceChunk
 	var tarSplitLengthUncompressed uint64
-	if tarSplitInfoKeyAnnotation, found := annotations[internal.TarSplitInfoKey]; found {
+	if tarSplitInfoKeyAnnotation, found := annotations[minimal.TarSplitInfoKey]; found {
 		if _, err := fmt.Sscanf(tarSplitInfoKeyAnnotation, "%d:%d:%d", &tarSplitChunk.Offset, &tarSplitChunk.Length, &tarSplitLengthUncompressed); err != nil {
 			return nil, nil, nil, 0, err
 		}
 	}
 
-	if manifestType != internal.ManifestTypeCRFS {
+	if manifestType != minimal.ManifestTypeCRFS {
 		return nil, nil, nil, 0, errors.New("invalid manifest type")
 	}
 
@@ -230,7 +230,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 	var decodedTarSplit []byte = nil
 	if toc.TarSplitDigest != "" {
 		if tarSplitChunk.Offset <= 0 {
-			return nil, nil, nil, 0, fmt.Errorf("TOC requires a tar-split, but the %s annotation does not describe a position", internal.TarSplitInfoKey)
+			return nil, nil, nil, 0, fmt.Errorf("TOC requires a tar-split, but the %s annotation does not describe a position", minimal.TarSplitInfoKey)
 		}
 		tarSplit, err := readBlob(tarSplitChunk.Length)
 		if err != nil {
@@ -260,11 +260,11 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 }
 
 // ensureTOCMatchesTarSplit validates that toc and tarSplit contain _exactly_ the same entries.
-func ensureTOCMatchesTarSplit(toc *internal.TOC, tarSplit []byte) error {
-	pendingFiles := map[string]*internal.FileMetadata{} // Name -> an entry in toc.Entries
+func ensureTOCMatchesTarSplit(toc *minimal.TOC, tarSplit []byte) error {
+	pendingFiles := map[string]*minimal.FileMetadata{} // Name -> an entry in toc.Entries
 	for i := range toc.Entries {
 		e := &toc.Entries[i]
-		if e.Type != internal.TypeChunk {
+		if e.Type != minimal.TypeChunk {
 			if _, ok := pendingFiles[e.Name]; ok {
 				return fmt.Errorf("TOC contains duplicate entries for path %q", e.Name)
 			}
@@ -279,7 +279,7 @@ func ensureTOCMatchesTarSplit(toc *internal.TOC, tarSplit []byte) error {
 			return fmt.Errorf("tar-split contains an entry for %q missing in TOC", hdr.Name)
 		}
 		delete(pendingFiles, hdr.Name)
-		expected, err := internal.NewFileMetadata(hdr)
+		expected, err := minimal.NewFileMetadata(hdr)
 		if err != nil {
 			return fmt.Errorf("determining expected metadata for %q: %w", hdr.Name, err)
 		}
@@ -360,8 +360,8 @@ func ensureTimePointersMatch(a, b *time.Time) error {
 
 // ensureFileMetadataAttributesMatch ensures that a and b match in file attributes (it ignores entries relevant to locating data
 // in the tar stream or matching contents)
-func ensureFileMetadataAttributesMatch(a, b *internal.FileMetadata) error {
-	// Keep this in sync with internal.FileMetadata!
+func ensureFileMetadataAttributesMatch(a, b *minimal.FileMetadata) error {
+	// Keep this in sync with minimal.FileMetadata!
 
 	if a.Type != b.Type {
 		return fmt.Errorf("mismatch of Type: %q != %q", a.Type, b.Type)

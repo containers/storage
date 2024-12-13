@@ -1,6 +1,6 @@
 //go:build linux
 
-package internal
+package minimal
 
 import (
 	"bytes"

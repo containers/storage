@@ -22,7 +22,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chunked/compressor"
-	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/minimal"
 	path "github.com/containers/storage/pkg/chunked/internal/path"
 	"github.com/containers/storage/pkg/chunked/toc"
 	"github.com/containers/storage/pkg/fsverity"
@@ -60,7 +60,7 @@ type compressedFileType int
 type chunkedDiffer struct {
 	stream      ImageSourceSeekable
 	manifest    []byte
-	toc         *internal.TOC // The parsed contents of manifest, or nil if not yet available
+	toc         *minimal.TOC // The parsed contents of manifest, or nil if not yet available
 	tarSplit    []byte
 	layersCache *layersCache
 	tocOffset   int64
@@ -190,7 +190,7 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 // On error, the second parameter is true if a fallback to an alternative (either the makeConverToRaw differ, or a non-partial pull)
 // is permissible.
 func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable, pullOptions map[string]string) (graphdriver.Differ, bool, error) {
-	zstdChunkedTOCDigestString, hasZstdChunkedTOC := annotations[internal.ManifestChecksumKey]
+	zstdChunkedTOCDigestString, hasZstdChunkedTOC := annotations[minimal.ManifestChecksumKey]
 	estargzTOCDigestString, hasEstargzTOC := annotations[estargz.TOCJSONDigestAnnotation]
 
 	switch {
@@ -392,7 +392,7 @@ func canDedupFileWithHardLink(file *fileMetadata, fd int, s os.FileInfo) bool {
 	}
 	// fill only the attributes used by canDedupMetadataWithHardLink.
 	otherFile := fileMetadata{
-		FileMetadata: internal.FileMetadata{
+		FileMetadata: minimal.FileMetadata{
 			UID:    int(st.Uid),
 			GID:    int(st.Gid),
 			Mode:   int64(st.Mode),
@@ -1694,7 +1694,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			}
 
 			switch chunk.ChunkType {
-			case internal.ChunkTypeData:
+			case minimal.ChunkTypeData:
 				root, path, offset, err := c.layersCache.findChunkInOtherLayers(chunk)
 				if err != nil {
 					return output, err
@@ -1707,7 +1707,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 						Offset: offset,
 					}
 				}
-			case internal.ChunkTypeZeros:
+			case minimal.ChunkTypeZeros:
 				missingPartsSize -= size
 				mp.Hole = true
 				// Mark all chunks belonging to the missing part as holes
@@ -1740,7 +1740,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 	return output, nil
 }
 
-func mustSkipFile(fileType compressedFileType, e internal.FileMetadata) bool {
+func mustSkipFile(fileType compressedFileType, e minimal.FileMetadata) bool {
 	// ignore the metadata files for the estargz format.
 	if fileType != fileTypeEstargz {
 		return false
@@ -1753,7 +1753,7 @@ func mustSkipFile(fileType compressedFileType, e internal.FileMetadata) bool {
 	return false
 }
 
-func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []internal.FileMetadata) ([]fileMetadata, error) {
+func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []minimal.FileMetadata) ([]fileMetadata, error) {
 	countNextChunks := func(start int) int {
 		count := 0
 		for _, e := range entries[start:] {
@@ -1790,7 +1790,7 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 		if e.Type == TypeReg {
 			nChunks := countNextChunks(i + 1)
 
-			e.chunks = make([]*internal.FileMetadata, nChunks+1)
+			e.chunks = make([]*minimal.FileMetadata, nChunks+1)
 			for j := 0; j <= nChunks; j++ {
 				// we need a copy here, otherwise we override the
 				// .Size later
@@ -1825,7 +1825,7 @@ func (c *chunkedDiffer) mergeTocEntries(fileType compressedFileType, entries []i
 
 // validateChunkChecksum checks if the file at $root/$path[offset:chunk.ChunkSize] has the
 // same digest as chunk.ChunkDigest
-func validateChunkChecksum(chunk *internal.FileMetadata, root, path string, offset int64, copyBuffer []byte) bool {
+func validateChunkChecksum(chunk *minimal.FileMetadata, root, path string, offset int64, copyBuffer []byte) bool {
 	parentDirfd, err := unix.Open(root, unix.O_PATH|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return false

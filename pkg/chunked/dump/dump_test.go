@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/containers/storage/pkg/chunked/internal"
+	"github.com/containers/storage/pkg/chunked/internal/minimal"
 )
 
 func TestEscaped(t *testing.T) {
@@ -49,10 +49,10 @@ func TestEscaped(t *testing.T) {
 func TestDumpNode(t *testing.T) {
 	modTime := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	regularFileEntry := &internal.FileMetadata{
+	regularFileEntry := &minimal.FileMetadata{
 		Name:     "example.txt",
 		Size:     100,
-		Type:     internal.TypeReg,
+		Type:     minimal.TypeReg,
 		UID:      1000,
 		GID:      1000,
 		Devmajor: 0,
@@ -65,23 +65,23 @@ func TestDumpNode(t *testing.T) {
 		},
 	}
 
-	rootEntry := &internal.FileMetadata{
+	rootEntry := &minimal.FileMetadata{
 		Name:    "./",
-		Type:    internal.TypeDir,
+		Type:    minimal.TypeDir,
 		ModTime: &modTime,
 		UID:     0,
 	}
 
-	rootEntry2 := &internal.FileMetadata{
+	rootEntry2 := &minimal.FileMetadata{
 		Name:    "./",
-		Type:    internal.TypeDir,
+		Type:    minimal.TypeDir,
 		ModTime: &modTime,
 		UID:     101,
 	}
 
-	directoryEntry := &internal.FileMetadata{
+	directoryEntry := &minimal.FileMetadata{
 		Name:     "mydir",
-		Type:     internal.TypeDir,
+		Type:     minimal.TypeDir,
 		UID:      1000,
 		GID:      1000,
 		ModTime:  &modTime,
@@ -91,36 +91,36 @@ func TestDumpNode(t *testing.T) {
 		},
 	}
 
-	symlinkEntry := &internal.FileMetadata{
+	symlinkEntry := &minimal.FileMetadata{
 		Name:     "mysymlink",
-		Type:     internal.TypeSymlink,
+		Type:     minimal.TypeSymlink,
 		ModTime:  &modTime,
 		Linkname: "targetfile",
 	}
 
-	hardlinkEntry := &internal.FileMetadata{
+	hardlinkEntry := &minimal.FileMetadata{
 		Name:     "myhardlink",
-		Type:     internal.TypeLink,
+		Type:     minimal.TypeLink,
 		ModTime:  &modTime,
 		Linkname: "existingfile",
 	}
 
-	missingParentEntry := &internal.FileMetadata{
+	missingParentEntry := &minimal.FileMetadata{
 		Name:    "foo/bar/baz/entry",
-		Type:    internal.TypeReg,
+		Type:    minimal.TypeReg,
 		ModTime: &modTime,
 	}
 
 	testCases := []struct {
 		name                string
-		entries             []*internal.FileMetadata
+		entries             []*minimal.FileMetadata
 		expected            string
 		skipAddingRootEntry bool
 		expectError         bool
 	}{
 		{
 			name: "root entry",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				rootEntry,
 			},
 			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n",
@@ -128,7 +128,7 @@ func TestDumpNode(t *testing.T) {
 		},
 		{
 			name: "duplicate root entry",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				rootEntry,
 				rootEntry,
 				rootEntry,
@@ -138,7 +138,7 @@ func TestDumpNode(t *testing.T) {
 		},
 		{
 			name: "duplicate root entry with mismatch",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				rootEntry,
 				rootEntry2,
 			},
@@ -147,14 +147,14 @@ func TestDumpNode(t *testing.T) {
 		},
 		{
 			name: "regular file",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				regularFileEntry,
 			},
 			expected: "/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n",
 		},
 		{
 			name: "root entry with file",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				rootEntry,
 				regularFileEntry,
 			},
@@ -163,35 +163,35 @@ func TestDumpNode(t *testing.T) {
 		},
 		{
 			name: "directory",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				directoryEntry,
 			},
 			expected: "/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
 		},
 		{
 			name: "symlink",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				symlinkEntry,
 			},
 			expected: "/mysymlink 0 120000 1 0 0 0 1672531200.0 targetfile - -\n",
 		},
 		{
 			name: "hardlink",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				hardlinkEntry,
 			},
 			expected: "/myhardlink 0 @100000 1 0 0 0 1672531200.0 /existingfile - -\n",
 		},
 		{
 			name: "missing parent",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				missingParentEntry,
 			},
 			expected: "/foo 0 40755 1 0 0 0 0.0 - - -\n/foo/bar 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz 0 40755 1 0 0 0 0.0 - - -\n/foo/bar/baz/entry 0 100000 1 0 0 0 1672531200.0 - - -\n",
 		},
 		{
 			name: "complex case",
-			entries: []*internal.FileMetadata{
+			entries: []*minimal.FileMetadata{
 				rootEntry,
 				regularFileEntry,
 				directoryEntry,
@@ -204,7 +204,7 @@ func TestDumpNode(t *testing.T) {
 	for _, testCase := range testCases {
 		var buf bytes.Buffer
 
-		added := map[string]*internal.FileMetadata{}
+		added := map[string]*minimal.FileMetadata{}
 		if !testCase.skipAddingRootEntry {
 			added["/"] = rootEntry
 		}
