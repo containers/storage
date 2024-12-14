@@ -59,7 +59,7 @@ func TestDumpNode(t *testing.T) {
 		Devminor: 0,
 		ModTime:  &modTime,
 		Linkname: "",
-		Digest:   "sha256:abcdef1234567890",
+		Digest:   "sha256:0123456789abcdef1123456789abcdef2123456789abcdef3123456789abcdef",
 		Xattrs: map[string]string{
 			"user.key1": base64.StdEncoding.EncodeToString([]byte("value1")),
 		},
@@ -150,7 +150,7 @@ func TestDumpNode(t *testing.T) {
 			entries: []*minimal.FileMetadata{
 				regularFileEntry,
 			},
-			expected: "/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n",
+			expected: "/example.txt 100 100000 1 1000 1000 0 1672531200.0 01/23456789abcdef1123456789abcdef2123456789abcdef3123456789abcdef - - user.key1=value1\n",
 		},
 		{
 			name: "root entry with file",
@@ -158,7 +158,7 @@ func TestDumpNode(t *testing.T) {
 				rootEntry,
 				regularFileEntry,
 			},
-			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n",
+			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 01/23456789abcdef1123456789abcdef2123456789abcdef3123456789abcdef - - user.key1=value1\n",
 			skipAddingRootEntry: true,
 		},
 		{
@@ -196,7 +196,7 @@ func TestDumpNode(t *testing.T) {
 				regularFileEntry,
 				directoryEntry,
 			},
-			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 ab/cdef1234567890 - - user.key1=value1\n/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
+			expected:            "/ 0 40000 1 0 0 0 1672531200.0 - - -\n/example.txt 100 100000 1 1000 1000 0 1672531200.0 01/23456789abcdef1123456789abcdef2123456789abcdef3123456789abcdef - - user.key1=value1\n/mydir 0 40000 1 1000 1000 0 1672531200.0 - - - user.key2=value2\n",
 			skipAddingRootEntry: true,
 		},
 	}

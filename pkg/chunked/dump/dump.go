@@ -9,11 +9,11 @@ import (
 	"io"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/containers/storage/pkg/chunked/internal/minimal"
 	storagePath "github.com/containers/storage/pkg/chunked/internal/path"
+	"github.com/opencontainers/go-digest"
 	"golang.org/x/sys/unix"
 )
 
@@ -165,11 +165,16 @@ func dumpNode(out io.Writer, added map[string]*minimal.FileMetadata, links map[s
 		} else {
 			payload = storagePath.CleanAbsPath(entry.Linkname)
 		}
-	} else {
-		if len(entry.Digest) > 10 {
-			d := strings.Replace(entry.Digest, "sha256:", "", 1)
-			payload = d[:2] + "/" + d[2:]
+	} else if entry.Digest != "" {
+		d, err := digest.Parse(entry.Digest)
+		if err != nil {
+			return fmt.Errorf("invalid digest %q for %q: %w", entry.Digest, entry.Name, err)
 		}
+		path, err := storagePath.RegularFilePathForValidatedDigest(d)
+		if err != nil {
+			return fmt.Errorf("determining physical file path for %q: %w", entry.Name, err)
+		}
+		payload = path
 	}
 
 	if _, err := fmt.Fprint(out, escapedOptional([]byte(payload), ESCAPE_LONE_DASH)); err != nil {
