@@ -79,6 +79,7 @@ func walkchunk(path string, fi os.FileInfo, dir string, root *FileInfo) error {
 		children:   make(map[string]*FileInfo),
 		parent:     parent,
 		idMappings: root.idMappings,
+		target:     "",
 	}
 	cpath := filepath.Join(dir, path)
 	stat, err := system.FromStatT(fi.Sys().(*syscall.Stat_t))
@@ -108,6 +109,12 @@ func walkchunk(path string, fi os.FileInfo, dir string, root *FileInfo) error {
 				info.xattrs = make(map[string]string)
 			}
 			info.xattrs[key] = string(value)
+		}
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		info.target, err = os.Readlink(cpath)
+		if err != nil {
+			return err
 		}
 	}
 	parent.children[info.name] = info
