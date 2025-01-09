@@ -124,6 +124,27 @@ The `storage.options.pull_options` table supports the following keys:
   It is an expensive operation so it is not enabled by default.
   This is a "string bool": "false"|"true" (cannot be native TOML boolean)
 
+**insecure_allow_unpredictable_image_contents="false"|"true"**
+  This should _almost never_ be set.
+  It allows partial pulls of images without guaranteeing that "partial
+  pulls" and non-partial pulls both result in consistent image contents.
+  This allows pulling estargz images and early versions of zstd:chunked images;
+  otherwise, these layers always use the traditional non-partial pull path.
+
+  This option should be enabled _extremely_ rarely, only if _all_ images that could
+  EVER be conceivably pulled on this system are _guaranteed_ (e.g. using a signature policy)
+  to come from a build system trusted to never attack image integrity.
+
+  If this consistency enforcement were disabled, malicious images could be built
+  in a way designed to evade other audit mechanisms, so presence of most other audit
+  mechanisms is not a replacement for the above-mentioned need for all images to come
+  from a trusted build system.
+
+  As a side effect, enabling this option will also make image IDs unpredictable
+  (usually not equal to the traditional value matching the config digest).
+
+  This is a "string bool": "false"|"true" (cannot be native TOML boolean)
+
 ### STORAGE OPTIONS FOR AUFS TABLE
 
 The `storage.options.aufs` table supports the following options:
