@@ -99,7 +99,7 @@ func TestListOptsWithoutValidator(t *testing.T) {
 }
 
 func TestListOptsWithValidator(t *testing.T) {
-	// Re-using logOptsvalidator (used by MapOpts)
+	// Reusing logOptsvalidator (used by MapOpts)
 	o := opts.NewListOpts(logOptsValidator)
 	err := o.Set("foo")
 	assert.EqualError(t, err, "invalid key foo")
