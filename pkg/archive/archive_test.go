@@ -138,8 +138,8 @@ func TestCompressStreamXzUnsupported(t *testing.T) {
 }
 
 func TestCompressStreamBzip2Unsupported(t *testing.T) {
-	if _, err := CompressStream(&bytes.Buffer{}, Xz); err == nil {
-		t.Fatalf("Should fail as xz is unsupported for compression format.")
+	if _, err := CompressStream(&bytes.Buffer{}, Bzip2); err == nil {
+		t.Fatalf("Should fail as bz2 is unsupported for compression format.")
 	}
 }
 
