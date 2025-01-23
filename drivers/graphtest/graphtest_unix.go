@@ -65,7 +65,6 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 	runroot, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
 
-	require.NoError(t, os.MkdirAll(root, 0o755))
 	return &Driver{newGraphDriver(t, name, options, root, runroot), root, runroot, 1}
 }
 
