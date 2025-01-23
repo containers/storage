@@ -17,7 +17,7 @@ func init() {
 // This avoids creating a new driver for each test if all tests are run
 // Make sure to put new tests between TestVfsSetup and TestVfsTeardown
 func TestVfsSetup(t *testing.T) {
-	graphtest.GetDriver(t, "vfs")
+	graphtest.GetDriverNoCleanup(t, "vfs")
 }
 
 func TestVfsCreateEmpty(t *testing.T) {

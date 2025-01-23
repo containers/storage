@@ -76,14 +76,22 @@ func cleanup(t testing.TB, d *Driver) {
 	os.RemoveAll(d.root)
 }
 
-// GetDriver create a new driver with given name or return an existing driver with the name updating the reference count.
-func GetDriver(t testing.TB, name string, options ...string) graphdriver.Driver {
+// GetDriverNoCleanup create a new driver with given name or return an
+// existing driver with the name updating the reference count. Call
+// PutDriver when done with the driver.
+func GetDriverNoCleanup(t testing.TB, name string, options ...string) graphdriver.Driver {
 	if drv == nil {
 		drv = newDriver(t, name, options)
 	} else {
 		drv.refCount++
 	}
 	return drv
+}
+
+func GetDriver(t testing.TB, name string, options ...string) graphdriver.Driver {
+	d := GetDriverNoCleanup(t, name, options...)
+	t.Cleanup(func() { PutDriver(t) })
+	return d
 }
 
 func ReconfigureDriver(t testing.TB, name string, options ...string) {
@@ -109,7 +117,6 @@ func PutDriver(t testing.TB) {
 func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 
 	err := driver.Create("empty", "", nil)
 	require.NoError(t, err)
@@ -137,7 +144,6 @@ func DriverTestCreateEmpty(t testing.TB, drivername string, driverOptions ...str
 func DriverTestCreateBase(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 
 	createBase(t, driver, "Base1")
 	verifyBase(t, driver, "Base1", defaultPerms)
@@ -147,7 +153,6 @@ func DriverTestCreateBase(t testing.TB, drivername string, driverOptions ...stri
 func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 
 	createBase(t, driver, "Base2")
 
@@ -176,7 +181,6 @@ func DriverTestCreateSnap(t testing.TB, drivername string, driverOptions ...stri
 func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 
 	createBase(t, driver, "Base3")
 	verifyBase(t, driver, "Base3", defaultPerms)
@@ -251,7 +255,6 @@ func DriverTestCreateFromTemplate(t testing.TB, drivername string, driverOptions
 func DriverTestDeepLayerRead(t testing.TB, layerCount int, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 
 	base := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
@@ -283,7 +286,6 @@ func DriverTestDeepLayerRead(t testing.TB, layerCount int, drivername string, dr
 func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 	base := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
 	deleteFile := "file-remove.txt"
@@ -378,7 +380,6 @@ func DriverTestDiffApply(t testing.TB, fileCount int, drivername string, driverO
 func DriverTestChanges(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 	base := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
 
@@ -423,7 +424,6 @@ func writeRandomFile(path string, size uint64) error {
 func DriverTestSetQuota(t *testing.T, drivername string) {
 	driver := GetDriver(t, drivername)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 
 	createBase(t, driver, "Base4")
 	verifyBase(t, driver, "Base4", defaultPerms)
@@ -456,7 +456,6 @@ func DriverTestSetQuota(t *testing.T, drivername string) {
 func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 	var err error
 	var root string
 	components := 10
@@ -573,7 +572,6 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 func DriverTestListLayers(t testing.TB, drivername string, driverOptions ...string) {
 	driver := GetDriver(t, drivername, driverOptions...)
 	require.NotNil(t, drv.Driver, "initializing driver")
-	defer PutDriver(t)
 	base := stringid.GenerateRandomID()
 	mid := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
