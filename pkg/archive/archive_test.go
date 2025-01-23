@@ -46,7 +46,7 @@ func defaultCopyWithTar(src, dst string) error {
 }
 
 func TestIsArchivePathDir(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "mkdir -p /tmp/archivedir")
+	cmd := exec.Command("sh", "-c", "cd /tmp/ && mkdir -p archivedir")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Fail to create an archive file for test : %s.", output)
@@ -57,7 +57,7 @@ func TestIsArchivePathDir(t *testing.T) {
 }
 
 func TestIsArchivePathInvalidFile(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "dd if=/dev/zero bs=1024 count=1 of=/tmp/archive && gzip --stdout /tmp/archive > /tmp/archive.gz")
+	cmd := exec.Command("sh", "-c", "cd /tmp && dd if=/dev/zero bs=1024 count=1 of=archive && gzip --stdout archive > archive.gz")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Fail to create an archive file for test : %s.", output)
@@ -77,7 +77,7 @@ func TestIsArchivePathTar(t *testing.T) {
 	} else {
 		whichTar = "tar"
 	}
-	cmdStr := fmt.Sprintf("touch /tmp/archivedata && %s -cf /tmp/archive /tmp/archivedata && gzip --stdout /tmp/archive > /tmp/archive.gz", whichTar)
+	cmdStr := fmt.Sprintf("cd /tmp && touch archivedata && %s -cf archive archivedata && gzip --stdout archive > archive.gz", whichTar)
 	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -93,7 +93,7 @@ func TestIsArchivePathTar(t *testing.T) {
 
 func testDecompressStream(t *testing.T, ext, compressCommand string) {
 	cmd := exec.Command("sh", "-c",
-		fmt.Sprintf("touch /tmp/archive && %s /tmp/archive", compressCommand))
+		fmt.Sprintf("cd /tmp && touch archive && %s archive", compressCommand))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to create an archive file for test : %s.", output)
