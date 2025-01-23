@@ -39,12 +39,12 @@ const (
 type Driver struct {
 	graphdriver.Driver
 	root     string
-	runroot  string
+	runRoot  string
 	refCount int
 }
 
-func newGraphDriver(t testing.TB, name string, options []string, root string, runroot string) graphdriver.Driver {
-	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root, RunRoot: runroot})
+func newGraphDriver(t testing.TB, name string, options []string, root string, runRoot string) graphdriver.Driver {
+	d, err := graphdriver.GetDriver(name, graphdriver.Options{DriverOptions: options, Root: root, RunRoot: runRoot})
 	if err != nil {
 		t.Logf("graphdriver: %v\n", err)
 		if errors.Is(err, graphdriver.ErrNotSupported) || errors.Is(err, graphdriver.ErrPrerequisites) || errors.Is(err, graphdriver.ErrIncompatibleFS) {
@@ -62,25 +62,25 @@ func newGraphDriver(t testing.TB, name string, options []string, root string, ru
 func newDriver(t testing.TB, name string, options []string) *Driver {
 	root, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
-	runroot, err := os.MkdirTemp("", "storage-graphtest-")
+	runRoot, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
 
 	defer func() {
 		// Cannot use t.Cleanup(), some test files persist the
 		// driver across test functions.
 		if t.Failed() || t.Skipped() {
-			os.RemoveAll(runroot)
+			os.RemoveAll(runRoot)
 			os.RemoveAll(root)
 		}
 	}()
-	return &Driver{newGraphDriver(t, name, options, root, runroot), root, runroot, 1}
+	return &Driver{newGraphDriver(t, name, options, root, runRoot), root, runRoot, 1}
 }
 
 func cleanup(t testing.TB, d *Driver) {
 	if err := drv.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
-	os.RemoveAll(d.runroot)
+	os.RemoveAll(d.runRoot)
 	os.RemoveAll(d.root)
 }
 
@@ -106,7 +106,7 @@ func ReconfigureDriver(t testing.TB, name string, options ...string) {
 	if err := drv.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
-	drv.Driver = newGraphDriver(t, name, options, drv.root, drv.runroot)
+	drv.Driver = newGraphDriver(t, name, options, drv.root, drv.runRoot)
 }
 
 // PutDriver removes the driver if it is no longer used and updates the reference count.
