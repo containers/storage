@@ -65,6 +65,14 @@ func newDriver(t testing.TB, name string, options []string) *Driver {
 	runroot, err := os.MkdirTemp("", "storage-graphtest-")
 	require.NoError(t, err)
 
+	defer func() {
+		// Cannot use t.Cleanup(), some test files persist the
+		// driver across test functions.
+		if t.Failed() || t.Skipped() {
+			os.RemoveAll(runroot)
+			os.RemoveAll(root)
+		}
+	}()
 	return &Driver{newGraphDriver(t, name, options, root, runroot), root, runroot, 1}
 }
 
