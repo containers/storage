@@ -304,11 +304,7 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 // It may return an error matching ErrFallbackToOrdinaryLayerDownload.
 func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
-	if err != nil {
-		var badRequestErr ErrBadRequest
-		if errors.As(err, &badRequestErr) {
-			err = newErrFallbackToOrdinaryLayerDownload(err)
-		}
+	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 
@@ -355,11 +351,7 @@ func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest dig
 	}
 
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
-	if err != nil {
-		var badRequestErr ErrBadRequest
-		if errors.As(err, &badRequestErr) {
-			err = newErrFallbackToOrdinaryLayerDownload(err)
-		}
+	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	layersCache, err := getLayersCache(store)
