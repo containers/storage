@@ -62,46 +62,53 @@ const (
 type compressedFileType int
 
 type chunkedDiffer struct {
+	// Initial parameters, used throughout and never modified
+	// ==========
+	pullOptions pullOptions
 	stream      ImageSourceSeekable
-	manifest    []byte
-	toc         *minimal.TOC // The parsed contents of manifest, or nil if not yet available
-	tarSplit    []byte
-	layersCache *layersCache
-	tocOffset   int64
-	fileType    compressedFileType
+	// blobDigest is the digest of the whole compressed layer.  It is used if
+	// convertToZstdChunked to validate a layer when it is converted since there
+	// is no TOC referenced by the manifest.
+	blobDigest digest.Digest
+	blobSize   int64
 
-	copyBuffer []byte
-
-	gzipReader *pgzip.Reader
-	zstdReader *zstd.Decoder
-	rawReader  io.Reader
-
-	// tocDigest is the digest of the TOC document when the layer
-	// is partially pulled.
-	tocDigest digest.Digest
-
+	// Input format
+	// ==========
+	fileType compressedFileType
 	// convertedToZstdChunked is set to true if the layer needs to
 	// be converted to the zstd:chunked format before it can be
 	// handled.
 	convertToZstdChunked bool
 
+	// Chunked metadata
+	// This is usually set in GetDiffer, but if convertToZstdChunked, it is only computed in chunkedDiffer.ApplyDiff
+	// ==========
+	// tocDigest is the digest of the TOC document when the layer
+	// is partially pulled, or "" if not relevant to consumers.
+	tocDigest           digest.Digest
+	tocOffset           int64
+	manifest            []byte
+	toc                 *minimal.TOC // The parsed contents of manifest, or nil if not yet available
+	tarSplit            []byte
+	uncompressedTarSize int64 // -1 if unknown
 	// skipValidation is set to true if the individual files in
 	// the layer are trusted and should not be validated.
 	skipValidation bool
 
-	// blobDigest is the digest of the whole compressed layer.  It is used if
-	// convertToZstdChunked to validate a layer when it is converted since there
-	// is no TOC referenced by the manifest.
-	blobDigest digest.Digest
-
-	blobSize            int64
-	uncompressedTarSize int64 // -1 if unknown
-
-	pullOptions pullOptions
-
-	useFsVerity     graphdriver.DifferFsVerity
+	// Long-term caches
+	// This is set in GetDiffer, when the caller must not hold any storage locks, and later consumed in .ApplyDiff()
+	// ==========
+	layersCache     *layersCache
+	copyBuffer      []byte
+	fsVerityMutex   sync.Mutex // protects fsVerityDigests
 	fsVerityDigests map[string]string
-	fsVerityMutex   sync.Mutex
+
+	// Private state of .ApplyDiff
+	// ==========
+	gzipReader  *pgzip.Reader
+	zstdReader  *zstd.Decoder
+	rawReader   io.Reader
+	useFsVerity graphdriver.DifferFsVerity
 }
 
 var xattrsToIgnore = map[string]interface{}{
@@ -277,15 +284,18 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 	}
 
 	return &chunkedDiffer{
-		fsVerityDigests:      make(map[string]string),
-		blobDigest:           blobDigest,
-		blobSize:             blobSize,
-		uncompressedTarSize:  -1, // Will be computed later
+		pullOptions: pullOptions,
+		stream:      iss,
+		blobDigest:  blobDigest,
+		blobSize:    blobSize,
+
 		convertToZstdChunked: true,
-		copyBuffer:           makeCopyBuffer(),
-		layersCache:          layersCache,
-		pullOptions:          pullOptions,
-		stream:               iss,
+
+		uncompressedTarSize: -1, // Will be computed later
+
+		layersCache:     layersCache,
+		copyBuffer:      makeCopyBuffer(),
+		fsVerityDigests: make(map[string]string),
 	}, nil
 }
 
@@ -317,19 +327,22 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 	}
 
 	return &chunkedDiffer{
-		fsVerityDigests:     make(map[string]string),
-		blobSize:            blobSize,
-		uncompressedTarSize: uncompressedTarSize,
+		pullOptions: pullOptions,
+		stream:      iss,
+		blobSize:    blobSize,
+
+		fileType: fileTypeZstdChunked,
+
 		tocDigest:           tocDigest,
-		copyBuffer:          makeCopyBuffer(),
-		fileType:            fileTypeZstdChunked,
-		layersCache:         layersCache,
+		tocOffset:           tocOffset,
 		manifest:            manifest,
 		toc:                 toc,
-		pullOptions:         pullOptions,
-		stream:              iss,
 		tarSplit:            tarSplit,
-		tocOffset:           tocOffset,
+		uncompressedTarSize: uncompressedTarSize,
+
+		layersCache:     layersCache,
+		copyBuffer:      makeCopyBuffer(),
+		fsVerityDigests: make(map[string]string),
 	}, false, nil
 }
 
@@ -354,17 +367,20 @@ func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest dig
 	}
 
 	return &chunkedDiffer{
-		fsVerityDigests:     make(map[string]string),
-		blobSize:            blobSize,
-		uncompressedTarSize: -1, // We would have to read and decompress the whole layer
+		pullOptions: pullOptions,
+		stream:      iss,
+		blobSize:    blobSize,
+
+		fileType: fileTypeEstargz,
+
 		tocDigest:           tocDigest,
-		copyBuffer:          makeCopyBuffer(),
-		fileType:            fileTypeEstargz,
-		layersCache:         layersCache,
-		manifest:            manifest,
-		pullOptions:         pullOptions,
-		stream:              iss,
 		tocOffset:           tocOffset,
+		manifest:            manifest,
+		uncompressedTarSize: -1, // We would have to read and decompress the whole layer
+
+		layersCache:     layersCache,
+		copyBuffer:      makeCopyBuffer(),
+		fsVerityDigests: make(map[string]string),
 	}, false, nil
 }
 
