@@ -45,7 +45,7 @@ func typeToTarType(t string) (byte, error) {
 }
 
 // readEstargzChunkedManifest reads the estargz manifest from the seekable stream blobStream.
-// It may return an error matching ErrFallbackToOrdinaryLayerDownload.
+// It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
 func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, tocDigest digest.Digest) ([]byte, int64, error) {
 	// information on the format here https://github.com/containerd/stargz-snapshotter/blob/main/docs/stargz-estargz.md
 	footerSize := int64(51)
@@ -58,7 +58,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 	if err != nil {
 		var badRequestErr ErrBadRequest
 		if errors.As(err, &badRequestErr) {
-			err = newErrFallbackToOrdinaryLayerDownload(err)
+			err = errFallbackCanConvert{newErrFallbackToOrdinaryLayerDownload(err)}
 		}
 		return nil, 0, err
 	}
@@ -90,14 +90,15 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 	size := int64(blobSize - footerSize - tocOffset)
 	// set a reasonable limit
 	if size > maxTocSize {
-		return nil, 0, errors.New("manifest too big")
+		// Not errFallbackCanConvert: we would still use too much memory.
+		return nil, 0, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("estargz manifest too big to process in memory (%d bytes)", size))
 	}
 
 	streamsOrErrors, err = getBlobAt(blobStream, ImageSourceChunk{Offset: uint64(tocOffset), Length: uint64(size)})
 	if err != nil {
 		var badRequestErr ErrBadRequest
 		if errors.As(err, &badRequestErr) {
-			err = newErrFallbackToOrdinaryLayerDownload(err)
+			err = errFallbackCanConvert{newErrFallbackToOrdinaryLayerDownload(err)}
 		}
 		return nil, 0, err
 	}
@@ -158,7 +159,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 
 // readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.
 // Returns (manifest blob, parsed manifest, tar-split blob or nil, manifest offset).
-// It may return an error matching ErrFallbackToOrdinaryLayerDownload.
+// It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
 func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) (_ []byte, _ *minimal.TOC, _ []byte, _ int64, retErr error) {
 	offsetMetadata := annotations[minimal.ManifestInfoKey]
 	if offsetMetadata == "" {
@@ -184,10 +185,12 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 
 	// set a reasonable limit
 	if manifestChunk.Length > maxTocSize {
-		return nil, nil, nil, 0, errors.New("manifest too big")
+		// Not errFallbackCanConvert: we would still use too much memory.
+		return nil, nil, nil, 0, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("zstd:chunked manifest too big to process in memory (%d bytes compressed)", manifestChunk.Length))
 	}
 	if manifestLengthUncompressed > maxTocSize {
-		return nil, nil, nil, 0, errors.New("manifest too big")
+		// Not errFallbackCanConvert: we would still use too much memory.
+		return nil, nil, nil, 0, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("zstd:chunked manifest too big to process in memory (%d bytes uncompressed)", manifestLengthUncompressed))
 	}
 
 	chunks := []ImageSourceChunk{manifestChunk}
@@ -199,7 +202,7 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 	if err != nil {
 		var badRequestErr ErrBadRequest
 		if errors.As(err, &badRequestErr) {
-			err = newErrFallbackToOrdinaryLayerDownload(err)
+			err = errFallbackCanConvert{newErrFallbackToOrdinaryLayerDownload(err)}
 		}
 		return nil, nil, nil, 0, err
 	}

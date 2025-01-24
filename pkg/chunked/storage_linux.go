@@ -225,11 +225,36 @@ func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Diges
 		if !pullOptions.convertImages {
 			return nil, err
 		}
+		var canConvertErr errFallbackCanConvert
+		if !errors.As(err, &canConvertErr) {
+			// We are supposed to use makeConvertFromRawDiffer, but that would not work.
+			// Fail, and make sure the error does _not_ match ErrFallbackToOrdinaryLayerDownload: use only the error text,
+			// discard all type information.
+			return nil, fmt.Errorf("neither a partial pull nor convert_images is possible: %s", err.Error())
+		}
 		logrus.Debugf("Created differ to convert blob %q", blobDigest)
 		return makeConvertFromRawDiffer(store, blobDigest, blobSize, iss, pullOptions)
 	}
 
 	return differ, nil
+}
+
+// errFallbackCanConvert is an an error type _accompanying_ ErrFallbackToOrdinaryLayerDownload
+// within getProperDiffer, to mark that using makeConvertFromRawDiffer makes sense.
+// This is used to distinguish between cases where the environment does not support partial pulls
+// (e.g. a registry does not support range requests) and convert_images is still possible,
+// from cases where the image content is unacceptable for partial pulls (e.g. exceeds memory limits)
+// and convert_images would not help.
+type errFallbackCanConvert struct {
+	err error
+}
+
+func (e errFallbackCanConvert) Error() string {
+	return e.err.Error()
+}
+
+func (e errFallbackCanConvert) Unwrap() error {
+	return e.err
 }
 
 // getProperDiffer is an implementation detail of GetDiffer.
@@ -271,10 +296,13 @@ func getProperDiffer(store storage.Store, blobDigest digest.Digest, blobSize int
 		return differ, nil
 
 	default: // no TOC
+		message := "no TOC found"
 		if !pullOptions.convertImages {
-			return nil, newErrFallbackToOrdinaryLayerDownload(errors.New("no TOC found and convert_images is not configured"))
+			message = "no TOC found and convert_images is not configured"
 		}
-		return nil, newErrFallbackToOrdinaryLayerDownload(errors.New("no TOC found"))
+		return nil, errFallbackCanConvert{
+			newErrFallbackToOrdinaryLayerDownload(errors.New(message)),
+		}
 	}
 }
 
@@ -301,10 +329,10 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 }
 
 // makeZstdChunkedDiffer sets up a chunkedDiffer for a zstd:chunked layer.
-// It may return an error matching ErrFallbackToOrdinaryLayerDownload.
+// It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
 func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
 	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
-	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload
+	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 
@@ -315,7 +343,9 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 			return nil, fmt.Errorf("computing size from tar-split: %w", err)
 		}
 	} else if !pullOptions.insecureAllowUnpredictableImageContents { // With no tar-split, we can't compute the traditional UncompressedDigest.
-		return nil, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("zstd:chunked layers without tar-split data don't support partial pulls with guaranteed consistency with non-partial pulls"))
+		return nil, errFallbackCanConvert{
+			newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("zstd:chunked layers without tar-split data don't support partial pulls with guaranteed consistency with non-partial pulls")),
+		}
 	}
 
 	layersCache, err := getLayersCache(store)
@@ -344,14 +374,16 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 }
 
 // makeEstargzChunkedDiffer sets up a chunkedDiffer for an estargz layer.
-// It may return an error matching ErrFallbackToOrdinaryLayerDownload.
+// It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
 func makeEstargzChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
 	if !pullOptions.insecureAllowUnpredictableImageContents { // With no tar-split, we can't compute the traditional UncompressedDigest.
-		return nil, newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("estargz layers don't support partial pulls with guaranteed consistency with non-partial pulls"))
+		return nil, errFallbackCanConvert{
+			newErrFallbackToOrdinaryLayerDownload(fmt.Errorf("estargz layers don't support partial pulls with guaranteed consistency with non-partial pulls")),
+		}
 	}
 
 	manifest, tocOffset, err := readEstargzChunkedManifest(iss, blobSize, tocDigest)
-	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload
+	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 	layersCache, err := getLayersCache(store)
