@@ -44,6 +44,8 @@ func typeToTarType(t string) (byte, error) {
 	return r, nil
 }
 
+// readEstargzChunkedManifest reads the estargz manifest from the seekable stream blobStream.
+// It may return an error matching ErrFallbackToOrdinaryLayerDownload.
 func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, tocDigest digest.Digest) ([]byte, int64, error) {
 	// information on the format here https://github.com/containerd/stargz-snapshotter/blob/main/docs/stargz-estargz.md
 	footerSize := int64(51)
@@ -54,6 +56,10 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 	footer := make([]byte, footerSize)
 	streamsOrErrors, err := getBlobAt(blobStream, ImageSourceChunk{Offset: uint64(blobSize - footerSize), Length: uint64(footerSize)})
 	if err != nil {
+		var badRequestErr ErrBadRequest
+		if errors.As(err, &badRequestErr) {
+			err = newErrFallbackToOrdinaryLayerDownload(err)
+		}
 		return nil, 0, err
 	}
 
@@ -89,6 +95,10 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 
 	streamsOrErrors, err = getBlobAt(blobStream, ImageSourceChunk{Offset: uint64(tocOffset), Length: uint64(size)})
 	if err != nil {
+		var badRequestErr ErrBadRequest
+		if errors.As(err, &badRequestErr) {
+			err = newErrFallbackToOrdinaryLayerDownload(err)
+		}
 		return nil, 0, err
 	}
 
@@ -148,6 +158,7 @@ func readEstargzChunkedManifest(blobStream ImageSourceSeekable, blobSize int64, 
 
 // readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.
 // Returns (manifest blob, parsed manifest, tar-split blob or nil, manifest offset).
+// It may return an error matching ErrFallbackToOrdinaryLayerDownload.
 func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) (_ []byte, _ *minimal.TOC, _ []byte, _ int64, retErr error) {
 	offsetMetadata := annotations[minimal.ManifestInfoKey]
 	if offsetMetadata == "" {
@@ -186,6 +197,10 @@ func readZstdChunkedManifest(blobStream ImageSourceSeekable, tocDigest digest.Di
 
 	streamsOrErrors, err := getBlobAt(blobStream, chunks...)
 	if err != nil {
+		var badRequestErr ErrBadRequest
+		if errors.As(err, &badRequestErr) {
+			err = newErrFallbackToOrdinaryLayerDownload(err)
+		}
 		return nil, nil, nil, 0, err
 	}
 
