@@ -23,7 +23,7 @@ import (
 const (
 	// maxTocSize is the maximum size of a blob that we will attempt to process.
 	// It is used to prevent DoS attacks from layers that embed a very large TOC file.
-	maxTocSize = (1 << 20) * 50
+	maxTocSize = (1 << 20) * 150
 )
 
 var typesToTar = map[string]byte{
