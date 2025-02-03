@@ -13,7 +13,6 @@ require (
 	github.com/cyphar/filepath-securejoin v0.3.6
 	github.com/docker/go-units v0.5.0
 	github.com/google/go-intervals v0.0.2
-	github.com/hashicorp/go-multierror v1.1.1
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.17.11
 	github.com/klauspost/pgzip v1.2.6
@@ -31,6 +30,7 @@ require (
 	github.com/ulikunitz/xz v0.5.12
 	github.com/vbatts/tar-split v0.12.1
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
+	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.29.0
 	gotest.tools v2.2.0+incompatible
 )
@@ -45,13 +45,11 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	google.golang.org/grpc v1.67.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
