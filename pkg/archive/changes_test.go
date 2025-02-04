@@ -12,7 +12,6 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/system"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sys/unix"
 )
 
 func copyDir(src, dst string) error {
@@ -40,16 +39,6 @@ type FileData struct {
 	path        string
 	contents    string
 	permissions os.FileMode
-}
-
-// resetSymlinkTimesLinux sets the atime and mtime of a symlink to a known value, to test
-// whether changes to the symlink target are detected correctly.
-func resetSymlinkTimesLinux(path string) error {
-	if runtime.GOOS != linux {
-		return nil
-	}
-	ts := []unix.Timespec{unix.NsecToTimespec(0), unix.NsecToTimespec(0)}
-	return unix.UtimesNanoAt(unix.AT_FDCWD, path, ts, unix.AT_SYMLINK_NOFOLLOW)
 }
 
 func createSampleDir(t *testing.T, root string) {
@@ -93,7 +82,7 @@ func createSampleDir(t *testing.T, root string) {
 			err := os.Symlink(info.contents, p)
 			require.NoError(t, err)
 
-			err = resetSymlinkTimesLinux(p)
+			err = resetSymlinkTimes(p)
 			require.NoError(t, err)
 		}
 
@@ -317,7 +306,7 @@ func mutateSampleDir(t *testing.T, root string) {
 	require.NoError(t, err)
 	err = os.Symlink("target3", symlink2)
 	require.NoError(t, err)
-	err = resetSymlinkTimesLinux(symlink2)
+	err = resetSymlinkTimes(symlink2)
 	require.NoError(t, err)
 
 	// Replace dir with file
