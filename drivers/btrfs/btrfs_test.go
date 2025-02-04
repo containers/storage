@@ -14,7 +14,7 @@ import (
 // This avoids creating a new driver for each test if all tests are run
 // Make sure to put new tests between TestBtrfsSetup and TestBtrfsTeardown
 func TestBtrfsSetup(t *testing.T) {
-	graphtest.GetDriver(t, "btrfs")
+	graphtest.GetDriverNoCleanup(t, "btrfs")
 }
 
 func TestBtrfsCreateEmpty(t *testing.T) {
@@ -38,7 +38,6 @@ func TestBtrfsSubvolDelete(t *testing.T) {
 	if err := d.CreateReadWrite("test", "", nil); err != nil {
 		t.Fatal(err)
 	}
-	defer graphtest.PutDriver(t)
 
 	dir, err := d.Get("test", graphdriver.MountOpts{})
 	if err != nil {

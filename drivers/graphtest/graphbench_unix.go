@@ -16,7 +16,6 @@ import (
 // DriverBenchExists benchmarks calls to exist
 func DriverBenchExists(b *testing.B, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 
 	base := stringid.GenerateRandomID()
 
@@ -35,7 +34,6 @@ func DriverBenchExists(b *testing.B, drivername string, driveroptions ...string)
 // DriverBenchGetEmpty benchmarks calls to get on an empty layer
 func DriverBenchGetEmpty(b *testing.B, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 
 	base := stringid.GenerateRandomID()
 
@@ -60,7 +58,6 @@ func DriverBenchGetEmpty(b *testing.B, drivername string, driveroptions ...strin
 // DriverBenchDiffBase benchmarks calls to diff on a root layer
 func DriverBenchDiffBase(b *testing.B, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 
 	base := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
@@ -89,7 +86,6 @@ func DriverBenchDiffBase(b *testing.B, drivername string, driveroptions ...strin
 // a provided number of files on the lower and upper layers.
 func DriverBenchDiffN(b *testing.B, bottom, top int, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 	base := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
@@ -124,7 +120,6 @@ func DriverBenchDiffN(b *testing.B, bottom, top int, drivername string, driverop
 // DriverBenchDiffApplyN benchmarks calls to diff and apply together
 func DriverBenchDiffApplyN(b *testing.B, fileCount int, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 	base := stringid.GenerateRandomID()
 	upper := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
@@ -185,7 +180,6 @@ func DriverBenchDiffApplyN(b *testing.B, fileCount int, drivername string, drive
 // DriverBenchDeepLayerDiff benchmarks calls to diff on top of a given number of layers.
 func DriverBenchDeepLayerDiff(b *testing.B, layerCount int, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 
 	base := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
@@ -218,7 +212,6 @@ func DriverBenchDeepLayerDiff(b *testing.B, layerCount int, drivername string, d
 // DriverBenchDeepLayerRead benchmarks calls to read a file under a given number of layers.
 func DriverBenchDeepLayerRead(b *testing.B, layerCount int, drivername string, driveroptions ...string) {
 	driver := GetDriver(b, drivername, driveroptions...)
-	defer PutDriver(b)
 
 	base := stringid.GenerateRandomID()
 	if err := driver.Create(base, "", nil); err != nil {
