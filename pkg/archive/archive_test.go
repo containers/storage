@@ -18,15 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var tmp string
-
-func init() {
-	tmp = "/tmp/"
-	if runtime.GOOS == windows {
-		tmp = os.Getenv("TEMP") + `\`
-	}
-}
-
 var defaultArchiver = NewDefaultArchiver()
 
 func defaultTarUntar(src, dst string) error {
@@ -46,7 +37,9 @@ func defaultCopyWithTar(src, dst string) error {
 }
 
 func TestIsArchivePathDir(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "mkdir -p /tmp/archivedir")
+	tmp := t.TempDir()
+	cmd := exec.Command("sh", "-c", "mkdir -p archivedir")
+	cmd.Dir = tmp
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Fail to create an archive file for test : %s.", output)
@@ -57,15 +50,17 @@ func TestIsArchivePathDir(t *testing.T) {
 }
 
 func TestIsArchivePathInvalidFile(t *testing.T) {
-	cmd := exec.Command("sh", "-c", "dd if=/dev/zero bs=1024 count=1 of=/tmp/archive && gzip --stdout /tmp/archive > /tmp/archive.gz")
+	tmp := t.TempDir()
+	cmd := exec.Command("sh", "-c", "dd if=/dev/zero bs=1024 count=1 of=archive && gzip --stdout archive > archive.gz")
+	cmd.Dir = tmp
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Fail to create an archive file for test : %s.", output)
 	}
-	if IsArchivePath(tmp + "archive") {
+	if IsArchivePath(filepath.Join(tmp, "archive")) {
 		t.Fatalf("Incorrectly recognised invalid tar path as archive")
 	}
-	if IsArchivePath(tmp + "archive.gz") {
+	if IsArchivePath(filepath.Join(tmp, "archive.gz")) {
 		t.Fatalf("Incorrectly recognised invalid compressed tar path as archive")
 	}
 }
@@ -77,29 +72,33 @@ func TestIsArchivePathTar(t *testing.T) {
 	} else {
 		whichTar = "tar"
 	}
-	cmdStr := fmt.Sprintf("touch /tmp/archivedata && %s -cf /tmp/archive /tmp/archivedata && gzip --stdout /tmp/archive > /tmp/archive.gz", whichTar)
+	cmdStr := fmt.Sprintf("touch archivedata && %s -cf archive archivedata && gzip --stdout archive > archive.gz", whichTar)
 	cmd := exec.Command("sh", "-c", cmdStr)
+	tmp := t.TempDir()
+	cmd.Dir = tmp
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Fail to create an archive file for test : %s.", output)
 	}
-	if !IsArchivePath(tmp + "/archive") {
+	if !IsArchivePath(filepath.Join(tmp, "archive")) {
 		t.Fatalf("Did not recognise valid tar path as archive")
 	}
-	if !IsArchivePath(tmp + "archive.gz") {
+	if !IsArchivePath(filepath.Join(tmp, "archive.gz")) {
 		t.Fatalf("Did not recognise valid compressed tar path as archive")
 	}
 }
 
 func testDecompressStream(t *testing.T, ext, compressCommand string) {
+	tmp := t.TempDir()
 	cmd := exec.Command("sh", "-c",
-		fmt.Sprintf("touch /tmp/archive && %s /tmp/archive", compressCommand))
+		fmt.Sprintf("touch archive && %s archive", compressCommand))
+	cmd.Dir = tmp
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to create an archive file for test : %s.", output)
 	}
-	filename := "archive." + ext
-	archive, err := os.Open(tmp + filename)
+	filename := filepath.Join(tmp, "archive."+ext)
+	archive, err := os.Open(filename)
 	if err != nil {
 		t.Fatalf("Failed to open file %s: %v", filename, err)
 	}
@@ -133,41 +132,20 @@ func TestDecompressStreamXz(t *testing.T) {
 }
 
 func TestCompressStreamXzUnsupported(t *testing.T) {
-	dest, err := os.Create(tmp + "dest")
-	if err != nil {
-		t.Fatalf("Fail to create the destination file: %v", err)
-	}
-	defer dest.Close()
-
-	_, err = CompressStream(dest, Xz)
-	if err == nil {
+	if _, err := CompressStream(&bytes.Buffer{}, Xz); err == nil {
 		t.Fatalf("Should fail as xz is unsupported for compression format.")
 	}
 }
 
 func TestCompressStreamBzip2Unsupported(t *testing.T) {
-	dest, err := os.Create(tmp + "dest")
-	if err != nil {
-		t.Fatalf("Fail to create the destination file: %v", err)
-	}
-	defer dest.Close()
-
-	_, err = CompressStream(dest, Xz)
-	if err == nil {
-		t.Fatalf("Should fail as xz is unsupported for compression format.")
+	if _, err := CompressStream(&bytes.Buffer{}, Bzip2); err == nil {
+		t.Fatalf("Should fail as bz2 is unsupported for compression format.")
 	}
 }
 
 func TestCompressStreamInvalid(t *testing.T) {
-	dest, err := os.Create(tmp + "dest")
-	if err != nil {
-		t.Fatalf("Fail to create the destination file: %v", err)
-	}
-	defer dest.Close()
-
-	_, err = CompressStream(dest, -1)
-	if err == nil {
-		t.Fatalf("Should fail as xz is unsupported for compression format.")
+	if _, err := CompressStream(&bytes.Buffer{}, -1); err == nil {
+		t.Fatalf("Should fail as -1 is an invalid compression format.")
 	}
 }
 
@@ -213,10 +191,7 @@ func TestExtensionXz(t *testing.T) {
 
 func createEmptyFile(t *testing.T, path string) {
 	t.Helper()
-	f, err := os.Create(path)
-	require.NoError(t, err)
-	err = f.Close()
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, nil, 0o666))
 }
 
 func TestUntarPathWithInvalidDest(t *testing.T) {
