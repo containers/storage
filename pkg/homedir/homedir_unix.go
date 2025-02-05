@@ -6,6 +6,7 @@ package homedir
 // NOTE: this package has originally been copied from github.com/docker/docker.
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/unshare"
 	"github.com/sirupsen/logrus"
 )
@@ -133,6 +135,33 @@ func GetConfigHome() (string, error) {
 	return rootlessConfigHomeDir, rootlessConfigHomeDirError
 }
 
+// checkBootId checks if the boot_id of the system has changed since the last time the runtime directory was created.
+func checkBootId(path string) error {
+	systemBootId, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// The system does not have a boot_id, so ignore the check
+			return nil
+		}
+		return err
+	}
+
+	bootIdFile := filepath.Join(path, "bootid")
+	bootId, err := os.ReadFile(bootIdFile)
+	if err != nil {
+		// If the file does not exist, create it
+		if errors.Is(err, os.ErrNotExist) {
+			return ioutils.AtomicWriteFile(bootIdFile, systemBootId, 0o600)
+		}
+		return err
+	}
+
+	if string(bootId) != string(systemBootId) {
+		return fmt.Errorf("The boot_id of the system has changed, the runtime directory %q is not valid anymore, please remove it first", path)
+	}
+	return nil
+}
+
 // GetRuntimeDir returns a directory suitable to store runtime files.
 // The function will try to use the XDG_RUNTIME_DIR env variable if it is set.
 // XDG_RUNTIME_DIR is typically configured via pam_systemd.
@@ -170,6 +199,7 @@ func GetRuntimeDir() (string, error) {
 			st, err := os.Lstat(tmpDir)
 			if err == nil && int(st.Sys().(*syscall.Stat_t).Uid) == os.Geteuid() && isWriteableOnlyByOwner(st.Mode().Perm()) {
 				runtimeDir = tmpDir
+				rootlessRuntimeDirError = checkBootId(runtimeDir)
 			} else {
 				rootlessRuntimeDirError = fmt.Errorf("path %q exists and it is not writeable only by the current user", tmpDir)
 				return
