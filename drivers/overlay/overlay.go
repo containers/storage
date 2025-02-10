@@ -418,7 +418,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 
 	if !opts.skipMountHome {
 		if err := mount.MakePrivate(home); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("overlay: failed to make mount private: %w", err)
 		}
 	}
 
