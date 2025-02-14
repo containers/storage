@@ -89,6 +89,7 @@ func GetRootUIDGID(uidMap, gidMap []IDMap) (int, int, error) {
 	} else {
 		uid, err = RawToHost(0, uidMap)
 		if err != nil {
+			logrus.Errorf("Container uses userid mappings, but does not map UID 0 (root)")
 			return -1, -1, err
 		}
 	}
@@ -97,6 +98,7 @@ func GetRootUIDGID(uidMap, gidMap []IDMap) (int, int, error) {
 	} else {
 		gid, err = RawToHost(0, gidMap)
 		if err != nil {
+			logrus.Errorf("Container uses groupid mappings, but does not map GID 0 (root)")
 			return -1, -1, err
 		}
 	}
