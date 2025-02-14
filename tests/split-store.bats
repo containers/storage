@@ -100,6 +100,17 @@ load helpers
 	# shutdown store
 	run storage --graph ${TESTDIR}/graph --image-store ${TESTDIR}/imagestore/ --run ${TESTDIR}/runroot/ shutdown
 
+	# A RO layer must be created in the image store and must be usable from there as a regular store.
+	run storage --graph ${TESTDIR}/graph --image-store ${TESTDIR}/imagestore/ --debug=false create-layer --readonly
+	[ "$status" -eq 0 ]
+	rolayer=$output
+	run storage --graph ${TESTDIR}/imagestore --debug=false mount $rolayer
+	[ "$status" -eq 0 ]
+	run storage --graph ${TESTDIR}/imagestore --debug=false unmount $rolayer
+	[ "$status" -eq 0 ]
+	run storage --graph ${TESTDIR}/imagestore shutdown
+	[ "$status" -eq 0 ]
+
 	# Now since image was deleted from graphRoot, we should
 	# get false output while checking if image still exists
 	run storage --graph ${TESTDIR}/graph exists -i $image
