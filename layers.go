@@ -51,6 +51,7 @@ type layerLocations uint8
 // unclean shutdown
 const (
 	stableLayerLocation layerLocations = 1 << iota
+	imageStoreLayerLocation
 	volatileLayerLocation
 
 	numLayerLocationIndex = iota
@@ -166,6 +167,9 @@ type Layer struct {
 
 	// volatileStore is true if the container is from the volatile json file
 	volatileStore bool `json:"-"`
+
+	// imageStore is true if the layer is from the image store json file
+	imageStore bool `json:"-"`
 
 	// BigDataNames is a list of names of data items that we keep for the
 	// convenience of the caller.  They can be large, and are only in
@@ -435,6 +439,9 @@ func layerLocation(l *Layer) layerLocations {
 	if l.volatileStore {
 		return volatileLayerLocation
 	}
+	if l.imageStore {
+		return imageStoreLayerLocation
+	}
 	return stableLayerLocation
 }
 
@@ -456,6 +463,7 @@ func copyLayer(l *Layer) *Layer {
 		CompressionType:    l.CompressionType,
 		ReadOnly:           l.ReadOnly,
 		volatileStore:      l.volatileStore,
+		imageStore:         l.imageStore,
 		BigDataNames:       copySlicePreferringNil(l.BigDataNames),
 		Flags:              copyMapPreferringNil(l.Flags),
 		UIDMap:             copySlicePreferringNil(l.UIDMap),
@@ -823,6 +831,9 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 			if location == volatileLayerLocation {
 				layer.volatileStore = true
 			}
+			if location == imageStoreLayerLocation {
+				layer.imageStore = true
+			}
 			layers = append(layers, layer)
 			ids[layer.ID] = layer
 		}
@@ -1144,6 +1155,7 @@ func (s *store) newLayerStore(rundir, layerdir, imagedir string, driver drivers.
 		rundir:         rundir,
 		jsonPath: [numLayerLocationIndex]string{
 			filepath.Join(layerdir, "layers.json"),
+			filepath.Join(imagedir, "layers.json"),
 			filepath.Join(volatileDir, "volatile-layers.json"),
 		},
 		layerdir: layerdir,
@@ -1180,6 +1192,7 @@ func newROLayerStore(rundir string, layerdir string, driver drivers.Driver) (roL
 		mountsLockfile: nil,
 		rundir:         rundir,
 		jsonPath: [numLayerLocationIndex]string{
+			filepath.Join(layerdir, "layers.json"),
 			filepath.Join(layerdir, "layers.json"),
 			filepath.Join(layerdir, "volatile-layers.json"),
 		},
@@ -1399,6 +1412,10 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 		selinux.ReserveLabel(mountLabel)
 	}
 
+	if moreOptions.Volatile && moreOptions.ImageStore {
+		return nil, -1, errors.New("internal error: volatile and image store layers are mutually exclusive")
+	}
+
 	// Before actually creating the layer, make a persistent record of it
 	// with the incomplete flag set, so that future processes have a chance
 	// to clean up after it.
@@ -1422,6 +1439,7 @@ func (r *layerStore) create(id string, parentLayer *Layer, names []string, mount
 		GIDMap:             copySlicePreferringNil(moreOptions.GIDMap),
 		BigDataNames:       []string{},
 		volatileStore:      moreOptions.Volatile,
+		imageStore:         moreOptions.ImageStore,
 	}
 	layer.Flags[incompleteFlag] = true
 

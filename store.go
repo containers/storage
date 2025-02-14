@@ -667,6 +667,8 @@ type LayerOptions struct {
 	UncompressedDigest digest.Digest
 	// True is the layer info can be treated as volatile
 	Volatile bool
+	// True is the layer info must be written to the image store
+	ImageStore bool
 	// BigData is a set of items which should be stored with the layer.
 	BigData []LayerBigDataOption
 	// Flags is a set of named flags and their values to store with the layer.
@@ -1544,6 +1546,9 @@ func (s *store) putLayer(rlstore rwLayerStore, rlstores []roLayerStore, id, pare
 			UIDMap:         copySlicePreferringNil(uidMap),
 			GIDMap:         copySlicePreferringNil(gidMap),
 		}
+	}
+	if !writeable && s.imageStoreDir != "" {
+		options.ImageStore = true
 	}
 	return rlstore.create(id, parentLayer, names, mountLabel, nil, &options, writeable, diff, slo)
 }
