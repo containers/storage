@@ -859,23 +859,26 @@ func Tar(path string, compression Compression) (io.ReadCloser, error) {
 // TarWithOptions creates an archive from the directory at `path`, only including files whose relative
 // paths are included in `options.IncludeFiles` (if non-nil) or not in `options.ExcludePatterns`.
 func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) {
-	// Fix the source path to work with long path names. This is a no-op
-	// on platforms other than Windows.
-	srcPath = fixVolumePathPrefix(srcPath)
+	tarWithOptionsTo := func(dest io.WriteCloser, srcPath string, options *TarOptions) (result error) {
+		// Fix the source path to work with long path names. This is a no-op
+		// on platforms other than Windows.
+		srcPath = fixVolumePathPrefix(srcPath)
+		defer func() {
+			if err := dest.Close(); err != nil && result == nil {
+				result = err
+			}
+		}()
 
-	pm, err := fileutils.NewPatternMatcher(options.ExcludePatterns)
-	if err != nil {
-		return nil, err
-	}
+		pm, err := fileutils.NewPatternMatcher(options.ExcludePatterns)
+		if err != nil {
+			return err
+		}
 
-	pipeReader, pipeWriter := io.Pipe()
+		compressWriter, err := CompressStream(dest, options.Compression)
+		if err != nil {
+			return err
+		}
 
-	compressWriter, err := CompressStream(pipeWriter, options.Compression)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
 		ta := newTarWriter(
 			idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps),
 			compressWriter,
@@ -887,15 +890,8 @@ func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) 
 
 		includeFiles := options.IncludeFiles
 		defer func() {
-			// Make sure to check the error on Close.
-			if err := ta.TarWriter.Close(); err != nil {
-				logrus.Errorf("Can't close tar writer: %s", err)
-			}
-			if err := compressWriter.Close(); err != nil {
-				logrus.Errorf("Can't close compress writer: %s", err)
-			}
-			if err := pipeWriter.Close(); err != nil {
-				logrus.Errorf("Can't close pipe writer: %s", err)
+			if err := compressWriter.Close(); err != nil && result == nil {
+				result = err
 			}
 		}()
 
@@ -909,7 +905,7 @@ func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) 
 
 		stat, err := os.Lstat(srcPath)
 		if err != nil {
-			return
+			return err
 		}
 
 		if !stat.IsDir() {
@@ -1027,9 +1023,17 @@ func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) 
 				}
 				return nil
 			}); err != nil {
-				logrus.Errorf("%s", err)
-				return
+				return err
 			}
+		}
+		return ta.TarWriter.Close()
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	go func() {
+		err := tarWithOptionsTo(pipeWriter, srcPath, options)
+		if pipeErr := pipeWriter.CloseWithError(err); pipeErr != nil {
+			logrus.Errorf("Can't close pipe writer: %s", pipeErr)
 		}
 	}()
 
