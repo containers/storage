@@ -885,6 +885,7 @@ func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) 
 		ta.WhiteoutConverter = GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
 		ta.CopyPass = options.CopyPass
 
+		includeFiles := options.IncludeFiles
 		defer func() {
 			// Make sure to check the error on Close.
 			if err := ta.TarWriter.Close(); err != nil {
@@ -916,22 +917,22 @@ func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) 
 			// 'walk' will error if "file/." is stat-ed and "file" is not a
 			// directory. So, we must split the source path and use the
 			// basename as the include.
-			if len(options.IncludeFiles) > 0 {
+			if len(includeFiles) > 0 {
 				logrus.Warn("Tar: Can't archive a file with includes")
 			}
 
 			dir, base := SplitPathDirEntry(srcPath)
 			srcPath = dir
-			options.IncludeFiles = []string{base}
+			includeFiles = []string{base}
 		}
 
-		if len(options.IncludeFiles) == 0 {
-			options.IncludeFiles = []string{"."}
+		if len(includeFiles) == 0 {
+			includeFiles = []string{"."}
 		}
 
 		seen := make(map[string]bool)
 
-		for _, include := range options.IncludeFiles {
+		for _, include := range includeFiles {
 			rebaseName := options.RebaseNames[include]
 
 			walkRoot := getWalkRoot(srcPath, include)
