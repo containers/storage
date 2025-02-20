@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/stretchr/testify/assert"
@@ -1221,4 +1222,47 @@ func readFileFromArchive(t *testing.T, archive io.ReadCloser, name string, expec
 	content, err := os.ReadFile(filepath.Join(destDir, name))
 	assert.NoError(t, err)
 	return string(content)
+}
+
+func TestTimestamp(t *testing.T) {
+	// write single file into dir that we'll tar
+	td := t.TempDir()
+	tf := filepath.Join(td, "foo")
+
+	require.NoError(t, os.WriteFile(tf, []byte("bar"), 0o644))
+
+	// helper function to tar that dir and return byte slice
+	tarToByteSlice := func(options *TarOptions) []byte {
+		rc, err := TarWithOptions(td, options)
+		assert.NoError(t, err)
+		defer rc.Close()
+
+		rv, err := io.ReadAll(rc)
+		assert.NoError(t, err)
+		return rv
+	}
+
+	// default options
+	defaultOptions := &TarOptions{}
+
+	// override timestamp option
+	epochOptions := &TarOptions{Timestamp: &time.Time{}}
+
+	// get tar bytes slices now
+	origTarDefaultOptions := tarToByteSlice(defaultOptions)
+	origTarEpochOptions := tarToByteSlice(epochOptions)
+
+	// set the mod time of the file to an hour later
+	oneHourLater := time.Now().Add(time.Hour)
+	require.NoError(t, os.Chtimes(tf, oneHourLater, oneHourLater))
+
+	// then tar again
+	laterTarDefaultOptions := tarToByteSlice(defaultOptions)
+	laterTarEpochOptions := tarToByteSlice(epochOptions)
+
+	// we expect the ones without a fixed timestamp to be different
+	assert.NotEqual(t, origTarDefaultOptions, laterTarDefaultOptions)
+
+	// we expect the ones with a fixed timestamp to be the same
+	assert.Equal(t, origTarEpochOptions, laterTarEpochOptions)
 }
