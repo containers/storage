@@ -1216,9 +1216,6 @@ func untarHandler(tarArchive io.Reader, dest string, options *TarOptions, decomp
 	if options == nil {
 		options = &TarOptions{}
 	}
-	if options.ExcludePatterns == nil {
-		options.ExcludePatterns = []string{}
-	}
 
 	r := tarArchive
 	if decompress {
