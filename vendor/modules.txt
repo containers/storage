@@ -125,7 +125,7 @@ github.com/modern-go/reflect2
 # github.com/opencontainers/go-digest v1.0.0
 ## explicit; go 1.13
 github.com/opencontainers/go-digest
-# github.com/opencontainers/runtime-spec v1.2.0
+# github.com/opencontainers/runtime-spec v1.2.1
 ## explicit
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/opencontainers/selinux v1.11.1
