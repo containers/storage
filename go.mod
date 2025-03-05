@@ -22,7 +22,7 @@ require (
 	github.com/moby/sys/mountinfo v0.7.2
 	github.com/moby/sys/user v0.3.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/runtime-spec v1.2.0
+	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/opencontainers/selinux v1.11.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
