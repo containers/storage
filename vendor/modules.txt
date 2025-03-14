@@ -224,10 +224,11 @@ google.golang.org/protobuf/types/known/anypb
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# gotest.tools v2.2.0+incompatible
-## explicit
-gotest.tools/assert
-gotest.tools/assert/cmp
-gotest.tools/internal/difflib
-gotest.tools/internal/format
-gotest.tools/internal/source
+# gotest.tools/v3 v3.5.2
+## explicit; go 1.17
+gotest.tools/v3/assert
+gotest.tools/v3/assert/cmp
+gotest.tools/v3/internal/assert
+gotest.tools/v3/internal/difflib
+gotest.tools/v3/internal/format
+gotest.tools/v3/internal/source
