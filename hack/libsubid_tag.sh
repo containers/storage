@@ -10,14 +10,12 @@ cc -o "$tmpdir"/libsubid_tag -l subid -x c - > /dev/null 2> /dev/null << EOF
 #include <stdio.h>
 #include <stdlib.h>
 
-const char *Prog = "test";
-FILE *shadow_logfd = NULL;
-
 int main() {
 	struct subid_range *ranges = NULL;
 #if SUBID_ABI_MAJOR >= 4
 	subid_get_uid_ranges("root", &ranges);
 #else
+	libsubid_init("root", stderr);
 	get_subuid_ranges("root", &ranges);
 #endif
 	free(ranges);
