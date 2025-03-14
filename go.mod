@@ -31,7 +31,7 @@ require (
 	github.com/vbatts/tar-split v0.12.1
 	golang.org/x/sync v0.12.0
 	golang.org/x/sys v0.31.0
-	gotest.tools v2.2.0+incompatible
+	gotest.tools/v3 v3.5.2
 )
 
 require (
