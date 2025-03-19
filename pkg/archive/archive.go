@@ -623,13 +623,14 @@ func (ta *tarWriter) addFile(path, name string) error {
 		// hdr may have been updated to be a whiteout with returning
 		// a whiteout header
 		if wo != nil {
-			if err := ta.TarWriter.WriteHeader(hdr); err != nil {
-				return err
+			if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 {
+				if err := ta.TarWriter.WriteHeader(hdr); err != nil {
+					return err
+				}
+				hdr = wo
+			} else {
+				logrus.Infof("tar: cannot use whiteout for non-empty file %s", hdr.Name)
 			}
-			if hdr.Typeflag == tar.TypeReg && hdr.Size > 0 {
-				return fmt.Errorf("tar: cannot use whiteout for non-empty file")
-			}
-			hdr = wo
 		}
 	}
 
