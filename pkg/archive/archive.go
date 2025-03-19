@@ -528,11 +528,29 @@ func canonicalTarName(name string, isDir bool) (string, error) {
 	return name, nil
 }
 
-// addFile adds a file from `path` as `name` to the tar archive.
-func (ta *tarWriter) addFile(path, name string) error {
+type addFileData struct {
+	// path from which to read contents
+	path string
+
+	// os.Stat for the above
+	fi os.FileInfo
+
+	// the file header
+	hdr *tar.Header
+
+	// if present, the whiteout entry to write after the header.
+	whiteout *tar.Header
+}
+
+// prepareAddFile generates the tar file header(s) for adding a file
+// from `path` as `name` to the tar archive, without writing to the
+// tar stream. Thus, any error may be ignored without corrupting the
+// tar file. A (nil, nil) return means that the file should be
+// ignored for non-error reasons.
+func (ta *tarWriter) prepareAddFile(path, name string) (*addFileData, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var link string
@@ -540,26 +558,26 @@ func (ta *tarWriter) addFile(path, name string) error {
 		var err error
 		link, err = os.Readlink(path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if fi.Mode()&os.ModeSocket != 0 {
 		logrus.Infof("archive: skipping %q since it is a socket", path)
-		return nil
+		return nil, nil
 	}
 
 	hdr, err := FileInfoHeader(name, fi, link)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := readSecurityXattrToTarHeader(path, hdr); err != nil {
-		return err
+		return nil, err
 	}
 	if err := readUserXattrToTarHeader(path, hdr); err != nil {
-		return err
+		return nil, err
 	}
 	if err := ReadFileFlagsToTarHeader(path, hdr); err != nil {
-		return err
+		return nil, err
 	}
 	if ta.CopyPass {
 		copyPassHeader(hdr)
@@ -584,11 +602,11 @@ func (ta *tarWriter) addFile(path, name string) error {
 	if !strings.HasPrefix(filepath.Base(hdr.Name), WhiteoutPrefix) && !ta.IDMappings.Empty() {
 		fileIDPair, err := getFileUIDGID(fi.Sys())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		hdr.Uid, hdr.Gid, err = ta.IDMappings.ToContainer(fileIDPair)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -611,26 +629,37 @@ func (ta *tarWriter) addFile(path, name string) error {
 
 	maybeTruncateHeaderModTime(hdr)
 
+	result := &addFileData{
+		path: path,
+		hdr:  hdr,
+		fi:   fi,
+	}
 	if ta.WhiteoutConverter != nil {
-		wo, err := ta.WhiteoutConverter.ConvertWrite(hdr, path, fi)
+		result.whiteout, err = ta.WhiteoutConverter.ConvertWrite(hdr, path, fi)
 		if err != nil {
-			return err
+			return nil, err
 		}
+	}
 
+	return result, nil
+}
+
+// addFile performs the write. An error here corrupt the tar file.
+func (ta *tarWriter) addFile(headers *addFileData) error {
+	hdr := headers.hdr
+	if headers.whiteout != nil {
 		// If a new whiteout file exists, write original hdr, then
-		// replace hdr with wo to be written after. Whiteouts should
+		// replace hdr with whiteout to be written after. Whiteouts should
 		// always be written after the original. Note the original
 		// hdr may have been updated to be a whiteout with returning
 		// a whiteout header
-		if wo != nil {
-			if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 {
-				if err := ta.TarWriter.WriteHeader(hdr); err != nil {
-					return err
-				}
-				hdr = wo
-			} else {
-				logrus.Infof("tar: cannot use whiteout for non-empty file %s", hdr.Name)
+		if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 {
+			if err := ta.TarWriter.WriteHeader(hdr); err != nil {
+				return err
 			}
+			hdr = headers.whiteout
+		} else {
+			logrus.Infof("tar: cannot use whiteout for non-empty file %s", hdr.Name)
 		}
 	}
 
@@ -639,7 +668,7 @@ func (ta *tarWriter) addFile(path, name string) error {
 	}
 
 	if hdr.Typeflag == tar.TypeReg && hdr.Size > 0 {
-		file, err := os.Open(path)
+		file, err := os.Open(headers.path)
 		if err != nil {
 			return err
 		}
@@ -657,8 +686,9 @@ func (ta *tarWriter) addFile(path, name string) error {
 		}
 	}
 
-	if !fi.IsDir() && hasHardlinks(fi) {
-		ta.SeenFiles[getInodeFromStat(fi.Sys())] = hdr.Name
+	if !headers.fi.IsDir() && hasHardlinks(headers.fi) {
+		// NOSUBMIT: hdr.Name or headers.hdr.Name?
+		ta.SeenFiles[getInodeFromStat(headers.fi.Sys())] = hdr.Name
 	}
 
 	return nil
@@ -1011,10 +1041,11 @@ func tarWithOptionsTo(dest io.WriteCloser, srcPath string, options *TarOptions) 
 				relFilePath = strings.Replace(relFilePath, include, replacement, 1)
 			}
 
-			if err := ta.addFile(filePath, relFilePath); err != nil {
-				logrus.Errorf("Can't add file %s to tar: %s", filePath, err)
-				// if pipe is broken, stop writing tar stream to it
-				if err == io.ErrClosedPipe {
+			headers, err := ta.prepareAddFile(filePath, relFilePath)
+			if err != nil {
+				logrus.Errorf("Can't add file %s to tar: %s; skipping", filePath, err)
+			} else if headers != nil {
+				if err := ta.addFile(headers); err != nil {
 					return err
 				}
 			}
