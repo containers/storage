@@ -612,24 +612,36 @@ func (ta *tarWriter) addFile(path, name string) error {
 	maybeTruncateHeaderModTime(hdr)
 
 	if ta.WhiteoutConverter != nil {
+		// The WhiteoutConverter suggests a generic mechanism,
+		// but this code is only used to convert between
+		// overlayfs (on-disk) and AUFS (in the tar file)
+		// whiteouts, and is initiated because the overlayfs
+		// storage driver returns OverlayWhiteoutFormat from
+		// Driver.getWhiteoutFormat().
+		//
+		// For AUFS, a directory with all its contents deleted
+		// should be represented as a directory containing a
+		// magic whiteout regular file, hence the extra wo header
+		// returned here.
+		//
+		// We assume that whiteout entries are empty;
+		// otherwise, if we write hdr with hdr.Size > 0, we
+		// have to write the body before we can write the `wo`
+		// header.
 		wo, err := ta.WhiteoutConverter.ConvertWrite(hdr, path, fi)
 		if err != nil {
 			return err
 		}
 
-		// If a new whiteout file exists, write original hdr, then
-		// replace hdr with wo to be written after. Whiteouts should
-		// always be written after the original. Note the original
-		// hdr may have been updated to be a whiteout with returning
-		// a whiteout header
 		if wo != nil {
-			if err := ta.TarWriter.WriteHeader(hdr); err != nil {
-				return err
+			if hdr.Typeflag != tar.TypeReg || hdr.Size == 0 {
+				if err := ta.TarWriter.WriteHeader(hdr); err != nil {
+					return err
+				}
+				hdr = wo
+			} else {
+				logrus.Infof("tar: cannot use whiteout for non-empty file %s", hdr.Name)
 			}
-			if hdr.Typeflag == tar.TypeReg && hdr.Size > 0 {
-				return fmt.Errorf("tar: cannot use whiteout for non-empty file")
-			}
-			hdr = wo
 		}
 	}
 
