@@ -3,6 +3,7 @@ package archive
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -1265,4 +1266,46 @@ func TestTimestamp(t *testing.T) {
 
 	// we expect the ones with a fixed timestamp to be the same
 	assert.Equal(t, origTarEpochOptions, laterTarEpochOptions)
+}
+
+type errorBuf struct {
+	bytes.Buffer
+
+	err        error
+	failWrite  int
+	writeCount int
+}
+
+func (b *errorBuf) Write(d []byte) (int, error) {
+	b.writeCount++
+	if b.failWrite == b.writeCount {
+		return 0, b.err
+	}
+	return b.Buffer.Write(d)
+}
+
+func (b *errorBuf) Close() error {
+	return nil
+}
+
+func TestTarErrorHandling(t *testing.T) {
+	dir := t.TempDir()
+
+	for i := range 10 {
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("file%d", i)), bytes.Repeat([]byte("hello"), 32<<10),
+			0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dest := &errorBuf{
+		failWrite: 1,
+		err:       errors.New("boom"),
+	}
+
+	if err := tarWithOptionsTo(dest, dir, &TarOptions{
+		Compression: Uncompressed,
+	}); !errors.Is(err, dest.err) {
+		t.Fatalf("Did not propagate error; got %v", err)
+	}
 }
