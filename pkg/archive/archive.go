@@ -574,9 +574,7 @@ func (ta *tarWriter) addFile(path, name string) error {
 		if oldpath, ok := ta.SeenFiles[inode]; ok {
 			hdr.Typeflag = tar.TypeLink
 			hdr.Linkname = oldpath
-			hdr.Size = 0 // This Must be here for the writer math to add up!
-		} else {
-			ta.SeenFiles[inode] = name
+			hdr.Size = 0 // This must be here for the writer math to add up!
 		}
 	}
 
@@ -656,6 +654,10 @@ func (ta *tarWriter) addFile(path, name string) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if !fi.IsDir() && hasHardlinks(fi) {
+		ta.SeenFiles[getInodeFromStat(fi.Sys())] = hdr.Name
 	}
 
 	return nil
