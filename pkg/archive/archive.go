@@ -855,185 +855,183 @@ func Tar(path string, compression Compression) (io.ReadCloser, error) {
 	return TarWithOptions(path, &TarOptions{Compression: compression})
 }
 
-// TarWithOptions creates an archive from the directory at `path`,
-// only including files whose relative paths are included in
-// `options.IncludeFiles` (if non-nil) or not in
-// `options.ExcludePatterns`.
+func tarWithOptionsTo(dest io.WriteCloser, srcPath string, options *TarOptions) (result error) {
+	// Fix the source path to work with long path names. This is a no-op
+	// on platforms other than Windows.
+	srcPath = fixVolumePathPrefix(srcPath)
+	defer func() {
+		if err := dest.Close(); err != nil && result == nil {
+			result = err
+		}
+	}()
+
+	pm, err := fileutils.NewPatternMatcher(options.ExcludePatterns)
+	if err != nil {
+		return err
+	}
+
+	compressWriter, err := CompressStream(dest, options.Compression)
+	if err != nil {
+		return err
+	}
+
+	ta := newTarWriter(
+		idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps),
+		compressWriter,
+		options.ChownOpts,
+		options.Timestamp,
+	)
+	ta.WhiteoutConverter = GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
+	ta.CopyPass = options.CopyPass
+
+	includeFiles := options.IncludeFiles
+	defer func() {
+		if err := compressWriter.Close(); err != nil && result == nil {
+			result = err
+		}
+	}()
+
+	// this buffer is needed for the duration of this piped stream
+	defer pools.BufioWriter32KPool.Put(ta.Buffer)
+
+	// In general we log errors here but ignore them because
+	// during e.g. a diff operation the container can continue
+	// mutating the filesystem and we can see transient errors
+	// from this
+
+	stat, err := os.Lstat(srcPath)
+	if err != nil {
+		return err
+	}
+
+	if !stat.IsDir() {
+		// We can't later join a non-dir with any includes because the
+		// 'walk' will error if "file/." is stat-ed and "file" is not a
+		// directory. So, we must split the source path and use the
+		// basename as the include.
+		if len(includeFiles) > 0 {
+			logrus.Warn("Tar: Can't archive a file with includes")
+		}
+
+		dir, base := SplitPathDirEntry(srcPath)
+		srcPath = dir
+		includeFiles = []string{base}
+	}
+
+	if len(includeFiles) == 0 {
+		includeFiles = []string{"."}
+	}
+
+	seen := make(map[string]bool)
+
+	for _, include := range includeFiles {
+		rebaseName := options.RebaseNames[include]
+
+		walkRoot := getWalkRoot(srcPath, include)
+		if err := filepath.WalkDir(walkRoot, func(filePath string, d fs.DirEntry, err error) error {
+			if err != nil {
+				logrus.Errorf("Tar: Can't stat file %s to tar: %s", srcPath, err)
+				return nil
+			}
+
+			relFilePath, err := filepath.Rel(srcPath, filePath)
+			if err != nil || (!options.IncludeSourceDir && relFilePath == "." && d.IsDir()) {
+				// Error getting relative path OR we are looking
+				// at the source directory path. Skip in both situations.
+				return nil //nolint: nilerr
+			}
+
+			if options.IncludeSourceDir && include == "." && relFilePath != "." {
+				relFilePath = strings.Join([]string{".", relFilePath}, string(filepath.Separator))
+			}
+
+			skip := false
+
+			// If "include" is an exact match for the current file
+			// then even if there's an "excludePatterns" pattern that
+			// matches it, don't skip it. IOW, assume an explicit 'include'
+			// is asking for that file no matter what - which is true
+			// for some files, like .dockerignore and Dockerfile (sometimes)
+			if include != relFilePath {
+				matches, err := pm.IsMatch(relFilePath)
+				if err != nil {
+					return fmt.Errorf("matching %s: %w", relFilePath, err)
+				}
+				skip = matches
+			}
+
+			if skip {
+				// If we want to skip this file and its a directory
+				// then we should first check to see if there's an
+				// excludes pattern (e.g. !dir/file) that starts with this
+				// dir. If so then we can't skip this dir.
+
+				// Its not a dir then so we can just return/skip.
+				if !d.IsDir() {
+					return nil
+				}
+
+				// No exceptions (!...) in patterns so just skip dir
+				if !pm.Exclusions() {
+					return filepath.SkipDir
+				}
+
+				dirSlash := relFilePath + string(filepath.Separator)
+
+				for _, pat := range pm.Patterns() {
+					if !pat.Exclusion() {
+						continue
+					}
+					if strings.HasPrefix(pat.String()+string(filepath.Separator), dirSlash) {
+						// found a match - so can't skip this dir
+						return nil
+					}
+				}
+
+				// No matching exclusion dir so just skip dir
+				return filepath.SkipDir
+			}
+
+			if seen[relFilePath] {
+				return nil
+			}
+			seen[relFilePath] = true
+
+			// Rename the base resource.
+			if rebaseName != "" {
+				var replacement string
+				if rebaseName != string(filepath.Separator) {
+					// Special case the root directory to replace with an
+					// empty string instead so that we don't end up with
+					// double slashes in the paths.
+					replacement = rebaseName
+				}
+
+				relFilePath = strings.Replace(relFilePath, include, replacement, 1)
+			}
+
+			if err := ta.addFile(filePath, relFilePath); err != nil {
+				logrus.Errorf("Can't add file %s to tar: %s", filePath, err)
+				// if pipe is broken, stop writing tar stream to it
+				if err == io.ErrClosedPipe {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return ta.TarWriter.Close()
+}
+
+// TarWithOptions creates an archive from the directory at `path`, only including files whose relative
+// paths are included in `options.IncludeFiles` (if non-nil) or not in `options.ExcludePatterns`.
 //
 // If used on a file system being modified concurrently,
 // TarWithOptions will create a valid tar archive, but may leave out
 // some files.
 func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) {
-	tarWithOptionsTo := func(dest io.WriteCloser, srcPath string, options *TarOptions) (result error) {
-		// Fix the source path to work with long path names. This is a no-op
-		// on platforms other than Windows.
-		srcPath = fixVolumePathPrefix(srcPath)
-		defer func() {
-			if err := dest.Close(); err != nil && result == nil {
-				result = err
-			}
-		}()
-
-		pm, err := fileutils.NewPatternMatcher(options.ExcludePatterns)
-		if err != nil {
-			return err
-		}
-
-		compressWriter, err := CompressStream(dest, options.Compression)
-		if err != nil {
-			return err
-		}
-
-		ta := newTarWriter(
-			idtools.NewIDMappingsFromMaps(options.UIDMaps, options.GIDMaps),
-			compressWriter,
-			options.ChownOpts,
-			options.Timestamp,
-		)
-		ta.WhiteoutConverter = GetWhiteoutConverter(options.WhiteoutFormat, options.WhiteoutData)
-		ta.CopyPass = options.CopyPass
-
-		includeFiles := options.IncludeFiles
-		defer func() {
-			if err := compressWriter.Close(); err != nil && result == nil {
-				result = err
-			}
-		}()
-
-		// this buffer is needed for the duration of this piped stream
-		defer pools.BufioWriter32KPool.Put(ta.Buffer)
-
-		// In general we log errors here but ignore them because
-		// during e.g. a diff operation the container can continue
-		// mutating the filesystem and we can see transient errors
-		// from this
-
-		stat, err := os.Lstat(srcPath)
-		if err != nil {
-			return err
-		}
-
-		if !stat.IsDir() {
-			// We can't later join a non-dir with any includes because the
-			// 'walk' will error if "file/." is stat-ed and "file" is not a
-			// directory. So, we must split the source path and use the
-			// basename as the include.
-			if len(includeFiles) > 0 {
-				logrus.Warn("Tar: Can't archive a file with includes")
-			}
-
-			dir, base := SplitPathDirEntry(srcPath)
-			srcPath = dir
-			includeFiles = []string{base}
-		}
-
-		if len(includeFiles) == 0 {
-			includeFiles = []string{"."}
-		}
-
-		seen := make(map[string]bool)
-
-		for _, include := range includeFiles {
-			rebaseName := options.RebaseNames[include]
-
-			walkRoot := getWalkRoot(srcPath, include)
-			if err := filepath.WalkDir(walkRoot, func(filePath string, d fs.DirEntry, err error) error {
-				if err != nil {
-					logrus.Errorf("Tar: Can't stat file %s to tar: %s", srcPath, err)
-					return nil
-				}
-
-				relFilePath, err := filepath.Rel(srcPath, filePath)
-				if err != nil || (!options.IncludeSourceDir && relFilePath == "." && d.IsDir()) {
-					// Error getting relative path OR we are looking
-					// at the source directory path. Skip in both situations.
-					return nil //nolint: nilerr
-				}
-
-				if options.IncludeSourceDir && include == "." && relFilePath != "." {
-					relFilePath = strings.Join([]string{".", relFilePath}, string(filepath.Separator))
-				}
-
-				skip := false
-
-				// If "include" is an exact match for the current file
-				// then even if there's an "excludePatterns" pattern that
-				// matches it, don't skip it. IOW, assume an explicit 'include'
-				// is asking for that file no matter what - which is true
-				// for some files, like .dockerignore and Dockerfile (sometimes)
-				if include != relFilePath {
-					matches, err := pm.IsMatch(relFilePath)
-					if err != nil {
-						return fmt.Errorf("matching %s: %w", relFilePath, err)
-					}
-					skip = matches
-				}
-
-				if skip {
-					// If we want to skip this file and its a directory
-					// then we should first check to see if there's an
-					// excludes pattern (e.g. !dir/file) that starts with this
-					// dir. If so then we can't skip this dir.
-
-					// Its not a dir then so we can just return/skip.
-					if !d.IsDir() {
-						return nil
-					}
-
-					// No exceptions (!...) in patterns so just skip dir
-					if !pm.Exclusions() {
-						return filepath.SkipDir
-					}
-
-					dirSlash := relFilePath + string(filepath.Separator)
-
-					for _, pat := range pm.Patterns() {
-						if !pat.Exclusion() {
-							continue
-						}
-						if strings.HasPrefix(pat.String()+string(filepath.Separator), dirSlash) {
-							// found a match - so can't skip this dir
-							return nil
-						}
-					}
-
-					// No matching exclusion dir so just skip dir
-					return filepath.SkipDir
-				}
-
-				if seen[relFilePath] {
-					return nil
-				}
-				seen[relFilePath] = true
-
-				// Rename the base resource.
-				if rebaseName != "" {
-					var replacement string
-					if rebaseName != string(filepath.Separator) {
-						// Special case the root directory to replace with an
-						// empty string instead so that we don't end up with
-						// double slashes in the paths.
-						replacement = rebaseName
-					}
-
-					relFilePath = strings.Replace(relFilePath, include, replacement, 1)
-				}
-
-				if err := ta.addFile(filePath, relFilePath); err != nil {
-					logrus.Errorf("Can't add file %s to tar: %s", filePath, err)
-					// if pipe is broken, stop writing tar stream to it
-					if err == io.ErrClosedPipe {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		return ta.TarWriter.Close()
-	}
-
 	pipeReader, pipeWriter := io.Pipe()
 	go func() {
 		err := tarWithOptionsTo(pipeWriter, srcPath, options)
