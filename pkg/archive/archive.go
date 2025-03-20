@@ -850,13 +850,19 @@ func extractTarFileEntry(path, extractDir string, hdr *tar.Header, reader io.Rea
 }
 
 // Tar creates an archive from the directory at `path`, and returns it as a
-// stream of bytes.
+// stream of bytes. This is a convenience wrapper for [TarWithOptions].
 func Tar(path string, compression Compression) (io.ReadCloser, error) {
 	return TarWithOptions(path, &TarOptions{Compression: compression})
 }
 
-// TarWithOptions creates an archive from the directory at `path`, only including files whose relative
-// paths are included in `options.IncludeFiles` (if non-nil) or not in `options.ExcludePatterns`.
+// TarWithOptions creates an archive from the directory at `path`,
+// only including files whose relative paths are included in
+// `options.IncludeFiles` (if non-nil) or not in
+// `options.ExcludePatterns`.
+//
+// If used on a file system being modified concurrently,
+// TarWithOptions will create a valid tar archive, but may leave out
+// some files.
 func TarWithOptions(srcPath string, options *TarOptions) (io.ReadCloser, error) {
 	tarWithOptionsTo := func(dest io.WriteCloser, srcPath string, options *TarOptions) (result error) {
 		// Fix the source path to work with long path names. This is a no-op
