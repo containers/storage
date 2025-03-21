@@ -290,7 +290,17 @@ load helpers
 	done
 	# Create new containers based on the layer.
 	imagename=idmappedimage
-	storage create-image --name=$imagename $lowerlayer
+	run storage create-image --name=$imagename $lowerlayer
+	[ "$status" -eq 0 ]
+
+	run storage --debug=false mount -r $imagename
+	[ "$status" -eq 0 ]
+	mountpoint="$output"
+	run stat -c %u:%g $mountpoint/file1
+	# make sure the file shows the correct ownership after the image is mounted
+	[ "$output" == "0:0" ]
+	run storage umount $imagename
+	[ "$status" -eq 0 ]
 
 	run storage --debug=false create-container --hostuidmap --hostgidmap $imagename
 	[ "$status" -eq 0 ]

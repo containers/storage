@@ -22,7 +22,7 @@ func mount(flags *mflag.FlagSet, action string, m storage.Store, args []string) 
 	moes := []mountPointOrError{}
 	for _, arg := range args {
 		if paramReadOnly {
-			result, err := m.MountImage(arg, []string{"noexec", "nosuid"}, paramMountLabel)
+			result, err := m.MountImage(arg, []string{}, paramMountLabel)
 			errText := ""
 			if err != nil {
 				errText = err.Error()
