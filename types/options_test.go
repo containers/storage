@@ -11,7 +11,7 @@ import (
 	"github.com/containers/storage/pkg/unshare"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestGetRootlessStorageOpts(t *testing.T) {
