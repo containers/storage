@@ -661,13 +661,16 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 	// Now go back through all of the layer stores, and flag any layers which don't belong
 	// to an image or a container, and has been around longer than we can reasonably expect
 	// such a layer to be present before a corresponding image record is added.
-	if _, _, err := readAllLayerStores(s, func(store roLayerStore) (struct{}, bool, error) {
+	for store, err := range s.readAllLayerStores() {
+		if err != nil {
+			return CheckReport{}, err
+		}
 		if isReadWrite := roLayerStoreIsReallyReadWrite(store); !isReadWrite {
-			return struct{}{}, false, nil
+			continue
 		}
 		layers, err := store.Layers()
 		if err != nil {
-			return struct{}{}, true, err
+			return CheckReport{}, err
 		}
 		for _, layer := range layers {
 			maximumAge := defaultMaximumUnreferencedLayerAge
@@ -685,9 +688,6 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 				}
 			}
 		}
-		return struct{}{}, false, nil
-	}); err != nil {
-		return CheckReport{}, err
 	}
 
 	// If the driver can tell us about which layers it knows about, we should have previously
