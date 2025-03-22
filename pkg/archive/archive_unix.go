@@ -82,7 +82,7 @@ func setHeaderForSpecialDevice(hdr *tar.Header, name string, stat interface{}) (
 	return
 }
 
-func getInodeFromStat(stat interface{}) (inode uint64, err error) {
+func getInodeFromStat(stat interface{}) (inode uint64) {
 	s, ok := stat.(*syscall.Stat_t)
 
 	if ok {
