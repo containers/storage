@@ -32,9 +32,9 @@ type Cmd struct {
 	*exec.Cmd
 	UnshareFlags               int
 	UseNewuidmap               bool
-	UidMappings                []specs.LinuxIDMapping // nolint: revive,golint
+	UidMappings                []specs.LinuxIDMapping //nolint: revive
 	UseNewgidmap               bool
-	GidMappings                []specs.LinuxIDMapping // nolint: revive,golint
+	GidMappings                []specs.LinuxIDMapping //nolint: revive
 	GidMappingsEnableSetgroups bool
 	Setsid                     bool
 	Setpgrp                    bool
