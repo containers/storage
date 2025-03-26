@@ -61,7 +61,7 @@ func reloadConfigurationFileIfNeeded(configFile string, storeOptions *StoreOptio
 	}
 
 	mtime := fi.ModTime()
-	if prevReloadConfig.storeOptions != nil && prevReloadConfig.mod == mtime && prevReloadConfig.configFile == configFile {
+	if prevReloadConfig.storeOptions != nil && mtime.Equal(prevReloadConfig.mod) && prevReloadConfig.configFile == configFile {
 		*storeOptions = *prevReloadConfig.storeOptions
 		return
 	}
