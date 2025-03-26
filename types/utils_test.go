@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/containers/storage/pkg/unshare"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestDefaultStoreOpts(t *testing.T) {
