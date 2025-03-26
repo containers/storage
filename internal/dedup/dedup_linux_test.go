@@ -22,7 +22,7 @@ func wasVisited(d *dedupFiles, dev, ino uint64) bool {
 
 func TestRecordAndCheckInode(t *testing.T) {
 	d, err := newDedupFiles()
-	if err == notSupported {
+	if err == errNotSupported {
 		t.Skip("dedupFiles is not supported on this platform")
 	}
 
