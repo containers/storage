@@ -639,6 +639,8 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 	case "true":
 		logrus.Debugf("overlay: storage already configured with a mount-program")
 		return false, nil
+	case "false":
+		// Do nothing.
 	default:
 		needsMountProgram, err := scanForMountProgramIndicators(home)
 		if err != nil && !os.IsNotExist(err) {
@@ -652,7 +654,6 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 		}
 		// fall through to check if we find ourselves needing to use a
 		// mount program now
-	case "false":
 	}
 
 	for _, dir := range []string{home, runhome} {
