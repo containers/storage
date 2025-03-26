@@ -5,7 +5,6 @@ package chunked
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"testing"
