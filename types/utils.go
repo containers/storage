@@ -14,7 +14,7 @@ import (
 
 func expandEnvPath(path string, rootlessUID int) (string, error) {
 	var err error
-	path = strings.Replace(path, "$UID", strconv.Itoa(rootlessUID), -1)
+	path = strings.ReplaceAll(path, "$UID", strconv.Itoa(rootlessUID))
 	path = os.ExpandEnv(path)
 	newpath, err := filepath.EvalSymlinks(path)
 	if err != nil {
