@@ -778,6 +778,6 @@ func (a *Driver) SupportsShifting() bool {
 }
 
 // Dedup performs deduplication of the driver's storage.
-func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
+func (a *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
 	return graphdriver.DedupResult{}, nil
 }
