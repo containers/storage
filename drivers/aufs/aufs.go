@@ -517,7 +517,7 @@ func (a *Driver) isParent(id, parent string) bool {
 	if parent == "" && len(parents) > 0 {
 		return false
 	}
-	return !(len(parents) > 0 && parent != parents[0])
+	return len(parents) == 0 || parent == parents[0]
 }
 
 // Diff produces an archive of the changes between the specified
