@@ -249,7 +249,7 @@ func (c *Cmd) Start() (retErr error) {
 				if err != nil {
 					return fmt.Errorf("finding newgidmap: %w", err)
 				}
-				cmd := exec.Command(path, append([]string{pidString}, strings.Fields(strings.Replace(g.String(), "\n", " ", -1))...)...)
+				cmd := exec.Command(path, append([]string{pidString}, strings.Fields(g.String())...)...)
 				g.Reset()
 				cmd.Stdout = g
 				cmd.Stderr = g
@@ -309,7 +309,7 @@ func (c *Cmd) Start() (retErr error) {
 				if err != nil {
 					return fmt.Errorf("finding newuidmap: %w", err)
 				}
-				cmd := exec.Command(path, append([]string{pidString}, strings.Fields(strings.Replace(u.String(), "\n", " ", -1))...)...)
+				cmd := exec.Command(path, append([]string{pidString}, strings.Fields(u.String())...)...)
 				u.Reset()
 				cmd.Stdout = u
 				cmd.Stderr = u
