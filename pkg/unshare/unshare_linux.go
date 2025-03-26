@@ -267,7 +267,7 @@ func (c *Cmd) Start() (retErr error) {
 					}
 					logrus.Warnf("Falling back to single mapping")
 					g.Reset()
-					g.Write([]byte(fmt.Sprintf("0 %d 1\n", os.Getegid())))
+					fmt.Fprintf(g, "0 %d 1\n", os.Getegid())
 				}
 			}
 			if !gidmapSet {
@@ -328,7 +328,7 @@ func (c *Cmd) Start() (retErr error) {
 
 					logrus.Warnf("Falling back to single mapping")
 					u.Reset()
-					u.Write([]byte(fmt.Sprintf("0 %d 1\n", os.Geteuid())))
+					fmt.Fprintf(u, "0 %d 1\n", os.Geteuid())
 				}
 			}
 			if !uidmapSet {
