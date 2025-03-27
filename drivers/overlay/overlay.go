@@ -130,6 +130,9 @@ type Driver struct {
 	usingMetacopy    bool
 	usingComposefs   bool
 
+	stagingDirsLocksMutex *sync.Mutex
+	// stagingDirsLocks access is not thread safe, it is required that callers take
+	// stagingDirsLocksMutex on each access to guard against concurrent map writes.
 	stagingDirsLocks map[string]*lockfile.LockFile
 
 	supportsIDMappedMounts *bool
@@ -428,17 +431,18 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	}
 
 	d := &Driver{
-		name:             "overlay",
-		home:             home,
-		imageStore:       options.ImageStore,
-		runhome:          runhome,
-		ctr:              graphdriver.NewRefCounter(graphdriver.NewFsChecker(fileSystemType)),
-		supportsDType:    supportsDType,
-		usingMetacopy:    usingMetacopy,
-		supportsVolatile: supportsVolatile,
-		usingComposefs:   opts.useComposefs,
-		options:          *opts,
-		stagingDirsLocks: make(map[string]*lockfile.LockFile),
+		name:                  "overlay",
+		home:                  home,
+		imageStore:            options.ImageStore,
+		runhome:               runhome,
+		ctr:                   graphdriver.NewRefCounter(graphdriver.NewFsChecker(fileSystemType)),
+		supportsDType:         supportsDType,
+		usingMetacopy:         usingMetacopy,
+		supportsVolatile:      supportsVolatile,
+		usingComposefs:        opts.useComposefs,
+		options:               *opts,
+		stagingDirsLocksMutex: &sync.Mutex{},
+		stagingDirsLocks:      make(map[string]*lockfile.LockFile),
 	}
 
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d))
@@ -868,10 +872,12 @@ func (d *Driver) Cleanup() error {
 // pruneStagingDirectories cleans up any staging directory that was leaked.
 // It returns whether any staging directory is still present.
 func (d *Driver) pruneStagingDirectories() bool {
+	d.stagingDirsLocksMutex.Lock()
 	for _, lock := range d.stagingDirsLocks {
 		lock.Unlock()
 	}
-	d.stagingDirsLocks = make(map[string]*lockfile.LockFile)
+	clear(d.stagingDirsLocks)
+	d.stagingDirsLocksMutex.Unlock()
 
 	anyPresent := false
 
@@ -2169,10 +2175,12 @@ func (d *Driver) DiffGetter(id string) (_ graphdriver.FileGetCloser, Err error) 
 func (d *Driver) CleanupStagingDirectory(stagingDirectory string) error {
 	parentStagingDir := filepath.Dir(stagingDirectory)
 
+	d.stagingDirsLocksMutex.Lock()
 	if lock, ok := d.stagingDirsLocks[parentStagingDir]; ok {
 		delete(d.stagingDirsLocks, parentStagingDir)
 		lock.Unlock()
 	}
+	d.stagingDirsLocksMutex.Unlock()
 
 	return os.RemoveAll(parentStagingDir)
 }
@@ -2231,11 +2239,15 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 	}
 	defer func() {
 		if errRet != nil {
+			d.stagingDirsLocksMutex.Lock()
 			delete(d.stagingDirsLocks, layerDir)
+			d.stagingDirsLocksMutex.Unlock()
 			lock.Unlock()
 		}
 	}()
+	d.stagingDirsLocksMutex.Lock()
 	d.stagingDirsLocks[layerDir] = lock
+	d.stagingDirsLocksMutex.Unlock()
 	lock.Lock()
 
 	logrus.Debugf("Applying differ in %s", applyDir)
@@ -2267,10 +2279,12 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *gr
 	parentStagingDir := filepath.Dir(stagingDirectory)
 
 	defer func() {
+		d.stagingDirsLocksMutex.Lock()
 		if lock, ok := d.stagingDirsLocks[parentStagingDir]; ok {
 			delete(d.stagingDirsLocks, parentStagingDir)
 			lock.Unlock()
 		}
+		d.stagingDirsLocksMutex.Unlock()
 	}()
 
 	diffPath, err := d.getDiffPath(id)
