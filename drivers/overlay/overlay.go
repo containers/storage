@@ -875,7 +875,7 @@ func (d *Driver) pruneStagingDirectories() bool {
 	for _, lock := range d.stagingDirsLocks {
 		lock.Unlock()
 	}
-	d.stagingDirsLocks = make(map[string]*lockfile.LockFile)
+	clear(d.stagingDirsLocks)
 	d.stagingDirsLocksMutex.Unlock()
 
 	anyPresent := false
