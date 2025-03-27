@@ -1271,7 +1271,7 @@ func getBlobAtConverterGoroutine(stream chan streamOrErr, streams chan io.ReadCl
 	tooManyStreams := false
 	streamsSoFar := 0
 
-	err := errors.New("Unexpected error in getBlobAtGoroutine")
+	err := errors.New("unexpected error in getBlobAtGoroutine")
 
 	defer func() {
 		if err != nil {
