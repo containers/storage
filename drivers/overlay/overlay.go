@@ -130,7 +130,7 @@ type Driver struct {
 	usingMetacopy    bool
 	usingComposefs   bool
 
-	stagingDirsLocksMutex *sync.Mutex
+	stagingDirsLocksMutex sync.Mutex
 	// stagingDirsLocks access is not thread safe, it is required that callers take
 	// stagingDirsLocksMutex on each access to guard against concurrent map writes.
 	stagingDirsLocks map[string]*lockfile.LockFile
@@ -441,7 +441,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		supportsVolatile:      supportsVolatile,
 		usingComposefs:        opts.useComposefs,
 		options:               *opts,
-		stagingDirsLocksMutex: &sync.Mutex{},
+		stagingDirsLocksMutex: sync.Mutex{},
 		stagingDirsLocks:      make(map[string]*lockfile.LockFile),
 	}
 
