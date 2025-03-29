@@ -9,6 +9,18 @@ import (
 	"time"
 )
 
+func atime(t *testing.T, file string) time.Time {
+	t.Helper()
+
+	fi, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stat := fi.Sys().(*syscall.Stat_t)
+	return time.Unix(stat.Atim.Unix())
+}
+
 // TestChtimesLinux tests Chtimes access time on a tempfile on Linux
 func TestChtimesLinux(t *testing.T) {
 	file := prepareTempFile(t)
@@ -23,13 +35,7 @@ func TestChtimesLinux(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	stat := f.Sys().(*syscall.Stat_t)
-	aTime := time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	aTime := atime(t, file)
 	if aTime != unixEpochTime {
 		t.Fatalf("Expected: %s, got: %s", unixEpochTime, aTime)
 	}
@@ -39,13 +45,7 @@ func TestChtimesLinux(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	stat = f.Sys().(*syscall.Stat_t)
-	aTime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	aTime = atime(t, file)
 	if aTime != unixEpochTime {
 		t.Fatalf("Expected: %s, got: %s", unixEpochTime, aTime)
 	}
@@ -55,13 +55,7 @@ func TestChtimesLinux(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	stat = f.Sys().(*syscall.Stat_t)
-	aTime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	aTime = atime(t, file)
 	if aTime != unixEpochTime {
 		t.Fatalf("Expected: %s, got: %s", unixEpochTime, aTime)
 	}
@@ -71,13 +65,7 @@ func TestChtimesLinux(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	stat = f.Sys().(*syscall.Stat_t)
-	aTime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	aTime = atime(t, file)
 	if aTime != afterUnixEpochTime {
 		t.Fatalf("Expected: %s, got: %s", afterUnixEpochTime, aTime)
 	}
@@ -87,13 +75,7 @@ func TestChtimesLinux(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err = os.Stat(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	stat = f.Sys().(*syscall.Stat_t)
-	aTime = time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	aTime = atime(t, file)
 	if aTime.Truncate(time.Second) != unixMaxTime.Truncate(time.Second) {
 		t.Fatalf("Expected: %s, got: %s", unixMaxTime.Truncate(time.Second), aTime.Truncate(time.Second))
 	}
