@@ -521,7 +521,7 @@ func TestLockfileMixedConcurrent(t *testing.T) {
 		done <- true
 	}
 
-	for i := 0; i < numReaders; i++ {
+	for i := range numReaders {
 		go reader(&counter)
 		// schedule a writer every 2nd iteration
 		if i%2 == 1 {

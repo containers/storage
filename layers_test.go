@@ -27,7 +27,7 @@ func TestLayerLocationFromIndex(t *testing.T) {
 
 func TestLayerLocationFromIndexAndToIndex(t *testing.T) {
 	var l layerLocations
-	for i := 0; i < int(unsafe.Sizeof(l)*8); i++ {
+	for i := range int(unsafe.Sizeof(l) * 8) {
 		location := layerLocationFromIndex(i)
 		index := indexFromLayerLocation(location)
 		require.Equal(t, i, index)

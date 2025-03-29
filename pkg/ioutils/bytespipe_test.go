@@ -90,7 +90,7 @@ func TestBytesPipeWriteRandomChunks(t *testing.T) {
 	for _, c := range cases {
 		// first pass: write directly to hash
 		hash := sha1.New()
-		for i := 0; i < c.iterations*c.writesPerLoop; i++ {
+		for i := range c.iterations * c.writesPerLoop {
 			if _, err := hash.Write(testMessage[:writeChunks[i%len(writeChunks)]]); err != nil {
 				t.Fatal(err)
 			}
@@ -118,8 +118,8 @@ func TestBytesPipeWriteRandomChunks(t *testing.T) {
 			close(done)
 		}()
 
-		for i := 0; i < c.iterations; i++ {
-			for w := 0; w < c.writesPerLoop; w++ {
+		for i := range c.iterations {
+			for w := range c.writesPerLoop {
 				_, err := buf.Write(testMessage[:writeChunks[(i*c.writesPerLoop+w)%len(writeChunks)]])
 				require.NoError(t, err)
 			}
