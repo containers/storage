@@ -656,7 +656,7 @@ func (r *layerStore) layersModified() (lockfile.LastWrite, bool, error) {
 	// If the layers.json file or container-layers.json has been
 	// modified manually, then we have to reload the storage in
 	// any case.
-	for locationIndex := 0; locationIndex < numLayerLocationIndex; locationIndex++ {
+	for locationIndex := range numLayerLocationIndex {
 		rpath := r.jsonPath[locationIndex]
 		if rpath == "" {
 			continue
@@ -794,7 +794,7 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 	layers := []*Layer{}
 	ids := make(map[string]*Layer)
 
-	for locationIndex := 0; locationIndex < numLayerLocationIndex; locationIndex++ {
+	for locationIndex := range numLayerLocationIndex {
 		location := layerLocationFromIndex(locationIndex)
 		rpath := r.jsonPath[locationIndex]
 		if rpath == "" {
@@ -1031,7 +1031,7 @@ func (r *layerStore) saveLayers(saveLocations layerLocations) error {
 	}
 	r.lastWrite = lw
 
-	for locationIndex := 0; locationIndex < numLayerLocationIndex; locationIndex++ {
+	for locationIndex := range numLayerLocationIndex {
 		location := layerLocationFromIndex(locationIndex)
 		if location&saveLocations == 0 {
 			continue

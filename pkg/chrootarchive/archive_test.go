@@ -94,7 +94,7 @@ func TestChrootUntarWithHugeExcludesList(t *testing.T) {
 	// 65534 entries of 64-byte strings ~= 4MB of environment space which should overflow
 	// on most systems when passed via environment or command line arguments
 	excludes := make([]string, 65534)
-	for i := 0; i < 65534; i++ {
+	for i := range 65534 {
 		excludes[i] = strings.Repeat(fmt.Sprintf("%d", i), 64)
 	}
 	options.ExcludePatterns = excludes
@@ -112,7 +112,7 @@ func TestChrootUntarEmptyArchive(t *testing.T) {
 
 func prepareSourceDirectory(numberOfFiles int, targetPath string, makeSymLinks bool) (int, error) {
 	fileData := []byte("fooo")
-	for n := 0; n < numberOfFiles; n++ {
+	for n := range numberOfFiles {
 		fileName := fmt.Sprintf("file-%d", n)
 		if err := os.WriteFile(filepath.Join(targetPath, fileName), fileData, 0o700); err != nil {
 			return 0, err
@@ -497,7 +497,7 @@ type slowEmptyTarReader struct {
 func (s *slowEmptyTarReader) Read(p []byte) (int, error) {
 	time.Sleep(100 * time.Millisecond)
 	count := min(len(p), s.chunkSize)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		p[i] = 0
 	}
 	s.offset += count

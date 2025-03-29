@@ -468,7 +468,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 	var root string
 	components := 10
 
-	for depth := 0; depth < components; depth++ {
+	for depth := range components {
 		base := stringid.GenerateRandomID()
 		second := stringid.GenerateRandomID()
 		third := stringid.GenerateRandomID()
@@ -486,7 +486,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		}
 		paths := []string{}
 		path := "/"
-		for i := 0; i < components-1; i++ {
+		for i := range components - 1 {
 			path = filepath.Join(path, fmt.Sprintf("subdir%d", i+1))
 			paths = append(paths, path)
 			if err = os.Mkdir(filepath.Join(root, path), 0o700); err != nil {
@@ -520,7 +520,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 			t.Fatal(err)
 		}
 		expectedChanges = []archive.Change{}
-		for i := 0; i < depth; i++ {
+		for i := range depth {
 			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeModify, Path: paths[i]})
 		}
 		expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeDelete, Path: paths[depth]})
@@ -541,7 +541,7 @@ func DriverTestEcho(t testing.TB, drivername string, driverOptions ...string) {
 		}
 
 		expectedChanges = []archive.Change{}
-		for i := 0; i < depth; i++ {
+		for i := range depth {
 			expectedChanges = append(expectedChanges, archive.Change{Kind: archive.ChangeModify, Path: paths[i]})
 		}
 		for i := depth; i < components-1; i++ {
