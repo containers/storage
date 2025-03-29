@@ -94,7 +94,7 @@ func (d *dedupFiles) dedup(src, dst string, fiDst fs.FileInfo) (uint64, error) {
 	}
 	err = unix.IoctlFileDedupeRange(int(srcFile.Fd()), &value)
 	if err == nil {
-		return uint64(value.Info[0].Bytes_deduped), nil
+		return value.Info[0].Bytes_deduped, nil
 	}
 
 	if errors.Is(err, unix.ENOTSUP) {

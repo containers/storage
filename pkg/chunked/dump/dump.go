@@ -43,7 +43,7 @@ func escaped(val []byte, escape int) string {
 	}
 
 	var result string
-	for _, c := range []byte(val) {
+	for _, c := range val {
 		hexEscape := false
 		var special string
 
