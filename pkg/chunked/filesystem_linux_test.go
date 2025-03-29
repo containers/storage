@@ -177,8 +177,7 @@ func TestSafeLink(t *testing.T) {
 	err = syscall.Fstat(int(newFile.Fd()), &st)
 	assert.NoError(t, err)
 
-	// We need this conversion on ARM64
-	assert.Equal(t, uint64(st.Nlink), uint64(2))
+	assert.Equal(t, 2, int(st.Nlink))
 
 	err = newFile.Close()
 	assert.NoError(t, err)

@@ -160,7 +160,10 @@ func DirCopy(srcDir, dstDir string, copyMode Mode, copyXattrs bool) error {
 
 		switch mode := f.Mode(); {
 		case mode.IsRegular():
-			id := fileID{dev: uint64(stat.Dev), ino: stat.Ino}
+			id := fileID{
+				dev: uint64(stat.Dev), //nolint:unconvert
+				ino: stat.Ino,
+			}
 			if copyMode == Hardlink {
 				isHardlink = true
 				if err2 := os.Link(srcPath, dstPath); err2 != nil {

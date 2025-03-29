@@ -48,7 +48,7 @@ func (d *dedupFiles) isFirstVisitOf(fi fs.FileInfo) (bool, error) {
 	if !ok {
 		return false, fmt.Errorf("unable to get raw syscall.Stat_t data")
 	}
-	return d.recordInode(uint64(st.Dev), st.Ino)
+	return d.recordInode(uint64(st.Dev), st.Ino) //nolint:unconvert
 }
 
 // dedup deduplicates the file at src path to dst path
