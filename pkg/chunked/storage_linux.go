@@ -698,18 +698,12 @@ func (c *chunkedDiffer) prepareCompressedStreamToFile(partCompression compressed
 
 // hashHole writes SIZE zeros to the specified hasher
 func hashHole(h hash.Hash, size int64, copyBuffer []byte) error {
-	count := int64(len(copyBuffer))
-	if size < count {
-		count = size
-	}
+	count := min(size, int64(len(copyBuffer)))
 	for i := int64(0); i < count; i++ {
 		copyBuffer[i] = 0
 	}
 	for size > 0 {
-		count = int64(len(copyBuffer))
-		if size < count {
-			count = size
-		}
+		count = min(size, int64(len(copyBuffer)))
 		if _, err := h.Write(copyBuffer[:count]); err != nil {
 			return err
 		}

@@ -496,10 +496,7 @@ type slowEmptyTarReader struct {
 // Read is a slow reader of an empty tar (like the output of "tar c --files-from /dev/null")
 func (s *slowEmptyTarReader) Read(p []byte) (int, error) {
 	time.Sleep(100 * time.Millisecond)
-	count := s.chunkSize
-	if len(p) < s.chunkSize {
-		count = len(p)
-	}
+	count := min(len(p), s.chunkSize)
 	for i := 0; i < count; i++ {
 		p[i] = 0
 	}
