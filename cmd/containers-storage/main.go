@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/containers/storage"
 	"github.com/containers/storage/internal/opts"
@@ -81,69 +82,70 @@ func main() {
 		os.Exit(1)
 		return
 	}
-	cmd := args[0]
-
-	for _, command := range commands {
-		for _, name := range command.names {
-			if cmd == name {
-				flags := makeFlags(cmd, mflag.ExitOnError)
-				if command.addFlags != nil {
-					command.addFlags(flags, &command)
-				}
-				flags.Usage = func() {
-					fmt.Printf("Usage: containers-storage %s %s\n\n", cmd, command.optionsHelp)
-					fmt.Printf("%s\n", command.usage)
-					fmt.Printf("\nOptions:\n")
-					flags.PrintDefaults()
-				}
-				if err := flags.ParseFlags(args[1:], false); err != nil {
-					fmt.Printf("%v while parsing arguments (3)", err)
-					flags.Usage()
-					os.Exit(1)
-				}
-				args = flags.Args()
-				if command.minArgs != 0 && len(args) < command.minArgs {
-					fmt.Printf("%s: more arguments required.\n", cmd)
-					flags.Usage()
-					os.Exit(1)
-				}
-				if command.maxArgs >= 0 && command.maxArgs < command.minArgs {
-					panic(fmt.Sprintf("command %v requires more args (%d) than it allows (%d)", command.names, command.minArgs, command.maxArgs))
-				}
-				if command.maxArgs >= 0 && len(args) > command.maxArgs {
-					fmt.Printf("%s: too many arguments (%s).\n", cmd, args)
-					flags.Usage()
-					os.Exit(1)
-				}
-				if doUnshare {
-					unshare.MaybeReexecUsingUserNamespace(true)
-				}
-				if debug {
-					logrus.SetLevel(logrus.DebugLevel)
-					logrus.Debugf("Root: %s", options.GraphRoot)
-					logrus.Debugf("Run Root: %s", options.RunRoot)
-					logrus.Debugf("Driver Name: %s", options.GraphDriverName)
-					logrus.Debugf("Driver Options: %s", options.GraphDriverOptions)
-				} else {
-					logrus.SetLevel(logrus.ErrorLevel)
-				}
-				store, err := storage.GetStore(options)
-				if err != nil {
-					fmt.Printf("error initializing: %+v\n", err)
-					os.Exit(1)
-				}
-				store.Free()
-				res, err := command.action(flags, cmd, store, args)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "%+v\n", err)
-				}
-				os.Exit(res)
-				break
+	name := args[0]
+	command := func() *command {
+		for i := range commands {
+			if slices.Contains(commands[i].names, name) {
+				return &commands[i]
 			}
 		}
+		fmt.Printf("%s: unrecognized command.\n", name)
+		os.Exit(1)
+		return nil // To satisfy linters.
+	}()
+
+	flags = makeFlags(name, mflag.ExitOnError)
+	if command.addFlags != nil {
+		command.addFlags(flags, command)
 	}
-	fmt.Printf("%s: unrecognized command.\n", cmd)
-	os.Exit(1)
+	flags.Usage = func() {
+		fmt.Printf("Usage: containers-storage %s %s\n\n", name, command.optionsHelp)
+		fmt.Printf("%s\n", command.usage)
+		fmt.Printf("\nOptions:\n")
+		flags.PrintDefaults()
+	}
+	if err := flags.ParseFlags(args[1:], false); err != nil {
+		fmt.Printf("%v while parsing arguments (3)", err)
+		flags.Usage()
+		os.Exit(1)
+	}
+	args = flags.Args()
+	if command.minArgs != 0 && len(args) < command.minArgs {
+		fmt.Printf("%s: more arguments required.\n", name)
+		flags.Usage()
+		os.Exit(1)
+	}
+	if command.maxArgs >= 0 && command.maxArgs < command.minArgs {
+		panic(fmt.Sprintf("command %v requires more args (%d) than it allows (%d)", command.names, command.minArgs, command.maxArgs))
+	}
+	if command.maxArgs >= 0 && len(args) > command.maxArgs {
+		fmt.Printf("%s: too many arguments (%s).\n", name, args)
+		flags.Usage()
+		os.Exit(1)
+	}
+	if doUnshare {
+		unshare.MaybeReexecUsingUserNamespace(true)
+	}
+	if debug {
+		logrus.SetLevel(logrus.DebugLevel)
+		logrus.Debugf("Root: %s", options.GraphRoot)
+		logrus.Debugf("Run Root: %s", options.RunRoot)
+		logrus.Debugf("Driver Name: %s", options.GraphDriverName)
+		logrus.Debugf("Driver Options: %s", options.GraphDriverOptions)
+	} else {
+		logrus.SetLevel(logrus.ErrorLevel)
+	}
+	store, err := storage.GetStore(options)
+	if err != nil {
+		fmt.Printf("error initializing: %+v\n", err)
+		os.Exit(1)
+	}
+	store.Free()
+	res, err := command.action(flags, name, store, args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
+	}
+	os.Exit(res)
 }
 
 // outputJSON formats its input as JSON to stdout, and returns values suitable
