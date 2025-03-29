@@ -53,7 +53,7 @@ type (
 		// This is additional data to be used by the converter.  It will
 		// not survive a round trip through JSON, so it's primarily
 		// intended for generating archives (i.e., converting writes).
-		WhiteoutData interface{}
+		WhiteoutData any
 		// When unpacking, specifies whether overwriting a directory with a
 		// non-directory is allowed and vice versa.
 		NoOverwriteDirNonDir bool
@@ -83,7 +83,7 @@ const (
 	freebsd = "freebsd"
 )
 
-var xattrsToIgnore = map[string]interface{}{
+var xattrsToIgnore = map[string]any{
 	"security.selinux": true,
 }
 
@@ -378,7 +378,7 @@ type nosysFileInfo struct {
 	os.FileInfo
 }
 
-func (fi nosysFileInfo) Sys() interface{} {
+func (fi nosysFileInfo) Sys() any {
 	// A Sys value of type *tar.Header is safe as it is system-independent.
 	// The tar.FileInfoHeader function copies the fields into the returned
 	// header without performing any OS lookups.
