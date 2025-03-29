@@ -161,7 +161,7 @@ type Layer struct {
 	GIDs []uint32 `json:"gidset,omitempty"`
 
 	// Flags is arbitrary data about the layer.
-	Flags map[string]interface{} `json:"flags,omitempty"`
+	Flags map[string]any `json:"flags,omitempty"`
 
 	// UIDMap and GIDMap are used for setting up a layer's contents
 	// for use inside of a user namespace where UID mapping is being used.
@@ -922,7 +922,7 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 		var layersToDelete []*Layer
 		for _, layer := range r.layers {
 			if layer.Flags == nil {
-				layer.Flags = make(map[string]interface{})
+				layer.Flags = make(map[string]any)
 			}
 			if layerHasIncompleteFlag(layer) {
 				// Important: Do not call r.deleteInternal() here. It modifies r.layers
@@ -1261,7 +1261,7 @@ func (r *layerStore) ClearFlag(id string, flag string) error {
 }
 
 // Requires startWriting.
-func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
+func (r *layerStore) SetFlag(id string, flag string, value any) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to set flags on layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
 	}
@@ -1270,7 +1270,7 @@ func (r *layerStore) SetFlag(id string, flag string, value interface{}) error {
 		return ErrLayerUnknown
 	}
 	if layer.Flags == nil {
-		layer.Flags = make(map[string]interface{})
+		layer.Flags = make(map[string]any)
 	}
 	layer.Flags[flag] = value
 	return r.saveFor(layer)
@@ -1931,7 +1931,7 @@ func (r *layerStore) deleteInternal(id string) error {
 	// Ensure that if we are interrupted, the layer will be cleaned up.
 	if !layerHasIncompleteFlag(layer) {
 		if layer.Flags == nil {
-			layer.Flags = make(map[string]interface{})
+			layer.Flags = make(map[string]any)
 		}
 		layer.Flags[incompleteFlag] = true
 		if err := r.saveFor(layer); err != nil {
@@ -2540,7 +2540,7 @@ func (r *layerStore) applyDiffFromStagingDirectory(id string, diffOutput *driver
 	layer.Metadata = diffOutput.Metadata
 	if options != nil && options.Flags != nil {
 		if layer.Flags == nil {
-			layer.Flags = make(map[string]interface{})
+			layer.Flags = make(map[string]any)
 		}
 		maps.Copy(layer.Flags, options.Flags)
 	}

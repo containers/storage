@@ -116,7 +116,7 @@ func (b *boolValue) Set(s string) error {
 	return err
 }
 
-func (b *boolValue) Get() interface{} { return bool(*b) }
+func (b *boolValue) Get() any { return bool(*b) }
 
 func (b *boolValue) String() string { return fmt.Sprintf("%v", *b) }
 
@@ -143,7 +143,7 @@ func (i *intValue) Set(s string) error {
 	return err
 }
 
-func (i *intValue) Get() interface{} { return int(*i) }
+func (i *intValue) Get() any { return int(*i) }
 
 func (i *intValue) String() string { return fmt.Sprintf("%v", *i) }
 
@@ -161,7 +161,7 @@ func (i *int64Value) Set(s string) error {
 	return err
 }
 
-func (i *int64Value) Get() interface{} { return int64(*i) }
+func (i *int64Value) Get() any { return int64(*i) }
 
 func (i *int64Value) String() string { return fmt.Sprintf("%v", *i) }
 
@@ -179,7 +179,7 @@ func (i *uintValue) Set(s string) error {
 	return err
 }
 
-func (i *uintValue) Get() interface{} { return uint(*i) }
+func (i *uintValue) Get() any { return uint(*i) }
 
 func (i *uintValue) String() string { return fmt.Sprintf("%v", *i) }
 
@@ -197,7 +197,7 @@ func (i *uint64Value) Set(s string) error {
 	return err
 }
 
-func (i *uint64Value) Get() interface{} { return uint64(*i) }
+func (i *uint64Value) Get() any { return uint64(*i) }
 
 func (i *uint64Value) String() string { return fmt.Sprintf("%v", *i) }
 
@@ -215,7 +215,7 @@ func (i *uint16Value) Set(s string) error {
 	return err
 }
 
-func (i *uint16Value) Get() interface{} { return uint16(*i) }
+func (i *uint16Value) Get() any { return uint16(*i) }
 
 func (i *uint16Value) String() string { return fmt.Sprintf("%v", *i) }
 
@@ -232,7 +232,7 @@ func (s *stringValue) Set(val string) error {
 	return nil
 }
 
-func (s *stringValue) Get() interface{} { return string(*s) }
+func (s *stringValue) Get() any { return string(*s) }
 
 func (s *stringValue) String() string { return string(*s) }
 
@@ -250,7 +250,7 @@ func (f *float64Value) Set(s string) error {
 	return err
 }
 
-func (f *float64Value) Get() interface{} { return float64(*f) }
+func (f *float64Value) Get() any { return float64(*f) }
 
 func (f *float64Value) String() string { return fmt.Sprintf("%v", *f) }
 
@@ -268,7 +268,7 @@ func (d *durationValue) Set(s string) error {
 	return err
 }
 
-func (d *durationValue) Get() interface{} { return time.Duration(*d) }
+func (d *durationValue) Get() any { return time.Duration(*d) }
 
 func (d *durationValue) String() string { return (*time.Duration)(d).String() }
 
@@ -289,7 +289,7 @@ type Value interface {
 // by this package satisfy the Getter interface.
 type Getter interface {
 	Value
-	Get() interface{}
+	Get() any
 }
 
 // ErrorHandling defines how to handle flag parsing errors.
@@ -932,7 +932,7 @@ func Var(value Value, names []string, usage string) {
 
 // failf prints to standard error a formatted error and usage message and
 // returns the error.
-func (fs *FlagSet) failf(format string, a ...interface{}) error {
+func (fs *FlagSet) failf(format string, a ...any) error {
 	err := fmt.Errorf(format, a...)
 	fmt.Fprintln(fs.Out(), err)
 	if os.Args[0] == fs.name {

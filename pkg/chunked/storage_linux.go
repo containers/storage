@@ -111,7 +111,7 @@ type chunkedDiffer struct {
 	useFsVerity graphdriver.DifferFsVerity
 }
 
-var xattrsToIgnore = map[string]interface{}{
+var xattrsToIgnore = map[string]any{
 	"security.selinux": true,
 }
 
@@ -1483,7 +1483,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			bigDataKey:          c.manifest,
 			chunkedLayerDataKey: lcdBigData,
 		},
-		Artifacts: map[string]interface{}{
+		Artifacts: map[string]any{
 			tocKey: toc,
 		},
 		TOCDigest:          c.tocDigest,
