@@ -2475,16 +2475,12 @@ func (r *layerStore) applyDiffWithOptions(to string, layerOptions *LayerOptions,
 	for uid := range uidLog {
 		layer.UIDs = append(layer.UIDs, uid)
 	}
-	sort.Slice(layer.UIDs, func(i, j int) bool {
-		return layer.UIDs[i] < layer.UIDs[j]
-	})
+	slices.Sort(layer.UIDs)
 	layer.GIDs = make([]uint32, 0, len(gidLog))
 	for gid := range gidLog {
 		layer.GIDs = append(layer.GIDs, gid)
 	}
-	sort.Slice(layer.GIDs, func(i, j int) bool {
-		return layer.GIDs[i] < layer.GIDs[j]
-	})
+	slices.Sort(layer.GIDs)
 
 	err = r.saveFor(layer)
 

@@ -3763,11 +3763,10 @@ func copyMapPreferringNil[K comparable, V any](m map[K]V) map[K]V {
 // newMapFrom returns a shallow clone of map m.
 // If m is empty, an empty map is allocated and returned.
 func newMapFrom[K comparable, V any](m map[K]V) map[K]V {
-	ret := make(map[K]V, len(m))
-	for k, v := range m {
-		ret[k] = v
+	if len(m) == 0 {
+		return make(map[K]V, 0)
 	}
-	return ret
+	return maps.Clone(m)
 }
 
 func copyImageBigDataOptionSlice(slice []ImageBigDataOption) []ImageBigDataOption {

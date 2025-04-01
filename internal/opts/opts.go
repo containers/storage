@@ -81,12 +81,7 @@ func (opts *ListOpts) GetAllOrEmpty() []string {
 
 // Get checks the existence of the specified key.
 func (opts *ListOpts) Get(key string) bool {
-	for _, k := range *opts.values {
-		if k == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(*opts.values, key)
 }
 
 // Len returns the amount of element in the slice.
