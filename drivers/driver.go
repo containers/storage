@@ -124,6 +124,12 @@ type ProtoDriver interface {
 	CreateFromTemplate(id, template string, templateIDMappings *idtools.IDMappings, parent string, parentIDMappings *idtools.IDMappings, opts *CreateOpts, readWrite bool) error
 	// Remove attempts to remove the filesystem layer with this id.
 	Remove(id string) error
+
+	// DeferredRemoval will attempt to remove the filesystem layer with this id.
+	// The layer data is not removed immediately. When the data is removed depends
+	// on the driver implementation.
+	DeferredRemoval(id string) error
+
 	// Get returns the mountpoint for the layered filesystem referred
 	// to by this id. You can optionally specify a mountLabel or "".
 	// Optionally it gets the mappings used to create the layer.

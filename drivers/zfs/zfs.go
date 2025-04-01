@@ -389,9 +389,17 @@ func setQuota(name string, quota string) error {
 
 // Remove deletes the dataset, filesystem and the cache for the given id.
 func (d *Driver) Remove(id string) error {
+	return d.remove(id, zfs.DestroyRecursive)
+}
+
+func (d *Driver) DeferredRemoval(id string) error {
+	return d.remove(id, zfs.DestroyDeferDeletion)
+}
+
+func (d *Driver) remove(id string, flags zfs.DestroyFlag) error {
 	name := d.zfsPath(id)
 	dataset := zfs.Dataset{Name: name}
-	err := dataset.Destroy(zfs.DestroyRecursive)
+	err := dataset.Destroy(flags)
 	if err != nil {
 		// We must be tolerant in case the image has already been removed,
 		// for example, accidentally by hand.

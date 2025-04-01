@@ -55,3 +55,11 @@ func TestVfsListLayers(t *testing.T) {
 func TestVfsTeardown(t *testing.T) {
 	graphtest.PutDriver(t)
 }
+
+func TestVfsRemove(t *testing.T) {
+	graphtest.DriverTestRemove(t, "vfs", true)
+}
+
+func TestVfsDeferredRemoval(t *testing.T) {
+	graphtest.DriverTestRemove(t, "vfs", false)
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
+	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
@@ -127,6 +128,10 @@ type rwContainerStore interface {
 
 	// Delete removes the record of the container.
 	Delete(id string) error
+
+	// DeferredDelete removes the record of the container, but does not remove data of container
+	// immediately. Data are moved in a temporary directory and removed in background.
+	DeferredDelete(id string) error
 
 	// Wipe removes records of all containers.
 	Wipe() error
@@ -784,10 +789,27 @@ func (r *containerStore) updateNames(id string, names []string, op updateNameOpe
 
 // Requires startWriting.
 func (r *containerStore) Delete(id string) error {
+	return r.deleteInternal(id, true)
+}
+
+// Requires startWriting.
+func (r *containerStore) DeferredDelete(id string) error {
+	return r.deleteInternal(id, false)
+}
+
+// Requires startWriting.
+func (r *containerStore) deleteInternal(id string, now bool) error {
 	container, ok := r.lookup(id)
 	if !ok {
 		return ErrContainerUnknown
 	}
+
+	if !containsIncompleteFlag(container.Flags) {
+		if err := r.SetFlag(container.ID, incompleteFlag, true); err != nil {
+			return err
+		}
+	}
+
 	id = container.ID
 	delete(r.byid, id)
 	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
@@ -800,13 +822,16 @@ func (r *containerStore) Delete(id string) error {
 	r.containers = slices.DeleteFunc(r.containers, func(candidate *Container) bool {
 		return candidate.ID == id
 	})
-	if err := r.saveFor(container); err != nil {
-		return err
+	if now {
+		if err := os.RemoveAll(r.datadir(id)); err != nil {
+			return err
+		}
+	} else {
+		if err := system.DeferredRemoval(r.datadir(id)); err != nil {
+			return err
+		}
 	}
-	if err := os.RemoveAll(r.datadir(id)); err != nil {
-		return err
-	}
-	return nil
+	return r.saveFor(container)
 }
 
 // Requires startReading or startWriting.

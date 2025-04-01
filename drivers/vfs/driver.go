@@ -244,6 +244,10 @@ func (d *Driver) Remove(id string) error {
 	return system.EnsureRemoveAll(d.dir(id))
 }
 
+func (d *Driver) DeferredRemoval(id string) error {
+	return system.EnsureDeferredRemoveAll(d.dir(id))
+}
+
 // Get returns the directory for the given id.
 func (d *Driver) Get(id string, options graphdriver.MountOpts) (_ string, retErr error) {
 	dir := d.dir(id)

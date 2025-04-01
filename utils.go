@@ -53,3 +53,16 @@ func applyNameOperation(oldNames []string, opParameters []string, op updateNameO
 	}
 	return dedupeStrings(result), nil
 }
+
+// containsIncompleteFlag returns true if map contains an incompleteFlag set to true
+func containsIncompleteFlag(f map[string]interface{}) bool {
+	if f == nil {
+		return false
+	}
+	if flagValue, ok := f[incompleteFlag]; ok {
+		if b, ok := flagValue.(bool); ok && b {
+			return true
+		}
+	}
+	return false
+}

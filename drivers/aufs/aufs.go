@@ -338,6 +338,14 @@ func (a *Driver) createDirsFor(id, parent string) error {
 
 // Remove will unmount and remove the given id.
 func (a *Driver) Remove(id string) error {
+	return a.remove(id, true)
+}
+
+func (a *Driver) DeferredRemoval(id string) error {
+	return a.remove(id, false)
+}
+
+func (a *Driver) remove(id string, now bool) error {
 	a.locker.Lock(id)
 	defer func() {
 		_ = a.locker.Unlock(id)
@@ -386,18 +394,24 @@ func (a *Driver) Remove(id string) error {
 	}
 
 	// Remove the layers file for the id
-	if err := os.Remove(path.Join(a.rootPath(), "layers", id)); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("removing layers dir for %s: %w", id, err)
+	if now {
+		if err := os.Remove(path.Join(a.rootPath(), "layers", id)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing layers dir for %s: %w", id, err)
+		}
+	} else {
+		if err := system.DeferredRemoval(path.Join(a.rootPath(), "layers", id)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing layers dir for %s: %w", id, err)
+		}
 	}
 
-	if err := atomicRemove(a.getDiffPath(id)); err != nil {
+	if err := atomicRemove(a.getDiffPath(id), now); err != nil {
 		return fmt.Errorf("could not remove diff path for id %s: %w", id, err)
 	}
 
 	// Atomically remove each directory in turn by first moving it out of the
 	// way (so that container runtime doesn't find it anymore) before doing removal of
 	// the whole tree.
-	if err := atomicRemove(mountpoint); err != nil {
+	if err := atomicRemove(mountpoint, now); err != nil {
 		if errors.Is(err, unix.EBUSY) {
 			logger.WithField("dir", mountpoint).WithError(err).Warn("error performing atomic remove due to EBUSY")
 		}
@@ -410,7 +424,7 @@ func (a *Driver) Remove(id string) error {
 	return nil
 }
 
-func atomicRemove(source string) error {
+func atomicRemove(source string, now bool) error {
 	target := source + "-removing"
 
 	err := os.Rename(source, target)
@@ -424,8 +438,10 @@ func atomicRemove(source string) error {
 	default:
 		return fmt.Errorf("preparing atomic delete: %w", err)
 	}
-
-	return system.EnsureRemoveAll(target)
+	if now {
+		return system.EnsureRemoveAll(target)
+	}
+	return system.EnsureDeferredRemoveAll(target)
 }
 
 // Get returns the rootfs path for the id.

@@ -117,6 +117,24 @@ func TestStore(t *testing.T) {
 	err = store.DeleteContainer("foobar")
 	require.Error(t, err)
 
+	err = store.DeferredDelete("foobar")
+	require.Error(t, err)
+
+	err = store.DeferredDeleteLayer("foobar")
+	require.Error(t, err)
+
+	_, err = store.DeferredDeleteImage("foobar", true)
+	require.Error(t, err)
+
+	_, err = store.DeferredDeleteImage("foobar", false)
+	require.Error(t, err)
+
+	err = store.DeferredDeleteContainer("foobar")
+	require.Error(t, err)
+
+	err = store.DeferredDeleteContainer("foobar")
+	require.Error(t, err)
+
 	err = store.Wipe()
 	require.Nil(t, err)
 
@@ -338,6 +356,24 @@ func TestWithSplitStore(t *testing.T) {
 	require.Error(t, err)
 
 	err = store.DeleteContainer("foobar")
+	require.Error(t, err)
+
+	err = store.DeferredDelete("foobar")
+	require.Error(t, err)
+
+	err = store.DeferredDeleteLayer("foobar")
+	require.Error(t, err)
+
+	_, err = store.DeferredDeleteImage("foobar", true)
+	require.Error(t, err)
+
+	_, err = store.DeferredDeleteImage("foobar", false)
+	require.Error(t, err)
+
+	err = store.DeferredDeleteContainer("foobar")
+	require.Error(t, err)
+
+	err = store.DeferredDeleteContainer("foobar")
 	require.Error(t, err)
 
 	err = store.Wipe()
@@ -563,6 +599,91 @@ func TestStoreMultiList(t *testing.T) {
 		require.Len(t, listResults.Images, test.imageCounts)
 		require.Len(t, listResults.Containers, test.containerCounts)
 	}
+
+	_, err = store.Shutdown(true)
+	require.Nil(t, err)
+
+	store.Free()
+}
+
+func TestStoreDelete(t *testing.T) {
+	storeDelete(t, true)
+}
+
+func TestStoreDeferredDelete(t *testing.T) {
+	storeDelete(t, false)
+}
+
+func storeDelete(t *testing.T, now bool) {
+	reexec.Init()
+
+	store := newTestStore(t, StoreOptions{})
+
+	options := MultiListOptions{
+		Layers:     true,
+		Images:     true,
+		Containers: true,
+	}
+
+	expectedResult, err := store.MultiList(options)
+	require.NoError(t, err)
+
+	_, err = store.CreateLayer("LayerNoUsed", "", []string{"not-used"}, "", false, nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateLayer("Layer", "", []string{"l1"}, "", false, nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateImage("Image1", []string{"i1"}, "Layer", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateImage("Image", []string{"i"}, "Layer", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateContainer("Container", []string{"c"}, "Image", "", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateContainer("Container1", []string{"c1"}, "Image1", "", "", nil)
+	require.NoError(t, err)
+
+	if now {
+		err = store.DeleteContainer("Container")
+		require.NoError(t, err)
+
+		_, err = store.DeleteImage("Image", true)
+		require.NoError(t, err)
+
+		err = store.DeleteContainer("Container1")
+		require.NoError(t, err)
+
+		_, err = store.DeleteImage("Image1", true)
+		require.NoError(t, err)
+
+		err = store.DeleteLayer("LayerNoUsed")
+		require.NoError(t, err)
+	} else {
+		err = store.DeferredDeleteContainer("Container")
+		require.NoError(t, err)
+
+		_, err = store.DeferredDeleteImage("Image", true)
+		require.NoError(t, err)
+
+		err = store.DeferredDeleteContainer("Container1")
+		require.NoError(t, err)
+
+		_, err = store.DeferredDeleteImage("Image1", true)
+		require.NoError(t, err)
+
+		err = store.DeferredDeleteLayer("LayerNoUsed")
+		require.NoError(t, err)
+	}
+
+	listResults, err := store.MultiList(options)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedResult.Layers, listResults.Layers)
+	require.Equal(t, expectedResult.Containers, listResults.Containers)
+	require.Equal(t, expectedResult.Images, listResults.Images)
 
 	_, err = store.Shutdown(true)
 	require.Nil(t, err)

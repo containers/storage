@@ -166,6 +166,34 @@ func TestRemoveImage(t *testing.T) {
 	}
 }
 
+func TestDeferredRemovalImage(t *testing.T) {
+	d := newDriver(t)
+	defer os.RemoveAll(tmp)
+
+	if err := d.Create("1", "", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := d.DeferredRemoval("1"); err != nil {
+		t.Fatal(err)
+	}
+
+	paths := []string{
+		"mnt",
+		"diff",
+		"layers",
+	}
+
+	for _, p := range paths {
+		if _, err := os.Stat(path.Join(tmp, p, "1")); err == nil {
+			t.Fatalf("Error should not be nil because dirs with id 1 should be deleted: %s", p)
+		}
+		if _, err := os.Stat(path.Join(tmp, p, "1-removing")); err == nil {
+			t.Fatalf("Error should not be nil because dirs with id 1-removing should be deleted: %s", p)
+		}
+	}
+}
+
 func TestGetWithoutParent(t *testing.T) {
 	d := newDriver(t)
 	defer os.RemoveAll(tmp)

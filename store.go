@@ -268,10 +268,24 @@ type Store interface {
 	// and layers with references to parents which no longer exist.
 	Delete(id string) error
 
+	// DeferredDelete removes the layer, image, or container which has the
+	// passed-in ID or name. Note that no safety checks are performed, so
+	// this can leave images with references to layers which do not exist,
+	// and layers with references to parents which no longer exist.
+	// The data of the layer, image, or container are moved to a temporary
+	// directory and removed in background.
+	DeferredDelete(id string) error
+
 	// DeleteLayer attempts to remove the specified layer.  If the layer is the
 	// parent of any other layer, or is referred to by any images, it will return
 	// an error.
 	DeleteLayer(id string) error
+
+	// DeferredDeleteLayer attempts to remove the specified layer.  If the layer is the
+	// parent of any other layer, or is referred to by any images, it will return
+	// an error.
+	// The data of the layer are moved to a temporary directory and removed in background.
+	DeferredDeleteLayer(id string) error
 
 	// DeleteImage removes the specified image if it is not referred to by
 	// any containers.  If its top layer is then no longer referred to by
@@ -285,10 +299,29 @@ type Store interface {
 	// but the list of layers which would be removed is still returned.
 	DeleteImage(id string, commit bool) (layers []string, err error)
 
+	// DeferredDeleteImage removes the specified image if it is not referred to by
+	// any containers.  If its top layer is then no longer referred to by
+	// any other images and is not the parent of any other layers, its top
+	// layer will be removed.  If that layer's parent is no longer referred
+	// to by any other images and is not the parent of any other layers,
+	// then it, too, will be removed.  This procedure will be repeated
+	// until a layer which should not be removed, or the base layer, is
+	// reached, at which point the list of removed layers is returned.  If
+	// the commit argument is false, the image and layers are not removed,
+	// but the list of layers which would be removed is still returned.
+	// The data of the image are moved to a temporary directory and removed in background.
+	DeferredDeleteImage(id string, commit bool) (layers []string, err error)
+
 	// DeleteContainer removes the specified container and its layer.  If
 	// there is no matching container, or if the container exists but its
 	// layer does not, an error will be returned.
 	DeleteContainer(id string) error
+
+	// DeferredDeleteContainer removes the specified container and its layer.  If
+	// there is no matching container, or if the container exists but its
+	// layer does not, an error will be returned.
+	// The data of the container are moved to a temporary directory and removed in background.
+	DeferredDeleteContainer(id string) error
 
 	// Wipe removes all known layers, images, and containers.
 	Wipe() error
@@ -2553,7 +2586,15 @@ func (s *store) Lookup(name string) (string, error) {
 	return "", ErrLayerUnknown
 }
 
+func (s *store) DeferredDeleteLayer(id string) error {
+	return s.deleteLayer(id, false)
+}
+
 func (s *store) DeleteLayer(id string) error {
+	return s.deleteLayer(id, true)
+}
+
+func (s *store) deleteLayer(id string, now bool) error {
 	return s.writeToAllStores(func(rlstore rwLayerStore) error {
 		if rlstore.Exists(id) {
 			if l, err := rlstore.Get(id); err != nil {
@@ -2587,8 +2628,14 @@ func (s *store) DeleteLayer(id string) error {
 					return fmt.Errorf("layer %v used by container %v: %w", id, container.ID, ErrLayerUsedByContainer)
 				}
 			}
-			if err := rlstore.Delete(id); err != nil {
-				return fmt.Errorf("delete layer %v: %w", id, err)
+			if now {
+				if err := rlstore.Delete(id); err != nil {
+					return fmt.Errorf("delete layer %v: %w", id, err)
+				}
+			} else {
+				if err := rlstore.DeferredDelete(id); err != nil {
+					return fmt.Errorf("defer delete layer %v: %w", id, err)
+				}
 			}
 
 			for _, image := range images {
@@ -2604,7 +2651,15 @@ func (s *store) DeleteLayer(id string) error {
 	})
 }
 
+func (s *store) DeferredDeleteImage(id string, commit bool) (layers []string, err error) {
+	return s.deleteImage(id, commit, false)
+}
+
 func (s *store) DeleteImage(id string, commit bool) (layers []string, err error) {
+	return s.deleteImage(id, commit, true)
+}
+
+func (s *store) deleteImage(id string, commit, now bool) (layers []string, err error) {
 	layersToRemove := []string{}
 	if err := s.writeToAllStores(func(rlstore rwLayerStore) error {
 		// Delete image from all available imagestores configured to be used.
@@ -2660,8 +2715,14 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 				}
 			}
 			if commit {
-				if err = is.Delete(id); err != nil {
-					return err
+				if now {
+					if err = is.Delete(id); err != nil {
+						return err
+					}
+				} else {
+					if err = is.DeferredDelete(id); err != nil {
+						return err
+					}
 				}
 			}
 			layer := image.TopLayer
@@ -2711,8 +2772,14 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 		}
 		if commit {
 			for _, layer := range layersToRemove {
-				if err = rlstore.Delete(layer); err != nil {
-					return err
+				if now {
+					if err = rlstore.Delete(layer); err != nil {
+						return err
+					}
+				} else {
+					if err = rlstore.DeferredDelete(layer); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -2723,12 +2790,19 @@ func (s *store) DeleteImage(id string, commit bool) (layers []string, err error)
 	return layersToRemove, nil
 }
 
+func (s *store) DeferredDeleteContainer(id string) error {
+	return s.deleteContainer(id, false)
+}
+
 func (s *store) DeleteContainer(id string) error {
+	return s.deleteContainer(id, true)
+}
+
+func (s *store) deleteContainer(id string, now bool) error {
 	return s.writeToAllStores(func(rlstore rwLayerStore) error {
 		if !s.containerStore.Exists(id) {
 			return ErrNotAContainer
 		}
-
 		container, err := s.containerStore.Get(id)
 		if err != nil {
 			return ErrNotAContainer
@@ -2739,8 +2813,14 @@ func (s *store) DeleteContainer(id string) error {
 		// the container record that refers to it, effectively losing
 		// track of it
 		if rlstore.Exists(container.LayerID) {
-			if err := rlstore.Delete(container.LayerID); err != nil {
-				return err
+			if now {
+				if err := rlstore.Delete(container.LayerID); err != nil {
+					return err
+				}
+			} else {
+				if err := rlstore.DeferredDelete(container.LayerID); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -2750,40 +2830,74 @@ func (s *store) DeleteContainer(id string) error {
 
 		wg.Go(func() error {
 			gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID)
-			return system.EnsureRemoveAll(gcpath)
+			if now {
+				return system.EnsureRemoveAll(gcpath)
+			}
+			return system.EnsureDeferredRemoveAll(gcpath)
 		})
 
 		wg.Go(func() error {
 			rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID)
-			return system.EnsureRemoveAll(rcpath)
+			if now {
+				return system.EnsureRemoveAll(rcpath)
+			}
+			return system.EnsureDeferredRemoveAll(rcpath)
 		})
-
 		if multierr := wg.Wait(); multierr != nil {
 			return multierr
 		}
-		return s.containerStore.Delete(id)
+
+		if now {
+			return s.containerStore.Delete(id)
+		}
+		return s.containerStore.DeferredDelete(id)
 	})
 }
 
+func (s *store) DeferredDelete(id string) error {
+	return s.delete(id, false)
+}
+
 func (s *store) Delete(id string) error {
+	return s.delete(id, true)
+}
+
+func (s *store) delete(id string, now bool) error {
 	return s.writeToAllStores(func(rlstore rwLayerStore) error {
 		if s.containerStore.Exists(id) {
 			if container, err := s.containerStore.Get(id); err == nil {
 				if rlstore.Exists(container.LayerID) {
-					if err = rlstore.Delete(container.LayerID); err != nil {
-						return err
-					}
-					if err = s.containerStore.Delete(id); err != nil {
-						return err
-					}
+
 					middleDir := s.graphDriverName + "-containers"
 					gcpath := filepath.Join(s.GraphRoot(), middleDir, container.ID, "userdata")
-					if err = os.RemoveAll(gcpath); err != nil {
-						return err
-					}
 					rcpath := filepath.Join(s.RunRoot(), middleDir, container.ID, "userdata")
-					if err = os.RemoveAll(rcpath); err != nil {
-						return err
+
+					if now {
+						if err = rlstore.Delete(container.LayerID); err != nil {
+							return err
+						}
+						if err = s.containerStore.Delete(id); err != nil {
+							return err
+						}
+						if err = os.RemoveAll(gcpath); err != nil {
+							return err
+						}
+						if err = os.RemoveAll(rcpath); err != nil {
+							return err
+						}
+					} else {
+						if err = rlstore.DeferredDelete(container.LayerID); err != nil {
+							return err
+						}
+						if err = s.containerStore.DeferredDelete(id); err != nil {
+							return err
+						}
+						if err = system.DeferredRemoval(gcpath); err != nil {
+							return err
+						}
+						if err = system.DeferredRemoval(rcpath); err != nil {
+							return err
+						}
 					}
 					return nil
 				}
@@ -2791,10 +2905,16 @@ func (s *store) Delete(id string) error {
 			}
 		}
 		if s.imageStore.Exists(id) {
-			return s.imageStore.Delete(id)
+			if now {
+				return s.imageStore.Delete(id)
+			}
+			return s.imageStore.DeferredDelete(id)
 		}
 		if rlstore.Exists(id) {
-			return rlstore.Delete(id)
+			if now {
+				return rlstore.Delete(id)
+			}
+			return rlstore.DeferredDelete(id)
 		}
 		return ErrLayerUnknown
 	})

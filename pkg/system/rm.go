@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -24,6 +25,14 @@ import (
 //
 // This should not return a `os.ErrNotExist` kind of error under any circumstances
 func EnsureRemoveAll(dir string) error {
+	return ensureRemoveAll(dir, true)
+}
+
+func EnsureDeferredRemoveAll(dir string) error {
+	return ensureRemoveAll(dir, false)
+}
+
+func ensureRemoveAll(dir string, now bool) error {
 	notExistErr := make(map[string]bool)
 
 	// track retries
@@ -32,8 +41,14 @@ func EnsureRemoveAll(dir string) error {
 
 	// Attempt a simple remove all first, this avoids the more expensive
 	// RecursiveUnmount call if not needed.
-	if err := os.RemoveAll(dir); err == nil {
-		return nil
+	if now {
+		if err := os.RemoveAll(dir); err == nil {
+			return nil
+		}
+	} else {
+		if err := DeferredRemoval(dir); err == nil {
+			return nil
+		}
 	}
 
 	// Attempt to unmount anything beneath this dir first
@@ -42,9 +57,17 @@ func EnsureRemoveAll(dir string) error {
 	}
 
 	for {
-		err := os.RemoveAll(dir)
-		if err == nil {
-			return nil
+		var err error
+		if now {
+			err = os.RemoveAll(dir)
+			if err == nil {
+				return nil
+			}
+		} else {
+			err = DeferredRemoval(dir)
+			if err == nil {
+				return nil
+			}
 		}
 
 		// If the RemoveAll fails with a permission error, we
@@ -54,9 +77,16 @@ func EnsureRemoveAll(dir string) error {
 			if err = resetFileFlags(dir); err != nil {
 				return fmt.Errorf("resetting file flags: %w", err)
 			}
-			err = os.RemoveAll(dir)
-			if err == nil {
-				return nil
+			if now {
+				err = os.RemoveAll(dir)
+				if err == nil {
+					return nil
+				}
+			} else {
+				err = DeferredRemoval(dir)
+				if err == nil {
+					return nil
+				}
 			}
 		}
 
@@ -96,4 +126,35 @@ func EnsureRemoveAll(dir string) error {
 		exitOnErr[pe.Path]++
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// DeferredRemoval moves the file to a temporary directory and removes it
+// after the function returns. This is useful for removing files that are
+// currently in use and cannot be deleted immediately.
+// The temporary directory is removed in a goroutine to avoid blocking
+// the main thread. The caller should not rely on the directory being
+// removed immediately, as it may take some time for the goroutine to
+// execute.
+//
+// If the path does not exist, DeferredRemoval returns nil (no error)
+func DeferredRemoval(path string) error {
+	if _, err := os.Lstat(path); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	dir, fileName := filepath.Split(path)
+	trashPath, err := os.MkdirTemp(dir, "trash")
+	if err != nil {
+		return err
+	}
+	defer func() { go os.RemoveAll(trashPath) }()
+	dest := filepath.Join(trashPath, fileName)
+	if err := os.Rename(path, dest); err != nil {
+		logrus.Debugf("failed to move %q to %q(%q): %v", path, dest, trashPath, err)
+		return err
+	}
+	return nil
 }

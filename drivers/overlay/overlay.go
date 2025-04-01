@@ -1310,18 +1310,38 @@ func (d *Driver) optsAppendMappings(opts string, uidMaps, gidMaps []idtools.IDMa
 
 // Remove cleans the directories that are created for this id.
 func (d *Driver) Remove(id string) error {
+	return d.remove(id, true)
+}
+
+func (d *Driver) DeferredRemoval(id string) error {
+	return d.remove(id, false)
+}
+
+func (d *Driver) remove(id string, now bool) error {
 	dir := d.dir(id)
 	lid, err := os.ReadFile(path.Join(dir, "link"))
 	if err == nil {
-		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
-			logrus.Debugf("Failed to remove link: %v", err)
+		if now {
+			if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
+				logrus.Debugf("Failed to remove link: %v", err)
+			}
+		} else {
+			if err := system.DeferredRemoval(path.Join(d.home, linkDir, string(lid))); err != nil {
+				logrus.Debugf("Failed to remove link: %v", err)
+			}
 		}
 	}
 
 	d.releaseAdditionalLayerByID(id)
 
-	if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
-		return err
+	if now {
+		if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	} else {
+		if err := system.EnsureDeferredRemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 	}
 	if d.quotaCtl != nil {
 		d.quotaCtl.ClearQuota(dir)

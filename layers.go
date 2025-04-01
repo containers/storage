@@ -293,6 +293,10 @@ type rwLayerStore interface {
 	// Delete deletes a layer with the specified name or ID.
 	Delete(id string) error
 
+	// DeferredDelete removes the record of a layer, but does not remove data of layer
+	// immediately. Data are moved in a temporary directory and removed in background.
+	DeferredDelete(id string) error
+
 	// Wipe deletes all layers.
 	Wipe() error
 
@@ -935,7 +939,7 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 		// Now actually delete the layers
 		for _, layer := range layersToDelete {
 			logrus.Warnf("Found incomplete layer %q, deleting it", layer.ID)
-			err := r.deleteInternal(layer.ID)
+			err := r.deleteInternal(layer.ID, true)
 			if err != nil {
 				// Don't return the error immediately, because deleteInternal does not saveLayers();
 				// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
@@ -1920,7 +1924,7 @@ func layerHasIncompleteFlag(layer *Layer) bool {
 }
 
 // Requires startWriting.
-func (r *layerStore) deleteInternal(id string) error {
+func (r *layerStore) deleteInternal(id string, now bool) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to delete layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
 	}
@@ -1929,22 +1933,26 @@ func (r *layerStore) deleteInternal(id string) error {
 		return ErrLayerUnknown
 	}
 	// Ensure that if we are interrupted, the layer will be cleaned up.
-	if !layerHasIncompleteFlag(layer) {
-		if layer.Flags == nil {
-			layer.Flags = make(map[string]any)
-		}
-		layer.Flags[incompleteFlag] = true
-		if err := r.saveFor(layer); err != nil {
+	if !containsIncompleteFlag(layer.Flags) {
+		if err := r.SetFlag(layer.ID, incompleteFlag, true); err != nil {
 			return err
 		}
 	}
 	// We never unset incompleteFlag; below, we remove the entire object from r.layers.
 	id = layer.ID
-	if err := r.driver.Remove(id); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+	if now {
+		if err := r.driver.Remove(id); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		os.Remove(r.tspath(id))
+		os.RemoveAll(r.datadir(id))
+	} else {
+		if err := r.driver.DeferredRemoval(id); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		_ = system.DeferredRemoval(r.tspath(id))
+		_ = system.DeferredRemoval(r.datadir(id))
 	}
-	os.Remove(r.tspath(id))
-	os.RemoveAll(r.datadir(id))
 	delete(r.byid, id)
 	for _, name := range layer.Names {
 		delete(r.byname, name)
@@ -1989,6 +1997,16 @@ func (r *layerStore) deleteInDigestMap(id string) {
 
 // Requires startWriting.
 func (r *layerStore) Delete(id string) error {
+	return r.delete(id, true)
+}
+
+// Requires startWriting.
+func (r *layerStore) DeferredDelete(id string) error {
+	return r.delete(id, false)
+}
+
+// Requires startWriting.
+func (r *layerStore) delete(id string, now bool) error {
 	layer, ok := r.lookup(id)
 	if !ok {
 		return ErrLayerUnknown
@@ -2006,7 +2024,7 @@ func (r *layerStore) Delete(id string) error {
 			return err
 		}
 	}
-	if err := r.deleteInternal(id); err != nil {
+	if err := r.deleteInternal(id, now); err != nil {
 		return err
 	}
 	return r.saveFor(layer)

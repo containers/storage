@@ -568,14 +568,28 @@ func (d *Driver) setStorageSize(dir string, driver *Driver) error {
 
 // Remove the filesystem with given id.
 func (d *Driver) Remove(id string) error {
+	return d.remove(id, true)
+}
+
+func (d *Driver) DeferredRemoval(id string) error {
+	return d.remove(id, false)
+}
+
+func (d *Driver) remove(id string, now bool) error {
 	dir := d.subvolumesDirID(id)
 	if err := fileutils.Exists(dir); err != nil {
 		return err
 	}
 	quotasDir := d.quotasDirID(id)
 	if err := fileutils.Exists(quotasDir); err == nil {
-		if err := os.Remove(quotasDir); err != nil {
-			return err
+		if now {
+			if err := os.Remove(quotasDir); err != nil {
+				return err
+			}
+		} else {
+			if err := system.DeferredRemoval(quotasDir); err != nil {
+				return err
+			}
 		}
 	} else if !os.IsNotExist(err) {
 		return err
@@ -592,8 +606,14 @@ func (d *Driver) Remove(id string) error {
 		// This would allow unprivileged user to delete their owned subvolumes
 		// in kernel >= 4.18 without user_subvol_rm_alowed mount option.
 	}
-	if err := system.EnsureRemoveAll(dir); err != nil {
-		return err
+	if now {
+		if err := system.EnsureRemoveAll(dir); err != nil {
+			return err
+		}
+	} else {
+		if err := system.EnsureDeferredRemoveAll(dir); err != nil {
+			return err
+		}
 	}
 	if err := d.subvolRescanQuota(); err != nil {
 		return err

@@ -13,6 +13,7 @@ import (
 	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/stringutils"
+	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/truncindex"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
@@ -150,6 +151,10 @@ type rwImageStore interface {
 
 	// Delete removes the record of the image.
 	Delete(id string) error
+
+	// DeferredDelete removes the record of the image, but does not remove data of image
+	// immediately. Data are moved in a temporary directory and removed in background.
+	DeferredDelete(id string) error
 
 	addMappedTopLayer(id, layer string) error
 	removeMappedTopLayer(id, layer string) error
@@ -856,6 +861,16 @@ func (r *imageStore) updateNames(id string, names []string, op updateNameOperati
 
 // Requires startWriting.
 func (r *imageStore) Delete(id string) error {
+	return r.deleteInternal(id, true)
+}
+
+// Requires startWriting.
+func (r *imageStore) DeferredDelete(id string) error {
+	return r.deleteInternal(id, false)
+}
+
+// Requires startWriting.
+func (r *imageStore) deleteInternal(id string, now bool) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to delete images at %q: %w", r.imagespath(), ErrStoreIsReadOnly)
 	}
@@ -863,6 +878,13 @@ func (r *imageStore) Delete(id string) error {
 	if !ok {
 		return fmt.Errorf("locating image with ID %q: %w", id, ErrImageUnknown)
 	}
+
+	if !containsIncompleteFlag(image.Flags) {
+		if err := r.SetFlag(id, incompleteFlag, true); err != nil {
+			return err
+		}
+	}
+
 	id = image.ID
 	delete(r.byid, id)
 	// This can only fail if the ID is already missing, which shouldn’t happen — and in that case the index is already in the desired state anyway.
@@ -884,13 +906,16 @@ func (r *imageStore) Delete(id string) error {
 	r.images = slices.DeleteFunc(r.images, func(candidate *Image) bool {
 		return candidate.ID == id
 	})
-	if err := r.Save(); err != nil {
-		return err
+	if now {
+		if err := os.RemoveAll(r.datadir(id)); err != nil {
+			return err
+		}
+	} else {
+		if err := system.DeferredRemoval(r.datadir(id)); err != nil {
+			return err
+		}
 	}
-	if err := os.RemoveAll(r.datadir(id)); err != nil {
-		return err
-	}
-	return nil
+	return r.Save()
 }
 
 // Requires startReading or startWriting.

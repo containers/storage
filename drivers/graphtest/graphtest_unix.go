@@ -616,3 +616,37 @@ func DriverTestListLayers(t testing.TB, drivername string, driverOptions ...stri
 
 	assert.Equal(t, expected, list, "listed layers were not exactly what we created")
 }
+
+func DriverTestRemove(t *testing.T, drivername string, now bool, driverOptions ...string) {
+	driver := GetDriver(t, drivername, driverOptions...)
+	require.NotNil(t, drv.Driver, "initializing driver")
+	base := stringid.GenerateRandomID()
+	mid := stringid.GenerateRandomID()
+
+	createBase(t, driver, base)
+	verifyBase(t, driver, base, defaultPerms)
+
+	if err := addManyFiles(driver, base, 20, 3); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := driver.Create(mid, base, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if now {
+		err := driver.Remove(mid)
+		require.NoError(t, err)
+	} else {
+		err := driver.DeferredRemoval(mid)
+		require.NoError(t, err)
+	}
+
+	list, err := driver.ListLayers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(list)
+
+	assert.NotContainsf(t, list, mid, "layer %q was not removed", mid)
+}

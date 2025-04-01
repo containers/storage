@@ -371,6 +371,12 @@ func (d *Driver) Remove(id string) error {
 	return nil
 }
 
+// DeferredRemoval is not supported on Windows.
+// The actual removal is done in the Remove() method.
+func (d *Driver) DeferredRemoval(id string) error {
+	return d.Remove(id)
+}
+
 // Get returns the rootfs path for the id. This will mount the dir at its given path.
 func (d *Driver) Get(id string, options graphdriver.MountOpts) (string, error) {
 	panicIfUsedByLcow()

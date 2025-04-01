@@ -100,6 +100,14 @@ func TestOverlayTeardown(t *testing.T) {
 	graphtest.PutDriver(t)
 }
 
+func TestOverlayRemove(t *testing.T) {
+	graphtest.DriverTestRemove(t, driverName, true)
+}
+
+func TestOverlayDeferredRemoval(t *testing.T) {
+	graphtest.DriverTestRemove(t, driverName, false)
+}
+
 // Benchmarks should always setup new driver
 
 func BenchmarkExists(b *testing.B) {

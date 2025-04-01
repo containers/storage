@@ -41,3 +41,11 @@ func TestZfsEcho(t *testing.T) {
 func TestZfsTeardown(t *testing.T) {
 	graphtest.PutDriver(t)
 }
+
+func TestZfsRemove(t *testing.T) {
+	graphtest.DriverTestRemove(t, "zfs", true)
+}
+
+func TestZfsDeferredRemoval(t *testing.T) {
+	graphtest.DriverTestRemove(t, "zfs", false)
+}
