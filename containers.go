@@ -82,7 +82,7 @@ type Container struct {
 	UIDMap []idtools.IDMap `json:"uidmap,omitempty"`
 	GIDMap []idtools.IDMap `json:"gidmap,omitempty"`
 
-	Flags map[string]interface{} `json:"flags,omitempty"`
+	Flags map[string]any `json:"flags,omitempty"`
 
 	// volatileStore is true if the container is from the volatile json file
 	volatileStore bool `json:"-"`
@@ -196,7 +196,7 @@ func (c *Container) MountOpts() []string {
 	switch value := c.Flags[mountOptsFlag].(type) {
 	case []string:
 		return value
-	case []interface{}:
+	case []any:
 		var mountOpts []string
 		for _, v := range value {
 			if flag, ok := v.(string); ok {
@@ -641,13 +641,13 @@ func (r *containerStore) ClearFlag(id string, flag string) error {
 }
 
 // Requires startWriting.
-func (r *containerStore) SetFlag(id string, flag string, value interface{}) error {
+func (r *containerStore) SetFlag(id string, flag string, value any) error {
 	container, ok := r.lookup(id)
 	if !ok {
 		return ErrContainerUnknown
 	}
 	if container.Flags == nil {
-		container.Flags = make(map[string]interface{})
+		container.Flags = make(map[string]any)
 	}
 	container.Flags[flag] = value
 	return r.saveFor(container)

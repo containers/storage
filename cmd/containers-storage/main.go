@@ -148,7 +148,7 @@ func main() {
 
 // outputJSON formats its input as JSON to stdout, and returns values suitable
 // for directly returning from command.action
-func outputJSON(data interface{}) (int, error) {
+func outputJSON(data any) (int, error) {
 	if err := json.NewEncoder(os.Stdout).Encode(data); err != nil {
 		return 1, err
 	}
