@@ -60,7 +60,7 @@ func TestSum(t *testing.T) {
 
 	end := 500
 	rs := roll(0, windowSize)
-	for i := 0; i < end; i++ {
+	for i := range end {
 		sumRoll := rs.Digest()
 		newRoll := roll(i, i+windowSize).Digest()
 

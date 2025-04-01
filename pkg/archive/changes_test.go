@@ -357,7 +357,7 @@ func TestChangesDirsMutated(t *testing.T) {
 		{"/symlinknew", ChangeAdd},
 	}
 
-	for i := 0; i < max(len(changes), len(expectedChanges)); i++ {
+	for i := range max(len(changes), len(expectedChanges)) {
 		if i >= len(expectedChanges) {
 			t.Fatalf("unexpected change %s\n", changes[i].String())
 		}
@@ -470,7 +470,7 @@ func TestChangesSize(t *testing.T) {
 func checkChanges(t *testing.T, expectedChanges, changes []Change) {
 	sort.Sort(changesByPath(expectedChanges))
 	sort.Sort(changesByPath(changes))
-	for i := 0; i < max(len(changes), len(expectedChanges)); i++ {
+	for i := range max(len(changes), len(expectedChanges)) {
 		if i >= len(expectedChanges) {
 			t.Fatalf("unexpected change %s\n", changes[i].String())
 		}

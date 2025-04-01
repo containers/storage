@@ -42,7 +42,7 @@ func TestHardLinkOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range names {
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			if err := os.Link(path.Join(dest, name), path.Join(dest, fmt.Sprintf("%s.link%d", name, i))); err != nil {
 				t.Fatal(err)
 			}

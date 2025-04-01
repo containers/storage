@@ -458,7 +458,7 @@ func (r *containerStore) load(lockedForWriting bool) (bool, error) {
 
 	ids := make(map[string]*Container)
 
-	for locationIndex := 0; locationIndex < numContainerLocationIndex; locationIndex++ {
+	for locationIndex := range numContainerLocationIndex {
 		location := containerLocationFromIndex(locationIndex)
 		rpath := r.jsonPath[locationIndex]
 
@@ -531,7 +531,7 @@ func (r *containerStore) save(saveLocations containerLocations) error {
 		return err
 	}
 	r.lastWrite = lw
-	for locationIndex := 0; locationIndex < numContainerLocationIndex; locationIndex++ {
+	for locationIndex := range numContainerLocationIndex {
 		location := containerLocationFromIndex(locationIndex)
 		if location&saveLocations == 0 {
 			continue
