@@ -1406,7 +1406,7 @@ func remapIDs(readIDMappings, writeIDMappings *idtools.IDMappings, chownOpts *id
 		} else if runtime.GOOS == darwin {
 			uid, gid = hdr.Uid, hdr.Gid
 			if xstat, ok := hdr.PAXRecords[PaxSchilyXattr+idtools.ContainersOverrideXattr]; ok {
-				attrs := strings.Split(string(xstat), ":")
+				attrs := strings.Split(xstat, ":")
 				if len(attrs) >= 3 {
 					val, err := strconv.ParseUint(attrs[0], 10, 32)
 					if err != nil {

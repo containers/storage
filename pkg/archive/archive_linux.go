@@ -173,7 +173,7 @@ func (o overlayWhiteoutConverter) ConvertRead(hdr *tar.Header, path string) (boo
 
 func isWhiteOut(stat os.FileInfo) bool {
 	s := stat.Sys().(*syscall.Stat_t)
-	return major(uint64(s.Rdev)) == 0 && minor(uint64(s.Rdev)) == 0
+	return major(uint64(s.Rdev)) == 0 && minor(uint64(s.Rdev)) == 0 //nolint:unconvert
 }
 
 func GetFileOwner(path string) (uint32, uint32, uint32, error) {

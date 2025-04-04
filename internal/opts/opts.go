@@ -28,7 +28,7 @@ func NewListOptsRef(values *[]string, validator ValidatorFctType) *ListOpts {
 }
 
 func (opts *ListOpts) String() string {
-	return fmt.Sprintf("%v", []string((*opts.values)))
+	return fmt.Sprintf("%v", *opts.values)
 }
 
 // Set validates if needed the input value and adds it to the
@@ -150,7 +150,7 @@ func (opts *MapOpts) GetAll() map[string]string {
 }
 
 func (opts *MapOpts) String() string {
-	return fmt.Sprintf("%v", map[string]string((opts.values)))
+	return fmt.Sprintf("%v", opts.values)
 }
 
 // Type returns a string name for this Option type

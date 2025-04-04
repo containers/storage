@@ -67,8 +67,8 @@ func layers(flags *mflag.FlagSet, action string, m storage.Store, args []string)
 	for _, layer := range layers {
 		if listLayersTree {
 			node := treeNode{
-				left:  string(layer.Parent),
-				right: string(layer.ID),
+				left:  layer.Parent,
+				right: layer.ID,
 				notes: []string{},
 			}
 			if node.left == "" {

@@ -238,7 +238,7 @@ func FuzzReadCache(f *testing.F) {
 	dest = nil
 
 	f.Fuzz(func(t *testing.T, orig []byte) {
-		cacheRead, err := readCacheFileFromMemory([]byte(orig))
+		cacheRead, err := readCacheFileFromMemory(orig)
 		if err != nil || cacheRead == nil {
 			return
 		}

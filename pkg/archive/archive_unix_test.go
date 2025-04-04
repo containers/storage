@@ -161,8 +161,7 @@ func getNlink(path string) (uint64, error) {
 	if !ok {
 		return 0, fmt.Errorf("expected type *syscall.Stat_t, got %t", stat.Sys())
 	}
-	// We need this conversion on ARM64
-	return uint64(statT.Nlink), nil
+	return uint64(statT.Nlink), nil //nolint:unconvert // Need the conversion for e.g. linux/arm64.
 }
 
 func getInode(path string) (uint64, error) {
