@@ -216,7 +216,7 @@ type DriverWithDifferOutput struct {
 	CompressedDigest   digest.Digest
 	Metadata           string
 	BigData            map[string][]byte
-	TarSplit           []byte // nil if not available
+	TarSplit           *os.File // nil if not available
 	TOCDigest          digest.Digest
 	// RootDirMode is the mode of the root directory of the layer, if specified.
 	RootDirMode *os.FileMode
