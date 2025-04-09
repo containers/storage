@@ -433,19 +433,26 @@ func ensureFileMetadataAttributesMatch(a, b *minimal.FileMetadata) error {
 	return nil
 }
 
-func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompressedChecksum string) ([]byte, error) {
+func validateBlob(blob []byte, expectedCompressedChecksum string) error {
 	d, err := digest.Parse(expectedCompressedChecksum)
 	if err != nil {
-		return nil, fmt.Errorf("invalid digest %q: %w", expectedCompressedChecksum, err)
+		return fmt.Errorf("invalid digest %q: %w", expectedCompressedChecksum, err)
 	}
 
 	blobDigester := d.Algorithm().Digester()
 	blobChecksum := blobDigester.Hash()
 	if _, err := blobChecksum.Write(blob); err != nil {
-		return nil, err
+		return err
 	}
 	if blobDigester.Digest() != d {
-		return nil, fmt.Errorf("invalid blob checksum, expected checksum %s, got %s", d, blobDigester.Digest())
+		return fmt.Errorf("invalid blob checksum, expected checksum %s, got %s", d, blobDigester.Digest())
+	}
+	return nil
+}
+
+func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompressedChecksum string) ([]byte, error) {
+	if err := validateBlob(blob, expectedCompressedChecksum); err != nil {
+		return nil, err
 	}
 
 	decoder, err := zstd.NewReader(nil) //nolint:contextcheck
