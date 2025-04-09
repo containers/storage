@@ -267,6 +267,7 @@ type DifferOptions struct {
 // This API is experimental and can be changed without bumping the major version number.
 type Differ interface {
 	ApplyDiff(dest string, options *archive.TarOptions, differOpts *DifferOptions) (DriverWithDifferOutput, error)
+	Close() error
 }
 
 // DriverWithDiffer is the interface for direct diff access.

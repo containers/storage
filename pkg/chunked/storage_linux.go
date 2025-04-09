@@ -193,6 +193,10 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 	return copied, newSeekableFile(f), convertedOutputDigester.Digest(), newAnnotations, nil
 }
 
+func (c *chunkedDiffer) Close() error {
+	return nil
+}
+
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
 // If it returns an error that matches ErrFallbackToOrdinaryLayerDownload, the caller can
 // retry the operation with a different method.
