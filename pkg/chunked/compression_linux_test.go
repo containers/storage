@@ -39,7 +39,7 @@ func TestTarSizeFromTarSplit(t *testing.T) {
 	_, err = io.Copy(io.Discard, tsReader)
 	require.NoError(t, err)
 
-	res, err := tarSizeFromTarSplit(tarSplit.Bytes())
+	res, err := tarSizeFromTarSplit(&tarSplit)
 	require.NoError(t, err)
 	assert.Equal(t, expectedTarSize, res)
 }
