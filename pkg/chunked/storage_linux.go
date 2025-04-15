@@ -163,7 +163,7 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 
 	defer diff.Close()
 
-	fd, err := unix.Open(destDirectory, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
+	fd, err := openTmpFile(destDirectory)
 	if err != nil {
 		return 0, nil, "", nil, &fs.PathError{Op: "open", Path: destDirectory, Err: err}
 	}
