@@ -2,7 +2,9 @@ package chunked
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +12,7 @@ import (
 	"github.com/vbatts/tar-split/archive/tar"
 	"github.com/vbatts/tar-split/tar/asm"
 	"github.com/vbatts/tar-split/tar/storage"
+	"golang.org/x/sys/unix"
 )
 
 func TestTarSizeFromTarSplit(t *testing.T) {
@@ -39,7 +42,27 @@ func TestTarSizeFromTarSplit(t *testing.T) {
 	_, err = io.Copy(io.Discard, tsReader)
 	require.NoError(t, err)
 
-	res, err := tarSizeFromTarSplit(tarSplit.Bytes())
+	res, err := tarSizeFromTarSplit(&tarSplit)
 	require.NoError(t, err)
 	assert.Equal(t, expectedTarSize, res)
+}
+
+func TestOpenTmpFile(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		// scope for cleanup
+		f := func(fn func(tmpDir string) (int, error)) {
+			fd, err := fn(t.TempDir())
+			assert.NoError(t, err)
+			defer unix.Close(fd)
+
+			path, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", fd))
+			assert.NoError(t, err)
+
+			// the path under /proc/self/fd/$FD has the prefix "(deleted)" when the file
+			// is unlinked
+			assert.Contains(t, path, "(deleted)")
+		}
+		f(openTmpFile)
+		f(openTmpFileNoTmpFile)
+	}
 }
