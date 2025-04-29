@@ -2,7 +2,6 @@ package chunked
 
 import (
 	archivetar "archive/tar"
-	"bytes"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -89,7 +88,7 @@ type chunkedDiffer struct {
 	tocOffset           int64
 	manifest            []byte
 	toc                 *minimal.TOC // The parsed contents of manifest, or nil if not yet available
-	tarSplit            []byte
+	tarSplit            *os.File
 	uncompressedTarSize int64 // -1 if unknown
 	// skipValidation is set to true if the individual files in
 	// the layer are trusted and should not be validated.
@@ -164,12 +163,10 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 
 	defer diff.Close()
 
-	fd, err := unix.Open(destDirectory, unix.O_TMPFILE|unix.O_RDWR|unix.O_CLOEXEC, 0o600)
+	f, err := openTmpFile(destDirectory)
 	if err != nil {
-		return 0, nil, "", nil, &fs.PathError{Op: "open", Path: destDirectory, Err: err}
+		return 0, nil, "", nil, err
 	}
-
-	f := os.NewFile(uintptr(fd), destDirectory)
 
 	newAnnotations := make(map[string]string)
 	level := 1
@@ -191,6 +188,15 @@ func (c *chunkedDiffer) convertTarToZstdChunked(destDirectory string, payload *o
 	}
 
 	return copied, newSeekableFile(f), convertedOutputDigester.Digest(), newAnnotations, nil
+}
+
+func (c *chunkedDiffer) Close() error {
+	if c.tarSplit != nil {
+		err := c.tarSplit.Close()
+		c.tarSplit = nil
+		return err
+	}
+	return nil
 }
 
 // GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
@@ -333,13 +339,16 @@ func makeConvertFromRawDiffer(store storage.Store, blobDigest digest.Digest, blo
 // makeZstdChunkedDiffer sets up a chunkedDiffer for a zstd:chunked layer.
 // It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
 func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest.Digest, annotations map[string]string, iss ImageSourceSeekable, pullOptions pullOptions) (*chunkedDiffer, error) {
-	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(iss, tocDigest, annotations)
+	manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(store.RunRoot(), iss, tocDigest, annotations)
 	if err != nil { // May be ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert
 		return nil, fmt.Errorf("read zstd:chunked manifest: %w", err)
 	}
 
 	var uncompressedTarSize int64 = -1
 	if tarSplit != nil {
+		if _, err := tarSplit.Seek(0, 0); err != nil {
+			return nil, err
+		}
 		uncompressedTarSize, err = tarSizeFromTarSplit(tarSplit)
 		if err != nil {
 			return nil, fmt.Errorf("computing size from tar-split: %w", err)
@@ -1435,7 +1444,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		if tocDigest == nil {
 			return graphdriver.DriverWithDifferOutput{}, fmt.Errorf("internal error: just-created zstd:chunked missing TOC digest")
 		}
-		manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(fileSource, *tocDigest, annotations)
+		manifest, toc, tarSplit, tocOffset, err := readZstdChunkedManifest(dest, fileSource, *tocDigest, annotations)
 		if err != nil {
 			return graphdriver.DriverWithDifferOutput{}, fmt.Errorf("read zstd:chunked manifest: %w", err)
 		}
@@ -1842,7 +1851,10 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		case c.pullOptions.insecureAllowUnpredictableImageContents:
 			// Oh well.  Skip the costly digest computation.
 		case output.TarSplit != nil:
-			metadata := tsStorage.NewJSONUnpacker(bytes.NewReader(output.TarSplit))
+			if _, err := output.TarSplit.Seek(0, 0); err != nil {
+				return output, err
+			}
+			metadata := tsStorage.NewJSONUnpacker(output.TarSplit)
 			fg := newStagedFileGetter(dirFile, flatPathNameMap)
 			digester := digest.Canonical.Digester()
 			if err := asm.WriteOutputTarStream(fg, metadata, digester.Hash()); err != nil {

@@ -2,7 +2,9 @@ package chunked
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +41,28 @@ func TestTarSizeFromTarSplit(t *testing.T) {
 	_, err = io.Copy(io.Discard, tsReader)
 	require.NoError(t, err)
 
-	res, err := tarSizeFromTarSplit(tarSplit.Bytes())
+	res, err := tarSizeFromTarSplit(&tarSplit)
 	require.NoError(t, err)
 	assert.Equal(t, expectedTarSize, res)
+}
+
+func TestOpenTmpFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	for range 1000 {
+		// scope for cleanup
+		f := func(fn func(tmpDir string) (*os.File, error)) {
+			file, err := fn(tmpDir)
+			assert.NoError(t, err)
+			defer file.Close()
+
+			path, err := os.Readlink(fmt.Sprintf("/proc/self/fd/%d", file.Fd()))
+			assert.NoError(t, err)
+
+			// the path under /proc/self/fd/$FD has the prefix "(deleted)" when the file
+			// is unlinked
+			assert.Contains(t, path, "(deleted)")
+		}
+		f(openTmpFile)
+		f(openTmpFileNoTmpFile)
+	}
 }
