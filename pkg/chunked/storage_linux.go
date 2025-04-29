@@ -108,6 +108,7 @@ type chunkedDiffer struct {
 	zstdReader  *zstd.Decoder
 	rawReader   io.Reader
 	useFsVerity graphdriver.DifferFsVerity
+	used        bool // the differ object was already used and cannot be used again for .ApplyDiff
 }
 
 var xattrsToIgnore = map[string]any{
@@ -1388,6 +1389,11 @@ func typeToOsMode(typ string) (os.FileMode, error) {
 }
 
 func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, differOpts *graphdriver.DifferOptions) (graphdriver.DriverWithDifferOutput, error) {
+	if c.used {
+		return graphdriver.DriverWithDifferOutput{}, fmt.Errorf("internal error: chunked differ already used")
+	}
+	c.used = true
+
 	defer c.layersCache.release()
 	defer func() {
 		if c.zstdReader != nil {
