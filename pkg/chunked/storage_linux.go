@@ -1873,6 +1873,9 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 
 	output.Artifacts[fsVerityDigestsKey] = c.fsVerityDigests
 
+	// on success steal the reference to the tarSplit file
+	c.tarSplit = nil
+
 	return output, nil
 }
 

@@ -3126,6 +3126,12 @@ func (s *store) Diff(from, to string, options *DiffOptions) (io.ReadCloser, erro
 }
 
 func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
+	defer func() {
+		if args.DiffOutput.TarSplit != nil {
+			args.DiffOutput.TarSplit.Close()
+			args.DiffOutput.TarSplit = nil
+		}
+	}()
 	rlstore, rlstores, err := s.bothLayerStoreKinds()
 	if err != nil {
 		return nil, err
@@ -3157,6 +3163,10 @@ func (s *store) ApplyStagedLayer(args ApplyStagedLayerOptions) (*Layer, error) {
 }
 
 func (s *store) CleanupStagedLayer(diffOutput *drivers.DriverWithDifferOutput) error {
+	if diffOutput.TarSplit != nil {
+		diffOutput.TarSplit.Close()
+		diffOutput.TarSplit = nil
+	}
 	_, err := writeToLayerStore(s, func(rlstore rwLayerStore) (struct{}, error) {
 		return struct{}{}, rlstore.CleanupStagingDirectory(diffOutput.Target)
 	})
