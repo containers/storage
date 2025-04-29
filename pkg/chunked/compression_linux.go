@@ -304,7 +304,7 @@ func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocD
 			return nil, nil, nil, 0, err
 		}
 	}
-	return decodedBlob, toc, decodedTarSplit, int64(manifestChunk.Offset), err
+	return decodedBlob, toc, decodedTarSplit, int64(manifestChunk.Offset), nil
 }
 
 // ensureTOCMatchesTarSplit validates that toc and tarSplit contain _exactly_ the same entries.
