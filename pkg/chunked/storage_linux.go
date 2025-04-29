@@ -80,7 +80,7 @@ type chunkedDiffer struct {
 	convertToZstdChunked bool
 
 	// Chunked metadata
-	// This is usually set in GetDiffer, but if convertToZstdChunked, it is only computed in chunkedDiffer.ApplyDiff
+	// This is usually set in NewDiffer, but if convertToZstdChunked, it is only computed in chunkedDiffer.ApplyDiff
 	// ==========
 	// tocDigest is the digest of the TOC document when the layer
 	// is partially pulled, or "" if not relevant to consumers.
@@ -95,7 +95,7 @@ type chunkedDiffer struct {
 	skipValidation bool
 
 	// Long-term caches
-	// This is set in GetDiffer, when the caller must not hold any storage locks, and later consumed in .ApplyDiff()
+	// This is set in NewDiffer, when the caller must not hold any storage locks, and later consumed in .ApplyDiff()
 	// ==========
 	layersCache     *layersCache
 	copyBuffer      []byte
@@ -200,10 +200,11 @@ func (c *chunkedDiffer) Close() error {
 	return nil
 }
 
-// GetDiffer returns a differ than can be used with [Store.PrepareStagedLayer].
+// NewDiffer returns a differ than can be used with [Store.PrepareStagedLayer].
 // If it returns an error that matches ErrFallbackToOrdinaryLayerDownload, the caller can
 // retry the operation with a different method.
-func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {
+// The caller must call Close() on the returned Differ.
+func NewDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {
 	pullOptions := parsePullOptions(store)
 
 	if !pullOptions.enablePartialImages {
@@ -266,7 +267,7 @@ func (e errFallbackCanConvert) Unwrap() error {
 	return e.err
 }
 
-// getProperDiffer is an implementation detail of GetDiffer.
+// getProperDiffer is an implementation detail of NewDiffer.
 // It returns a “proper” differ (not a convert_images one) if possible.
 // May return an error matching ErrFallbackToOrdinaryLayerDownload if a fallback to an alternative
 // (either makeConvertFromRawDiffer, or a non-partial pull) is permissible.
@@ -1873,7 +1874,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 			}
 			output.UncompressedDigest = digester.Digest()
 		default:
-			// We are checking for this earlier in GetDiffer, so this should not be reachable.
+			// We are checking for this earlier in NewDiffer, so this should not be reachable.
 			return output, fmt.Errorf(`internal error: layer's UncompressedDigest is unknown and "insecure_allow_unpredictable_image_contents" is not set`)
 		}
 	}

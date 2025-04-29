@@ -365,6 +365,8 @@ type Store interface {
 	// PrepareStagedLayer applies a diff to a layer.
 	// It is the caller responsibility to clean the staging directory if it is not
 	// successfully applied with ApplyStagedLayer.
+	// The caller must ensure [Store.ApplyStagedLayer] or [Store.CleanupStagedLayer] is called eventually
+	// with the returned [drivers.DriverWithDifferOutput] object.
 	PrepareStagedLayer(options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
 
 	// ApplyStagedLayer combines the functions of creating a layer and using the staging
