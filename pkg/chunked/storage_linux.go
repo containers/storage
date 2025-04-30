@@ -199,7 +199,7 @@ func (c *chunkedDiffer) Close() error {
 	return nil
 }
 
-// GetDiffer returns a differ than can be used with ApplyDiffWithDiffer.
+// GetDiffer returns a differ than can be used with [Store.PrepareStagedLayer].
 // If it returns an error that matches ErrFallbackToOrdinaryLayerDownload, the caller can
 // retry the operation with a different method.
 func GetDiffer(ctx context.Context, store storage.Store, blobDigest digest.Digest, blobSize int64, annotations map[string]string, iss ImageSourceSeekable) (graphdriver.Differ, error) {

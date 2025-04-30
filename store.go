@@ -362,12 +362,6 @@ type Store interface {
 	//   }
 	ApplyDiff(to string, diff io.Reader) (int64, error)
 
-	// ApplyDiffWithDiffer applies a diff to a layer.
-	// It is the caller responsibility to clean the staging directory if it is not
-	// successfully applied with ApplyStagedLayer.
-	// Deprecated: Use PrepareStagedLayer instead.  ApplyDiffWithDiffer is going to be removed in a future release
-	ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error)
-
 	// PrepareStagedLayer applies a diff to a layer.
 	// It is the caller responsibility to clean the staging directory if it is not
 	// successfully applied with ApplyStagedLayer.
@@ -3175,13 +3169,6 @@ func (s *store) PrepareStagedLayer(options *drivers.ApplyDiffWithDifferOpts, dif
 		return nil, err
 	}
 	return rlstore.applyDiffWithDifferNoLock(options, differ)
-}
-
-func (s *store) ApplyDiffWithDiffer(to string, options *drivers.ApplyDiffWithDifferOpts, differ drivers.Differ) (*drivers.DriverWithDifferOutput, error) {
-	if to != "" {
-		return nil, fmt.Errorf("ApplyDiffWithDiffer does not support non-empty 'layer' parameter")
-	}
-	return s.PrepareStagedLayer(options, differ)
 }
 
 func (s *store) DifferTarget(id string) (string, error) {
