@@ -1014,3 +1014,13 @@ func parseStorageOpt(storageOpt map[string]string) (*storageOptions, error) {
 	}
 	return &options, nil
 }
+
+func (d *Driver) InitTempDirectory() error {
+	// InitTempDirectory not implemented
+	return nil
+}
+
+func (d *Driver) CleanupTempDirectory() error {
+	// CleanupTempDirectory not implemented
+	return nil
+}

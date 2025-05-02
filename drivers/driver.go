@@ -159,6 +159,9 @@ type ProtoDriver interface {
 	AdditionalImageStores() []string
 	// Dedup performs deduplication of the driver's storage.
 	Dedup(DedupArgs) (DedupResult, error)
+
+	InitTempDirectory() error
+	CleanupTempDirectory() error
 }
 
 // DiffDriver is the interface to use to implement graph diffs

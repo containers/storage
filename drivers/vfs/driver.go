@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/internal/dedup"
@@ -17,6 +18,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -82,6 +84,8 @@ type Driver struct {
 	naiveDiff         graphdriver.DiffDriver
 	updater           graphdriver.LayerIDMapUpdater
 	imageStore        string
+
+	tempDirectory *tempdir.TempDir
 }
 
 func (d *Driver) String() string {
@@ -241,6 +245,9 @@ func (d *Driver) dir(id string) string {
 
 // Remove deletes the content from the directory for a given id.
 func (d *Driver) Remove(id string) error {
+	if d.tempDirectory != nil {
+		return d.tempDirectory.Add(d.dir(id), time.Now().Format("20060102-150405"))
+	}
 	return system.EnsureRemoveAll(d.dir(id))
 }
 
@@ -364,4 +371,23 @@ func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, erro
 		return graphdriver.DedupResult{}, err
 	}
 	return graphdriver.DedupResult{Deduped: r.Deduped}, nil
+}
+
+func (d *Driver) InitTempDirectory() error {
+	t, err := tempdir.NewTempDir(d.home)
+	if err != nil {
+		return err
+	}
+	d.tempDirectory = t
+	return nil
+}
+
+func (d *Driver) CleanupTempDirectory() error {
+	if d.tempDirectory != nil {
+		if err := d.tempDirectory.Cleanup(); err != nil {
+			logrus.Errorf("removing temp dir failed: %v", err)
+		}
+		d.tempDirectory = nil
+	}
+	return nil
 }
