@@ -30,6 +30,7 @@ import (
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/stringutils"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/types"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -2550,6 +2551,14 @@ func (s *store) Lookup(name string) (string, error) {
 }
 
 func (s *store) DeleteLayer(id string) error {
+	var cleanUp tempdir.CleanupTempDirFunc
+	defer func() {
+		if cleanUp != nil {
+			if err := cleanUp(); err != nil {
+				logrus.Errorf("Error cleaning up after deleting layer %q: %v", id, err)
+			}
+		}
+	}()
 	return s.writeToAllStores(func(rlstore rwLayerStore) error {
 		if rlstore.Exists(id) {
 			if l, err := rlstore.Get(id); err != nil {
@@ -2583,7 +2592,7 @@ func (s *store) DeleteLayer(id string) error {
 					return fmt.Errorf("layer %v used by container %v: %w", id, container.ID, ErrLayerUsedByContainer)
 				}
 			}
-			if err := rlstore.Delete(id); err != nil {
+			if cleanUp, err = rlstore.DeferredDelete(id); err != nil {
 				return fmt.Errorf("delete layer %v: %w", id, err)
 			}
 

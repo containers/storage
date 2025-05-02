@@ -32,6 +32,7 @@ import (
 	"github.com/containers/storage/pkg/longpath"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	units "github.com/docker/go-units"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
@@ -1013,4 +1014,10 @@ func parseStorageOpt(storageOpt map[string]string) (*storageOptions, error) {
 		}
 	}
 	return &options, nil
+}
+
+// DeferredRemove is not implemented.
+// It calls Remove directly.
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	return nil, d.Remove(id)
 }

@@ -45,6 +45,7 @@ import (
 	mountpk "github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/unshare"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
@@ -780,4 +781,10 @@ func (a *Driver) SupportsShifting() bool {
 // Dedup performs deduplication of the driver's storage.
 func (a *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
 	return graphdriver.DedupResult{}, nil
+}
+
+// DeferredRemove is not implemented.
+// It calls Remove directly.
+func (a *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	return nil, a.Remove(id)
 }

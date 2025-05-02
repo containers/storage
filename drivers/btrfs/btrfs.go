@@ -36,6 +36,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/docker/go-units"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
@@ -677,4 +678,10 @@ func (d *Driver) AdditionalImageStores() []string {
 // Dedup performs deduplication of the driver's storage.
 func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
 	return graphdriver.DedupResult{}, nil
+}
+
+// DeferredRemove is not implemented.
+// It calls Remove directly.
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	return nil, d.Remove(id)
 }
