@@ -30,6 +30,7 @@ import (
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/stringutils"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/types"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/opencontainers/selinux/go-selinux/label"
@@ -785,6 +786,9 @@ type store struct {
 	// FIXME: The following fields need locking, and don’t have it.
 	additionalUIDs *idSet // Set by getAvailableIDs()
 	additionalGIDs *idSet // Set by getAvailableIDs()
+
+	// This fled is read-only. Should be save to access without any locking.
+	tempDirectory *tempdir.TempDir
 }
 
 // GetStore attempts to find an already-created Store object matching the
@@ -911,6 +915,12 @@ func GetStore(options types.StoreOptions) (Store, error) {
 	if err := s.load(); err != nil {
 		return nil, err
 	}
+
+	t, err := tempdir.NewTempDir(filepath.Join(s.graphRoot, "tmp"))
+	if err != nil {
+		return nil, err
+	}
+	s.tempDirectory = t
 
 	stores = append(stores, s)
 
@@ -2550,7 +2560,14 @@ func (s *store) Lookup(name string) (string, error) {
 }
 
 func (s *store) DeleteLayer(id string) error {
+	var cleanUp func() error
+	defer func() {
+		if err := cleanUp(); err != nil {
+			logrus.Errorf("Error cleaning up after deleting layer %q: %v", id, err)
+		}
+	}()
 	return s.writeToAllStores(func(rlstore rwLayerStore) error {
+		cleanUp = rlstore.CleanupTemporaryDirectories
 		if rlstore.Exists(id) {
 			if l, err := rlstore.Get(id); err != nil {
 				id = l.ID
@@ -3709,6 +3726,9 @@ func (s *store) Shutdown(force bool) ([]string, error) {
 		// the next user picks it.
 		if err == nil {
 			err = s.graphDriver.Cleanup()
+		}
+		if err == nil {
+			err = s.tempDirectory.Cleanup()
 		}
 	}
 	return mounted, err

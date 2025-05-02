@@ -34,6 +34,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
 	digest "github.com/opencontainers/go-digest"
@@ -136,6 +137,9 @@ type Driver struct {
 	stagingDirsLocks map[string]*lockfile.LockFile
 
 	supportsIDMappedMounts *bool
+
+	// This fled is read-only. Should be save to access without any locking.
+	tempDirectory *tempdir.TempDir
 }
 
 type additionalLayerStore struct {
@@ -457,6 +461,12 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		// if xfs is not the backing fs then error out if the storage-opt overlay.size is used.
 		return nil, fmt.Errorf("storage option overlay.size and overlay.inodes only supported for backingFS XFS. Found %v", backingFs)
 	}
+
+	t, err := tempdir.NewTempDir(filepath.Join(d.homeDirForImageStore(), stagingDir))
+	if err != nil {
+		return nil, err
+	}
+	d.tempDirectory = t
 
 	logrus.Debugf("backingFs=%s, projectQuotaSupported=%v, useNativeDiff=%v, usingMetacopy=%v", backingFs, projectQuotaSupported, !d.useNaiveDiff(), d.usingMetacopy)
 
@@ -862,6 +872,9 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 // the storage is being shutdown.  The only state created by the driver
 // is the bind mount on the home directory.
 func (d *Driver) Cleanup() error {
+	if err := d.tempDirectory.Cleanup(); err != nil {
+		return err
+	}
 	anyPresent := d.pruneStagingDirectories()
 	if anyPresent {
 		return nil
@@ -1313,16 +1326,17 @@ func (d *Driver) Remove(id string) error {
 	dir := d.dir(id)
 	lid, err := os.ReadFile(path.Join(dir, "link"))
 	if err == nil {
-		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
-			logrus.Debugf("Failed to remove link: %v", err)
+		if err := d.tempDirectory.Add(path.Join(d.home, linkDir, string(lid))); err != nil {
+			logrus.Debugf("Failed to Add to stage Directory link: %v", err)
 		}
 	}
 
 	d.releaseAdditionalLayerByID(id)
 
-	if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
-		return err
+	if err := d.tempDirectory.Add(dir); err != nil {
+		return fmt.Errorf("failed to add to stage directory: %w", err)
 	}
+
 	if d.quotaCtl != nil {
 		d.quotaCtl.ClearQuota(dir)
 		if d.imageStore != "" {
@@ -1358,8 +1372,8 @@ func (d *Driver) recreateSymlinks() error {
 		// Check that for each layer, there's a link in "l" with the name in
 		// the layer's "link" file that points to the layer's "diff" directory.
 		for _, dir := range dirs {
-			// Skip over the linkDir and anything that is not a directory
-			if dir.Name() == linkDir || !dir.IsDir() {
+			// Skip over the linkDir and anything that is not a directory or tempDir
+			if dir.Name() == linkDir || !dir.IsDir() || dir.Name() == stagingDir { // Note for review: Not sure if skipping stagingDir is correct
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink

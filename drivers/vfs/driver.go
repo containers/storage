@@ -17,6 +17,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -67,6 +68,12 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 	d.updater = graphdriver.NewNaiveLayerIDMapUpdater(d)
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, d.updater)
 
+	t, err := tempdir.NewTempDir(d.home)
+	if err != nil {
+		return nil, err
+	}
+	d.tempDirectory = t
+
 	return d, nil
 }
 
@@ -82,6 +89,9 @@ type Driver struct {
 	naiveDiff         graphdriver.DiffDriver
 	updater           graphdriver.LayerIDMapUpdater
 	imageStore        string
+
+	// This fled is read-only. Should be save to access without any locking.
+	tempDirectory *tempdir.TempDir
 }
 
 func (d *Driver) String() string {
@@ -100,7 +110,8 @@ func (d *Driver) Metadata(id string) (map[string]string, error) {
 
 // Cleanup is used to implement graphdriver.ProtoDriver. There is no cleanup required for this driver.
 func (d *Driver) Cleanup() error {
-	return nil
+	// TODO: UPDATE comment
+	return d.tempDirectory.Cleanup()
 }
 
 type fileGetNilCloser struct {
@@ -241,7 +252,7 @@ func (d *Driver) dir(id string) string {
 
 // Remove deletes the content from the directory for a given id.
 func (d *Driver) Remove(id string) error {
-	return system.EnsureRemoveAll(d.dir(id))
+	return d.tempDirectory.Add(d.dir(id))
 }
 
 // Get returns the directory for the given id.
