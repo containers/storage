@@ -507,7 +507,7 @@ func decodeAndValidateBlobToStream(blob []byte, w *os.File, expectedCompressedCh
 		return err
 	}
 
-	decoder, err := zstd.NewReader(bytes.NewReader(blob)) //nolint:contextcheck
+	decoder, err := zstd.NewReader(bytes.NewReader(blob))
 	if err != nil {
 		return err
 	}
