@@ -30,7 +30,7 @@ require (
 	github.com/ulikunitz/xz v0.5.12
 	github.com/vbatts/tar-split v0.12.1
 	golang.org/x/sync v0.14.0
-	golang.org/x/sys v0.32.0
+	golang.org/x/sys v0.33.0
 	gotest.tools/v3 v3.5.2
 )
 
