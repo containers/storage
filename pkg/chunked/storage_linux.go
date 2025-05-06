@@ -1989,7 +1989,7 @@ func validateChunkChecksum(chunk *minimal.FileMetadata, root, path string, offse
 	}
 	defer fd.Close()
 
-	if _, err := unix.Seek(int(fd.Fd()), offset, 0); err != nil {
+	if _, err := fd.Seek(offset, io.SeekStart); err != nil {
 		return false
 	}
 
