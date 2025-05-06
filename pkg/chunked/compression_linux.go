@@ -323,7 +323,7 @@ func ensureTOCMatchesTarSplit(toc *minimal.TOC, tarSplit *os.File) error {
 		}
 	}
 
-	if _, err := tarSplit.Seek(0, 0); err != nil {
+	if _, err := tarSplit.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 

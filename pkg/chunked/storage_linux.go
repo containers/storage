@@ -353,7 +353,7 @@ func makeZstdChunkedDiffer(store storage.Store, blobSize int64, tocDigest digest
 
 	var uncompressedTarSize int64 = -1
 	if tarSplit != nil {
-		if _, err := tarSplit.Seek(0, 0); err != nil {
+		if _, err := tarSplit.Seek(0, io.SeekStart); err != nil {
 			return nil, err
 		}
 		uncompressedTarSize, err = tarSizeFromTarSplit(tarSplit)
@@ -659,7 +659,7 @@ func (o *originFile) OpenFile() (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	if _, err := srcFile.Seek(o.Offset, 0); err != nil {
+	if _, err := srcFile.Seek(o.Offset, io.SeekStart); err != nil {
 		srcFile.Close()
 		return nil, err
 	}
@@ -1863,7 +1863,7 @@ func (c *chunkedDiffer) ApplyDiff(dest string, options *archive.TarOptions, diff
 		case c.pullOptions.insecureAllowUnpredictableImageContents:
 			// Oh well.  Skip the costly digest computation.
 		case output.TarSplit != nil:
-			if _, err := output.TarSplit.Seek(0, 0); err != nil {
+			if _, err := output.TarSplit.Seek(0, io.SeekStart); err != nil {
 				return output, err
 			}
 			metadata := tsStorage.NewJSONUnpacker(output.TarSplit)
