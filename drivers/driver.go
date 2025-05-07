@@ -216,8 +216,10 @@ type DriverWithDifferOutput struct {
 	CompressedDigest   digest.Digest
 	Metadata           string
 	BigData            map[string][]byte
-	TarSplit           *os.File // nil if not available
-	TOCDigest          digest.Digest
+	// TarSplit is owned by the [DriverWithDifferOutput], and must be closed by calling one of
+	// [Store.ApplyStagedLayer]/[Store.CleanupStagedLayer].  It is nil if not available.
+	TarSplit  *os.File
+	TOCDigest digest.Digest
 	// RootDirMode is the mode of the root directory of the layer, if specified.
 	RootDirMode *os.FileMode
 	// Artifacts is a collection of additional artifacts
