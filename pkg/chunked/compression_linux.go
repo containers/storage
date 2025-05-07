@@ -283,15 +283,18 @@ func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocD
 		if err != nil {
 			return nil, nil, nil, 0, err
 		}
+		defer func() {
+			if retErr != nil {
+				decodedTarSplit.Close()
+			}
+		}()
 		if err := decodeAndValidateBlobToStream(tarSplit, decodedTarSplit, toc.TarSplitDigest.String()); err != nil {
-			decodedTarSplit.Close()
 			return nil, nil, nil, 0, fmt.Errorf("validating and decompressing tar-split: %w", err)
 		}
 		// We use the TOC for creating on-disk files, but the tar-split for creating metadata
 		// when exporting the layer contents. Ensure the two match, otherwise local inspection of a container
 		// might be misleading about the exported contents.
 		if err := ensureTOCMatchesTarSplit(toc, decodedTarSplit); err != nil {
-			decodedTarSplit.Close()
 			return nil, nil, nil, 0, fmt.Errorf("tar-split and TOC data is inconsistent: %w", err)
 		}
 	} else if tarSplitChunk.Offset > 0 {
@@ -304,7 +307,7 @@ func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocD
 			return nil, nil, nil, 0, err
 		}
 	}
-	return decodedBlob, toc, decodedTarSplit, int64(manifestChunk.Offset), err
+	return decodedBlob, toc, decodedTarSplit, int64(manifestChunk.Offset), nil
 }
 
 // ensureTOCMatchesTarSplit validates that toc and tarSplit contain _exactly_ the same entries.

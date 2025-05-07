@@ -176,7 +176,7 @@ func applyDiffUsingStagingDirectory(flags *mflag.FlagSet, action string, m stora
 		file: tar,
 	}
 
-	differ, err := chunked.GetDiffer(context.Background(), m, digesterCompressed.Digest(), size, metadata, &fetcher)
+	differ, err := chunked.NewDiffer(context.Background(), m, digesterCompressed.Digest(), size, metadata, &fetcher)
 	if err != nil {
 		return 1, err
 	}
