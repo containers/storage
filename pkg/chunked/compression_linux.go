@@ -182,8 +182,8 @@ func openTmpFileNoTmpFile(tmpDir string) (*os.File, error) {
 // readZstdChunkedManifest reads the zstd:chunked manifest from the seekable stream blobStream.
 // tmpDir is a directory where the tar-split temporary file is written to.  The file is opened with
 // O_TMPFILE so that it is automatically removed when it is closed.
-// Returns (manifest blob, parsed manifest, tar-split file or nil, manifest offset).  The opened tar-split file
-// points to the end of the file (equivalent to Seek(0, 2)).
+// Returns (manifest blob, parsed manifest, tar-split file or nil, manifest offset).
+// The opened tar-split file’s position is unspecified.
 // It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
 func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) (_ []byte, _ *minimal.TOC, _ *os.File, _ int64, retErr error) {
 	offsetMetadata := annotations[minimal.ManifestInfoKey]
@@ -323,7 +323,7 @@ func ensureTOCMatchesTarSplit(toc *minimal.TOC, tarSplit *os.File) error {
 		}
 	}
 
-	if _, err := tarSplit.Seek(0, 0); err != nil {
+	if _, err := tarSplit.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 
@@ -507,7 +507,7 @@ func decodeAndValidateBlobToStream(blob []byte, w *os.File, expectedCompressedCh
 		return err
 	}
 
-	decoder, err := zstd.NewReader(bytes.NewReader(blob)) //nolint:contextcheck
+	decoder, err := zstd.NewReader(bytes.NewReader(blob))
 	if err != nil {
 		return err
 	}
