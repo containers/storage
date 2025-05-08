@@ -26,6 +26,7 @@ import (
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/tarlog"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/truncindex"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -435,6 +436,35 @@ type layerStore struct {
 	// FIXME: This field is only set when constructing layerStore, but locking rules of the driver
 	// interface itself are not documented here.
 	driver drivers.Driver
+
+	tempDirectory *tempdir.TempDir
+}
+
+func (r *layerStore) initTempDirs() error {
+	t, err := tempdir.NewTempDir(r.rundir)
+	if err != nil {
+		return err
+	}
+	r.tempDirectory = t
+	if err := r.driver.InitTempDirectory(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *layerStore) cleanTempDirs() error {
+	// TODO: run cleanup in parallel
+	if r.tempDirectory != nil {
+		if err := r.tempDirectory.Cleanup(); err != nil {
+			return err
+		}
+		r.tempDirectory = nil
+	}
+
+	if err := r.driver.CleanupTempDirectory(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func copyLayer(l *Layer) *Layer {
@@ -486,6 +516,10 @@ func (r *layerStore) startWritingWithReload(canReload bool) error {
 		}
 	}
 
+	if err := r.initTempDirs(); err != nil {
+		return err
+	}
+
 	succeeded = true
 	return nil
 }
@@ -500,6 +534,10 @@ func (r *layerStore) startWriting() error {
 func (r *layerStore) stopWriting() {
 	r.inProcessLock.Unlock()
 	r.lockfile.Unlock()
+	// Cleanup temporary directories needs to be done after unlocking the layer store.
+	if err := r.cleanTempDirs(); err != nil {
+		logrus.Errorf("Error cleaning up temporary directories: %v", err)
+	}
 }
 
 // startReadingWithReload makes sure the store is fresh if canReload, and locks it for reading.
@@ -1943,8 +1981,10 @@ func (r *layerStore) deleteInternal(id string) error {
 	if err := r.driver.Remove(id); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	os.Remove(r.tspath(id))
-	os.RemoveAll(r.datadir(id))
+	_ = r.tempDirectory.Add(r.tspath(id), time.Now().Format("20060102-150405"))
+	// os.Remove(r.tspath(id))
+	_ = r.tempDirectory.Add(r.datadir(id), time.Now().Format("20060102-150405"))
+	// os.RemoveAll(r.datadir(id))
 	delete(r.byid, id)
 	for _, name := range layer.Names {
 		delete(r.byname, name)

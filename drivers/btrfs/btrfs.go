@@ -678,3 +678,13 @@ func (d *Driver) AdditionalImageStores() []string {
 func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
 	return graphdriver.DedupResult{}, nil
 }
+
+func (d *Driver) InitTempDirectory() error {
+	// InitTempDirectory not implemented
+	return nil
+}
+
+func (d *Driver) CleanupTempDirectory() error {
+	// CleanupTempDirectory not implemented
+	return nil
+}

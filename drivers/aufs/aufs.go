@@ -781,3 +781,13 @@ func (a *Driver) SupportsShifting() bool {
 func (a *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, error) {
 	return graphdriver.DedupResult{}, nil
 }
+
+func (a *Driver) InitTempDirectory() error {
+	// InitTempDirectory not implemented
+	return nil
+}
+
+func (a *Driver) CleanupTempDirectory() error {
+	// CleanupTempDirectory not implemented
+	return nil
+}

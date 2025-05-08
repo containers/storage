@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/overlayutils"
@@ -34,6 +35,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
 	digest "github.com/opencontainers/go-digest"
@@ -136,6 +138,8 @@ type Driver struct {
 	stagingDirsLocks map[string]*lockfile.LockFile
 
 	supportsIDMappedMounts *bool
+
+	tempDirectory *tempdir.TempDir
 }
 
 type additionalLayerStore struct {
@@ -1313,15 +1317,26 @@ func (d *Driver) Remove(id string) error {
 	dir := d.dir(id)
 	lid, err := os.ReadFile(path.Join(dir, "link"))
 	if err == nil {
-		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
-			logrus.Debugf("Failed to remove link: %v", err)
+		if d.tempDirectory == nil {
+			if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
+				logrus.Debugf("Failed to remove link: %v", err)
+			}
+		} else {
+			if err := d.tempDirectory.Add(path.Join(d.home, linkDir, string(lid)), time.Now().Format("20060102-150405")); err != nil {
+				logrus.Debugf("Failed to Add to stage Directory link: %v", err)
+			}
 		}
 	}
 
 	d.releaseAdditionalLayerByID(id)
-
-	if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
-		return err
+	if d.tempDirectory == nil {
+		if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	} else {
+		if err := d.tempDirectory.Add(dir, time.Now().Format("20060102-150405")); err != nil {
+			return fmt.Errorf("failed to add to stage directory: %w", err)
+		}
 	}
 	if d.quotaCtl != nil {
 		d.quotaCtl.ClearQuota(dir)
@@ -1358,8 +1373,8 @@ func (d *Driver) recreateSymlinks() error {
 		// Check that for each layer, there's a link in "l" with the name in
 		// the layer's "link" file that points to the layer's "diff" directory.
 		for _, dir := range dirs {
-			// Skip over the linkDir and anything that is not a directory
-			if dir.Name() == linkDir || !dir.IsDir() {
+			// Skip over the linkDir and anything that is not a directory or temp-dir
+			if dir.Name() == linkDir || !dir.IsDir() || strings.HasPrefix(dir.Name(), "temp-dir-") {
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink
@@ -2031,6 +2046,10 @@ func (d *Driver) ListLayers() ([]string, error) {
 			// expected, but not a layer. skip it
 			continue
 		default:
+			if strings.HasPrefix(id, "temp-dir-") {
+				// skip temp directories
+				continue
+			}
 			// Does it look like a datadir directory?
 			if !entry.IsDir() {
 				continue
@@ -2770,4 +2789,23 @@ func (d *Driver) Dedup(req graphdriver.DedupArgs) (graphdriver.DedupResult, erro
 		return graphdriver.DedupResult{}, err
 	}
 	return graphdriver.DedupResult{Deduped: r.Deduped}, nil
+}
+
+func (d *Driver) InitTempDirectory() error {
+	t, err := tempdir.NewTempDir(d.home)
+	if err != nil {
+		return err
+	}
+	d.tempDirectory = t
+	return nil
+}
+
+func (d *Driver) CleanupTempDirectory() error {
+	if d.tempDirectory != nil {
+		if err := d.tempDirectory.Cleanup(); err != nil {
+			logrus.Errorf("removing temp dir failed: %v", err)
+		}
+		d.tempDirectory = nil
+	}
+	return nil
 }
