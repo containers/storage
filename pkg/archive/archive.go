@@ -1490,7 +1490,7 @@ func NewTempArchive(src io.Reader, dir string) (*TempArchive, error) {
 	if _, err := io.Copy(f, src); err != nil {
 		return nil, err
 	}
-	if _, err := f.Seek(0, 0); err != nil {
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 	st, err := f.Stat()
