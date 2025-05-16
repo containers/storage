@@ -26,6 +26,7 @@ import (
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/tarlog"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/truncindex"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -345,6 +346,8 @@ type rwLayerStore interface {
 
 	// Dedup deduplicates layers in the store.
 	dedup(drivers.DedupArgs) (drivers.DedupResult, error)
+
+	CleanupTemporaryDirectories() error
 }
 
 type multipleLockFile struct {
@@ -435,6 +438,9 @@ type layerStore struct {
 	// FIXME: This field is only set when constructing layerStore, but locking rules of the driver
 	// interface itself are not documented here.
 	driver drivers.Driver
+
+	// This fled is read-only. Should be save to access without any locking.
+	tempDirectory *tempdir.TempDir
 }
 
 func copyLayer(l *Layer) *Layer {
@@ -794,6 +800,12 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 	layers := []*Layer{}
 	ids := make(map[string]*Layer)
 
+	if r.lockfile.IsReadWrite() {
+		if err := tempdir.RecoverStaleDirs(r.tempDirectory.RootDir); err != nil {
+			return false, err
+		}
+	}
+
 	for locationIndex := range numLayerLocationIndex {
 		location := layerLocationFromIndex(locationIndex)
 		rpath := r.jsonPath[locationIndex]
@@ -936,6 +948,11 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 		for _, layer := range layersToDelete {
 			logrus.Warnf("Found incomplete layer %q, deleting it", layer.ID)
 			err := r.deleteInternal(layer.ID)
+			defer func() {
+				if err := r.CleanupTemporaryDirectories(); err != nil {
+					logrus.Errorf("Error cleaning up temporary directories: %v", err)
+				}
+			}()
 			if err != nil {
 				// Don't return the error immediately, because deleteInternal does not saveLayers();
 				// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
@@ -1164,7 +1181,8 @@ func (s *store) newLayerStore(rundir, layerdir, imagedir string, driver drivers.
 		byname:  make(map[string]*Layer),
 		bymount: make(map[string]*Layer),
 
-		driver: driver,
+		driver:        driver,
+		tempDirectory: s.tempDirectory,
 	}
 	if err := rlstore.startWritingWithReload(false); err != nil {
 		return nil, err
@@ -1919,7 +1937,17 @@ func layerHasIncompleteFlag(layer *Layer) bool {
 	return false
 }
 
+func (r *layerStore) CleanupTemporaryDirectories() error {
+	err := r.tempDirectory.Cleanup()
+	if errDriver := r.driver.Cleanup(); errDriver != nil {
+		return errors.Join(err, errDriver)
+	}
+	return err
+}
+
 // Requires startWriting.
+// Caller MUST run CleanupTemporaryDirectories() after this. Ideally outside of
+// the startWriting.
 func (r *layerStore) deleteInternal(id string) error {
 	if !r.lockfile.IsReadWrite() {
 		return fmt.Errorf("not allowed to delete layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
@@ -1943,8 +1971,10 @@ func (r *layerStore) deleteInternal(id string) error {
 	if err := r.driver.Remove(id); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	os.Remove(r.tspath(id))
-	os.RemoveAll(r.datadir(id))
+	_ = r.tempDirectory.Add(r.tspath(id))
+	// os.Remove(r.tspath(id))
+	_ = r.tempDirectory.Add(r.datadir(id))
+	// os.RemoveAll(r.datadir(id))
 	delete(r.byid, id)
 	for _, name := range layer.Names {
 		delete(r.byname, name)
@@ -1988,6 +2018,8 @@ func (r *layerStore) deleteInDigestMap(id string) {
 }
 
 // Requires startWriting.
+// Caller MUST run CleanupTemporaryDirectories() after this. Ideally outside of
+// the startWriting.
 func (r *layerStore) Delete(id string) error {
 	layer, ok := r.lookup(id)
 	if !ok {
