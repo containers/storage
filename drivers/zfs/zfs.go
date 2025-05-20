@@ -17,6 +17,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
+	"github.com/containers/storage/pkg/tempdir"
 	zfs "github.com/mistifyio/go-zfs/v3"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
@@ -404,6 +405,12 @@ func (d *Driver) Remove(id string) error {
 	delete(d.filesystemsCache, name)
 	d.Unlock()
 	return nil
+}
+
+// DeferredRemove is not implemented.
+// It calls Remove directly.
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	return nil, d.Remove(id)
 }
 
 // Get returns the mountpoint for the given id after creating the target directories if necessary.

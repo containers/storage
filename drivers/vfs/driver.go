@@ -17,6 +17,7 @@ import (
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
 	"github.com/vbatts/tar-split/tar/storage"
@@ -241,7 +242,18 @@ func (d *Driver) dir(id string) string {
 
 // Remove deletes the content from the directory for a given id.
 func (d *Driver) Remove(id string) error {
-	return system.EnsureRemoveAll(d.dir(id))
+	return os.RemoveAll(d.dir(id))
+}
+
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	t, err := tempdir.NewTempDir(d.home)
+	if err != nil {
+		return nil, err
+	}
+	if err := t.Add(d.dir(id)); err != nil {
+		return nil, err
+	}
+	return t.Cleanup, nil
 }
 
 // Get returns the directory for the given id.

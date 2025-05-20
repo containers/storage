@@ -34,6 +34,7 @@ import (
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/unshare"
 	units "github.com/docker/go-units"
 	digest "github.com/opencontainers/go-digest"
@@ -1314,15 +1315,16 @@ func (d *Driver) Remove(id string) error {
 	lid, err := os.ReadFile(path.Join(dir, "link"))
 	if err == nil {
 		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
-			logrus.Debugf("Failed to remove link: %v", err)
+			logrus.Debugf("Failed to Add to stage Directory link: %v", err)
 		}
 	}
 
 	d.releaseAdditionalLayerByID(id)
 
-	if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
-		return err
+	if err := system.EnsureRemoveAll(dir); err != nil {
+		return fmt.Errorf("failed to add to stage directory: %w", err)
 	}
+
 	if d.quotaCtl != nil {
 		d.quotaCtl.ClearQuota(dir)
 		if d.imageStore != "" {
@@ -1330,6 +1332,35 @@ func (d *Driver) Remove(id string) error {
 		}
 	}
 	return nil
+}
+
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	t, err := tempdir.NewTempDir(filepath.Join(d.homeDirForImageStore(), stagingDir))
+	if err != nil {
+		return nil, err
+	}
+
+	dir := d.dir(id)
+	lid, err := os.ReadFile(path.Join(dir, "link"))
+	if err == nil {
+		if err := t.Add(path.Join(d.home, linkDir, string(lid))); err != nil {
+			logrus.Debugf("Failed to Add to stage Directory link: %v", err)
+		}
+	}
+
+	d.releaseAdditionalLayerByID(id)
+
+	if err := t.Add(dir); err != nil {
+		return t.Cleanup, fmt.Errorf("failed to add to stage directory: %w", err)
+	}
+
+	if d.quotaCtl != nil {
+		d.quotaCtl.ClearQuota(dir)
+		if d.imageStore != "" {
+			d.quotaCtl.ClearQuota(d.imageStore)
+		}
+	}
+	return t.Cleanup, nil
 }
 
 // recreateSymlinks goes through the driver's home directory and checks if the diff directory
@@ -1358,8 +1389,8 @@ func (d *Driver) recreateSymlinks() error {
 		// Check that for each layer, there's a link in "l" with the name in
 		// the layer's "link" file that points to the layer's "diff" directory.
 		for _, dir := range dirs {
-			// Skip over the linkDir and anything that is not a directory
-			if dir.Name() == linkDir || !dir.IsDir() {
+			// Skip over the linkDir and anything that is not a directory or tempDir
+			if dir.Name() == linkDir || !dir.IsDir() || dir.Name() == stagingDir { // Note for review: Not sure if skipping stagingDir is correct
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink

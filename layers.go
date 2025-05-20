@@ -26,6 +26,7 @@ import (
 	"github.com/containers/storage/pkg/stringid"
 	"github.com/containers/storage/pkg/system"
 	"github.com/containers/storage/pkg/tarlog"
+	"github.com/containers/storage/pkg/tempdir"
 	"github.com/containers/storage/pkg/truncindex"
 	"github.com/klauspost/pgzip"
 	digest "github.com/opencontainers/go-digest"
@@ -293,6 +294,9 @@ type rwLayerStore interface {
 	// Delete deletes a layer with the specified name or ID.
 	Delete(id string) error
 
+	// Delete deletes a layer with the specified name or ID.
+	DeferredDelete(id string) (tempdir.CleanupTempDirFunc, error)
+
 	// Wipe deletes all layers.
 	Wipe() error
 
@@ -411,11 +415,12 @@ func newMultipleLockFile(l ...*lockfile.LockFile) *multipleLockFile {
 type layerStore struct {
 	// The following fields are only set when constructing layerStore, and must never be modified afterwards.
 	// They are safe to access without any other locking.
-	lockfile       *multipleLockFile  // lockfile.IsReadWrite can be used to distinguish between read-write and read-only layer stores.
-	mountsLockfile *lockfile.LockFile // Can _only_ be obtained with inProcessLock held.
-	rundir         string
-	jsonPath       [numLayerLocationIndex]string
-	layerdir       string
+	lockfile        *multipleLockFile  // lockfile.IsReadWrite can be used to distinguish between read-write and read-only layer stores.
+	mountsLockfile  *lockfile.LockFile // Can _only_ be obtained with inProcessLock held.
+	rundir          string
+	jsonPath        [numLayerLocationIndex]string
+	layerdir        string
+	tempDirRootPath string
 
 	inProcessLock sync.RWMutex // Can _only_ be obtained with lockfile held.
 	// The following fields can only be read/written with read/write ownership of inProcessLock, respectively.
@@ -794,6 +799,12 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 	layers := []*Layer{}
 	ids := make(map[string]*Layer)
 
+	if r.lockfile.IsReadWrite() {
+		if err := tempdir.RecoverStaleDirs(r.tempDirRootPath); err != nil {
+			return false, err
+		}
+	}
+
 	for locationIndex := range numLayerLocationIndex {
 		location := layerLocationFromIndex(locationIndex)
 		rpath := r.jsonPath[locationIndex]
@@ -935,7 +946,12 @@ func (r *layerStore) load(lockedForWriting bool) (bool, error) {
 		// Now actually delete the layers
 		for _, layer := range layersToDelete {
 			logrus.Warnf("Found incomplete layer %q, deleting it", layer.ID)
-			err := r.deleteInternal(layer.ID)
+			cleanupFunc, err := r.deleteInternal(layer.ID)
+			defer func() {
+				if err := cleanupFunc(); err != nil {
+					logrus.Errorf("Error cleaning up temporary directories: %v", err)
+				}
+			}()
 			if err != nil {
 				// Don't return the error immediately, because deleteInternal does not saveLayers();
 				// Even if deleting one incomplete layer fails, call saveLayers() so that other possible successfully
@@ -1158,7 +1174,8 @@ func (s *store) newLayerStore(rundir, layerdir, imagedir string, driver drivers.
 			layersImageDir,
 			filepath.Join(volatileDir, "volatile-layers.json"),
 		},
-		layerdir: layerdir,
+		layerdir:        layerdir,
+		tempDirRootPath: s.graphRoot,
 
 		byid:    make(map[string]*Layer),
 		byname:  make(map[string]*Layer),
@@ -1920,13 +1937,15 @@ func layerHasIncompleteFlag(layer *Layer) bool {
 }
 
 // Requires startWriting.
-func (r *layerStore) deleteInternal(id string) error {
+// Caller MUST run CleanupTemporaryDirectories() after this. Ideally outside of
+// the startWriting.
+func (r *layerStore) deleteInternal(id string) (tempdir.CleanupTempDirFunc, error) {
 	if !r.lockfile.IsReadWrite() {
-		return fmt.Errorf("not allowed to delete layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
+		return nil, fmt.Errorf("not allowed to delete layers at %q: %w", r.layerdir, ErrStoreIsReadOnly)
 	}
 	layer, ok := r.lookup(id)
 	if !ok {
-		return ErrLayerUnknown
+		return nil, ErrLayerUnknown
 	}
 	// Ensure that if we are interrupted, the layer will be cleaned up.
 	if !layerHasIncompleteFlag(layer) {
@@ -1935,16 +1954,33 @@ func (r *layerStore) deleteInternal(id string) error {
 		}
 		layer.Flags[incompleteFlag] = true
 		if err := r.saveFor(layer); err != nil {
-			return err
+			return nil, err
 		}
+	}
+	tempDirectory, err := tempdir.NewTempDir(r.tempDirRootPath)
+	if err != nil {
+		return nil, err
 	}
 	// We never unset incompleteFlag; below, we remove the entire object from r.layers.
 	id = layer.ID
-	if err := r.driver.Remove(id); err != nil && !errors.Is(err, os.ErrNotExist) {
+	var cleanFunc tempdir.CleanupTempDirFunc
+	if cleanFunc, err = r.driver.DeferredRemove(id); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return cleanFunc, err
+	}
+
+	finalCleanFunc := func() error {
+		err := tempDirectory.Cleanup()
+		if cleanFunc != nil {
+			if errDriver := cleanFunc(); errDriver != nil {
+				return errors.Join(err, errDriver)
+			}
+		}
 		return err
 	}
-	os.Remove(r.tspath(id))
-	os.RemoveAll(r.datadir(id))
+	_ = tempDirectory.Add(r.tspath(id))
+	// os.Remove(r.tspath(id))
+	_ = tempDirectory.Add(r.datadir(id))
+	// os.RemoveAll(r.datadir(id))
 	delete(r.byid, id)
 	for _, name := range layer.Names {
 		delete(r.byname, name)
@@ -1968,7 +2004,7 @@ func (r *layerStore) deleteInternal(id string) error {
 	}) {
 		selinux.ReleaseLabel(mountLabel)
 	}
-	return nil
+	return finalCleanFunc, nil
 }
 
 // Requires startWriting.
@@ -2006,10 +2042,40 @@ func (r *layerStore) Delete(id string) error {
 			return err
 		}
 	}
-	if err := r.deleteInternal(id); err != nil {
-		return err
+	cleanFunc, err := r.deleteInternal(id)
+	rmErr := cleanFunc()
+	if err != nil || rmErr != nil {
+		return errors.Join(err, rmErr)
 	}
 	return r.saveFor(layer)
+}
+
+// Requires startWriting.
+// Caller MUST run CleanupTemporaryDirectories() after this. Ideally outside of
+// the startWriting.
+func (r *layerStore) DeferredDelete(id string) (tempdir.CleanupTempDirFunc, error) {
+	layer, ok := r.lookup(id)
+	if !ok {
+		return nil, ErrLayerUnknown
+	}
+	id = layer.ID
+	// The layer may already have been explicitly unmounted, but if not, we
+	// should try to clean that up before we start deleting anything at the
+	// driver level.
+	for {
+		_, err := r.unmount(id, false, true)
+		if err == ErrLayerNotMounted {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	cleanFunc, err := r.deleteInternal(id)
+	if err != nil {
+		return cleanFunc, err
+	}
+	return cleanFunc, r.saveFor(layer)
 }
 
 // Requires startReading or startWriting.
