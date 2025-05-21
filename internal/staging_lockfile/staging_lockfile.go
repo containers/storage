@@ -5,55 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 )
-
-// A Locker represents a file lock where the file is used to cache an
-// identifier of the last party that made changes to whatever's being protected
-// by the lock.
-//
-// Deprecated: Refer directly to *LockFile, the provided implementation, instead.
-type Locker interface {
-	// Acquire a writer lock.
-	// The default unix implementation panics if:
-	// - opening the lockfile failed
-	// - tried to lock a read-only lock-file
-	Lock()
-
-	// Unlock the lock.
-	// The default unix implementation panics if:
-	// - unlocking an unlocked lock
-	// - if the lock counter is corrupted
-	Unlock()
-
-	// Acquire a reader lock.
-	RLock()
-
-	// Touch records, for others sharing the lock, that the caller was the
-	// last writer.  It should only be called with the lock held.
-	//
-	// Deprecated: Use *LockFile.RecordWrite.
-	Touch() error
-
-	// Modified() checks if the most recent writer was a party other than the
-	// last recorded writer.  It should only be called with the lock held.
-	// Deprecated: Use *LockFile.ModifiedSince.
-	Modified() (bool, error)
-
-	// TouchedSince() checks if the most recent writer modified the file (likely using Touch()) after the specified time.
-	TouchedSince(when time.Time) bool
-
-	// IsReadWrite() checks if the lock file is read-write
-	IsReadWrite() bool
-
-	// AssertLocked() can be used by callers that _know_ that they hold the lock (for reading or writing), for sanity checking.
-	// It might do nothing at all, or it may panic if the caller is not the owner of this lock.
-	AssertLocked()
-
-	// AssertLockedForWriting() can be used by callers that _know_ that they hold the lock locked for writing, for sanity checking.
-	// It might do nothing at all, or it may panic if the caller is not the owner of this lock for writing.
-	AssertLockedForWriting()
-}
 
 type lockType byte
 
@@ -78,9 +30,9 @@ type LockFile struct {
 	// stateMutex is used to synchronize concurrent accesses to the state below
 	stateMutex *sync.Mutex
 	counter    int64
-	lw         LastWrite // A global value valid as of the last .Touch() or .Modified()
-	lockType   lockType
-	locked     bool
+	//lw         LastWrite // A global value valid as of the last .Touch() or .Modified()
+	lockType lockType
+	locked   bool
 	// The following fields are only modified on transitions between counter == 0 / counter != 0.
 	// Thus, they can be safely accessed by users _that currently hold the LockFile_ without locking.
 	// In other cases, they need to be protected using stateMutex.
@@ -99,29 +51,11 @@ func GetLockFile(path string) (*LockFile, error) {
 	return getLockfile(path, false)
 }
 
-// GetLockfile opens a read-write lock file, creating it if necessary.  The
-// Locker object may already be locked if the path has already been requested
-// by the current process.
-//
-// Deprecated: Use GetLockFile
-func GetLockfile(path string) (Locker, error) {
-	return GetLockFile(path)
-}
-
 // GetROLockFile opens a read-only lock file, creating it if necessary.  The
 // *LockFile object may already be locked if the path has already been requested
 // by the current process.
 func GetROLockFile(path string) (*LockFile, error) {
 	return getLockfile(path, true)
-}
-
-// GetROLockfile opens a read-only lock file, creating it if necessary.  The
-// Locker object may already be locked if the path has already been requested
-// by the current process.
-//
-// Deprecated: Use GetROLockFile
-func GetROLockfile(path string) (Locker, error) {
-	return GetROLockFile(path)
 }
 
 // Lock locks the lockfile as a writer.  Panic if the lock is a read-only one.
@@ -211,76 +145,6 @@ func (l *LockFile) AssertLockedForWriting() {
 	}
 }
 
-// ModifiedSince checks if the lock has been changed since a provided LastWrite value,
-// and returns the one to record instead.
-//
-// If ModifiedSince reports no modification, the previous LastWrite value
-// is still valid and can continue to be used.
-//
-// If this function fails, the LastWriter value of the lock is indeterminate;
-// the caller should fail and keep using the previously-recorded LastWrite value,
-// so that it continues failing until the situation is resolved. Similarly,
-// it should only update the recorded LastWrite value after processing the update:
-//
-//	lw2, modified, err := state.lock.ModifiedSince(state.lastWrite)
-//	if err != nil { /* fail */ }
-//	state.lastWrite = lw2
-//	if modified {
-//		if err := reload(); err != nil { /* fail */ }
-//		state.lastWrite = lw2
-//	}
-//
-// The caller must hold the lock (for reading or writing).
-func (l *LockFile) ModifiedSince(previous LastWrite) (LastWrite, bool, error) {
-	l.AssertLocked()
-	currentLW, err := l.GetLastWrite()
-	if err != nil {
-		return LastWrite{}, false, err
-	}
-	modified := !previous.equals(currentLW)
-	return currentLW, modified, nil
-}
-
-// Modified indicates if the lockfile has been updated since the last time it
-// was loaded.
-// NOTE: Unlike ModifiedSince, this returns true the first time it is called on a *LockFile.
-// Callers cannot, in general, rely on this, because that might have happened for some other
-// owner of the same *LockFile who created it previously.
-//
-// Deprecated: Use *LockFile.ModifiedSince.
-func (l *LockFile) Modified() (bool, error) {
-	l.stateMutex.Lock()
-	if !l.locked {
-		panic("attempted to check last-writer in lockfile without locking it first")
-	}
-	defer l.stateMutex.Unlock()
-	oldLW := l.lw
-	// Note that this is called with stateMutex held; that’s fine because ModifiedSince doesn’t need to lock it.
-	currentLW, modified, err := l.ModifiedSince(oldLW)
-	if err != nil {
-		return true, err
-	}
-	l.lw = currentLW
-	return modified, nil
-}
-
-// Touch updates the lock file with to record that the current lock holder has modified the lock-protected data.
-//
-// Deprecated: Use *LockFile.RecordWrite.
-func (l *LockFile) Touch() error {
-	lw, err := l.RecordWrite()
-	if err != nil {
-		return err
-	}
-	l.stateMutex.Lock()
-	if !l.locked || (l.lockType == readLock) {
-		panic("attempted to update last-writer in lockfile without the write lock")
-	}
-	defer l.stateMutex.Unlock()
-	l.lw = lw
-	return nil
-}
-
 // IsReadWrite indicates if the lock file is a read-write lock.
 func (l *LockFile) IsReadWrite() bool {
 	return !l.ro
@@ -356,9 +220,9 @@ func createLockFileForPath(path string, ro bool) (*LockFile, error) {
 
 		rwMutex:    &sync.RWMutex{},
 		stateMutex: &sync.Mutex{},
-		lw:         newLastWrite(), // For compatibility, the first call of .Modified() will always report a change.
-		lockType:   lType,
-		locked:     false,
+		//lw:         newLastWrite(), // For compatibility, the first call of .Modified() will always report a change.
+		lockType: lType,
+		locked:   false,
 	}, nil
 }
 
