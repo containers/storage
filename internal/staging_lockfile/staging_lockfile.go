@@ -2,16 +2,10 @@ package staging_lockfile
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
-)
 
-type lockType byte
-
-const (
-	readLock lockType = iota
-	writeLock
+	"github.com/containers/storage/internal/rawfilelock"
 )
 
 // StagingLockFile represents a file lock used to coordinate access to staging areas.
@@ -30,7 +24,7 @@ type StagingLockFile struct {
 	// stateMutex is used to synchronize concurrent accesses to the state below
 	stateMutex *sync.Mutex
 	locked     bool
-	fd         fileHandle
+	fd         rawfilelock.FileHandle
 }
 
 var (
@@ -86,11 +80,11 @@ func getLockfile(path string) (*StagingLockFile, error) {
 // This function will be called at most once for each unique path within a process.
 func createStagingLockFileForPath(path string) (*StagingLockFile, error) {
 	// Check if we can open the lock.
-	fd, err := openLock(path)
+	fd, err := rawfilelock.OpenLock(path, false)
 	if err != nil {
 		return nil, err
 	}
-	unlockAndCloseHandle(fd)
+	rawfilelock.UnlockAndCloseHandle(fd)
 
 	return &StagingLockFile{
 		file:       path,
@@ -98,30 +92,6 @@ func createStagingLockFileForPath(path string) (*StagingLockFile, error) {
 		stateMutex: &sync.Mutex{},
 		locked:     false,
 	}, nil
-}
-
-// openLock opens the file at the specified path with read-write access.
-// It creates the file and any necessary parent directories if they don't exist.
-// Returns a file handle that can be used for locking.
-func openLock(path string) (fd fileHandle, err error) {
-	flags := os.O_CREATE
-	flags |= os.O_RDWR
-
-	fd, err = openHandle(path, flags)
-	if err == nil {
-		return fd, nil
-	}
-
-	// the directory of the lockfile seems to be removed, try to create it
-	if os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			return fd, fmt.Errorf("creating lock file directory: %w", err)
-		}
-
-		return openLock(path)
-	}
-
-	return fd, &os.PathError{Op: "open", Path: path, Err: err}
 }
 
 // tryLock attempts to acquire an exclusive lock on the StagingLockFile without blocking.
@@ -136,15 +106,15 @@ func (l *StagingLockFile) tryLock() error {
 	}
 	l.stateMutex.Lock()
 	defer l.stateMutex.Unlock()
-	fd, err := openLock(l.file)
+	fd, err := rawfilelock.OpenLock(l.file, false)
 	if err != nil {
 		rwMutexUnlocker()
 		return err
 	}
 	l.fd = fd
 
-	if err = lockHandle(l.fd, writeLock, true); err != nil {
-		closeHandle(fd)
+	if err = rawfilelock.TryLockFile(l.fd, rawfilelock.WriteLock); err != nil {
+		rawfilelock.CloseHandle(fd)
 		rwMutexUnlocker()
 		return err
 	}

@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -228,51 +227,4 @@ func TestLockfileMultiProcess(t *testing.T) {
 	}
 	wg.Wait()
 	assert.True(t, whighest == 1, "expected to have no more than one writer lock active at a time, had %d", whighest)
-}
-
-func TestOpenLock(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		name    string
-		prepare func() (path string)
-	}{
-		{
-			name: "file exists (read/write)",
-			prepare: func() string {
-				tempFile, err := os.CreateTemp("", "lock-")
-				require.NoError(t, err)
-				tempFile.Close()
-				return tempFile.Name()
-			},
-		},
-		{
-			name: "base dir exists (read/write)",
-			prepare: func() string {
-				tempDir := os.TempDir()
-				require.DirExists(t, tempDir)
-				return filepath.Join(tempDir, "test-1.lock")
-			},
-		},
-		{
-			name: "base dir not exists (read/write)",
-			prepare: func() string {
-				tempDir, err := os.MkdirTemp("", "lock-")
-				require.NoError(t, err)
-				return filepath.Join(tempDir, "subdir", "test-1.lock")
-			},
-		},
-	} {
-		path := tc.prepare()
-
-		fd, err := openLock(path)
-		require.NoError(t, err, tc.name)
-		unlockAndCloseHandle(fd)
-
-		fd, err = openLock(path)
-		require.NoError(t, err)
-		unlockAndCloseHandle(fd)
-
-		require.Nil(t, os.RemoveAll(path))
-	}
 }

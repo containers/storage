@@ -1,6 +1,6 @@
 //go:build !windows
 
-package staging_lockfile
+package rawfilelock
 
 import (
 	"time"
@@ -16,9 +16,9 @@ func openHandle(path string, mode int) (fileHandle, error) {
 	return fileHandle(fd), err
 }
 
-func lockHandle(fd fileHandle, lType lockType, nonblocking bool) error {
+func lockHandle(fd fileHandle, lType LockType, nonblocking bool) error {
 	fType := unix.F_RDLCK
-	if lType != readLock {
+	if lType != ReadLock {
 		fType = unix.F_WRLCK
 	}
 	lk := unix.Flock_t{
