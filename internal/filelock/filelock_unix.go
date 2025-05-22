@@ -1,6 +1,6 @@
 //go:build !windows
 
-package staging_lockfile
+package filelock
 
 import (
 	"time"
@@ -8,17 +8,17 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type fileHandle uintptr
+type FileHandle uintptr
 
-func openHandle(path string, mode int) (fileHandle, error) {
+func openHandle(path string, mode int) (FileHandle, error) {
 	mode |= unix.O_CLOEXEC
 	fd, err := unix.Open(path, mode, 0o644)
-	return fileHandle(fd), err
+	return FileHandle(fd), err
 }
 
-func lockHandle(fd fileHandle, lType lockType, nonblocking bool) error {
+func lockHandle(fd FileHandle, lType LockType, nonblocking bool) error {
 	fType := unix.F_RDLCK
-	if lType != readLock {
+	if lType != ReadLock {
 		fType = unix.F_WRLCK
 	}
 	lk := unix.Flock_t{
@@ -40,10 +40,10 @@ func lockHandle(fd fileHandle, lType lockType, nonblocking bool) error {
 	}
 }
 
-func unlockAndCloseHandle(fd fileHandle) {
+func unlockAndCloseHandle(fd FileHandle) {
 	unix.Close(int(fd))
 }
 
-func closeHandle(fd fileHandle) {
+func closeHandle(fd FileHandle) {
 	unix.Close(int(fd))
 }

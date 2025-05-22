@@ -1,6 +1,6 @@
 //go:build windows
 
-package staging_lockfile
+package filelock
 
 import (
 	"golang.org/x/sys/windows"
@@ -11,17 +11,17 @@ const (
 	allBytes = ^uint32(0)
 )
 
-type fileHandle windows.Handle
+type FileHandle windows.Handle
 
-func openHandle(path string, mode int) (fileHandle, error) {
+func openHandle(path string, mode int) (FileHandle, error) {
 	mode |= windows.O_CLOEXEC
 	fd, err := windows.Open(path, mode, windows.S_IWRITE)
-	return fileHandle(fd), err
+	return FileHandle(fd), err
 }
 
-func lockHandle(fd fileHandle, lType lockType, nonblocking bool) error {
+func lockHandle(fd FileHandle, lType LockType, nonblocking bool) error {
 	flags := 0
-	if lType != readLock {
+	if lType != ReadLock {
 		flags = windows.LOCKFILE_EXCLUSIVE_LOCK
 	}
 	if nonblocking {
@@ -37,12 +37,12 @@ func lockHandle(fd fileHandle, lType lockType, nonblocking bool) error {
 	return nil
 }
 
-func unlockAndCloseHandle(fd fileHandle) {
+func unlockAndCloseHandle(fd FileHandle) {
 	ol := new(windows.Overlapped)
 	windows.UnlockFileEx(windows.Handle(fd), reserved, allBytes, allBytes, ol)
 	closeHandle(fd)
 }
 
-func closeHandle(fd fileHandle) {
+func closeHandle(fd FileHandle) {
 	windows.Close(windows.Handle(fd))
 }
