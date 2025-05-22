@@ -1,6 +1,6 @@
 //go:build windows
 
-package staging_lockfile
+package rawfilelock
 
 import (
 	"golang.org/x/sys/windows"
@@ -19,9 +19,9 @@ func openHandle(path string, mode int) (fileHandle, error) {
 	return fileHandle(fd), err
 }
 
-func lockHandle(fd fileHandle, lType lockType, nonblocking bool) error {
+func lockHandle(fd fileHandle, lType LockType, nonblocking bool) error {
 	flags := 0
-	if lType != readLock {
+	if lType != ReadLock {
 		flags = windows.LOCKFILE_EXCLUSIVE_LOCK
 	}
 	if nonblocking {
