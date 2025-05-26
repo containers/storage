@@ -2,6 +2,7 @@ package staging_lockfile
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -25,6 +26,8 @@ type StagingLockFile struct {
 	locked     bool
 	fd         filelock.FileHandle
 }
+
+const maxRetries = 1000
 
 var (
 	stagingLockFile     map[string]*StagingLockFile
@@ -188,4 +191,103 @@ func (l *StagingLockFile) tryLock() error {
 
 	l.locked = true
 	return nil
+}
+
+// UnlockAndDelete releases the lock, removes the associated file from the filesystem,
+// and removes this StagingLockFile from the global cache.
+//
+// Panics if:
+//   - The lock is not currently held by the caller.
+//   - The file cannot be removed (and it exists).
+//
+// WARNING: After this operation, the StagingLockFile becomes invalid for further use as the file field is cleared.
+// A new call to GetStagingLockFile with the same path will create a new instance.
+func (l *StagingLockFile) UnlockAndDelete() {
+	l.stateMutex.Lock()
+	if !l.locked {
+		// Panic when unlocking an unlocked lock.  That's a violation
+		// of the lock semantics and will reveal such.
+		panic("calling Unlock on unlocked lock")
+	}
+
+	l.locked = false
+
+	if err := os.Remove(l.file); err != nil && !os.IsNotExist(err) {
+		panic(fmt.Errorf("removing lock file %q: %w", l.file, err))
+	}
+
+	path := l.file
+	l.file = ""
+
+	stagingLockFileLock.Lock()
+	defer stagingLockFileLock.Unlock()
+	delete(stagingLockFile, path)
+
+	filelock.UnlockAndCloseHandle(l.fd)
+	l.rwMutex.Unlock()
+	l.stateMutex.Unlock()
+}
+
+// CreateAndLock creates a new temporary file in the specified directory with the given pattern,
+// then creates and locks a StagingLockFile for it. The file is created using os.CreateTemp.
+// If dir is empty, the system's default temporary directory is used.
+//
+// Returns:
+//   - The locked StagingLockFile
+//   - The absolute path to the created file
+//   - Any error that occurred during the process
+//
+// The created file will be registered in the global cache of StagingLockFiles.
+// If the file cannot be locked, this function will retry up to maxRetries times before failing.
+func CreateAndLock(dir string, pattern string) (*StagingLockFile, string, error) {
+	try := 0
+	for {
+		file, err := os.CreateTemp(dir, pattern)
+		if err != nil {
+			return nil, "", err
+		}
+		file.Close()
+
+		cleanPath, err := filepath.Abs(file.Name())
+		if err != nil {
+			return nil, "", err
+		}
+
+		l, err := getLockfile(cleanPath)
+		if err != nil {
+			panic(err)
+		}
+
+		if err := l.TryLock(); err != nil {
+			if try++; try < maxRetries {
+				continue // Retry if the lock cannot be acquired
+			}
+			return nil, cleanPath, fmt.Errorf("failed to acquire lock on %q after %d attempts: %w", cleanPath, try, err)
+		}
+
+		return l, cleanPath, nil
+	}
+}
+
+// TryLockExisting attempts to acquire a lock on an existing file without blocking and without using global cache.
+// It first checks if the file exists, then get StagingLockFile and tries to lock it.
+//
+// Returns:
+//   - The locked StagingLockFile if successful
+//   - An error if the lock cannot be acquired (e.g., if the file is already locked or does not exist).
+func TryLockExisting(path string) (*StagingLockFile, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, err
+	}
+
+	l, err := createStagingLockFileForPath(path) // platform-dependent LockFile
+	if err != nil {
+		return nil, err
+	}
+
+	if err := l.TryLock(); err != nil {
+		return nil, fmt.Errorf("failed to acquire lock on %q: %w", path, err)
+	}
+
+	return l, nil
 }

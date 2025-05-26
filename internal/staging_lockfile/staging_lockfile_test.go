@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -75,26 +76,17 @@ type namedStagingLockFile struct {
 	name string
 }
 
-func getNamedStagingLockfile() (*namedStagingLockFile, error) {
-	tf, err := os.CreateTemp("", "lockfile")
+func getTempNamedStagingLockfile() (*namedStagingLockFile, error) {
+	l, path, err := CreateAndLock("", "lockfile")
 	if err != nil {
 		return nil, err
 	}
-	name := tf.Name()
-	tf.Close()
-	l, err := GetStagingLockFile(name)
-	if err != nil {
-		return nil, err
-	}
-	return &namedStagingLockFile{StagingLockFile: l, name: name}, nil
+	l.Unlock()
+	return &namedStagingLockFile{StagingLockFile: l, name: path}, nil
 }
 
-func getTempLockfile() (*namedStagingLockFile, error) {
-	return getNamedStagingLockfile()
-}
-
-func TestLockfileName(t *testing.T) {
-	l, err := getTempLockfile()
+func TestStagingLockfileName(t *testing.T) {
+	l, err := getTempNamedStagingLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 
@@ -109,19 +101,13 @@ func TestLockfileName(t *testing.T) {
 	l.Unlock()
 
 	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
-
-	l.Lock()
-	l.AssertLocked()
-	l.Unlock()
-
-	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
 }
 
-func TestTryWriteStagingLockfile(t *testing.T) {
+func TestTryLockStagingLockfile(t *testing.T) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	l, err := getTempLockfile()
+	l, err := getTempNamedStagingLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 
@@ -140,7 +126,7 @@ func TestTryWriteStagingLockfile(t *testing.T) {
 }
 
 func TestStagingLockfile(t *testing.T) {
-	l, err := getTempLockfile()
+	l, err := getTempNamedStagingLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 
@@ -149,8 +135,8 @@ func TestStagingLockfile(t *testing.T) {
 	l.Unlock()
 }
 
-func TestLockfileConcurrent(t *testing.T) {
-	l, err := getTempLockfile()
+func TestStagingLockfileConcurrent(t *testing.T) {
+	l, err := getTempNamedStagingLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 	var wg sync.WaitGroup
@@ -181,8 +167,8 @@ func TestLockfileConcurrent(t *testing.T) {
 	assert.True(t, highest == 1, "counter should never have gone above 1, got to %d", highest)
 }
 
-func TestLockfileMultiProcess(t *testing.T) {
-	l, err := getTempLockfile()
+func TestStagingLockfileMultiProcess(t *testing.T) {
+	l, err := getTempNamedStagingLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
 	defer os.Remove(l.name)
 	var wg sync.WaitGroup
@@ -227,4 +213,107 @@ func TestLockfileMultiProcess(t *testing.T) {
 	}
 	wg.Wait()
 	assert.True(t, whighest == 1, "expected to have no more than one writer lock active at a time, had %d", whighest)
+}
+
+func TestCreateAndLock(t *testing.T) {
+	l, path, err := CreateAndLock("", "locktest")
+	require.NoError(t, err)
+	defer os.Remove(path)
+
+	l.AssertLocked()
+
+	l2, err := GetStagingLockFile(path)
+	require.NoError(t, err)
+
+	err = l2.TryLock()
+	assert.Error(t, err, "Should not be able to lock file that's already locked")
+
+	l.Unlock()
+
+	err = l2.TryLock()
+	require.NoError(t, err)
+	l2.Unlock()
+}
+
+func TestUnlockAndDeleteStagingLockfile(t *testing.T) {
+	l, err := getTempNamedStagingLockfile()
+	require.Nil(t, err, "error getting temporary lock file")
+	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
+
+	fileName := l.name
+
+	l.Lock()
+	l.AssertLocked()
+	l.UnlockAndDelete()
+
+	_, err = os.Stat(fileName)
+	assert.ErrorIs(t, err, os.ErrNotExist, "lockfile should be deleted after UnlockAndDelete")
+}
+
+func TestTryLockExistingPath(t *testing.T) {
+	l, err := getTempNamedStagingLockfile()
+	require.Nil(t, err, "error getting temporary lock file")
+
+	lockfile, err := TryLockExisting(l.name)
+	require.Nil(t, err, "error trying to lock existing file")
+
+	lockfile.AssertLocked()
+
+	lockfile.UnlockAndDelete()
+}
+
+func TestUnlockWithoutLock(t *testing.T) {
+	l, path, err := CreateAndLock("", "panic-unlock")
+	require.NoError(t, err)
+	defer os.Remove(path)
+	l.Unlock()
+	assert.Panics(t, l.Unlock, "Unlock should panic if not locked")
+}
+
+func TestUnlockAndDeleteTwice(t *testing.T) {
+	l, path, err := CreateAndLock("", "panic-unlockdelete")
+	require.NoError(t, err)
+	defer os.Remove(path)
+	l.UnlockAndDelete()
+	assert.Panics(t, l.UnlockAndDelete, "UnlockAndDelete should panic if not locked")
+}
+
+func TestLockFileRecreation(t *testing.T) {
+	l, path, err := CreateAndLock("", "recreate-lock")
+	require.NoError(t, err)
+	l.UnlockAndDelete()
+
+	l2, err := GetStagingLockFile(path)
+	require.NoError(t, err)
+	defer os.Remove(path)
+	require.NoError(t, l2.TryLock())
+	l2.Unlock()
+}
+
+func TestTryLockExistingError(t *testing.T) {
+	tmp := filepath.Join(os.TempDir(), "nonexistent-lockfile")
+	_, err := TryLockExisting(tmp)
+	assert.Error(t, err)
+}
+
+func TestConcurrentLocking(t *testing.T) {
+	l, path, err := CreateAndLock("", "concurrent-lock")
+	require.NoError(t, err)
+	defer os.Remove(path)
+	defer l.UnlockAndDelete()
+
+	const n = 10
+	ch := make(chan struct{}, n)
+	for i := 0; i < n; i++ {
+		go func() {
+			err := l.TryLock()
+			if err == nil {
+				l.Unlock()
+			}
+			ch <- struct{}{}
+		}()
+	}
+	for i := 0; i < n; i++ {
+		<-ch
+	}
 }
