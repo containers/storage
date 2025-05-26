@@ -2,6 +2,7 @@ package staging_lockfile
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -9,116 +10,138 @@ import (
 )
 
 // StagingLockFile represents a file lock used to coordinate access to staging areas.
-// Typical usage is via CreateAndLock (for a new file) or TryLockExisting (for an existing file),
-// both of which return a StagingLockFile that must eventually be released with UnlockAndDelete.
-// This ensures that access to the staging file is properly synchronized both within and across processes.
+// Typical usage is via CreateAndLock or TryLockPath, both of which return a StagingLockFile
+// that must eventually be released with UnlockAndDelete. This ensures that access
+// to the staging file is properly synchronized both within and across processes.
 //
 // WARNING: This struct MUST NOT be created manually. Use the provided helper functions instead.
 type StagingLockFile struct {
-	// The following fields are only set when constructing *StagingLockFile, and must never be modified afterwards.
-	// They are safe to access without any other locking.
-	file string
-
-	// rwMutex serializes concurrent reader-writer acquisitions in the same process space
-	rwMutex *sync.RWMutex
-	// stateMutex is used to synchronize concurrent accesses to the state below
-	stateMutex *sync.Mutex
-	locked     bool
-	fd         rawfilelock.FileHandle
+	// Locking invariant: If stagingLockFileLock is not locked, a StagingLockFile for a particular
+	// path exists if the current process currently owns the lock for that file, and it is recorded in stagingLockFiles.
+	//
+	// The following fields can only be accessed by the goroutine owning the lock.
+	//
+	// An empty string in the file field means that the lock has been released and the StagingLockFile is no longer valid.
+	file string // Also the key in stagingLockFiles
+	fd   rawfilelock.FileHandle
 }
+
+const maxRetries = 1000
 
 var (
 	stagingLockFiles    map[string]*StagingLockFile
 	stagingLockFileLock sync.Mutex
 )
 
-// AssertLocked checks if the lock is currently held and panics if it's not.
-func (l *StagingLockFile) AssertLocked() {
-	// DO NOT provide a variant that returns the value of l.locked.
-	//
-	// If the caller does not hold the lock, l.locked might nevertheless be true because another goroutine does hold it, and
-	// we can’t tell the difference.
-	//
-	// Hence, this “AssertLocked” method, which exists only for sanity checks.
-
-	// Don’t even bother with l.stateMutex: The caller is expected to hold the lock, and in that case l.locked is constant true
-	// with no possible writers.
-	// If the caller does not hold the lock, we are violating the locking/memory model anyway, and accessing the data
-	// without the lock is more efficient for callers, and potentially more visible to lock analysers for incorrect callers.
-	if !l.locked {
-		panic("internal error: lock is not held by the expected owner")
-	}
-}
-
-// getLockfile returns a StagingLockFile object associated with the specified path.
-// It ensures only one StagingLockFile object exists per path within the process.
-// If a StagingLockFile for the path already exists, it returns that instance.
-// Otherwise, it creates a new one.
-func getLockfile(path string) (*StagingLockFile, error) {
-	stagingLockFileLock.Lock()
-	defer stagingLockFileLock.Unlock()
-	if stagingLockFiles == nil {
-		stagingLockFiles = make(map[string]*StagingLockFile)
-	}
+// tryAcquireLockForFile attempts to acquire a lock for the specified file path.
+func tryAcquireLockForFile(path string) (*StagingLockFile, error) {
 	cleanPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("ensuring that path %q is an absolute path: %w", path, err)
 	}
-	if lockFile, ok := stagingLockFiles[cleanPath]; ok {
-		return lockFile, nil
+
+	stagingLockFileLock.Lock()
+	defer stagingLockFileLock.Unlock()
+
+	if stagingLockFiles == nil {
+		stagingLockFiles = make(map[string]*StagingLockFile)
 	}
-	lockFile, err := createStagingLockFileForPath(cleanPath) // platform-dependent LockFile
+
+	if _, ok := stagingLockFiles[cleanPath]; ok {
+		return nil, fmt.Errorf("lock %q is used already with other thread", cleanPath)
+	}
+
+	fd, err := rawfilelock.OpenLock(cleanPath, false)
 	if err != nil {
 		return nil, err
 	}
+
+	if err = rawfilelock.TryLockFile(fd, rawfilelock.WriteLock); err != nil {
+		// Lock acquisition failed, but holding stagingLockFileLock ensures
+		// no other goroutine in this process could have obtained a lock for this file,
+		// so closing it is still safe.
+		rawfilelock.CloseHandle(fd)
+		return nil, fmt.Errorf("failed to acquire lock on %q: %w", cleanPath, err)
+	}
+
+	lockFile := &StagingLockFile{
+		file: cleanPath,
+		fd:   fd,
+	}
+
 	stagingLockFiles[cleanPath] = lockFile
 	return lockFile, nil
 }
 
-// createStagingLockFileForPath creates a new StagingLockFile instance for the given path.
-// It verifies that the file can be opened before returning the StagingLockFile.
-// This function will be called at most once for each unique path within a process.
-func createStagingLockFileForPath(path string) (*StagingLockFile, error) {
-	// Check if we can open the lock.
-	fd, err := rawfilelock.OpenLock(path, false)
-	if err != nil {
-		return nil, err
-	}
-	rawfilelock.UnlockAndCloseHandle(fd)
+// UnlockAndDelete releases the lock, removes the associated file from the filesystem.
+//
+// WARNING: After this operation, the StagingLockFile becomes invalid for further use.
+func (l *StagingLockFile) UnlockAndDelete() error {
+	stagingLockFileLock.Lock()
+	defer stagingLockFileLock.Unlock()
 
-	return &StagingLockFile{
-		file:       path,
-		rwMutex:    &sync.RWMutex{},
-		stateMutex: &sync.Mutex{},
-		locked:     false,
-	}, nil
+	if l.file == "" {
+		// Panic when unlocking an unlocked lock. That's a violation
+		// of the lock semantics and will reveal such.
+		panic("calling Unlock on unlocked lock")
+	}
+
+	defer func() {
+		// It’s important that this happens while we are still holding stagingLockFileLock, to ensure
+		// that no other goroutine has l.file open = that this close is not unlocking the lock under any
+		// other goroutine. (defer ordering is LIFO, so this will happen before we release the stagingLockFileLock)
+		rawfilelock.UnlockAndCloseHandle(l.fd)
+		delete(stagingLockFiles, l.file)
+		l.file = ""
+	}()
+	if err := os.Remove(l.file); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
-// tryLock attempts to acquire an exclusive lock on the StagingLockFile without blocking.
-// It first tries to acquire the internal rwMutex, then opens and tries to lock the file.
-// Returns nil on success or an error if any step fails.
-func (l *StagingLockFile) tryLock() error {
-	success := l.rwMutex.TryLock()
-	rwMutexUnlocker := l.rwMutex.Unlock
+// CreateAndLock creates a new temporary file in the specified directory with the given pattern,
+// then creates and locks a StagingLockFile for it. The file is created using os.CreateTemp.
+// Typically, the caller would use the returned lock file path to derive a path to the lock-controlled resource
+// (e.g. by replacing the "pattern" part of the returned file name with a different prefix)
+// Caller MUST call UnlockAndDelete() on the returned StagingLockFile to release the lock and delete the file.
+//
+// Returns:
+//   - The locked StagingLockFile
+//   - The name of created lock file
+//   - Any error that occurred during the process
+//
+// If the file cannot be locked, this function will retry up to maxRetries times before failing.
+func CreateAndLock(dir string, pattern string) (*StagingLockFile, string, error) {
+	for try := 0; ; try++ {
+		file, err := os.CreateTemp(dir, pattern)
+		if err != nil {
+			return nil, "", err
+		}
+		file.Close()
 
-	if !success {
-		return fmt.Errorf("resource temporarily unavailable")
-	}
-	l.stateMutex.Lock()
-	defer l.stateMutex.Unlock()
-	fd, err := rawfilelock.OpenLock(l.file, false)
-	if err != nil {
-		rwMutexUnlocker()
-		return err
-	}
-	l.fd = fd
+		path := file.Name()
+		l, err := tryAcquireLockForFile(path)
+		if err != nil {
+			if try < maxRetries {
+				continue // Retry if the lock cannot be acquired
+			}
+			return nil, "", fmt.Errorf(
+				"failed to allocate lock in %q after %d attempts; last failure on %q: %w",
+				dir, try, filepath.Base(path), err,
+			)
+		}
 
-	if err = rawfilelock.TryLockFile(l.fd, rawfilelock.WriteLock); err != nil {
-		rawfilelock.CloseHandle(fd)
-		rwMutexUnlocker()
-		return err
+		return l, filepath.Base(path), nil
 	}
+}
 
-	l.locked = true
-	return nil
+// TryLockPath attempts to acquire a lock on an specific path. If the file does not exist,
+// it will be created.
+//
+// Warning: If acquiring a lock is successful, it returns a new StagingLockFile
+// instance for the file. Caller MUST call UnlockAndDelete() on the returned StagingLockFile
+// to release the lock and delete the file.
+func TryLockPath(path string) (*StagingLockFile, error) {
+	return tryAcquireLockForFile(path)
 }

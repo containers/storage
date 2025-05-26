@@ -1,22 +1,18 @@
 package staging_lockfile
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
-	"sync"
-	"sync/atomic"
+	"path/filepath"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/containers/storage/pkg/reexec"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// Warning: this is not an exhaustive set of tests.
 
 func TestMain(m *testing.M) {
 	if reexec.Init() {
@@ -25,206 +21,148 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// subLockMain is a child process which opens the lock file, closes stdout to
-// indicate that it has acquired the lock, waits for stdin to get closed, and
-// then unlocks the file.
-func subLockMain() {
-	if len(os.Args) != 2 {
-		logrus.Fatalf("expected two args, got %d", len(os.Args))
-	}
-	tf, err := GetStagingLockFile(os.Args[1])
-	if err != nil {
-		logrus.Fatalf("error opening lock file %q: %v", os.Args[1], err)
-	}
-	tf.Lock()
-	os.Stdout.Close()
-	_, err = io.Copy(io.Discard, os.Stdin)
-	if err != nil {
-		logrus.Fatalf("error reading stdin: %v", err)
-	}
-	tf.Unlock()
-}
-
-// subLock starts a child process.  If it doesn't return an error, the caller
-// should wait for the first ReadCloser by reading it until it receives an EOF.
-// At that point, the child will have acquired the lock.  It can then signal
-// that the child should release the lock by closing the WriteCloser.
+// subTryLockPath starts a child process.
 // The caller must call Wait() on the returned cmd.
-func subLock(l *namedStagingLockFile) (*exec.Cmd, io.WriteCloser, io.ReadCloser, error) {
-	cmd := reexec.Command("subLock", l.name)
-	wc, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
+func subTryLockPath(path string) (*exec.Cmd, io.ReadCloser, error) {
+	cmd := reexec.Command("subTryLockPath", path)
 	rc, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	if err := cmd.Start(); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return cmd, wc, rc, nil
+	return cmd, rc, nil
+}
+
+// subTryLockPathMain is a child process which tries to opens the StagingLockfile,
+// If it has acquired the lock, it will unlock and delete the file.
+// Otherwise, it will print an error message to stdout.
+func subTryLockPathMain() {
+	if len(os.Args) != 2 {
+		fmt.Printf("expected two args, got %d", len(os.Args))
+		os.Exit(1)
+	}
+	tf, err := TryLockPath(os.Args[1])
+	if err != nil {
+		fmt.Printf("error opening lock file %q: %v", os.Args[1], err)
+		os.Exit(1)
+	}
+	if err := tf.UnlockAndDelete(); err != nil {
+		fmt.Printf("error unlocking and deleting lock file %q: %v", os.Args[1], err)
+		os.Exit(1)
+	}
 }
 
 func init() {
-	reexec.Register("subLock", subLockMain)
+	reexec.Register("subTryLockPath", subTryLockPathMain)
 }
 
-type namedStagingLockFile struct {
-	*StagingLockFile
-	name string
+func TestCreateAndLock(t *testing.T) {
+	l, _, err := CreateAndLock(t.TempDir(), "staging-lockfile")
+	require.NoError(t, err)
+
+	require.NoError(t, l.UnlockAndDelete())
+
+	require.Empty(t, l.file)
+	require.Len(t, stagingLockFiles, 0)
 }
 
-func getNamedStagingLockfile() (*namedStagingLockFile, error) {
-	tf, err := os.CreateTemp("", "lockfile")
-	if err != nil {
-		return nil, err
-	}
-	name := tf.Name()
-	tf.Close()
-	l, err := GetStagingLockFile(name)
-	if err != nil {
-		return nil, err
-	}
-	return &namedStagingLockFile{StagingLockFile: l, name: name}, nil
+func TestTryLockPath(t *testing.T) {
+	lockFilePath := filepath.Join(t.TempDir(), "test-staging-lockfile")
+	l, err := TryLockPath(lockFilePath)
+	require.NoError(t, err)
+
+	require.NoError(t, l.UnlockAndDelete())
+
+	require.Len(t, stagingLockFiles, 0)
+	_, err = os.Stat(lockFilePath)
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func getTempLockfile() (*namedStagingLockFile, error) {
-	return getNamedStagingLockfile()
+func TestCreateAndLockAndTryLock(t *testing.T) {
+	tmpDirPath := t.TempDir()
+	l, path, err := CreateAndLock(tmpDirPath, "locktest")
+	require.NoError(t, err)
+	fullPath := filepath.Join(tmpDirPath, path)
+	defer os.Remove(fullPath)
+
+	_, err = TryLockPath(fullPath)
+	require.Error(t, err)
+
+	require.NoError(t, l.UnlockAndDelete())
+	require.Len(t, stagingLockFiles, 0)
+
+	l2, err := TryLockPath(fullPath)
+	require.NoError(t, err)
+	require.NoError(t, l2.UnlockAndDelete())
+
+	require.Len(t, stagingLockFiles, 0)
 }
 
-func TestLockfileName(t *testing.T) {
-	l, err := getTempLockfile()
-	require.Nil(t, err, "error getting temporary lock file")
-	defer os.Remove(l.name)
-
-	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
-
-	// l.Assert* are NOT usable for determining lock state if there are concurrent users of the lock.
-	// It’s just about acceptable for these smoke tests.
-	assert.Panics(t, l.AssertLocked)
-
-	l.Lock()
-	l.AssertLocked()
-	l.Unlock()
-
-	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
-
-	l.Lock()
-	l.AssertLocked()
-	l.Unlock()
-
-	assert.NotEmpty(t, l.name, "lockfile name should be recorded correctly")
+func TestUnlockAndDeleteTwice(t *testing.T) {
+	tmpDirPath := t.TempDir()
+	l, path, err := CreateAndLock(tmpDirPath, "panic-unlockdelete")
+	require.NoError(t, err)
+	fullPath := filepath.Join(tmpDirPath, path)
+	defer os.Remove(fullPath)
+	require.NoError(t, l.UnlockAndDelete())
+	assert.Panics(t, func() { _ = l.UnlockAndDelete() }, "UnlockAndDelete should panic if not locked")
 }
 
-func TestTryWriteStagingLockfile(t *testing.T) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+func TestLockFileRecreation(t *testing.T) {
+	tmpDirPath := t.TempDir()
+	l, path, err := CreateAndLock(tmpDirPath, "recreate-lock")
+	require.NoError(t, err)
+	require.NoError(t, l.UnlockAndDelete())
+	fullPath := filepath.Join(tmpDirPath, path)
 
-	l, err := getTempLockfile()
-	require.Nil(t, err, "error getting temporary lock file")
-	defer os.Remove(l.name)
+	l2, err := TryLockPath(fullPath)
+	require.NoError(t, err)
+	require.NoError(t, l2.UnlockAndDelete())
 
-	err = l.TryLock()
-	assert.Nil(t, err)
-
-	l.AssertLocked()
-
-	errChan := make(chan error)
-	go func() {
-		errChan <- l.TryLock()
-	}()
-	assert.NotNil(t, <-errChan)
-
-	l.Unlock()
+	require.Len(t, stagingLockFiles, 0)
 }
 
-func TestStagingLockfile(t *testing.T) {
-	l, err := getTempLockfile()
-	require.Nil(t, err, "error getting temporary lock file")
-	defer os.Remove(l.name)
-
-	l.Lock()
-	l.AssertLocked()
-	l.Unlock()
-}
-
-func TestLockfileConcurrent(t *testing.T) {
-	l, err := getTempLockfile()
-	require.Nil(t, err, "error getting temporary lock file")
-	defer os.Remove(l.name)
-	var wg sync.WaitGroup
-	var highestMutex sync.Mutex
-	var counter, highest int64
-	for range 8000 {
-		wg.Add(1)
+func TestConcurrentLocking(t *testing.T) {
+	const n = 10
+	ch := make(chan struct{}, n)
+	for i := 0; i < n; i++ {
 		go func() {
-			l.Lock()
-			workingCounter := atomic.AddInt64(&counter, 1)
-			assert.True(t, workingCounter >= 0, "counter should never be less than zero")
-			highestMutex.Lock()
-			if workingCounter > highest {
-				// multiple writers should not be able to hold
-				// this lock at the same time, so there should
-				// be no point at which two goroutines are
-				// between the AddInt64() above and the one
-				// below
-				highest = workingCounter
-			}
-			highestMutex.Unlock()
-			atomic.AddInt64(&counter, -1)
-			l.Unlock()
-			wg.Done()
+			l, _, err := CreateAndLock(t.TempDir(), "concurrent-lock")
+			require.NoError(t, err)
+			require.NoError(t, l.UnlockAndDelete())
+			ch <- struct{}{}
 		}()
 	}
-	wg.Wait()
-	assert.True(t, highest == 1, "counter should never have gone above 1, got to %d", highest)
+	for i := 0; i < n; i++ {
+		<-ch
+	}
+	require.Len(t, stagingLockFiles, 0)
 }
 
-func TestLockfileMultiProcess(t *testing.T) {
-	l, err := getTempLockfile()
-	require.Nil(t, err, "error getting temporary lock file")
-	defer os.Remove(l.name)
-	var wg sync.WaitGroup
-	var wcounter, whighest int64
-	var highestMutex sync.Mutex
-	subs := make([]struct {
-		cmd    *exec.Cmd
-		stdin  io.WriteCloser
-		stdout io.ReadCloser
-	}, 10)
-	for i := range subs {
-		cmd, stdin, stdout, err := subLock(l)
-		require.Nil(t, err, "error starting subprocess %d to take a write lock", i+1)
-		subs[i].cmd = cmd
-		subs[i].stdin = stdin
-		subs[i].stdout = stdout
+func TestTryLockPathMultiProcess(t *testing.T) {
+	tmpDirPath := t.TempDir()
+	lockfile, path, err := CreateAndLock(tmpDirPath, "test-staging-lockfile")
+	require.NoError(t, err)
+	fullPath := filepath.Join(tmpDirPath, path)
+
+	expectedErrMsg := fmt.Sprintf("error opening lock file %q: failed to acquire lock on ", fullPath)
+	tryLockTimes := 3
+	for i := 0; i < tryLockTimes; i++ {
+		cmd, stdout, err := subTryLockPath(fullPath)
+		require.NoError(t, err)
+		stderrBuf := new(strings.Builder)
+		_, err = io.Copy(stderrBuf, stdout)
+		require.NoError(t, err)
+		require.Error(t, cmd.Wait())
+		require.Contains(t, stderrBuf.String(), expectedErrMsg)
 	}
-	for i := range subs {
-		wg.Add(1)
-		go func(i int) {
-			_, err := io.Copy(io.Discard, subs[i].stdout)
-			require.NoError(t, err)
-			if testing.Verbose() {
-				t.Logf("\tchild %4d acquired the write lock\n", i+1)
-			}
-			workingWcounter := atomic.AddInt64(&wcounter, 1)
-			highestMutex.Lock()
-			if workingWcounter > whighest {
-				whighest = workingWcounter
-			}
-			highestMutex.Unlock()
-			time.Sleep(1 * time.Second)
-			atomic.AddInt64(&wcounter, -1)
-			if testing.Verbose() {
-				t.Logf("\ttelling child %4d to release the write lock\n", i+1)
-			}
-			subs[i].stdin.Close()
-			err = subs[i].cmd.Wait()
-			require.NoError(t, err)
-			wg.Done()
-		}(i)
-	}
-	wg.Wait()
-	assert.True(t, whighest == 1, "expected to have no more than one writer lock active at a time, had %d", whighest)
+	require.NoError(t, lockfile.UnlockAndDelete())
+
+	cmd, _, err := subTryLockPath(fullPath)
+	require.NoError(t, err)
+	require.NoError(t, cmd.Wait())
+
+	require.Len(t, stagingLockFiles, 0)
 }
