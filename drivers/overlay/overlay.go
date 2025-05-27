@@ -23,6 +23,7 @@ import (
 	"github.com/containers/storage/drivers/overlayutils"
 	"github.com/containers/storage/drivers/quota"
 	"github.com/containers/storage/internal/dedup"
+	"github.com/containers/storage/internal/staging_lockfile"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -30,7 +31,6 @@ import (
 	"github.com/containers/storage/pkg/fsutils"
 	"github.com/containers/storage/pkg/idmap"
 	"github.com/containers/storage/pkg/idtools"
-	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
@@ -133,7 +133,7 @@ type Driver struct {
 	stagingDirsLocksMutex sync.Mutex
 	// stagingDirsLocks access is not thread safe, it is required that callers take
 	// stagingDirsLocksMutex on each access to guard against concurrent map writes.
-	stagingDirsLocks map[string]*lockfile.LockFile
+	stagingDirsLocks map[string]*staging_lockfile.StagingLockFile
 
 	supportsIDMappedMounts *bool
 }
@@ -442,7 +442,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		usingComposefs:        opts.useComposefs,
 		options:               *opts,
 		stagingDirsLocksMutex: sync.Mutex{},
-		stagingDirsLocks:      make(map[string]*lockfile.LockFile),
+		stagingDirsLocks:      make(map[string]*staging_lockfile.StagingLockFile),
 	}
 
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d))
@@ -874,7 +874,7 @@ func (d *Driver) Cleanup() error {
 func (d *Driver) pruneStagingDirectories() bool {
 	d.stagingDirsLocksMutex.Lock()
 	for _, lock := range d.stagingDirsLocks {
-		lock.Unlock()
+		lock.UnlockAndDelete()
 	}
 	clear(d.stagingDirsLocks)
 	d.stagingDirsLocksMutex.Unlock()
@@ -886,17 +886,13 @@ func (d *Driver) pruneStagingDirectories() bool {
 	if err == nil {
 		for _, dir := range dirs {
 			stagingDirToRemove := filepath.Join(stagingDirBase, dir.Name())
-			lock, err := lockfile.GetLockFile(filepath.Join(stagingDirToRemove, stagingLockFile))
+			lock, err := staging_lockfile.TryLockExisting(filepath.Join(stagingDirToRemove, stagingLockFile))
 			if err != nil {
 				anyPresent = true
 				continue
 			}
-			if err := lock.TryLock(); err != nil {
-				anyPresent = true
-				continue
-			}
 			_ = os.RemoveAll(stagingDirToRemove)
-			lock.Unlock()
+			lock.UnlockAndDelete()
 		}
 	}
 	return anyPresent
@@ -2233,7 +2229,7 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 		return graphdriver.DriverWithDifferOutput{}, err
 	}
 
-	lock, err := lockfile.GetLockFile(filepath.Join(layerDir, stagingLockFile))
+	lock, err := staging_lockfile.GetStagingLockFile(filepath.Join(layerDir, stagingLockFile))
 	if err != nil {
 		return graphdriver.DriverWithDifferOutput{}, err
 	}

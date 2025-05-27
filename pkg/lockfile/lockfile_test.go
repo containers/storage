@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -843,60 +842,4 @@ func TestLockfileMultiprocessModifiedSince(t *testing.T) {
 	lock.Unlock()
 	require.NoError(t, err)
 	assert.False(t, modified)
-}
-
-func TestOpenLock(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		name    string
-		prepare func() (path string, readOnly bool)
-	}{
-		{
-			name: "file exists (read/write)",
-			prepare: func() (string, bool) {
-				tempFile, err := os.CreateTemp("", "lock-")
-				require.NoError(t, err)
-				tempFile.Close()
-				return tempFile.Name(), false
-			},
-		},
-		{
-			name: "file exists readonly (readonly)",
-			prepare: func() (string, bool) {
-				tempFile, err := os.CreateTemp("", "lock-")
-				require.NoError(t, err)
-				tempFile.Close()
-				return tempFile.Name(), true
-			},
-		},
-		{
-			name: "base dir exists (read/write)",
-			prepare: func() (string, bool) {
-				tempDir := os.TempDir()
-				require.DirExists(t, tempDir)
-				return filepath.Join(tempDir, "test-1.lock"), false
-			},
-		},
-		{
-			name: "base dir not exists (read/write)",
-			prepare: func() (string, bool) {
-				tempDir, err := os.MkdirTemp("", "lock-")
-				require.NoError(t, err)
-				return filepath.Join(tempDir, "subdir", "test-1.lock"), false
-			},
-		},
-	} {
-		path, readOnly := tc.prepare()
-
-		fd, err := openLock(path, readOnly)
-		require.NoError(t, err, tc.name)
-		unlockAndCloseHandle(fd)
-
-		fd, err = openLock(path, readOnly)
-		require.NoError(t, err)
-		unlockAndCloseHandle(fd)
-
-		require.Nil(t, os.RemoveAll(path))
-	}
 }
