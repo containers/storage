@@ -15,13 +15,19 @@ import (
 // If commitrange is a single commit, all ancestor commits up through the hash provided.
 // If commitrange is an empty commit range, then nil is returned.
 func Commits(commitrange string) ([]CommitEntry, error) {
-	cmdArgs := []string{"git", "--no-pager", "log", `--pretty=format:%H`, commitrange}
+	// TEST if it has _enough_ of a range from rev-list
+	commitrange, err := checkRevList(commitrange)
+	if err != nil {
+		logrus.Errorf("failed to validate the git commit range: %s", err)
+		return nil, err
+	}
+	cmdArgs := []string{"git", "rev-list", commitrange}
 	if debug() {
 		logrus.Infof("[git] cmd: %q", strings.Join(cmdArgs, " "))
 	}
 	output, err := exec.Command(cmdArgs[0], cmdArgs[1:]...).Output()
 	if err != nil {
-		logrus.Errorf("mm[git] cmd: %q", strings.Join(cmdArgs, " "))
+		logrus.Errorf("[git] cmd: %q", strings.Join(cmdArgs, " "))
 		return nil, err
 	}
 	if len(output) == 0 {
@@ -37,6 +43,39 @@ func Commits(commitrange string) ([]CommitEntry, error) {
 		commits[i] = *c
 	}
 	return commits, nil
+}
+
+// Since the commitrange requested may be longer than the depth being cloned in CI,
+// check for an error, if so do a git log to get the oldest available commit for a reduced range.
+func checkRevList(commitrange string) (string, error) {
+	cmdArgs := []string{"git", "rev-list", commitrange}
+	if debug() {
+		logrus.Infof("[git] cmd: %q", strings.Join(cmdArgs, " "))
+	}
+	_, err := exec.Command(cmdArgs[0], cmdArgs[1:]...).Output()
+	if err == nil {
+		// no issues, return now
+		return commitrange, nil
+	}
+	cmdArgs = []string{"git", "log", "--pretty=oneline", "--no-show-signature"}
+	if debug() {
+		logrus.Infof("[git] cmd: %q", strings.Join(cmdArgs, " "))
+	}
+	output, err := exec.Command(cmdArgs[0], cmdArgs[1:]...).Output()
+	if err != nil {
+		logrus.Errorf("[git] cmd: %q", strings.Join(cmdArgs, " "))
+		return "", err
+	}
+	// This "output" is now the list of available commits and short description.
+	// We want the last commit hash only.. (i.e. `| tail -n1 | awk '{ print $1 }'`)
+	chunks := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(chunks) == 1 {
+		return strings.Split(chunks[0], " ")[0], nil
+	}
+	last := chunks[len(chunks)-1]
+	lastCommit := strings.Split(last, " ")[0]
+
+	return fmt.Sprintf("%s..HEAD", lastCommit), nil
 }
 
 // FieldNames are for the formating and rendering of the CommitEntry structs.
@@ -96,6 +135,15 @@ func gitVersionNewerThan(otherV string) (bool, error) {
 // Check warns if changes introduce whitespace errors.
 // Returns non-zero if any issues are found.
 func Check(commit string) ([]byte, error) {
+	logs, err := LogUntil(commit)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 1 {
+		logrus.Debugf("[git.Check] %q is the initial commit. Skipping.", commit)
+		return []byte{}, nil
+	}
+
 	args := []string{
 		"--no-pager", "log", "--check",
 		fmt.Sprintf("%s^..%s", commit, commit),
@@ -108,6 +156,9 @@ func Check(commit string) ([]byte, error) {
 		if gitNewEnough {
 			excludeList := strings.Split(excludeEnvList, ":")
 			for _, exclude := range excludeList {
+				if exclude == "" {
+					continue
+				}
 				args = append(args, "--", ".", fmt.Sprintf(":(exclude)%s", exclude))
 			}
 		}
@@ -136,6 +187,21 @@ func Show(commit string) ([]byte, error) {
 // See also FieldNames
 type CommitEntry map[string]string
 
+// LogUntil returns the array of oneline commits from initial until the provided commit
+func LogUntil(commit string) ([]string, error) {
+	cmd := exec.Command("git", "--no-pager", "log", "--oneline", "--no-show-signature", commit)
+	if debug() {
+		logrus.Infof("[git] cmd: %q", strings.Join(cmd.Args, " "))
+	}
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		logrus.Errorf("[git] cmd: %q", strings.Join(cmd.Args, " "))
+		return nil, err
+	}
+	return strings.Split(strings.TrimSpace(string(out)), "\n"), nil
+}
+
 // LogCommit assembles the full information on a commit from its commit hash
 func LogCommit(commit string) (*CommitEntry, error) {
 	c := CommitEntry{}
@@ -150,7 +216,8 @@ func LogCommit(commit string) (*CommitEntry, error) {
 			logrus.Errorf("[git] cmd: %q", strings.Join(cmd.Args, " "))
 			return nil, err
 		}
-		c[v] = strings.TrimSpace(string(out))
+		commitMessage := strings.ReplaceAll(string(out), "\r\n", "\n")
+		c[v] = strings.TrimSpace(commitMessage)
 	}
 
 	return &c, nil

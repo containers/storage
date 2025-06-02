@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
 	"github.com/vbatts/git-validation/git"
 )
 
@@ -29,7 +30,11 @@ func NewRunner(root string, rules []Rule, commitrange string, verbose bool) (*Ru
 		if err != nil {
 			return nil, err
 		}
-		defer os.Chdir(cwd)
+		defer func() {
+			if err := os.Chdir(cwd); err != nil {
+				logrus.Warnf("changing working directory to %q failed: %s", cwd, err)
+			}
+		}()
 
 		if err := os.Chdir(newroot); err != nil {
 			return nil, err
@@ -42,6 +47,7 @@ func NewRunner(root string, rules []Rule, commitrange string, verbose bool) (*Ru
 			}
 		}
 	}
+	logrus.Debugf("[NewRunner] commitrange: %q", commitrange)
 	return &Runner{
 		Root:        newroot,
 		Rules:       rules,
@@ -56,7 +62,11 @@ func (r *Runner) Run() error {
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(cwd)
+	defer func() {
+		if err := os.Chdir(cwd); err != nil {
+			logrus.Warnf("changing working directory to %q failed: %s", cwd, err)
+		}
+	}()
 
 	if err := os.Chdir(r.Root); err != nil {
 		return err
