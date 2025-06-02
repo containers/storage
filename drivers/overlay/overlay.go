@@ -222,7 +222,7 @@ func checkAndRecordIDMappedSupport(home, runhome string) (bool, error) {
 	return supportsIDMappedMounts, err
 }
 
-func checkAndRecordOverlaySupport(fsMagic graphdriver.FsMagic, home, runhome string) (bool, error) {
+func checkAndRecordOverlaySupport(home, runhome string) (bool, error) {
 	var supportsDType bool
 
 	if os.Geteuid() != 0 {
@@ -242,7 +242,7 @@ func checkAndRecordOverlaySupport(fsMagic graphdriver.FsMagic, home, runhome str
 			return false, errors.New(overlayCacheText)
 		}
 	} else {
-		supportsDType, err = supportsOverlay(home, fsMagic, 0, 0)
+		supportsDType, err = supportsOverlay(home, 0, 0)
 		if err != nil {
 			os.Remove(filepath.Join(home, linkDir))
 			os.Remove(home)
@@ -388,7 +388,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		t := true
 		supportsVolatile = &t
 	} else {
-		supportsDType, err = checkAndRecordOverlaySupport(fsMagic, home, runhome)
+		supportsDType, err = checkAndRecordOverlaySupport(home, runhome)
 		if err != nil {
 			return nil, err
 		}
@@ -666,16 +666,11 @@ func SupportsNativeOverlay(home, runhome string) (bool, error) {
 		}
 	}
 
-	fsMagic, err := graphdriver.GetFSMagic(home)
-	if err != nil {
-		return false, err
-	}
-
-	supportsDType, _ := checkAndRecordOverlaySupport(fsMagic, home, runhome)
+	supportsDType, _ := checkAndRecordOverlaySupport(home, runhome)
 	return supportsDType, nil
 }
 
-func supportsOverlay(home string, homeMagic graphdriver.FsMagic, rootUID, rootGID int) (supportsDType bool, err error) {
+func supportsOverlay(home string, rootUID, rootGID int) (supportsDType bool, err error) {
 	selinuxLabelTest := selinux.PrivContainerMountLabel()
 
 	logLevel := logrus.ErrorLevel
