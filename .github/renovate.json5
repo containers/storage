@@ -52,15 +52,4 @@
 
   // Don't leave dep. update. PRs "hanging", assign them to people.
   "assignees": ["containers/storage-maintainers"],
-
-  /*************************************************
-   ***** Golang-specific configuration options *****
-   *************************************************/
-
-  "golang": {
-    // N/B: LAST MATCHING RULE WINS
-    // https://docs.renovatebot.com/configuration-options/#packagerules
-    "packageRules": [
-    ],
-  },
 }
