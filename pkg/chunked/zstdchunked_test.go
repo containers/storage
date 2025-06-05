@@ -129,7 +129,12 @@ func TestGenerateAndParseManifest(t *testing.T) {
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	if err := minimal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], 9); err != nil {
+
+	createZstdWriter := func(dest io.Writer) (minimal.ZstdWriter, error) {
+		return minimal.ZstdWriterWithLevel(dest, 9)
+	}
+
+	if err := minimal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], createZstdWriter); err != nil {
 		t.Error(err)
 	}
 	if err := writer.Flush(); err != nil {
