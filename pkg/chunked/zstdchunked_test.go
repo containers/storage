@@ -184,7 +184,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	tocDigest, err := toc.GetTOCDigest(annotations)
 	require.NoError(t, err)
 	require.NotNil(t, tocDigest)
-	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(t.TempDir(), s, *tocDigest, annotations)
+	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(t.TempDir(), s, *tocDigest, annotations, true)
 	require.NoError(t, err)
 
 	var toc minimal.TOC
