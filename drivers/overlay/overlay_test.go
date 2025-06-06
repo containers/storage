@@ -9,6 +9,7 @@ import (
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/drivers/graphtest"
 	"github.com/containers/storage/pkg/archive"
+	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/reexec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,45 @@ func TestContainersOverlayXattr(t *testing.T) {
 	fi, err := os.Stat(root)
 	require.NoError(t, err)
 	assert.Equal(t, 0o555&os.ModePerm, fi.Mode()&os.ModePerm, root)
+}
+
+func TestSupportsShifting(t *testing.T) {
+	contiguousMap := []idtools.IDMap{
+		{
+			ContainerID: 0,
+			HostID:      1000,
+			Size:        65536,
+		},
+	}
+	nonContiguousMap := []idtools.IDMap{
+		{
+			ContainerID: 0,
+			HostID:      0,
+			Size:        1,
+		},
+		{
+			ContainerID: 2,
+			HostID:      2,
+			Size:        1,
+		},
+	}
+
+	t.Run("no mount program", func(t *testing.T) {
+		driver := graphtest.GetDriver(t, driverName)
+
+		supported := driver.SupportsShifting(nil, nil)
+		assert.Equal(t, supported, driver.SupportsShifting(contiguousMap, contiguousMap), "contiguous map with no mount program")
+		assert.Equal(t, supported, driver.SupportsShifting(nonContiguousMap, nonContiguousMap), "non-contiguous map with no mount program")
+	})
+
+	t.Run("with mount program", func(t *testing.T) {
+		driver := graphtest.GetDriver(t, driverName, "mount_program=/usr/bin/true")
+
+		assert.True(t, driver.SupportsShifting(nil, nil), "nil map with mount program")
+		assert.True(t, driver.SupportsShifting(contiguousMap, contiguousMap), "contiguous map with mount program")
+		// If a mount program is specified, SupportsShifting must return false
+		assert.False(t, driver.SupportsShifting(nonContiguousMap, nonContiguousMap), "non-contiguous map with mount program")
+	})
 }
 
 // This avoids creating a new driver for each test if all tests are run
