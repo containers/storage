@@ -2555,16 +2555,17 @@ func (d *Driver) supportsIDmappedMounts() bool {
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
 func (d *Driver) SupportsShifting(uidmap, gidmap []idtools.IDMap) bool {
-	if !idtools.IsContiguous(uidmap) {
-		return false
-	}
-	if !idtools.IsContiguous(gidmap) {
-		return false
-	}
 	if os.Getenv("_CONTAINERS_OVERLAY_DISABLE_IDMAP") == "yes" {
 		return false
 	}
 	if d.options.mountProgram != "" {
+		// fuse-overlayfs needs contiguous mappings to avoid https://github.com/containers/podman/issues/10272
+		if !idtools.IsContiguous(uidmap) {
+			return false
+		}
+		if !idtools.IsContiguous(gidmap) {
+			return false
+		}
 		return true
 	}
 	return d.supportsIDmappedMounts()
