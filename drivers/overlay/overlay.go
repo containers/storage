@@ -828,7 +828,7 @@ func (d *Driver) Status() [][2]string {
 		{"Supports d_type", strconv.FormatBool(d.supportsDType)},
 		{"Native Overlay Diff", strconv.FormatBool(!d.useNaiveDiff())},
 		{"Using metacopy", strconv.FormatBool(d.usingMetacopy)},
-		{"Supports shifting", strconv.FormatBool(d.SupportsShifting())},
+		{"Supports shifting", strconv.FormatBool(d.SupportsShifting(nil, nil))},
 		{"Supports volatile", strconv.FormatBool(supportsVolatile)},
 	}
 }
@@ -1483,7 +1483,7 @@ func (d *Driver) get(id string, disableShifting bool, options graphdriver.MountO
 
 	readWrite := !inAdditionalStore
 
-	if !d.SupportsShifting() || options.DisableShifting {
+	if !d.SupportsShifting(options.UidMaps, options.GidMaps) || options.DisableShifting {
 		disableShifting = true
 	}
 
@@ -2554,7 +2554,7 @@ func (d *Driver) supportsIDmappedMounts() bool {
 }
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
-func (d *Driver) SupportsShifting() bool {
+func (d *Driver) SupportsShifting(uidmap, gidmap []idtools.IDMap) bool {
 	if os.Getenv("_CONTAINERS_OVERLAY_DISABLE_IDMAP") == "yes" {
 		return false
 	}

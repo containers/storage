@@ -132,6 +132,6 @@ func (n *naiveLayerIDMapUpdater) UpdateLayerIDMap(id string, toContainer, toHost
 }
 
 // SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in an userNS
-func (n *naiveLayerIDMapUpdater) SupportsShifting() bool {
+func (n *naiveLayerIDMapUpdater) SupportsShifting(uidmap, gidmap []idtools.IDMap) bool {
 	return false
 }
