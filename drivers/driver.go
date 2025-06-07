@@ -194,7 +194,7 @@ type LayerIDMapUpdater interface {
 
 	// SupportsShifting tells whether the driver support shifting of the UIDs/GIDs in a
 	// image and it is not required to Chown the files when running in an user namespace.
-	SupportsShifting() bool
+	SupportsShifting(uidmap, gidmap []idtools.IDMap) bool
 }
 
 // Driver is the interface for layered/snapshot file system drivers.
