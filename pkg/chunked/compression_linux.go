@@ -185,7 +185,7 @@ func openTmpFileNoTmpFile(tmpDir string) (*os.File, error) {
 // Returns (manifest blob, parsed manifest, tar-split file or nil, manifest offset).
 // The opened tar-split file’s position is unspecified.
 // It may return an error matching ErrFallbackToOrdinaryLayerDownload / errFallbackCanConvert.
-func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string) (_ []byte, _ *minimal.TOC, _ *os.File, _ int64, retErr error) {
+func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocDigest digest.Digest, annotations map[string]string, compressed bool) (_ []byte, _ *minimal.TOC, _ *os.File, _ int64, retErr error) {
 	offsetMetadata := annotations[minimal.ManifestInfoKey]
 	if offsetMetadata == "" {
 		return nil, nil, nil, 0, fmt.Errorf("%q annotation missing", minimal.ManifestInfoKey)
@@ -261,7 +261,7 @@ func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocD
 		return nil, nil, nil, 0, err
 	}
 
-	decodedBlob, err := decodeAndValidateBlob(manifest, manifestLengthUncompressed, tocDigest.String())
+	decodedBlob, err := decodeAndValidateBlob(manifest, manifestLengthUncompressed, tocDigest.String(), compressed)
 	if err != nil {
 		return nil, nil, nil, 0, fmt.Errorf("validating and decompressing TOC: %w", err)
 	}
@@ -288,7 +288,7 @@ func readZstdChunkedManifest(tmpDir string, blobStream ImageSourceSeekable, tocD
 				decodedTarSplit.Close()
 			}
 		}()
-		if err := decodeAndValidateBlobToStream(tarSplit, decodedTarSplit, toc.TarSplitDigest.String()); err != nil {
+		if err := decodeAndValidateBlobToStream(tarSplit, decodedTarSplit, toc.TarSplitDigest.String(), compressed); err != nil {
 			return nil, nil, nil, 0, fmt.Errorf("validating and decompressing tar-split: %w", err)
 		}
 		// We use the TOC for creating on-disk files, but the tar-split for creating metadata
@@ -487,9 +487,13 @@ func validateBlob(blob []byte, expectedCompressedChecksum string) error {
 	return nil
 }
 
-func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompressedChecksum string) ([]byte, error) {
+func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompressedChecksum string, compressed bool) ([]byte, error) {
 	if err := validateBlob(blob, expectedCompressedChecksum); err != nil {
 		return nil, err
+	}
+
+	if !compressed {
+		return blob, nil
 	}
 
 	decoder, err := zstd.NewReader(nil)
@@ -502,8 +506,13 @@ func decodeAndValidateBlob(blob []byte, lengthUncompressed uint64, expectedCompr
 	return decoder.DecodeAll(blob, b)
 }
 
-func decodeAndValidateBlobToStream(blob []byte, w *os.File, expectedCompressedChecksum string) error {
+func decodeAndValidateBlobToStream(blob []byte, w *os.File, expectedCompressedChecksum string, compressed bool) error {
 	if err := validateBlob(blob, expectedCompressedChecksum); err != nil {
+		return err
+	}
+
+	if !compressed {
+		_, err := w.Write(blob)
 		return err
 	}
 
