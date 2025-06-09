@@ -23,6 +23,7 @@ import (
 	"github.com/containers/storage/drivers/overlayutils"
 	"github.com/containers/storage/drivers/quota"
 	"github.com/containers/storage/internal/dedup"
+	"github.com/containers/storage/internal/staging_lockfile"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -30,7 +31,6 @@ import (
 	"github.com/containers/storage/pkg/fsutils"
 	"github.com/containers/storage/pkg/idmap"
 	"github.com/containers/storage/pkg/idtools"
-	"github.com/containers/storage/pkg/lockfile"
 	"github.com/containers/storage/pkg/mount"
 	"github.com/containers/storage/pkg/parsers"
 	"github.com/containers/storage/pkg/system"
@@ -133,7 +133,7 @@ type Driver struct {
 	stagingDirsLocksMutex sync.Mutex
 	// stagingDirsLocks access is not thread safe, it is required that callers take
 	// stagingDirsLocksMutex on each access to guard against concurrent map writes.
-	stagingDirsLocks map[string]*lockfile.LockFile
+	stagingDirsLocks map[string]*staging_lockfile.StagingLockFile
 
 	supportsIDMappedMounts *bool
 }
@@ -442,7 +442,7 @@ func Init(home string, options graphdriver.Options) (graphdriver.Driver, error) 
 		usingComposefs:        opts.useComposefs,
 		options:               *opts,
 		stagingDirsLocksMutex: sync.Mutex{},
-		stagingDirsLocks:      make(map[string]*lockfile.LockFile),
+		stagingDirsLocks:      make(map[string]*staging_lockfile.StagingLockFile),
 	}
 
 	d.naiveDiff = graphdriver.NewNaiveDiffDriver(d, graphdriver.NewNaiveLayerIDMapUpdater(d))
@@ -869,7 +869,9 @@ func (d *Driver) Cleanup() error {
 func (d *Driver) pruneStagingDirectories() bool {
 	d.stagingDirsLocksMutex.Lock()
 	for _, lock := range d.stagingDirsLocks {
-		lock.Unlock()
+		if err := lock.UnlockAndDelete(); err != nil {
+			logrus.Warnf("Failed to unlock and delete staging lock file: %v", err)
+		}
 	}
 	clear(d.stagingDirsLocks)
 	d.stagingDirsLocksMutex.Unlock()
@@ -881,17 +883,15 @@ func (d *Driver) pruneStagingDirectories() bool {
 	if err == nil {
 		for _, dir := range dirs {
 			stagingDirToRemove := filepath.Join(stagingDirBase, dir.Name())
-			lock, err := lockfile.GetLockFile(filepath.Join(stagingDirToRemove, stagingLockFile))
+			lock, err := staging_lockfile.TryLockPath(filepath.Join(stagingDirToRemove, stagingLockFile))
 			if err != nil {
 				anyPresent = true
 				continue
 			}
-			if err := lock.TryLock(); err != nil {
-				anyPresent = true
-				continue
-			}
 			_ = os.RemoveAll(stagingDirToRemove)
-			lock.Unlock()
+			if err := lock.UnlockAndDelete(); err != nil {
+				logrus.Warnf("Failed to unlock and delete staging lock file: %v", err)
+			}
 		}
 	}
 	return anyPresent
@@ -2173,7 +2173,10 @@ func (d *Driver) CleanupStagingDirectory(stagingDirectory string) error {
 	d.stagingDirsLocksMutex.Lock()
 	if lock, ok := d.stagingDirsLocks[parentStagingDir]; ok {
 		delete(d.stagingDirsLocks, parentStagingDir)
-		lock.Unlock()
+		if err := lock.UnlockAndDelete(); err != nil {
+			d.stagingDirsLocksMutex.Unlock()
+			return err
+		}
 	}
 	d.stagingDirsLocksMutex.Unlock()
 
@@ -2228,7 +2231,7 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 		return graphdriver.DriverWithDifferOutput{}, err
 	}
 
-	lock, err := lockfile.GetLockFile(filepath.Join(layerDir, stagingLockFile))
+	lock, err := staging_lockfile.TryLockPath(filepath.Join(layerDir, stagingLockFile))
 	if err != nil {
 		return graphdriver.DriverWithDifferOutput{}, err
 	}
@@ -2237,13 +2240,14 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 			d.stagingDirsLocksMutex.Lock()
 			delete(d.stagingDirsLocks, layerDir)
 			d.stagingDirsLocksMutex.Unlock()
-			lock.Unlock()
+			if err := lock.UnlockAndDelete(); err != nil {
+				errRet = errors.Join(errRet, err)
+			}
 		}
 	}()
 	d.stagingDirsLocksMutex.Lock()
 	d.stagingDirsLocks[layerDir] = lock
 	d.stagingDirsLocksMutex.Unlock()
-	lock.Lock()
 
 	logrus.Debugf("Applying differ in %s", applyDir)
 
@@ -2269,7 +2273,7 @@ func (d *Driver) ApplyDiffWithDiffer(options *graphdriver.ApplyDiffWithDifferOpt
 }
 
 // ApplyDiffFromStagingDirectory applies the changes using the specified staging directory.
-func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *graphdriver.DriverWithDifferOutput, options *graphdriver.ApplyDiffWithDifferOpts) error {
+func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *graphdriver.DriverWithDifferOutput, options *graphdriver.ApplyDiffWithDifferOpts) (errRet error) {
 	stagingDirectory := diffOutput.Target
 	parentStagingDir := filepath.Dir(stagingDirectory)
 
@@ -2277,7 +2281,9 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *gr
 		d.stagingDirsLocksMutex.Lock()
 		if lock, ok := d.stagingDirsLocks[parentStagingDir]; ok {
 			delete(d.stagingDirsLocks, parentStagingDir)
-			lock.Unlock()
+			if err := lock.UnlockAndDelete(); err != nil {
+				errRet = errors.Join(errRet, err)
+			}
 		}
 		d.stagingDirsLocksMutex.Unlock()
 	}()
