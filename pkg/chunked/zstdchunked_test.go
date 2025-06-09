@@ -129,7 +129,12 @@ func TestGenerateAndParseManifest(t *testing.T) {
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
-	if err := minimal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], 9); err != nil {
+
+	createZstdWriter := func(dest io.Writer) (minimal.ZstdWriter, error) {
+		return minimal.ZstdWriterWithLevel(dest, 9)
+	}
+
+	if err := minimal.WriteZstdChunkedManifest(writer, annotations, offsetManifest, &ts, someFiles[:], createZstdWriter); err != nil {
 		t.Error(err)
 	}
 	if err := writer.Flush(); err != nil {
@@ -179,7 +184,7 @@ func TestGenerateAndParseManifest(t *testing.T) {
 	tocDigest, err := toc.GetTOCDigest(annotations)
 	require.NoError(t, err)
 	require.NotNil(t, tocDigest)
-	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(t.TempDir(), s, *tocDigest, annotations)
+	manifest, decodedTOC, _, _, err := readZstdChunkedManifest(t.TempDir(), s, *tocDigest, annotations, true)
 	require.NoError(t, err)
 
 	var toc minimal.TOC
