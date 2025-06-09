@@ -404,18 +404,11 @@ func writeZstdChunkedStream(destFile io.Writer, outMetadata map[string]string, r
 		return err
 	}
 
-	if err := zstdWriter.Flush(); err != nil {
-		zstdWriter.Close()
-		return err
-	}
 	if err := zstdWriter.Close(); err != nil {
 		return err
 	}
 	zstdWriter = nil
 
-	if err := tarSplitData.zstd.Flush(); err != nil {
-		return err
-	}
 	if err := tarSplitData.zstd.Close(); err != nil {
 		return err
 	}
