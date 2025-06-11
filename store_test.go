@@ -569,3 +569,63 @@ func TestStoreMultiList(t *testing.T) {
 
 	store.Free()
 }
+
+func TestStoreDelete(t *testing.T) {
+	reexec.Init()
+
+	store := newTestStore(t, StoreOptions{})
+
+	options := MultiListOptions{
+		Layers:     true,
+		Images:     true,
+		Containers: true,
+	}
+
+	expectedResult, err := store.MultiList(options)
+	require.NoError(t, err)
+
+	_, err = store.CreateLayer("LayerNoUsed", "", []string{"not-used"}, "", false, nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateLayer("Layer", "", []string{"l1"}, "", false, nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateImage("Image1", []string{"i1"}, "Layer", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateImage("Image", []string{"i"}, "Layer", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateContainer("Container", []string{"c"}, "Image", "", "", nil)
+	require.NoError(t, err)
+
+	_, err = store.CreateContainer("Container1", []string{"c1"}, "Image1", "", "", nil)
+	require.NoError(t, err)
+
+	err = store.DeleteContainer("Container")
+	require.NoError(t, err)
+
+	_, err = store.DeleteImage("Image", true)
+	require.NoError(t, err)
+
+	err = store.DeleteContainer("Container1")
+	require.NoError(t, err)
+
+	_, err = store.DeleteImage("Image1", true)
+	require.NoError(t, err)
+
+	err = store.DeleteLayer("LayerNoUsed")
+	require.NoError(t, err)
+
+	listResults, err := store.MultiList(options)
+	require.NoError(t, err)
+
+	require.Equal(t, expectedResult.Layers, listResults.Layers)
+	require.Equal(t, expectedResult.Containers, listResults.Containers)
+	require.Equal(t, expectedResult.Images, listResults.Images)
+
+	_, err = store.Shutdown(true)
+	require.Nil(t, err)
+
+	store.Free()
+}
