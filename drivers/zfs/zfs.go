@@ -13,6 +13,7 @@ import (
 	"time"
 
 	graphdriver "github.com/containers/storage/drivers"
+	"github.com/containers/storage/internal/tempdir"
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
@@ -404,6 +405,12 @@ func (d *Driver) Remove(id string) error {
 	delete(d.filesystemsCache, name)
 	d.Unlock()
 	return nil
+}
+
+// DeferredRemove is not implemented.
+// It calls Remove directly.
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	return nil, d.Remove(id)
 }
 
 // Get returns the mountpoint for the given id after creating the target directories if necessary.

@@ -24,6 +24,7 @@ import (
 	"github.com/containers/storage/drivers/quota"
 	"github.com/containers/storage/internal/dedup"
 	"github.com/containers/storage/internal/staging_lockfile"
+	"github.com/containers/storage/internal/tempdir"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -1327,6 +1328,35 @@ func (d *Driver) Remove(id string) error {
 	return nil
 }
 
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	t, err := tempdir.NewTempDir(filepath.Join(d.home, stagingDir))
+	if err != nil {
+		return nil, err
+	}
+
+	dir := d.dir(id)
+	lid, err := os.ReadFile(path.Join(dir, "link"))
+	if err == nil {
+		if err := t.Add(path.Join(d.home, linkDir, string(lid))); err != nil {
+			logrus.Debugf("Failed to Add to stage Directory link: %v", err)
+		}
+	}
+
+	d.releaseAdditionalLayerByID(id)
+
+	if err := t.Add(dir); err != nil {
+		return t.Cleanup, fmt.Errorf("failed to add to stage directory: %w", err)
+	}
+
+	if d.quotaCtl != nil {
+		d.quotaCtl.ClearQuota(dir)
+		if d.imageStore != "" {
+			d.quotaCtl.ClearQuota(d.imageStore)
+		}
+	}
+	return t.Cleanup, nil
+}
+
 // recreateSymlinks goes through the driver's home directory and checks if the diff directory
 // under each layer has a symlink created for it under the linkDir. If the symlink does not
 // exist, it creates them
@@ -1353,8 +1383,8 @@ func (d *Driver) recreateSymlinks() error {
 		// Check that for each layer, there's a link in "l" with the name in
 		// the layer's "link" file that points to the layer's "diff" directory.
 		for _, dir := range dirs {
-			// Skip over the linkDir and anything that is not a directory
-			if dir.Name() == linkDir || !dir.IsDir() {
+			// Skip over the linkDir and anything that is not a directory or tempDir
+			if dir.Name() == linkDir || !dir.IsDir() || dir.Name() == stagingDir {
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink
