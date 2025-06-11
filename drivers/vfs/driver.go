@@ -11,6 +11,7 @@ import (
 
 	graphdriver "github.com/containers/storage/drivers"
 	"github.com/containers/storage/internal/dedup"
+	"github.com/containers/storage/internal/tempdir"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/fileutils"
@@ -242,6 +243,21 @@ func (d *Driver) dir(id string) string {
 // Remove deletes the content from the directory for a given id.
 func (d *Driver) Remove(id string) error {
 	return system.EnsureRemoveAll(d.dir(id))
+}
+
+func (d *Driver) GetTempDirRootDir() string {
+	return filepath.Join(d.home, "tempdirs")
+}
+
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	t, err := tempdir.NewTempDir(d.GetTempDirRootDir())
+	if err != nil {
+		return nil, err
+	}
+	if err := t.Add(d.dir(id)); err != nil {
+		return nil, err
+	}
+	return t.Cleanup, nil
 }
 
 // Get returns the directory for the given id.

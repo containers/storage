@@ -24,6 +24,7 @@ import (
 	"github.com/containers/storage/drivers/quota"
 	"github.com/containers/storage/internal/dedup"
 	"github.com/containers/storage/internal/staging_lockfile"
+	"github.com/containers/storage/internal/tempdir"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/chrootarchive"
 	"github.com/containers/storage/pkg/directory"
@@ -1305,17 +1306,24 @@ func (d *Driver) optsAppendMappings(opts string, uidMaps, gidMaps []idtools.IDMa
 
 // Remove cleans the directories that are created for this id.
 func (d *Driver) Remove(id string) error {
+	return d.removeCommon(id, func(path string) error {
+		return system.EnsureRemoveAll(path)
+	})
+}
+
+func (d *Driver) removeCommon(id string, cleanup func(string) error) error {
 	dir := d.dir(id)
 	lid, err := os.ReadFile(path.Join(dir, "link"))
 	if err == nil {
-		if err := os.RemoveAll(path.Join(d.home, linkDir, string(lid))); err != nil {
+		linkPath := path.Join(d.home, linkDir, string(lid))
+		if err := cleanup(linkPath); err != nil {
 			logrus.Debugf("Failed to remove link: %v", err)
 		}
 	}
 
 	d.releaseAdditionalLayerByID(id)
 
-	if err := system.EnsureRemoveAll(dir); err != nil && !os.IsNotExist(err) {
+	if err := cleanup(dir); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	if d.quotaCtl != nil {
@@ -1325,6 +1333,24 @@ func (d *Driver) Remove(id string) error {
 		}
 	}
 	return nil
+}
+
+func (d *Driver) GetTempDirRootDir() string {
+	return filepath.Join(d.home, stagingDir)
+}
+
+func (d *Driver) DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error) {
+	t, err := tempdir.NewTempDir(d.GetTempDirRootDir())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := d.removeCommon(id, func(path string) error {
+		return t.Add(path)
+	}); err != nil {
+		return t.Cleanup, fmt.Errorf("failed to add to stage directory: %w", err)
+	}
+	return t.Cleanup, nil
 }
 
 // recreateSymlinks goes through the driver's home directory and checks if the diff directory
@@ -1353,8 +1379,8 @@ func (d *Driver) recreateSymlinks() error {
 		// Check that for each layer, there's a link in "l" with the name in
 		// the layer's "link" file that points to the layer's "diff" directory.
 		for _, dir := range dirs {
-			// Skip over the linkDir and anything that is not a directory
-			if dir.Name() == linkDir || !dir.IsDir() {
+			// Skip over the linkDir and anything that is not a directory or tempDir
+			if dir.Name() == linkDir || !dir.IsDir() || dir.Name() == stagingDir {
 				continue
 			}
 			// Read the "link" file under each layer to get the name of the symlink
