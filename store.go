@@ -22,6 +22,7 @@ import (
 
 	drivers "github.com/containers/storage/drivers"
 	"github.com/containers/storage/internal/dedup"
+	"github.com/containers/storage/internal/tempdir"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/idtools"
@@ -2540,7 +2541,13 @@ func (s *store) Lookup(name string) (string, error) {
 	return "", ErrLayerUnknown
 }
 
-func (s *store) DeleteLayer(id string) error {
+func (s *store) DeleteLayer(id string) (err error) {
+	cleanupFunctions := []tempdir.CleanupTempDirFunc{}
+	defer func() {
+		if cleanupErr := tempdir.CleanupTemporaryDirectories(cleanupFunctions...); cleanupErr != nil {
+			err = errors.Join(cleanupErr, err)
+		}
+	}()
 	return s.writeToAllStores(func(rlstore rwLayerStore) error {
 		if rlstore.Exists(id) {
 			if l, err := rlstore.Get(id); err != nil {
@@ -2574,7 +2581,9 @@ func (s *store) DeleteLayer(id string) error {
 					return fmt.Errorf("layer %v used by container %v: %w", id, container.ID, ErrLayerUsedByContainer)
 				}
 			}
-			if err := rlstore.Delete(id); err != nil {
+			cf, err := rlstore.deferredDelete(id)
+			cleanupFunctions = append(cleanupFunctions, cf...)
+			if err != nil {
 				return fmt.Errorf("delete layer %v: %w", id, err)
 			}
 

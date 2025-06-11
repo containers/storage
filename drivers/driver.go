@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/containers/storage/internal/dedup"
+	"github.com/containers/storage/internal/tempdir"
 	"github.com/containers/storage/pkg/archive"
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/fileutils"
@@ -124,6 +125,10 @@ type ProtoDriver interface {
 	CreateFromTemplate(id, template string, templateIDMappings *idtools.IDMappings, parent string, parentIDMappings *idtools.IDMappings, opts *CreateOpts, readWrite bool) error
 	// Remove attempts to remove the filesystem layer with this id.
 	Remove(id string) error
+	// DeferredRemove is used to remove the filesystem layer with this id
+	// at a later time, e.g., when the last reference to the layer is removed.
+	// It returns a function that can be used to remove the layer later.
+	DeferredRemove(id string) (tempdir.CleanupTempDirFunc, error)
 	// Get returns the mountpoint for the layered filesystem referred
 	// to by this id. You can optionally specify a mountLabel or "".
 	// Optionally it gets the mappings used to create the layer.
