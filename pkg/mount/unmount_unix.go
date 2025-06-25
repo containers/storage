@@ -21,6 +21,9 @@ func unmount(target string, flags int) error {
 			// can be returned if flags are invalid, so this code
 			// assumes that the flags value is always correct.
 			return nil
+		case unix.ENOENT:
+			// Ignore "no such file or directory" error.
+			return nil
 		}
 		break
 	}
