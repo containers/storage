@@ -21,7 +21,7 @@ At the time of this writing, support for this is enabled by default in the code.
 You can explicitly enable or disable zstd:chunked with following changes to `containers-storage.conf`:
 
 ```
-[storage.overlay.pull_options]
+[storage.options.pull_options]
 enable_partial_images = "true" | "false"
 ```
 
