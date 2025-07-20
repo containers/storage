@@ -16,6 +16,7 @@ import (
 
 	"github.com/containers/storage/pkg/unshare"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 // Key returns the env var name for the user's home dir based on
@@ -103,7 +104,7 @@ func isWriteableOnlyByOwner(perm os.FileMode) bool {
 // GetConfigHome returns XDG_CONFIG_HOME.
 // GetConfigHome returns $HOME/.config and nil error if XDG_CONFIG_HOME is not set.
 //
-// See also https://standards.freedesktop.org/basedir-spec/latest/ar01s03.html
+// See also https://specifications.freedesktop.org/basedir-spec/latest/#variables
 func GetConfigHome() (string, error) {
 	rootlessConfigHomeDirOnce.Do(func() {
 		cfgHomeDir := os.Getenv("XDG_CONFIG_HOME")
@@ -116,16 +117,11 @@ func GetConfigHome() (string, error) {
 			}
 			tmpDir := filepath.Join(resolvedHome, ".config")
 			_ = os.MkdirAll(tmpDir, 0o700)
-			st, err := os.Stat(tmpDir)
-			if err != nil {
-				rootlessConfigHomeDirError = err
-				return
-			} else if int(st.Sys().(*syscall.Stat_t).Uid) == os.Geteuid() {
-				cfgHomeDir = tmpDir
-			} else {
-				rootlessConfigHomeDirError = fmt.Errorf("path %q exists and it is not owned by the current user", tmpDir)
+			if err := unix.Access(tmpDir, unix.R_OK|unix.W_OK|unix.X_OK); err != nil {
+				rootlessConfigHomeDirError = fmt.Errorf("path %q is not writable by the current user", tmpDir)
 				return
 			}
+			cfgHomeDir = tmpDir
 		}
 		rootlessConfigHomeDir = cfgHomeDir
 	})
