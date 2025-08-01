@@ -7,7 +7,7 @@ module github.com/containers/storage
 
 require (
 	github.com/BurntSushi/toml v1.5.0
-	github.com/containerd/stargz-snapshotter/estargz v0.16.3
+	github.com/containerd/stargz-snapshotter/estargz v0.17.0
 	github.com/cyphar/filepath-securejoin v0.4.1
 	github.com/docker/go-units v0.5.0
 	github.com/google/go-intervals v0.0.2
