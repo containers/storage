@@ -1,3 +1,4 @@
+// Deprecated: Use go.podman.io/storage instead.
 go 1.23.0
 
 // Warning: Ensure the "go" and "toolchain" versions match exactly to prevent unwanted auto-updates.
