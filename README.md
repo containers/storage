@@ -1,3 +1,8 @@
+> [!WARNING]
+> This package was moved; please update your references to use `go.podman.io/storage` instead.
+> New development of this project happens on https://github.com/containers/container-libs.
+> For more information, check https://blog.podman.io/2025/08/upcoming-migration-of-three-containers-repositories-to-monorepo/.
+
 `storage` is a Go library which aims to provide methods for storing filesystem
 layers, container images, and containers.  A `containers-storage` CLI wrapper
 is also included for manual and scripting use.
