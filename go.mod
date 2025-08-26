@@ -24,7 +24,7 @@ require (
 	github.com/opencontainers/runtime-spec v1.2.1
 	github.com/opencontainers/selinux v1.12.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/tchap/go-patricia/v2 v2.3.3
 	github.com/ulikunitz/xz v0.5.13
 	github.com/vbatts/tar-split v0.12.1
