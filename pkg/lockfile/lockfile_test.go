@@ -277,6 +277,55 @@ func TestTryReadLockFile(t *testing.T) {
 	assert.Nil(t, <-errChan)
 }
 
+func TestTryLockState(t *testing.T) {
+	l, err := getTempLockfile()
+	require.NoError(t, err, "creating lock")
+	defer os.Remove(l.name)
+
+	// Take a write lock somewhere.
+	cmd, wc, rc, err := subLock(l)
+	require.NoError(t, err)
+	_, err = io.Copy(io.Discard, rc)
+	require.NoError(t, err)
+
+	err = l.TryRLock()
+	assert.NotNil(t, err)
+
+	// Lock and hold state mutex.
+	locked := make(chan bool)
+	go func() {
+		locked <- false
+		l.RLock()
+		locked <- true
+		l.Unlock()
+		locked <- false
+	}()
+
+	assert.False(t, <-locked)
+
+	// Wait state mutex is locked.
+	for !l.stateMutex.TryLock() {
+		l.stateMutex.Unlock()
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Try locks should fail without blocking.
+	errChan := make(chan error)
+	go func() {
+		errChan <- l.TryRLock()
+		errChan <- l.TryLock()
+	}()
+	assert.NotNil(t, <-errChan)
+	assert.NotNil(t, <-errChan)
+
+	wc.Close()
+	err = cmd.Wait()
+	require.NoError(t, err)
+
+	assert.True(t, <-locked)
+	assert.False(t, <-locked)
+}
+
 func TestLockfileRead(t *testing.T) {
 	l, err := getTempLockfile()
 	require.Nil(t, err, "error getting temporary lock file")
