@@ -683,27 +683,27 @@ func (s *store) Check(options *CheckOptions) (CheckReport, error) {
 	if _, err := readPrimaryLayerStore(s, func(store rwLayerStore) (struct{}, error) {
 		// If the driver can tell us about which layers it knows about, we should have
 		// corresponding metadata records.
-		// Any layers don’t are probably just wasted space.
+		// Any layers without them are probably just wasted space.
 		// Note: if the driver doesn't support enumerating layers, it returns ErrNotSupported.
-		lowerLevelLayers, err := s.graphDriver.ListLayers()
+		driverLayers, err := s.graphDriver.ListLayers()
 		if err != nil && !errors.Is(err, drivers.ErrNotSupported) {
 			return struct{}{}, err
 		}
 		if !errors.Is(err, drivers.ErrNotSupported) {
 			// Update the list of layers known to the layerStore, something
 			// might have been added recently.
-			currentHigherLevelLayers, err := store.Layers()
+			currentLayers, err := store.Layers()
 			if err != nil {
 				return struct{}{}, err
 			}
-			for i := range currentHigherLevelLayers {
-				id := currentHigherLevelLayers[i].ID
+			for i := range currentLayers {
+				id := currentLayers[i].ID
 				if _, known := referencedLayers[id]; !known {
 					referencedLayers[id] = false
 				}
 			}
 
-			for i, id := range lowerLevelLayers {
+			for i, id := range driverLayers {
 				if _, known := referencedLayers[id]; !known {
 					err := fmt.Errorf("layer %s: %w", id, ErrLayerUnaccounted)
 					report.Layers[id] = append(report.Layers[id], err)
