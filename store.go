@@ -3045,24 +3045,23 @@ func (s *store) LayerParentOwners(id string) ([]int, []int, error) {
 func (s *store) ContainerParentOwners(id string) ([]int, []int, error) {
 	var parentUIDs, parentGIDs []int
 	if _, err := readPrimaryLayerStore(s, func(store rwLayerStore) (struct{}, error) {
-		if err := s.containerStore.startReading(); err != nil {
-			return struct{}{}, err
-		}
-		defer s.containerStore.stopReading()
-		container, err := s.containerStore.Get(id)
-		if err != nil {
-			return struct{}{}, err
-		}
-		if store.Exists(container.LayerID) {
-			u, g, err := store.ParentOwners(container.LayerID)
+		_, _, err := readContainerStore(s, func() (struct{}, bool, error) {
+			container, err := s.containerStore.Get(id)
 			if err != nil {
-				return struct{}{}, err
+				return struct{}{}, true, err
 			}
-			parentUIDs = u
-			parentGIDs = g
-			return struct{}{}, nil
-		}
-		return struct{}{}, ErrLayerUnknown
+			if store.Exists(container.LayerID) {
+				u, g, err := store.ParentOwners(container.LayerID)
+				if err != nil {
+					return struct{}{}, true, err
+				}
+				parentUIDs = u
+				parentGIDs = g
+				return struct{}{}, true, nil
+			}
+			return struct{}{}, true, ErrLayerUnknown
+		})
+		return struct{}{}, err
 	}); err != nil {
 		return nil, nil, err
 	}
