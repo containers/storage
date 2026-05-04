@@ -94,28 +94,6 @@ bad_os_id_ver() {
 lilto() { err_retry 8 1000 "" "$@"; }  # just over 4 minutes max
 bigto() { err_retry 7 5670 "" "$@"; }  # 12 minutes max
 
-install_fuse_overlayfs_from_git(){
-    wd=$(pwd)
-    DEST="$GOPATH/src/github.com/containers/fuse-overlayfs"
-    rm -rf "$DEST"
-    ooe.sh git clone https://github.com/containers/fuse-overlayfs.git "$DEST"
-    cd "$DEST"
-    ooe.sh git fetch origin --tags
-    ooe.sh ./autogen.sh
-    ooe.sh ./configure
-    ooe.sh make
-    sudo make install prefix=/usr
-    cd $wd
-}
-
-install_bats_from_git(){
-    git clone https://github.com/bats-core/bats-core --depth=1
-    sudo ./bats-core/install.sh /usr
-    rm -rf bats-core
-    mkdir -p ~/.parallel
-    touch ~/.parallel/will-cite
-}
-
 check_filesystem_supported(){
     if ! grep -q "	$1\$" /proc/filesystems ; then
         modprobe $1 > /dev/null 2> /dev/null || :en
