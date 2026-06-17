@@ -30,6 +30,7 @@ import (
 	"github.com/containers/storage/pkg/directory"
 	"github.com/containers/storage/pkg/fileutils"
 	"github.com/containers/storage/pkg/fsutils"
+	"github.com/containers/storage/pkg/ioutils"
 	"github.com/containers/storage/pkg/idmap"
 	"github.com/containers/storage/pkg/idtools"
 	"github.com/containers/storage/pkg/mount"
@@ -2359,6 +2360,10 @@ func (d *Driver) ApplyDiffFromStagingDirectory(id, parent string, diffOutput *gr
 	}
 	if err := os.RemoveAll(diffPath); err != nil && !os.IsNotExist(err) {
 		return err
+	}
+
+	if err := ioutils.SyncDirectoryContents(stagingDirectory); err != nil {
+		return fmt.Errorf("sync staging directory before rename: %w", err)
 	}
 
 	return os.Rename(stagingDirectory, diffPath)
