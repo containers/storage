@@ -411,6 +411,9 @@ var (
 	hasCapSysAdminOnce sync.Once
 	hasCapSysAdminRet  bool
 	hasCapSysAdminErr  error
+	hasCapNetAdminOnce sync.Once
+	hasCapNetAdminRet  bool
+	hasCapNetAdminErr  error
 )
 
 // IsRootless tells us if we are running in rootless mode
@@ -752,4 +755,21 @@ func HasCapSysAdmin() (bool, error) {
 		hasCapSysAdminRet = currentCaps.Get(capability.EFFECTIVE, capability.CAP_SYS_ADMIN)
 	})
 	return hasCapSysAdminRet, hasCapSysAdminErr
+}
+
+// HasCapNetAdmin returns whether the current process has CAP_NET_ADMIN.
+func HasCapNetAdmin() (bool, error) {
+	hasCapNetAdminOnce.Do(func() {
+		currentCaps, err := capability.NewPid2(0)
+		if err != nil {
+			hasCapNetAdminErr = err
+			return
+		}
+		if err = currentCaps.Load(); err != nil {
+			hasCapNetAdminErr = err
+			return
+		}
+		hasCapNetAdminRet = currentCaps.Get(capability.EFFECTIVE, capability.CAP_NET_ADMIN)
+	})
+	return hasCapNetAdminRet, hasCapNetAdminErr
 }

@@ -53,3 +53,8 @@ func ParseIDMappings(uidmap, gidmap []string) ([]idtools.IDMap, []idtools.IDMap,
 func HasCapSysAdmin() (bool, error) {
 	return os.Geteuid() == 0, nil
 }
+
+// HasCapNetAdmin returns whether the current process has CAP_NET_ADMIN.
+func HasCapNetAdmin() (bool, error) {
+	return os.Geteuid() == 0, nil
+}
